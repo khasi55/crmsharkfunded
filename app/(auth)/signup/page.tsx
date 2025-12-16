@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -8,7 +8,7 @@ import { Loader2, Mail, Lock, ArrowRight, CheckCircle, User, Eye, EyeOff } from 
 import AuthCard from '@/components/auth/AuthCard'
 import { motion, AnimatePresence } from 'framer-motion'
 
-export default function SignupPage() {
+function SignupContent() {
     const [fullName, setFullName] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
@@ -196,5 +196,13 @@ export default function SignupPage() {
                 </button>
             </form>
         </AuthCard>
+    )
+}
+
+export default function SignupPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#0a0f1c] text-white"><Loader2 className="animate-spin w-8 h-8 text-[#00E5FF]" /></div>}>
+            <SignupContent />
+        </Suspense>
     )
 }
