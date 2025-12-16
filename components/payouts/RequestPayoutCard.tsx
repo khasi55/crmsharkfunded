@@ -1,0 +1,283 @@
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowRight, Wallet, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
+import { useState } from "react";
+import Link from "next/link";
+
+interface RequestPayoutCardProps {
+    availablePayout: number;
+    walletAddress: string | null;
+    isLoading: boolean;
+    onRequestPayout: (amount: number, method: string) => Promise<boolean>;
+}
+
+export default function RequestPayoutCard({ availablePayout, walletAddress, isLoading, onRequestPayout }: RequestPayoutCardProps) {
+    const [amount, setAmount] = useState("");
+    const [method, setMethod] = useState<"crypto">("crypto"); // bank removed for now as user requested USDT only
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState(false);
+
+    const [showConfirmation, setShowConfirmation] = useState(false);
+
+    const [submittedAmount, setSubmittedAmount] = useState<string | null>(null);
+
+    const handleInitialSubmit = () => {
+        setError(null);
+        if (!amount || parseFloat(amount) <= 0) {
+            setError("Please enter a valid amount");
+            return;
+        }
+        if (parseFloat(amount) > availablePayout) {
+            setError("Amount exceeds available payout");
+            return;
+        }
+        if (parseFloat(amount) < 50) {
+            setError("Minimum withdrawal is $50");
+            return;
+        }
+        if (!walletAddress) {
+            setError("No wallet address found");
+            return;
+        }
+        setShowConfirmation(true);
+    };
+
+    const confirmAndPay = async () => {
+        const currentAmount = amount; // Capture current amount
+        const isSuccess = await onRequestPayout(parseFloat(currentAmount), "USDT (TRC20)");
+
+        if (isSuccess) {
+            setSubmittedAmount(currentAmount); // Store for success view
+            setShowConfirmation(false);
+            setSuccess(true);
+            setAmount("");
+            // Reset success state after animation
+            setTimeout(() => {
+                setSuccess(false);
+                setSubmittedAmount(null);
+            }, 4000);
+        }
+    };
+
+    return (
+        <div className="bg-gray-900 rounded-xl p-8 border border-white/10 relative overflow-hidden min-h-[460px]">
+            <AnimatePresence mode="wait">
+                {success ? (
+                    <motion.div
+                        key="success"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-gray-900/95 backdrop-blur-xl z-20"
+                    >
+                        <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: "spring", stiffness: 200, damping: 20, delay: 0.1 }}
+                            className="relative w-24 h-24 bg-gradient-to-tr from-green-500 to-emerald-400 rounded-full flex items-center justify-center mb-6 shadow-[0_0_50px_rgba(34,197,94,0.4)]"
+                        >
+                            <CheckCircle size={48} className="text-white z-10" />
+                            {/* Particle Explosion */}
+                            {[...Array(12)].map((_, i) => (
+                                <motion.div
+                                    key={i}
+                                    initial={{ x: 0, y: 0, opacity: 0, scale: 0 }}
+                                    animate={{
+                                        x: (Math.random() - 0.5) * 250,
+                                        y: (Math.random() - 0.5) * 250,
+                                        opacity: [0, 1, 0],
+                                        scale: [0, 1, 0],
+                                        rotate: Math.random() * 360,
+                                    }}
+                                    transition={{
+                                        duration: 0.8,
+                                        ease: "easeOut",
+                                        delay: 0.2,
+                                        repeat: 0,
+                                    }}
+                                    style={{
+                                        backgroundColor: ['#22c55e', '#3b82f6', '#facc15', '#ffffff'][Math.floor(Math.random() * 4)],
+                                    }}
+                                    className="absolute w-2 h-2 rounded-full"
+                                />
+                            ))}
+                        </motion.div>
+                        <motion.h3
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2 }}
+                            className="text-3xl font-bold text-white mb-2"
+                        >
+                            Success!
+                        </motion.h3>
+                        <motion.p
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3 }}
+                            className="text-gray-400 max-w-xs mx-auto"
+                        >
+                            Your withdrawal of <span className="text-white font-semibold">${submittedAmount}</span> has been requested.
+                        </motion.p>
+                    </motion.div>
+                ) : showConfirmation ? (
+                    <motion.div
+                        key="confirm"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        className="absolute inset-0 flex flex-col p-8 bg-gray-900 z-10"
+                    >
+                        <h2 className="text-xl font-bold text-white mb-6">Confirm Withdrawal</h2>
+
+                        <div className="flex-1 space-y-4">
+                            <div className="bg-white/5 rounded-xl p-5 space-y-4 border border-white/5">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-400 text-sm font-medium">Amount</span>
+                                    <span className="text-white text-xl font-bold tracking-tight">${parseFloat(amount).toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-400 text-sm font-medium">Fee (0%)</span>
+                                    <span className="text-green-400 text-xl font-bold tracking-tight">$0.00</span>
+                                </div>
+                                <div className="h-px bg-white/10 my-2" />
+                                <div className="flex justify-between items-center pt-1">
+                                    <span className="text-gray-300 text-sm font-medium uppercase tracking-wider">Total Receive</span>
+                                    <span className="text-shark-blue text-2xl font-bold tracking-tight">${parseFloat(amount).toFixed(2)}</span>
+                                </div>
+                            </div>
+
+                            <div className="bg-shark-blue/5 border border-shark-blue/20 rounded-xl p-4">
+                                <span className="text-xs text-shark-blue uppercase font-bold tracking-wider mb-2 block opacity-80">Destination Wallet</span>
+                                <p className="text-sm text-gray-200 font-mono break-all leading-relaxed">{walletAddress}</p>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 grid grid-cols-2 gap-3">
+                            <button
+                                onClick={() => setShowConfirmation(false)}
+                                className="px-4 py-3 rounded-lg border border-white/10 text-gray-300 hover:bg-white/5 font-medium transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmAndPay}
+                                disabled={isLoading}
+                                className="px-4 py-3 rounded-lg bg-shark-blue hover:bg-blue-600 text-white font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                            >
+                                {isLoading ? <Loader2 size={18} className="animate-spin" /> : "Confirm"}
+                            </button>
+                        </div>
+                    </motion.div>
+                ) : (
+                    <motion.div
+                        key="form"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                    >
+                        <h2 className="text-xl font-semibold text-white mb-2">Request Withdrawal</h2>
+                        <p className="text-gray-400 text-sm mb-6">Withdraw your verified profits to your saved wallet.</p>
+
+                        <div className="space-y-6">
+                            {/* Method Selection - Locked to USDT for now */}
+                            <div className="grid grid-cols-1 gap-3">
+                                <button
+                                    className={`flex flex-col items-center justify-center p-4 rounded-xl border transition-all duration-200 border-shark-blue bg-shark-blue/10 text-shark-blue`}
+                                >
+                                    <Wallet size={24} className="mb-2" />
+                                    <span className="text-sm font-medium">Crypto (USDT TRC20)</span>
+                                </button>
+                            </div>
+
+                            {/* Amount Input */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                    Withdrawal Amount (USD)
+                                </label>
+                                <div className="relative group">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">$</span>
+                                    <input
+                                        type="number"
+                                        value={amount}
+                                        onChange={(e) => {
+                                            setAmount(e.target.value);
+                                            setError(null);
+                                        }}
+                                        disabled={availablePayout <= 0 || !walletAddress || isLoading}
+                                        className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-shark-blue text-white font-medium placeholder:text-gray-600 transition-colors disabled:opacity-50"
+                                        placeholder="0.00"
+                                    />
+                                </div>
+
+                                {error && (
+                                    <p className="text-red-400 text-xs mt-2 flex items-center gap-1">
+                                        <AlertTriangle size={12} /> {error}
+                                    </p>
+                                )}
+
+                                <div className="flex justify-between items-center mt-2 text-xs">
+                                    <span className="text-gray-500">Available: <span className="text-white">${availablePayout.toFixed(2)}</span></span>
+                                    <button
+                                        onClick={() => setAmount(availablePayout.toString())}
+                                        disabled={availablePayout <= 0 || !walletAddress}
+                                        className="text-shark-blue font-medium hover:text-blue-400 transition-colors disabled:text-gray-600"
+                                    >
+                                        Max Amount
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Wallet Info */}
+                            {walletAddress ? (
+                                <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-start gap-3">
+                                    <CheckCircle className="text-green-500 shrink-0 mt-0.5" size={16} />
+                                    <div>
+                                        <p className="text-xs text-green-400 font-medium">Wallet Connected</p>
+                                        <p className="text-xs text-gray-400 font-mono mt-1 break-all">{walletAddress}</p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-start gap-3">
+                                    <AlertTriangle className="text-yellow-500 shrink-0 mt-0.5" size={16} />
+                                    <div>
+                                        <p className="text-xs text-yellow-500 font-medium">No Wallet Address</p>
+                                        <Link href="/settings" className="text-xs text-white underline hover:text-blue-400 mt-1 block">
+                                            Add payout wallet in Settings
+                                        </Link>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Submit Button */}
+                            <button
+                                onClick={handleInitialSubmit}
+                                disabled={availablePayout <= 0 || !walletAddress || isLoading || !amount}
+                                className="relative w-full py-4 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all group disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden shadow-[0_0_20px_rgba(34,197,94,0.0)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] active:scale-[0.98]"
+                                style={{
+                                    background: "linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)",
+                                }}
+                            >
+                                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
+
+                                {isLoading ? (
+                                    <>
+                                        <Loader2 size={20} className="animate-spin relative z-10" />
+                                        <span className="relative z-10">Processing...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="relative z-10">Request Withdrawal</span>
+                                        <ArrowRight size={20} className="relative z-10 group-hover:translate-x-1 transition-transform" />
+                                    </>
+                                )}
+                            </button>
+
+                            <p className="text-center text-xs text-gray-500">
+                                Process time: 24-48 hours. Minimum withdrawal: $50.
+                            </p>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
