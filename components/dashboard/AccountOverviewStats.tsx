@@ -78,6 +78,11 @@ export default function AccountOverviewStats() {
                 value={startDate}
                 icon={Calendar}
             />
+            <StatBox
+                label="End Date"
+                value={endDate}
+                icon={Clock}
+            />
         </div>
     );
 }

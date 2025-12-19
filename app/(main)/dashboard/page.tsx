@@ -15,6 +15,7 @@ import { DollarSign, Activity, TrendingUp, TrendingDown, Wallet, ArrowUpRight, A
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { AccountProvider, useAccount } from "@/contexts/AccountContext";
+import { useState } from "react";
 
 function DashboardContent() {
     const { selectedAccount, loading } = useAccount();
@@ -44,13 +45,18 @@ function DashboardContent() {
         return status.charAt(0).toUpperCase() + status.slice(1);
     };
 
+    const [isAccountSwitcherOpen, setIsAccountSwitcherOpen] = useState(false);
+
     return (
         <div className="flex h-screen overflow-hidden bg-bg-main text-white">
             {/* Sidebar Account Switcher */}
-            <AccountSwitcher />
+            <AccountSwitcher
+                isOpen={isAccountSwitcherOpen}
+                onClose={() => setIsAccountSwitcherOpen(false)}
+            />
 
             {/* Main Content Area */}
-            <div className="flex-1 p-8 overflow-y-auto relative scrollbar-thin scrollbar-thumb-gray-800 hover:scrollbar-thumb-gray-700">
+            <div className="flex-1 p-4 md:p-8 overflow-y-auto relative scrollbar-thin scrollbar-thumb-gray-800 hover:scrollbar-thumb-gray-700">
 
                 <div className="flex flex-col gap-6 max-w-[1600px] mx-auto min-h-full">
 
@@ -58,21 +64,31 @@ function DashboardContent() {
                     <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="flex justify-between items-center bg-gray-900 border border-white/10 p-6 rounded-2xl shrink-0"
+                        className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-900 border border-white/10 p-4 md:p-6 rounded-2xl shrink-0"
                     >
-                        <div>
-                            <div className="flex items-center gap-3 mb-1">
-                                <h1 className="text-2xl font-bold text-white tracking-tight">
-                                    {selectedAccount?.account_type || 'No Account Selected'}
-                                </h1>
-                                {selectedAccount && (
-                                    <span className={cn(
-                                        "px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full border",
-                                        getStatusBadgeStyle(selectedAccount.status)
-                                    )}>
-                                        {formatStatus(selectedAccount.status)}
-                                    </span>
-                                )}
+                        <div className="w-full md:w-auto">
+                            <div className="flex items-center justify-between md:justify-start gap-3 mb-1">
+                                <div className="flex items-center gap-3">
+                                    <h1 className="text-2xl font-bold text-white tracking-tight">
+                                        {selectedAccount?.account_type || 'No Account Selected'}
+                                    </h1>
+                                    {selectedAccount && (
+                                        <span className={cn(
+                                            "px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full border hidden sm:inline-block",
+                                            getStatusBadgeStyle(selectedAccount.status)
+                                        )}>
+                                            {formatStatus(selectedAccount.status)}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Mobile Account Switcher Toggle */}
+                                <button
+                                    onClick={() => setIsAccountSwitcherOpen(true)}
+                                    className="md:hidden p-2 bg-blue-500/10 text-blue-400 rounded-lg text-sm font-semibold border border-blue-500/20"
+                                >
+                                    Accounts
+                                </button>
                             </div>
                             <p className="text-gray-400 text-sm font-medium flex items-center gap-2">
                                 {selectedAccount ? (

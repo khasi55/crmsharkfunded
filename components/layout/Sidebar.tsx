@@ -58,19 +58,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             <motion.aside
                 initial={false}
                 animate={{
-                    width: isCollapsed ? "80px" : "260px",
-                    x: isOpen ? 0 : -300 // Valid for mobile, will be overridden by md:translate-x-0 via class if needed, or we rely on logic
+                    width: isCollapsed ? "80px" : "260px"
                 }}
-                // On desktop, we don't want x translation. 
-                // We use variants to handle media query logic cleanly, OR we use classes for MD
-                variants={{
-                    desktop: { x: 0, width: isCollapsed ? "80px" : "260px" },
-                    mobileOpen: { x: 0, width: "260px" }, // specific width for mobile
-                    mobileClosed: { x: -300, width: "260px" }
-                }}
-                // This is tricky with Framer Motion handling both media queries and state.
-                // Simpler approach: Use classes for layout, Animate for width/x.
-                // Responsive override:
+                transition={{ duration: 0.2, ease: "easeInOut" }}
                 className={cn(
                     "fixed inset-y-0 left-0 z-50 flex flex-col h-screen bg-gradient-to-b from-gray-900 via-gray-900 to-gray-950 border-r border-gray-800/50 transition-all duration-300",
                     "md:sticky md:top-0 md:translate-x-0 shadow-2xl md:shadow-none",
