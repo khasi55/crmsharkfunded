@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Trophy, UserCheck, Gift, BarChart2, Calendar, Wallet, Settings, LogOut, ChevronLeft, LayoutDashboard, Medal, Users, HelpCircle } from "lucide-react";
+import { Trophy, UserCheck, Gift, BarChart2, Calendar, Wallet, Settings, LogOut, ChevronLeft, LayoutDashboard, Medal, Users, HelpCircle, PieChart } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const menuItems = [
+    { icon: PieChart, label: "Overview", href: "/overview" },
     { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
     { icon: Trophy, label: "Challenges", href: "/challenges" },
     { icon: UserCheck, label: "KYC", href: "/kyc" },

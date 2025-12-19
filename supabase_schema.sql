@@ -27,7 +27,22 @@ create policy "Users can update own profile." on public.profiles
 alter table public.profiles 
 add column if not exists referred_by uuid references public.profiles(id),
 add column if not exists total_commission numeric default 0,
-add column if not exists total_referrals integer default 0;
+add column if not exists total_referrals integer default 0,
+add column if not exists phone text,
+add column if not exists user_type text default 'client';
+
+-- Staging table for user migration
+create table if not exists public.userslist (
+  id serial primary key,
+  name text,
+  email text unique not null,
+  password text, -- Plain text password for migration
+  phone text,
+  user_type text default 'client',
+  synced_at timestamp with time zone,
+  auth_user_id uuid,
+  migration_error text
+);
 
 -- Table for tracking individual commissions
 create table if not exists public.affiliate_earnings (

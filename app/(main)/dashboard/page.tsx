@@ -10,6 +10,7 @@ import ConsistencyScore from "@/components/dashboard/ConsistencyScore";
 import TradeMonthlyCalendar from "@/components/dashboard/TradeMonthlyCalendar";
 import EquityCurveChart from "@/components/dashboard/EquityCurveChart";
 import TradeHistory from "@/components/dashboard/TradeHistory";
+import TradeAnalysis from "@/components/dashboard/TradeAnalysis";
 import { DollarSign, Activity, TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownRight, MoreHorizontal, Settings, BarChart3 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -123,6 +124,11 @@ function DashboardContent() {
                     {/* Trading Objectives Section */}
                     <div className="shrink-0">
                         <TradingObjectives />
+                    </div>
+
+                    {/* Trade Analysis Chart Grid */}
+                    <div className="shrink-0">
+                        <TradeAnalysis />
                     </div>
 
                     {/* Risk Analysis Grid */}
