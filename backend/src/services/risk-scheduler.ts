@@ -123,12 +123,17 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 throw new Error(`HTTP ${response.status} ${response.statusText}`);
             }
 
-            const rawData = await response.json();
-            if (!Array.isArray(rawData)) {
-                console.error("❌ Bridge returned non-array:", rawData);
-                throw new Error("Bridge response is not an array");
+            const rawData = await response.json() as any;
+            let results: any[] = [];
+
+            if (Array.isArray(rawData)) {
+                results = rawData;
+            } else if (rawData && Array.isArray(rawData.results)) {
+                results = rawData.results;
+            } else {
+                console.error("❌ Bridge returned invalid format:", rawData);
+                throw new Error("Bridge response is not an array or does not contain results array");
             }
-            const results = rawData as any[];
 
             // BULK OPTIMIZATION: Prepare data arrays
             const updatesToUpsert: any[] = [];
