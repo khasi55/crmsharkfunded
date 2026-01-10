@@ -1,0 +1,31 @@
+{
+    "name": "risk-engine-backend",
+    "version": "1.0.0",
+    "description": "Risk Engine Service for CRM Shark Funded",
+    "main": "dist/server.js",
+    "scripts": {
+        "start": "node dist/server.js",
+        "dev": "npx tsx watch src/server.ts",
+        "build": "tsc"
+    },
+    "dependencies": {
+        "@supabase/supabase-js": "^2.47.10",
+        "@types/pg": "^8.16.0",
+        "axios": "^1.13.2",
+        "bullmq": "^5.66.4",
+        "cors": "^2.8.5",
+        "dotenv": "^16.4.7",
+        "express": "^4.21.2",
+        "ioredis": "^5.9.1",
+        "node-cron": "^4.2.1",
+        "pg": "^8.16.3"
+    },
+    "devDependencies": {
+        "@types/cors": "^2.8.17",
+        "@types/express": "^5.0.0",
+        "@types/node": "^22.10.2",
+        "@types/node-cron": "^3.0.11",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.7.2"
+    }
+}

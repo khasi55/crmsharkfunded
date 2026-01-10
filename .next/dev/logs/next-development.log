@@ -1,0 +1,14 @@
+[01:07:51.773] Server  ERROR    ⨯ Error: Cannot find module 'next/dist/client/components/builtin/global-not-found'
+Require stack:
+- /Users/viswanathreddy/Downloads/crmsharkfunded/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/viswanathreddy/Downloads/crmsharkfunded/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/viswanathreddy/Downloads/crmsharkfunded/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/viswanathreddy/Downloads/crmsharkfunded/node_modules/next/dist/server/lib/router-server.js
+- /Users/viswanathreddy/Downloads/crmsharkfunded/node_modules/next/dist/server/lib/start-server.js
+[01:08:47.960] Server  ERROR    ⨯ Error: Cannot find module 'next/dist/client/components/builtin/global-not-found'
+Require stack:
+- /Users/viswanathreddy/Downloads/crmsharkfunded/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/viswanathreddy/Downloads/crmsharkfunded/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/viswanathreddy/Downloads/crmsharkfunded/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/viswanathreddy/Downloads/crmsharkfunded/node_modules/next/dist/server/lib/router-server.js
+- /Users/viswanathreddy/Downloads/crmsharkfunded/node_modules/next/dist/server/lib/start-server.js

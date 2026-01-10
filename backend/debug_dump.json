@@ -1,0 +1,51 @@
+{
+  "challenge": {
+    "id": "0839342a-1d7b-4cde-90e3-e66bf617ca10",
+    "user_id": "04a05ed2-1e1d-45aa-86d2-d0572501e7ed",
+    "challenge_number": null,
+    "challenge_type": "lite_instant",
+    "initial_balance": 50000,
+    "current_balance": 49689.93,
+    "current_equity": 49689.93,
+    "status": "active",
+    "is_active": true,
+    "login": 566971,
+    "master_password": "m4vHqfKSWS#x",
+    "investor_password": "E0a@*z6qnH",
+    "server": "Mazi Finance",
+    "platform": "MT5",
+    "model": null,
+    "leverage": 100,
+    "created_at": "2026-01-10T10:58:44.630136+00:00",
+    "updated_at": "2026-01-10T10:58:44.630136+00:00",
+    "metadata": {
+      "plan_type": "Lite Instant Funding",
+      "assigned_via": "admin_manual"
+    },
+    "account_type_id": null,
+    "group": "demo\\risk_test",
+    "start_of_day_equity": 50000
+  },
+  "trades_count": 150,
+  "error": null,
+  "big_trades": [
+    {
+      "id": "a99ecaad-7a74-4912-8e4e-067860d693ed",
+      "challenge_id": "0839342a-1d7b-4cde-90e3-e66bf617ca10",
+      "user_id": "04a05ed2-1e1d-45aa-86d2-d0572501e7ed",
+      "ticket": "7885796",
+      "symbol": "",
+      "type": "sell",
+      "lots": 0,
+      "open_price": 0,
+      "close_price": null,
+      "open_time": "2026-01-10T10:58:44+00:00",
+      "close_time": null,
+      "profit_loss": 50000,
+      "commission": 0,
+      "swap": 0,
+      "comment": null,
+      "created_at": "2026-01-10T11:08:08.845623+00:00"
+    }
+  ]
+}

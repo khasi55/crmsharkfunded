@@ -1,0 +1,147 @@
+
+import { SupabaseClient } from '@supabase/supabase-js';
+import { Trade, RiskViolation } from './risk-engine-core'; // Share types
+
+export interface AdvancedRiskRules {
+    max_lot_size?: number;
+    allow_weekend_trading: boolean;
+    allow_news_trading: boolean;
+    allow_ea_trading: boolean;
+    min_trade_duration_seconds: number;
+    max_trades_per_day?: number;
+    max_single_win_percent: number; // Consistency
+}
+
+export class AdvancedRiskEngine {
+    private supabase: SupabaseClient;
+
+    constructor(supabase: SupabaseClient) {
+        this.supabase = supabase;
+    }
+
+    /**
+     * Log Advanced Risk Flag to Database
+     */
+    async logFlag(challengeId: string, userId: string, violation: RiskViolation): Promise<void> {
+        try {
+            await this.supabase.from('advanced_risk_flags').insert({
+                challenge_id: challengeId,
+                user_id: userId,
+                flag_type: violation.violation_type,
+                severity: violation.severity || 'warning',
+                description: violation.description,
+                trade_ticket: violation.trade_ticket,
+                symbol: violation.symbol,
+                analysis_data: violation.metadata
+            });
+        } catch (error) {
+            console.error('Failed to log risk flag:', error);
+        }
+    }
+
+    /**
+     * Run all advanced behavioral checks
+     */
+    async checkBehavioralRisk(
+        trade: Trade,
+        rules: AdvancedRiskRules,
+        todaysTrades: Trade[],
+        openTrades: Trade[]
+    ): Promise<RiskViolation[]> {
+        const violations: RiskViolation[] = [];
+
+        // 1. Martingale (Revenge Trading)
+        const martingale = await this.checkMartingale(trade, todaysTrades);
+        if (martingale) violations.push(martingale);
+
+        // 2. Hedging
+        const hedging = await this.checkHedging(trade, openTrades);
+        if (hedging) violations.push(hedging);
+
+        // 3. Arbitrage (Latency/HFT)
+        const arbitrage = await this.checkLatencyArbitrage(trade, todaysTrades);
+        if (arbitrage) violations.push(arbitrage);
+
+        // 4. Triangular Arbitrage
+        const triArbitrage = await this.checkTriangularArbitrage(trade, openTrades);
+        if (triArbitrage) violations.push(triArbitrage);
+
+        // 5. Tick Scalping
+        const scalping = this.checkTickScalping(trade, rules.min_trade_duration_seconds);
+        if (scalping) violations.push(scalping);
+
+        return violations;
+    }
+
+    // Rule: Martingale / Revenge Trading
+    private checkMartingale(trade: Trade, recentTrades: Trade[]): RiskViolation | null {
+        if (recentTrades.length === 0) return null;
+
+        // Find last closed trade
+        const lastTrade = recentTrades.filter(t => t.close_time)
+            .sort((a, b) => new Date(b.close_time!).getTime() - new Date(a.close_time!).getTime())[0];
+
+        if (!lastTrade || (lastTrade.profit_loss || 0) >= 0) return null;
+
+        // Check if trade opened quickly after loss with larger size
+        const timeDiff = new Date(trade.open_time).getTime() - new Date(lastTrade.close_time!).getTime();
+        if (timeDiff < 5 * 60 * 1000 && trade.lots > lastTrade.lots) {
+            return {
+                violation_type: 'martingale',
+                severity: 'warning', // Usually warning first
+                description: `Martingale Detected: Increased lots (${lastTrade.lots} -> ${trade.lots}) after loss.`,
+                trade_ticket: trade.ticket_number
+            };
+        }
+        return null;
+    }
+
+    // Rule: Hedging
+    private checkHedging(trade: Trade, openTrades: Trade[]): RiskViolation | null {
+        const opposing = openTrades.find(t =>
+            t.symbol === trade.symbol &&
+            t.type !== trade.type &&
+            !t.close_time
+        );
+
+        if (opposing) {
+            return {
+                violation_type: 'hedging',
+                severity: 'breach',
+                description: `Hedging Detected: Opposing trade on ${trade.symbol} (Ticket #${opposing.ticket_number})`,
+                trade_ticket: trade.ticket_number
+            };
+        }
+        return null;
+    }
+
+    // Rule: Latency Arbitrage (HFT)
+    private checkLatencyArbitrage(trade: Trade, recentTrades: Trade[]): RiskViolation | null {
+        // ... (Logic from previous plan: 3 trades in 1 second)
+        // Stub implementation
+        return null;
+    }
+
+    // Rule: Triangular Arbitrage
+    private checkTriangularArbitrage(trade: Trade, openTrades: Trade[]): RiskViolation | null {
+        // Logic: Check if Open Trades + New Trade form a currency loop (A->B, B->C, C->A)
+        // ... Stub implementation
+        return null;
+    }
+
+    // Rule: Tick Scalping
+    private checkTickScalping(trade: Trade, minDuration: number): RiskViolation | null {
+        if (!trade.close_time) return null;
+        const duration = (new Date(trade.close_time).getTime() - new Date(trade.open_time).getTime()) / 1000;
+
+        if (duration < minDuration) {
+            return {
+                violation_type: 'tick_scalping',
+                severity: 'breach',
+                description: `Scalping Detected: Duration ${duration}s < Minimum ${minDuration}s`,
+                trade_ticket: trade.ticket_number
+            };
+        }
+        return null;
+    }
+}
