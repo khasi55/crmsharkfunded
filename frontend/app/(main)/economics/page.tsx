@@ -127,11 +127,11 @@ export default function EconomicsPage() {
                 </div>
 
                 {/* EVENTS TABLE */}
-                <div className="bg-[#646a78] rounded-2xl overflow-hidden shadow-2xl border-none">
+                <div className="bg-[#0a0f1c] rounded-2xl overflow-hidden shadow-2xl border border-white/5">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-[#5c6270] text-[11px] font-bold text-gray-200 uppercase tracking-widest border-b border-black/10">
+                                <tr className="bg-[#0a0f1c] text-[11px] font-bold text-gray-400 uppercase tracking-widest border-b border-white/5">
                                     <th className="px-6 py-4 w-24">Time</th>
                                     <th className="px-6 py-4 w-20">Cur</th>
                                     <th className="px-6 py-4 w-24 text-center">Impact</th>
@@ -141,7 +141,7 @@ export default function EconomicsPage() {
                                     <th className="px-6 py-4 text-right w-32">Previous</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-black/5 bg-[#646a78]">
+                            <tbody className="divide-y divide-white/5 bg-[#0a0f1c]">
                                 <AnimatePresence initial={false}>
                                     {filteredEvents.map((item) => (
                                         <motion.tr
@@ -149,7 +149,7 @@ export default function EconomicsPage() {
                                             initial={{ opacity: 0, x: -10 }}
                                             animate={{ opacity: 1, x: 0 }}
                                             exit={{ opacity: 0, x: 10 }}
-                                            className="group hover:bg-[#5c6270] transition-colors cursor-default"
+                                            className="group hover:bg-white/5 transition-colors cursor-default"
                                         >
                                             <td className="px-6 py-4 font-mono text-xs text-white font-medium">
                                                 {item.time}
