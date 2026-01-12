@@ -11,6 +11,9 @@ export function initializeSocket(httpServer: HTTPServer) {
                 const allowedOrigins = [
                     'http://localhost:3000',
                     'http://localhost:3002',
+                    'https://app.sharkfunded.com', // Explicit Add
+                    'https://admin.sharkfunded.com', // Explicit Add
+                    'https://api.sharkfunded.co', // Explicit Add
                     process.env.FRONTEND_URL,
                     process.env.ADMIN_URL
                 ].filter(Boolean) as string[];

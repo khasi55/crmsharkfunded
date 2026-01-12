@@ -111,7 +111,8 @@ router.get('/payment', async (req: Request, res: Response) => {
         // The Frontend will poll for the "is_account_created" status from the API
         console.log('ℹ️ Unsigned GET redirect received. Redirecting to frontend without processing.');
         const internalOrderId = req.query.reference_id as string || req.query.reference as string || req.query.orderId as string;
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        // Use consistent Frontend URL logic
+        const frontendUrl = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.sharkfunded.com';
 
         if (internalOrderId) {
             return res.redirect(`${frontendUrl}/payment/success?orderId=${internalOrderId}&check_status=true`);
@@ -127,7 +128,8 @@ async function handlePaymentWebhook(req: Request, res: Response) {
 
         const internalOrderId = body.reference_id || body.reference || body.orderId || body.internalOrderId;
         const status = body.status || body.event?.split('.')[1];
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        // Use consistent Frontend URL logic
+        const frontendUrl = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.sharkfunded.com';
 
         if (!internalOrderId) {
             console.error('❌ Missing order ID in webhook:', body);
