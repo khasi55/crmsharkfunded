@@ -406,11 +406,16 @@ def fetch_trades_bulk(data: FetchBulkRequest):
             deals = worker.get_deals(login, from_time, to_time)
             open_pos = worker.get_positions(login)
             
-            current_tickets = set()
+            # --- PROCESS DEALS ---
+            # Debug: Print first deal to understand structure
+            if len(deals) > 0 and login == data.logins[0]:
+                 d0 = deals[0]
+                 print(f"🔎 DEBUG: Raw Deal Object Sample: {d0}")
+                 print(f"   Has 'Commission': {hasattr(d0, 'Commission')}, 'commission': {hasattr(d0, 'commission')}")
+                 print(f"   Has 'Profit': {hasattr(d0, 'Profit')}, 'profit': {hasattr(d0, 'profit')}")
+                 print(f"   Has 'Price': {hasattr(d0, 'Price')}, 'price': {hasattr(d0, 'price')}")
+                 if hasattr(d0, '_asdict'): print(f"   As Dict: {d0._asdict()}")
 
-            # --- PROCESS DEALS (Details omit for brevity, logic shared) ---
-            # Ideally we refactor the processing logic into a function, but to match existing flow:
-            
             position_deals = {}
             for d in deals:
                 try:

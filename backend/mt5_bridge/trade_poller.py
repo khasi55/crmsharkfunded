@@ -189,7 +189,7 @@ class DynamicTradePoller:
                     try:
                         requests.post(self.callback_url, json=payload, timeout=5)
                     except Exception as req_err:
-                        print(f"⚠️ Webhook Failed: {req_err}")
+                        print(f"⚠️ Webhook Failed ({req_err}) hitting: {self.callback_url}")
 
             except Exception as e:
                 # print(f"⚠️ Poll Loop Error ({login}): {e}")
