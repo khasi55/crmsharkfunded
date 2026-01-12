@@ -18,7 +18,8 @@ export async function POST(req: NextRequest) {
         const sig = req.headers.get('x-sharkpay-signature');
         if (sig) headers.set('x-sharkpay-signature', sig);
 
-        const backendUrl = 'http://localhost:3001/api/webhooks/payment';
+        const backendBase = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+        const backendUrl = `${backendBase}/api/webhooks/payment`;
 
         const response = await fetch(backendUrl, {
             method: 'POST',
@@ -40,7 +41,8 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
     // Forward GET redirects to Backend
     const url = new URL(req.url);
-    const backendUrl = new URL('http://localhost:3001/api/webhooks/payment');
+    const backendBase = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+    const backendUrl = new URL(`${backendBase}/api/webhooks/payment`);
 
     // Copy query params
     url.searchParams.forEach((v, k) => backendUrl.searchParams.set(k, v));
