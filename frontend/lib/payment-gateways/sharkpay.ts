@@ -12,7 +12,7 @@ export class SharkPayGateway implements PaymentGateway {
     private apiUrl: string;
 
     constructor() {
-        this.apiUrl = process.env.SHARKPAY_API_URL || 'https://api.sharkpay.in';
+        this.apiUrl = process.env.SHARKPAY_API_URL || 'https://sharkpay-o9zz.vercel.app';
     }
 
     private async getConfig() {
