@@ -112,13 +112,7 @@ router.post('/assign', async (req, res: Response) => {
         // Logic matched with payment webhook (frontend/app/api/webhooks/payment/route.ts)
         const lowerPlan = planType.toLowerCase();
 
-        // 2a. Override group based on plan keywords (User Request)
-        if (lowerPlan.includes('1 step') || lowerPlan.includes('1-step') ||
-            lowerPlan.includes('2 step') || lowerPlan.includes('2-step') ||
-            lowerPlan.includes('evaluation') || lowerPlan.includes('instant') ||
-            lowerPlan.includes('rapid')) {
-            finalGroup = 'demo\\Pro-Platinum';
-        }
+
 
         if (lowerPlan.includes('pro')) {
             if (lowerPlan.includes('instant')) challengeType = 'prime_instant';

@@ -140,7 +140,8 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'ngrok-skip-browser-warning': 'true'
+                    'ngrok-skip-browser-warning': 'true',
+                    'X-API-Key': process.env.MT5_API_KEY || ''
                 },
                 body: JSON.stringify(payload),
                 signal: controller.signal

@@ -10,14 +10,15 @@ export interface MT5AccountParams {
 }
 
 export async function createMT5Account(params: MT5AccountParams) {
-    const mt5ApiUrl = process.env.MT5_API_URL;
+    // Use BRIDGE_URL (Internal/Local) if set, otherwise API_URL (Public/Ngrok)
+    const mt5ApiUrl = process.env.MT5_BRIDGE_URL || process.env.MT5_API_URL || 'http://localhost:8000';
 
     const response = await fetch(`${mt5ApiUrl}/create-account`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.MT5_API_KEY}`,
-            'ngrok-skip-browser-warning': 'true'
+            'ngrok-skip-browser-warning': 'true',
+            'X-API-Key': process.env.MT5_API_KEY || ''
         },
         body: JSON.stringify(params)
     });
@@ -31,17 +32,17 @@ export async function createMT5Account(params: MT5AccountParams) {
 }
 
 export async function fetchMT5Trades(login: number) {
-    const mt5ApiUrl = process.env.MT5_API_URL;
+    const mt5ApiUrl = process.env.MT5_BRIDGE_URL || process.env.MT5_API_URL || 'https://bridge.sharkfunded.co';
 
     try {
         const url = `${mt5ApiUrl}/fetch-trades`;
-        console.log(`🔌 [Bridge Debug] Fetching from: ${url}`);
+        // console.log(`🔌 [Bridge Debug] Fetching from: ${url}`); // Spam reduction
         const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true'
-                // 'Authorization': `Bearer ${process.env.MT5_API_KEY}` // Uncomment if needed
+                'ngrok-skip-browser-warning': 'true',
+                'X-API-Key': process.env.MT5_API_KEY || ''
             },
             body: JSON.stringify({ login })
         });
@@ -61,7 +62,7 @@ export async function fetchMT5Trades(login: number) {
 }
 
 export async function fetchMT5History(login: number, fromTimestamp?: number) {
-    const mt5ApiUrl = process.env.MT5_API_URL;
+    const mt5ApiUrl = process.env.MT5_BRIDGE_URL || process.env.MT5_API_URL || 'https://bridge.sharkfunded.co';
 
     try {
         // Default to last 7 days if no timestamp provided
@@ -72,7 +73,8 @@ export async function fetchMT5History(login: number, fromTimestamp?: number) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true'
+                'ngrok-skip-browser-warning': 'true',
+                'X-API-Key': process.env.MT5_API_KEY || ''
             },
             body: JSON.stringify({ login, from, to })
         });

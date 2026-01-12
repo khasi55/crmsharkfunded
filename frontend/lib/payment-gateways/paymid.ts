@@ -43,9 +43,9 @@ export class PaymidGateway implements PaymentGateway {
                 ttl: 15, // 15 minutes
                 tagName: params.metadata?.account_type || "Challenge Purchase",
                 merchantAccountId: this.merchantId,
-                webhookUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/payment`,
-                successUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success`,
-                failedUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/failed`,
+                webhookUrl: `${process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'}/api/webhooks/payment`,
+                successUrl: `${process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/payment/success`,
+                failedUrl: `${process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/payment/failed`,
             };
 
             console.log('Paymid request:', { ...payload, amount: params.amount });

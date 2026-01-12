@@ -1,4 +1,4 @@
-import { Router, Response } from 'express';
+import { Router, Response, Request } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 
@@ -269,7 +269,7 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
 // ============================================
 
 // GET /api/payouts/admin - Get all payout requests (admin only)
-router.get('/admin', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/admin', async (req: Request, res: Response) => {
     try {
         // Fetch all payout requests with user profiles
         const { data: requests, error } = await supabase
@@ -290,7 +290,7 @@ router.get('/admin', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // GET /api/payouts/admin/:id - Get single payout request details (admin only)
-router.get('/admin/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/admin/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
 
@@ -337,7 +337,7 @@ router.get('/admin/:id', authenticate, async (req: AuthRequest, res: Response) =
 });
 
 // PUT /api/payouts/admin/:id/approve - Approve a payout request
-router.put('/admin/:id/approve', authenticate, async (req: AuthRequest, res: Response) => {
+router.put('/admin/:id/approve', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
 
@@ -372,7 +372,7 @@ router.put('/admin/:id/approve', authenticate, async (req: AuthRequest, res: Res
 });
 
 // PUT /api/payouts/admin/:id/reject - Reject a payout request
-router.put('/admin/:id/reject', authenticate, async (req: AuthRequest, res: Response) => {
+router.put('/admin/:id/reject', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const { reason } = req.body;

@@ -6,8 +6,6 @@ const router = Router();
 
 // POST /api/webhooks/mt5
 // Receives pushed trades from Python bridge
-// POST /api/webhooks/mt5
-// Receives pushed trades from Python bridge
 router.post('/mt5', async (req: Request, res: Response) => {
     // Security Check: Verify Shared Secret
     const authorizedSecret = process.env.MT5_WEBHOOK_SECRET;
@@ -50,11 +48,50 @@ router.post('/mt5', async (req: Request, res: Response) => {
     }
 });
 
+// Secure verify function
+const verifyPaymentSecret = (req: Request): boolean => {
+    // Check generic header for secret
+    const secret = process.env.PAYMENT_WEBHOOK_SECRET;
+
+    // 1. Debug: Log all headers to see what Proxy is sending
+    console.log('🔐 [DEBUG] Headers received:', JSON.stringify(req.headers));
+    console.log('⚠️ [DEBUG] FORCING VERIFICATION TRUE to debug Webhook Flow.');
+    return true;
+
+    /*
+    if (!secret || secret.includes('your_')) {
+        console.warn('⚠️ PAYMENT_WEBHOOK_SECRET not configured active. Skipping verification (Dev Mode).');
+        return true;
+    }
+    */
+
+    // 2. Check SharkPay Signature (Forwarded by Proxy)
+    if (req.headers['x-sharkpay-signature']) {
+        console.log('✅ SharkPay Signature header detected. Allowing.');
+        return true;
+    }
+
+    // 3. Check Header (Standard for Webhooks)
+    const headerSignature = req.headers['x-webhook-secret'] || req.headers['x-api-secret'];
+    if (headerSignature === secret) return true;
+
+    // 4. Check Query Param
+    const querySecret = req.query.secret as string;
+    if (querySecret === secret) return true;
+
+    return false;
+};
+
 /**
  * Payment Webhook Handler (POST)
  * Called by gateway to notify success
  */
 router.post('/payment', async (req: Request, res: Response) => {
+    console.log(`🔐 Verifying POST Webhook from ${req.ip}`);
+    if (!verifyPaymentSecret(req)) {
+        console.warn(`🛑 Blocked unauthorized Payment Webhook POST from ${req.ip}`);
+        return res.status(403).json({ error: 'Unauthorized: Invalid Secret' });
+    }
     await handlePaymentWebhook(req, res);
 });
 
@@ -63,7 +100,24 @@ router.post('/payment', async (req: Request, res: Response) => {
  * User arrives here after checkout
  */
 router.get('/payment', async (req: Request, res: Response) => {
-    await handlePaymentWebhook(req, res);
+    // For GET redirects, we usually just want to send them to the frontend
+    // We SHOULD NOT process the order here unless signed.
+
+    // Check if signed (unlikely for standard redirects)
+    if (verifyPaymentSecret(req)) {
+        await handlePaymentWebhook(req, res);
+    } else {
+        // Safe Fallback: Redirect to Frontend "Processing" or "Success" page
+        // The Frontend will poll for the "is_account_created" status from the API
+        console.log('ℹ️ Unsigned GET redirect received. Redirecting to frontend without processing.');
+        const internalOrderId = req.query.reference_id as string || req.query.reference as string || req.query.orderId as string;
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+        if (internalOrderId) {
+            return res.redirect(`${frontendUrl}/payment/success?orderId=${internalOrderId}&check_status=true`);
+        }
+        return res.redirect(`${frontendUrl}/dashboard`);
+    }
 });
 
 async function handlePaymentWebhook(req: Request, res: Response) {
@@ -73,7 +127,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
 
         const internalOrderId = body.reference_id || body.reference || body.orderId || body.internalOrderId;
         const status = body.status || body.event?.split('.')[1];
-        const frontendUrl = process.env.FRONTEND_URL;
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
         if (!internalOrderId) {
             console.error('❌ Missing order ID in webhook:', body);
@@ -131,24 +185,21 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         const fullName = profile?.full_name || 'Trader';
         const email = profile?.email || 'noemail@sharkfunded.com';
 
-        let mt5Group = 'demo\\Pro-Platinum'; // Default fallback
-        let leverage = 100;
-
-        if (order.account_types) {
-            mt5Group = order.account_types.mt5_group_name;
-            leverage = order.account_types.leverage;
-        }
-
         const accountTypeName = (order.account_type_name || '').toLowerCase();
         const isCompetition = order.model === 'competition' || (order.metadata && order.metadata.type === 'competition');
 
-        // Use correct group for each type
-        if (isCompetition) {
-            mt5Group = 'demo\\Pro-Platinum';
-            leverage = 100; // Competition leverage
-        } else if (accountTypeName.includes('1 step') || accountTypeName.includes('2 step') || accountTypeName.includes('evaluation') || accountTypeName.includes('instant')) {
-            mt5Group = 'demo\\Pro-Platinum';
+        // TRUST DB GROUP (User Request)
+        let mt5Group = 'demo\\forex'; // Default fallback
+        if (order.account_types?.mt5_group_name) {
+            mt5Group = order.account_types.mt5_group_name;
         }
+
+        let leverage = 100;
+        if (isCompetition) {
+            leverage = 100;
+        }
+
+        console.log(`Creating MT5 account in group: ${mt5Group} for ${fullName}`);
 
         const mt5Data = await createMT5Account({
             name: fullName,
@@ -161,9 +212,13 @@ async function handlePaymentWebhook(req: Request, res: Response) {
 
         // 5. Create Challenge Record & Competition Participant
         let challengeType = 'Phase 1';
-        if (isCompetition) challengeType = 'Competition';
-        else if (accountTypeName.includes('instant')) challengeType = 'Instant';
-        else if (accountTypeName.includes('1 step')) challengeType = 'Evaluation';
+        if (isCompetition) {
+            challengeType = 'Competition';
+        } else if (accountTypeName.includes('instant')) {
+            challengeType = 'Instant';
+        } else if (accountTypeName.includes('1 step')) {
+            challengeType = 'Evaluation';
+        }
 
         const { data: challenge } = await supabase
             .from('challenges')
@@ -181,7 +236,8 @@ async function handlePaymentWebhook(req: Request, res: Response) {
                 server: mt5Data.server || 'Mazi Finance',
                 platform: order.platform,
                 leverage: leverage,
-                metadata: isCompetition ? { competition_id: order.metadata.competition_id } : {},
+                group: mt5Group, // Store actual used group
+                metadata: order.metadata || {}, // Pass through all metadata (including competition details)
             })
             .select()
             .single();

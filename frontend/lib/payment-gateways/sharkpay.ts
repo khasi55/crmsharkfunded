@@ -56,19 +56,22 @@ export class SharkPayGateway implements PaymentGateway {
             // Convert USD to INR for SharkPay
             const amountINR = await this.convertToINR(params.amount);
 
-            // Use FRONTEND_URL (ngrok) if available, otherwise fallback to local
-            const baseUrl = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
+            // Use FRONTEND_URL for user redirects, BACKEND_URL for webhooks
+            const frontendUrl = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            const backendUrl = 'http://localhost:3001';
 
             // SharkPay API payload (exact format from docs)
+            console.log("🦈 [SharkPay Debug] Backend URL:", backendUrl);
             const payload = {
                 amount: amountINR, // Amount in INR
                 name: params.customerName,
                 email: params.customerEmail,
                 reference_id: params.orderId, // Our internal order ID
-                success_url: `${baseUrl}/payment/success`,
-                failed_url: `${baseUrl}/payment/failed`,
-                callback_url: `${baseUrl}/api/webhooks/payment`,
+                success_url: `${backendUrl}/api/webhooks/payment?reference_id=${params.orderId}&status=success`,
+                failed_url: `${frontendUrl}/payment/failed`,
+                callback_url: `${backendUrl}/api/webhooks/payment`,
             };
+            console.log("🦈 [SharkPay Debug] Payload:", JSON.stringify(payload, null, 2));
 
             const response = await fetch(`${this.apiUrl}/api/create-order`, {
                 method: 'POST',

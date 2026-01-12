@@ -220,7 +220,7 @@ router.get('/admin', async (req: any, res: Response) => {
     try {
         const { data: sessions, error } = await supabase
             .from('kyc_sessions')
-            .select('*, profiles(full_name, email)')
+            .select('*')
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -228,7 +228,30 @@ router.get('/admin', async (req: any, res: Response) => {
             throw error;
         }
 
-        res.json({ sessions: sessions || [] });
+        // Manual fetch for profiles
+        if (sessions && sessions.length > 0) {
+            const userIds = [...new Set(sessions.map((s: any) => s.user_id).filter(Boolean))];
+
+            const { data: profiles } = await supabase
+                .from('profiles')
+                .select('id, full_name, email')
+                .in('id', userIds);
+
+            const profilesMap: Record<string, any> = {};
+            profiles?.forEach((p: any) => {
+                profilesMap[p.id] = p;
+            });
+
+            const sessionsWithProfiles = sessions.map((s: any) => ({
+                ...s,
+                profiles: profilesMap[s.user_id] || { full_name: 'Unknown', email: 'Unknown' }
+            }));
+
+            res.json({ sessions: sessionsWithProfiles });
+            return;
+        }
+
+        res.json({ sessions: [] });
     } catch (error: any) {
         console.error('Admin KYC list error:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -242,7 +265,7 @@ router.get('/admin/:id', async (req: any, res: Response) => {
 
         const { data: session, error } = await supabase
             .from('kyc_sessions')
-            .select('*, profiles(*)')
+            .select('*')
             .eq('id', id)
             .single();
 
@@ -256,7 +279,18 @@ router.get('/admin/:id', async (req: any, res: Response) => {
             return;
         }
 
-        res.json({ session });
+        // Manual join for profile
+        let profile = null;
+        if (session.user_id) {
+            const { data: profileData } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user_id)
+                .single();
+            profile = profileData;
+        }
+
+        res.json({ session: { ...session, profiles: profile } });
     } catch (error: any) {
         console.error('Admin KYC details error:', error);
         res.status(500).json({ error: 'Internal server error' });

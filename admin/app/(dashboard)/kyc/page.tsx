@@ -6,11 +6,17 @@ import { ChevronRight } from "lucide-react";
 export default async function AdminKYCPage() {
     const supabase = await createClient();
 
-    const { data: requests } = await supabase
-        .from("kyc_requests")
-        .select("*, profiles(full_name, email)")
-        .eq("status", "pending")
-        .order("created_at", { ascending: false });
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/kyc/admin`, {
+        cache: 'no-store'
+    });
+
+    let requests = [];
+    if (response.ok) {
+        const data = await response.json();
+        requests = data.sessions || []; // Backend returns { sessions: [...] }
+    } else {
+        console.error('Failed to fetch KYC requests from backend');
+    }
 
     return (
         <div className="space-y-6">
@@ -33,7 +39,7 @@ export default async function AdminKYCPage() {
                                 <tr key={req.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50">
                                     <td className="px-6 py-4">
                                         <div className="font-medium text-gray-900 dark:text-gray-100">
-                                            {req.profiles?.full_name || "Unknown User"}
+                                            {req.profiles?.full_name || req.profiles?.email?.split('@')[0] || "Unknown User"}
                                         </div>
                                         <div className="text-xs text-gray-500">{req.profiles?.email}</div>
                                     </td>

@@ -7,12 +7,20 @@ let io: SocketIOServer | null = null;
 export function initializeSocket(httpServer: HTTPServer) {
     io = new SocketIOServer(httpServer, {
         cors: {
-            origin: [
-                'http://localhost:3000',
-                'http://localhost:3002',
-                process.env.FRONTEND_URL || '',
-                process.env.ADMIN_URL || ''
-            ].filter(Boolean),
+            origin: (origin, callback) => {
+                const allowedOrigins = [
+                    'http://localhost:3000',
+                    'http://localhost:3002',
+                    process.env.FRONTEND_URL,
+                    process.env.ADMIN_URL
+                ].filter(Boolean) as string[];
+
+                if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.ngrok-free.app')) {
+                    callback(null, true);
+                } else {
+                    callback(new Error('Not allowed by CORS'));
+                }
+            },
             methods: ['GET', 'POST'],
             credentials: true
         },
@@ -35,34 +43,12 @@ export function initializeSocket(httpServer: HTTPServer) {
                 // Store userId in socket
                 (socket as any).userId = userId;
 
-                // Fetch user's active challenges and subscribe to their rooms
-                const { data: challenges, error } = await supabase
-                    .from('challenges')
-                    .select('id, login, status')
-                    .eq('user_id', userId)
-                    .eq('status', 'active');
-
-                if (error) {
-                    console.error('Error fetching challenges:', error);
-                    socket.emit('auth_error', { message: 'Failed to fetch challenges' });
-                    return;
-                }
-
-                // Join rooms for each challenge
-                if (challenges && challenges.length > 0) {
-                    challenges.forEach(challenge => {
-                        const roomName = `challenge_${challenge.id}`;
-                        socket.join(roomName);
-                        console.log(`✅ Socket ${socket.id} joined room: ${roomName}`);
-                    });
-                }
-
-                // Also join user-specific room
+                // Join user-specific room
                 socket.join(`user_${userId}`);
 
                 socket.emit('authenticated', {
                     success: true,
-                    challenges: challenges?.map(c => c.id) || []
+                    challenges: [] // No longer auto-subscribing
                 });
 
                 console.log(`🔐 Socket authenticated for user: ${userId}`);

@@ -31,7 +31,8 @@ const navigation = [
     { name: "Accounts List", href: "/accounts", icon: List, roles: ['super_admin', 'sub_admin', 'risk_admin'] },
     { name: "MT5 Accounts", href: "/mt5", icon: Server, roles: ['super_admin', 'sub_admin', 'risk_admin'] },
     { name: "Risk Settings", href: "/mt5-risk", icon: Gauge, roles: ['super_admin', 'risk_admin'] },
-    { name: "Payment Settings", href: "/settings/payment", icon: Settings, roles: ['super_admin'] }, // Added this
+    { name: "Payments", href: "/payments", icon: CreditCard, roles: ['super_admin', 'sub_admin'] }, // Changed from settings/payment to /payments for report
+    { name: "Settings", href: "/settings/payment", icon: Settings, roles: ['super_admin'] },
     { name: "Assign Account", href: "/mt5/assign", icon: UserPlus, roles: ['super_admin', 'sub_admin', 'risk_admin'] },
     { name: "KYC Requests", href: "/kyc", icon: FileText, roles: ['super_admin', 'sub_admin', 'payouts_admin'] },
     { name: "Payouts", href: "/payouts", icon: CreditCard, roles: ['super_admin', 'sub_admin', 'payouts_admin'] },

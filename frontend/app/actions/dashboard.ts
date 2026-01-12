@@ -34,9 +34,10 @@ export async function getEquityCurveData(challengeId: string, initialBalance: nu
     const supabase = await createClient();
 
     // Fetch all closed trades for this account
+    // Must select commission and swap too
     const { data: trades, error } = await supabase
         .from('trades')
-        .select('close_time, profit_loss')
+        .select('close_time, profit_loss, commission, swap')
         .eq('challenge_id', challengeId)
         .not('close_time', 'is', null)
         .gte('close_time', startDate.toISOString())
@@ -59,7 +60,11 @@ export async function getEquityCurveData(challengeId: string, initialBalance: nu
     const tradesByDay: Record<string, number> = {};
     trades.forEach(t => {
         const date = new Date(t.close_time).toISOString().split('T')[0];
-        tradesByDay[date] = (tradesByDay[date] || 0) + (t.profit_loss || 0);
+        const grossPnl = t.profit_loss || 0;
+        const fees = (t.commission || 0) + (t.swap || 0);
+        const netPnl = grossPnl + fees;
+
+        tradesByDay[date] = (tradesByDay[date] || 0) + netPnl;
     });
 
     const sortedDays = Object.keys(tradesByDay).sort();

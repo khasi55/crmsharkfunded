@@ -262,10 +262,20 @@ router.get('/trades/:challengeId', async (req, res) => {
     }
 });
 
+// Simple In-Memory Cache for Competition Leaderboards
+const leaderboardCache: Record<string, { data: any[], timestamp: number }> = {};
+const CACHE_TTL = 30 * 1000; // 30 seconds
+
 // GET /api/competitions/:id/leaderboard - Get competition leaderboard
 router.get('/:id/leaderboard', async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Check Cache
+        const cached = leaderboardCache[id];
+        if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+            return res.json(cached.data);
+        }
 
         // Fetch participants sorted by score/rank, including challenge_id
         const { data: participants, error } = await supabase
@@ -352,8 +362,15 @@ router.get('/:id/leaderboard', async (req, res) => {
             };
         });
 
+        // Update Cache
+        leaderboardCache[id] = {
+            data: leaderboard,
+            timestamp: Date.now()
+        };
+
         res.json(leaderboard);
     } catch (error: any) {
+        console.error("Leaderboard error:", error);
         res.status(500).json({ error: error.message });
     }
 });

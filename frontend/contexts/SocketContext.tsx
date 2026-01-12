@@ -34,6 +34,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
 
         // Initialize socket connection
+        console.log("🔌 SocketContext: Connecting to backendUrl:", backendUrl);
         const newSocket = io(backendUrl, {
             transports: ['websocket', 'polling'],
             reconnection: true,

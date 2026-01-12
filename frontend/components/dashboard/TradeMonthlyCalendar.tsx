@@ -76,7 +76,12 @@ export default function TradeMonthlyCalendar() {
                             if (!tradesByDay[day]) {
                                 tradesByDay[day] = { pnl: 0, count: 0 };
                             }
-                            tradesByDay[day].pnl += trade.profit_loss || 0;
+                            const grossPnl = trade.profit_loss || 0;
+                            const commission = trade.commission || 0;
+                            const swap = trade.swap || 0;
+                            const netPnl = grossPnl + commission + swap;
+
+                            tradesByDay[day].pnl += netPnl;
                             tradesByDay[day].count += 1;
                         }
                     });
@@ -184,7 +189,7 @@ export default function TradeMonthlyCalendar() {
                 <div className="bg-black/20 rounded-lg p-2 sm:p-3 border border-white/5">
                     <p className="text-[9px] sm:text-[10px] text-gray-400 mb-0.5 sm:mb-1">Total P&L</p>
                     <p className={`text-sm sm:text-lg font-bold ${monthStats.totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        ${Math.abs(monthStats.totalPnL).toFixed(0)}
+                        ${monthStats.totalPnL.toFixed(2)}
                     </p>
                 </div>
                 <div className="bg-black/20 rounded-lg p-2 sm:p-3 border border-white/5">
@@ -240,7 +245,7 @@ export default function TradeMonthlyCalendar() {
                                                     )}
                                                     <span className={`text-[8px] sm:text-[10px] font-bold ${day.isProfit ? 'text-green-400' : day.pnl < 0 ? 'text-red-400' : 'text-gray-400'
                                                         }`}>
-                                                        ${Math.abs(day.pnl).toFixed(0)}
+                                                        ${day.pnl.toFixed(0)}
                                                     </span>
                                                 </div>
                                             </div>

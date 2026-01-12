@@ -42,6 +42,7 @@ interface KYCSession {
         full_name: string;
         email: string;
     };
+    raw_response?: Record<string, any>;
 }
 
 export default function AdminKYCDetailsPage() {
@@ -110,7 +111,11 @@ export default function AdminKYCDetailsPage() {
                 </Link>
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">KYC Session Details</h1>
-                    <div className="text-sm text-gray-500">ID: {session.didit_session_id}</div>
+                    <div className="text-sm text-gray-500 flex gap-4">
+                        <span>ID: {session.didit_session_id}</span>
+                        <span className="text-gray-300">|</span>
+                        <span title="Internal User ID" className="font-mono text-xs pt-0.5">UID: {session.id}</span>
+                    </div>
                 </div>
                 <div className="ml-auto">
                     <StatusBadge status={session.status} className="px-3 py-1 text-sm" />
@@ -233,8 +238,8 @@ export default function AdminKYCDetailsPage() {
                                 <div>
                                     <label className="block text-xs text-gray-500">AML Status</label>
                                     <div className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium capitalize ${session.aml_status === 'clear' || session.aml_status === 'passed' ? 'bg-green-50 text-green-700 border border-green-200' :
-                                            session.aml_status === 'hit' || session.aml_status === 'failed' ? 'bg-red-50 text-red-700 border border-red-200' :
-                                                'bg-gray-100 text-gray-700 border border-gray-200'
+                                        session.aml_status === 'hit' || session.aml_status === 'failed' ? 'bg-red-50 text-red-700 border border-red-200' :
+                                            'bg-gray-100 text-gray-700 border border-gray-200'
                                         }`}>
                                         {session.aml_status || 'Pending'}
                                     </div>
@@ -250,6 +255,53 @@ export default function AdminKYCDetailsPage() {
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Documents & Images */}
+                    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                        <h2 className="mb-4 text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Documents & Evidence</h2>
+
+                        {/* Try to find images in raw_response */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {/* Generic Image Finder */}
+                            {session.raw_response && typeof session.raw_response === 'object' && Object.entries(session.raw_response).map(([key, value]) => {
+                                if (typeof value === 'string' && (value.startsWith('http') || value.startsWith('data:image')) && (key.includes('img') || key.includes('photo') || key.includes('url') || key.includes('front') || key.includes('back') || key.includes('selfie'))) {
+                                    return (
+                                        <div key={key} className="space-y-2">
+                                            <label className="block text-xs text-gray-500 uppercase">{key.replace(/_/g, ' ')}</label>
+                                            <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img src={value} alt={key} className="object-contain w-full h-full" />
+                                            </div>
+                                            <a href={value} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">View Original</a>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })}
+                        </div>
+
+                        {/* Fallback Message */}
+                        {(!session.raw_response || !Object.values(session.raw_response).some(v => typeof v === 'string' && v.startsWith('http'))) && (
+                            <div className="text-sm text-gray-500 italic p-4 bg-gray-50 rounded border border-gray-100">
+                                No direct image URLs detected in response. Please check raw data below.
+                            </div>
+                        )}
+
+                        {/* Raw Data Accordion */}
+                        <div className="mt-8">
+                            <details className="group">
+                                <summary className="flex cursor-pointer items-center justify-between rounded-lg bg-gray-50 p-4 text-sm font-medium text-gray-900 hover:bg-gray-100">
+                                    <span>View Raw Verification Data</span>
+                                    <span className="transition group-open:rotate-180">
+                                        <svg fill="none" height="24" shapeRendering="geometricPrecision" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
+                                    </span>
+                                </summary>
+                                <div className="mt-4 rounded-lg border border-gray-200 bg-gray-900 p-4 text-xs text-gray-50 overflow-auto max-h-96">
+                                    <pre>{JSON.stringify(session.raw_response, null, 2)}</pre>
+                                </div>
+                            </details>
                         </div>
                     </div>
 

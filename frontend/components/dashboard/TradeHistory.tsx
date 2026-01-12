@@ -1,6 +1,6 @@
 "use client";
 
-import { createClient } from "@/utils/supabase/client";
+
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
@@ -24,6 +24,8 @@ interface Trade {
 
 import { useAccount } from "@/contexts/AccountContext";
 import { fetchFromBackend } from "@/lib/backend-api";
+import { useSocket } from "@/contexts/SocketContext";
+import { useChallengeSubscription } from "@/hooks/useChallengeSocket";
 
 export default function TradeHistory() {
     const { selectedAccount } = useAccount();
@@ -46,36 +48,36 @@ export default function TradeHistory() {
 
     const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
+    // WebSocket Subscription for Real-time Updates
+    const { socket } = useSocket();
 
+    // Ensure we are subscribed to this challenge's room
+    useChallengeSubscription(selectedAccount?.id);
 
+    // Initial Fetch & Socket Listeners
     useEffect(() => {
-        if (selectedAccount) {
-            fetchTrades();
+        if (!selectedAccount) return;
 
-            // Realtime Subscription
-            const supabase = createClient();
-            const channel = supabase
-                .channel(`realtime-trades-${selectedAccount.id}`)
-                .on(
-                    'postgres_changes',
-                    {
-                        event: '*',
-                        schema: 'public',
-                        table: 'trades',
-                        filter: `challenge_id=eq.${selectedAccount.id}`,
-                    },
-                    (payload) => {
+        // Initial fetch
+        fetchTrades();
 
-                        fetchTrades(true); // Silent refresh
-                    }
-                )
-                .subscribe();
+        if (!socket) return;
 
-            return () => {
-                supabase.removeChannel(channel);
-            };
-        }
-    }, [filter, selectedAccount]);
+        // Listen for real-time updates
+        const handleTradeUpdate = (data: any) => {
+            console.log("⚡ New trade received via socket:", data);
+            // Verify trade belongs to this account
+            if (data.login === selectedAccount.login || data.challenge_id === selectedAccount.id) {
+                fetchTrades(true); // Silent refresh
+            }
+        };
+
+        socket.on('trade_update', handleTradeUpdate);
+
+        return () => {
+            socket.off('trade_update', handleTradeUpdate);
+        };
+    }, [filter, selectedAccount, socket]);
 
     const fetchTrades = async (isSilent = false) => {
         try {

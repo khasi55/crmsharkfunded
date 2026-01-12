@@ -5,22 +5,54 @@ async function getStats() {
     // Use admin client to bypass RLS
     const supabase = createAdminClient();
 
-    // Parallel fetching for stats
+    // 1. Fetch Counts & Amounts
     const [
         { count: usersCount },
         { count: kycCount },
-        { count: payoutsCount }
+        { count: payoutsCount },
+        { data: paidOrders },
+        { data: allChallenges }
     ] = await Promise.all([
         supabase.from("profiles").select("*", { count: "exact", head: true }),
         supabase.from("kyc_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("payout_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("payment_orders").select("amount").eq("status", "paid"),
+        supabase.from("challenges").select("challenge_type, status")
     ]);
+
+    // 2. Calculate Revenue
+    const totalRevenue = paidOrders?.reduce((sum, order) => sum + (Number(order.amount) || 0), 0) || 0;
+
+    // 3. Calculate Account Categories
+    let phase1Count = 0;
+    let phase2Count = 0;
+    let liveCount = 0;
+    let instantCount = 0;
+
+    allChallenges?.forEach(c => {
+        const type = (c.challenge_type || '').toLowerCase();
+
+        if (type.includes('instant')) {
+            instantCount++;
+        } else if (type.includes('funded') || type.includes('master') || type.includes('live')) {
+            liveCount++;
+        } else if (type.includes('phase 2')) {
+            phase2Count++;
+        } else {
+            // Default to Phase 1 (Evaluation, 1-step, 2-step Phase 1, etc.)
+            phase1Count++;
+        }
+    });
 
     return {
         totalUsers: usersCount || 0,
         pendingKYC: kycCount || 0,
         pendingPayouts: payoutsCount || 0,
-        totalPayoutsValue: 0, // Placeholder as we'd need to sum
+        totalRevenue,
+        phase1Count,
+        phase2Count,
+        liveCount,
+        instantCount
     };
 }
 
@@ -29,18 +61,63 @@ export default async function AdminDashboardPage() {
 
     const statCards = [
         {
-            title: "Total Users",
-            value: stats.totalUsers,
-            icon: Users,
+            title: "Total Revenue",
+            value: `$${stats.totalRevenue.toLocaleString()}`,
+            icon: DollarSign,
+            color: "emerald",
+            bgColor: "bg-emerald-50",
+            iconColor: "text-emerald-600",
+            textColor: "text-emerald-600"
+        },
+        {
+            title: "Phase 1 Accounts",
+            value: stats.phase1Count,
+            icon: TrendingUp, // or BarChart
+            color: "blue",
+            bgColor: "bg-blue-50",
+            iconColor: "text-blue-600",
+            textColor: "text-blue-600"
+        },
+        {
+            title: "Phase 2 Accounts",
+            value: stats.phase2Count,
+            icon: TrendingUp,
             color: "indigo",
             bgColor: "bg-indigo-50",
             iconColor: "text-indigo-600",
             textColor: "text-indigo-600"
         },
         {
+            title: "Live Accounts",
+            value: stats.liveCount,
+            icon: CreditCard, // or Award
+            color: "purple",
+            bgColor: "bg-purple-50",
+            iconColor: "text-purple-600",
+            textColor: "text-purple-600"
+        },
+        {
+            title: "Instant Accounts",
+            value: stats.instantCount,
+            icon: FileText, // or Zap
+            color: "amber",
+            bgColor: "bg-amber-50",
+            iconColor: "text-amber-600",
+            textColor: "text-amber-600"
+        },
+        {
+            title: "Total Users",
+            value: stats.totalUsers,
+            icon: Users,
+            color: "gray",
+            bgColor: "bg-gray-50",
+            iconColor: "text-gray-600",
+            textColor: "text-gray-600"
+        },
+        {
             title: "Pending KYC",
             value: stats.pendingKYC,
-            icon: FileText,
+            icon: AlertCircle,
             color: "amber",
             bgColor: "bg-amber-50",
             iconColor: "text-amber-600",
@@ -50,19 +127,10 @@ export default async function AdminDashboardPage() {
             title: "Pending Payouts",
             value: stats.pendingPayouts,
             icon: CreditCard,
-            color: "purple",
-            bgColor: "bg-purple-50",
-            iconColor: "text-purple-600",
-            textColor: "text-purple-600"
-        },
-        {
-            title: "Revenue",
-            value: "$0.00",
-            icon: DollarSign,
-            color: "emerald",
-            bgColor: "bg-emerald-50",
-            iconColor: "text-emerald-600",
-            textColor: "text-emerald-600"
+            color: "red",
+            bgColor: "bg-red-50",
+            iconColor: "text-red-600",
+            textColor: "text-red-600"
         },
     ];
 

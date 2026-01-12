@@ -13,12 +13,20 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware (Restart Triggered)
 app.use(cors({
-    origin: [
-        'http://localhost:3000',  // Frontend
-        'http://localhost:3002',  // Admin portal
-        process.env.FRONTEND_URL || '',
-        process.env.ADMIN_URL || ''
-    ].filter(Boolean),
+    origin: (origin, callback) => {
+        const allowedOrigins = [
+            'http://localhost:3000',
+            'http://localhost:3002',
+            process.env.FRONTEND_URL,
+            process.env.ADMIN_URL
+        ].filter(Boolean) as string[];
+
+        if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.ngrok-free.app')) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true
 }));
 app.use(express.json({ limit: '50mb' }));
@@ -67,10 +75,12 @@ import webhooksRouter from './routes/webhooks';
 import objectivesRouter from './routes/objectives';
 import rankingRouter from './routes/ranking';
 import adminSettingsRouter from './routes/admin_settings';
+import adminPaymentRouter from './routes/admin_payments';
 import adminHealthRouter from './routes/admin_health';
 
 app.use('/api/overview', overviewRouter);
 app.use('/api/admin/settings', adminSettingsRouter); // Register Settings Route
+app.use('/api/admin/payments', adminPaymentRouter); // Register Payments Route
 
 app.use('/api/admin/health', adminHealthRouter); // Register Health Route
 app.use('/api/payouts', payoutsRouter);
