@@ -81,7 +81,7 @@ export function initializeSocket(httpServer: HTTPServer) {
         });
 
         socket.on('disconnect', () => {
-            if (DEBUG) console.log(`🔌 WebSocket disconnected: ${socket.id}`);
+            // if (DEBUG) console.log(`🔌 WebSocket disconnected: ${socket.id}`);
         });
 
         socket.on('error', (error) => {

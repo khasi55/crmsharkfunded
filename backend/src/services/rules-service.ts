@@ -99,13 +99,6 @@ export class RulesService {
      * Calculate absolute values for a specific account
      */
     static async calculateObjectives(challengeId: string) {
-        // Debug Log
-        const fs = require('fs');
-        const logPath = require('path').join(process.cwd(), 'backend_request_debug.log');
-        const log = (msg: string) => fs.appendFileSync(logPath, `[RULES-SVC] [${new Date().toISOString()}] ${msg}\n`);
-
-        log(`Calculating objectives for ID: ${challengeId}`);
-
         // Fetch account details
         const { data: challenge, error } = await supabase
             .from('challenges')
@@ -121,9 +114,6 @@ export class RulesService {
         const rules = await this.getRules(challenge.group, challenge.challenge_type);
 
         const initialBalance = Number(challenge.initial_balance) || 100000;
-
-        log(`Resolved Balance: ${initialBalance} (Raw: ${challenge.initial_balance})`);
-        log(`Rules: Profit=${rules.profit_target_percent}%, Daily=${rules.max_daily_loss_percent}%, Total=${rules.max_total_loss_percent}%`);
 
         // Calculate Limits
         const maxDailyLoss = initialBalance * (rules.max_daily_loss_percent / 100);
