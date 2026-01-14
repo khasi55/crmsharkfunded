@@ -13,7 +13,7 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 const BRIDGE_URL = process.env.BRIDGE_URL || 'https://2b267220ca1b.ngrok-free.app';
-console.log("🔍 [Risk Scheduler] Using BRIDGE_URL:", BRIDGE_URL);
+// console.log("🔍 [Risk Scheduler] Using BRIDGE_URL:", BRIDGE_URL);
 
 // --- CONFIGURATION ---
 // Dynamic Risk Rules are fetched from 'mt5_risk_groups' table.
@@ -35,12 +35,12 @@ async function runRiskCheck() {
     }
     isProcessing = true;
     try {
-        console.log("🔍 [Risk Scheduler] Starting cycle...");
+        // console.log("🔍 [Risk Scheduler] Starting cycle...");
 
         // 1. Fetch Active Challenges
         const { data: challenges, error } = await supabase
             .from('challenges')
-            .select('id, login, initial_balance, current_balance, current_equity, group, start_of_day_equity, user_id, status')
+            .select('id, login, initial_balance, current_balance, current_equity, group, start_of_day_equity, user_id, status, challenge_type')
             .eq('status', 'active');
 
         // 2. Fetch Risk Groups
@@ -108,20 +108,16 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 rule = { max_drawdown_percent: 10, daily_drawdown_percent: 5 };
             }
 
-            const startOfDayEquity = Number(c.start_of_day_equity || c.initial_balance);
+            const currentBalance = Number(c.current_balance);
             const totalLimit = initialBalance * (1 - (rule.max_drawdown_percent / 100));
-            // const dailyLimit = startOfDayEquity * (1 - (rule.daily_drawdown_percent / 100));
+            // Trade-Wise / Floating Drawdown: Limit is based on Current Balance (not Start of Day)
+            const tradeWiseLimit = currentBalance * (1 - (rule.daily_drawdown_percent / 100));
 
-            // USER REQUEST FIX: Use Max Drawdown (10%) instead of Daily (5%) for Bridge Stopout
-            // effectively allowing the user to trade down to the Max Drawdown level.
-            const effectiveLimit = totalLimit;
+            // EFFECTIVE LIMIT: stricter of the two (Higher equity value is stricter)
+            // Use Max Drawdown (Static) and Trade-Wise Drawdown (Floating)
+            const effectiveLimit = Math.max(totalLimit, tradeWiseLimit);
 
-            // Log calculation for debugging if needed (selective to avoid spam)
-            if (c.login === 566971) {
-                console.log(`[Risk Rule] Account ${c.login} (${normalizedGroup || 'no group'}): ` +
-                    `StartDayEq: ${startOfDayEquity}, MinEquityLimit: ${effectiveLimit.toFixed(2)} ` +
-                    `(MaxLoss: ${rule.max_drawdown_percent}%, Daily: ${rule.daily_drawdown_percent}%)`);
-            }
+
 
             return {
                 login: Number(c.login),
@@ -180,6 +176,40 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                     current_balance: res.balance,
                     status: challenge.status // maintain existing status by default
                 };
+
+                // --- PROFIT TARGET CHECK ---
+                // Determine Profit Target % based on simplified logic (mirrors RulesService)
+                let profitTargetPercent = 8; // Default Phase 1
+                const typeStr = (challenge.challenge_type || '').toLowerCase();
+                const groupStr = (challenge.group || '').toLowerCase();
+
+                if (typeStr.includes('funded') || typeStr.includes('master') || typeStr.includes('instant') || groupStr.includes('funded') || groupStr.includes('master')) {
+                    profitTargetPercent = 0; // No target for funded/master/instant
+                } else if (typeStr.includes('phase 2') || typeStr.includes('step 2') || groupStr.includes('phase 2')) {
+                    profitTargetPercent = 5;
+                } else if (typeStr.includes('phase 1') || typeStr.includes('step 1') || groupStr.includes('phase 1')) {
+                    profitTargetPercent = 8;
+                }
+
+                if (profitTargetPercent > 0) {
+                    const initialBalance = Number(challenge.initial_balance);
+                    const targetEquity = initialBalance + (initialBalance * (profitTargetPercent / 100));
+
+                    if (res.equity >= targetEquity) {
+                        // Confirm it's not already passed or failed/breached
+                        if (challenge.status === 'active' || challenge.status === 'ongoing') {
+                            updateData.status = 'passed';
+                            // console.log(`🎉 PROFIT TARGET HIT: Account ${res.login}. Equity: ${res.equity} >= ${targetEquity}`);
+
+                            systemLogs.push({
+                                source: 'RiskScheduler',
+                                level: 'INFO',
+                                message: `Profit Target Met: Account ${res.login} passed. Equity: ${res.equity}`,
+                                details: { login: res.login, event: 'profit_target_reached', target_equity: targetEquity }
+                            });
+                        }
+                    }
+                }
 
                 // If breached, fail the account
                 const normalizedStatus = res.status?.toLowerCase();

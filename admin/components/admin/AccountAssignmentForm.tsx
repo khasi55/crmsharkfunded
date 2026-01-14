@@ -2,7 +2,10 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Server, Search } from "lucide-react";
+import { Server, Search, Upload, FileText } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
+
+const supabase = createClient();
 
 const MT5_GROUPS = {
     "Lite Instant Funding": "demo\\S\\0-SF",
@@ -41,6 +44,8 @@ export default function AccountAssignmentForm({ users = [] }: AccountAssignmentF
     const [showDropdown, setShowDropdown] = useState(false);
     const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
     const [isSearching, setIsSearching] = useState(false);
+    const [note, setNote] = useState("");
+    const [imageFile, setImageFile] = useState<File | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     // Server-side Search
@@ -103,13 +108,29 @@ export default function AccountAssignmentForm({ users = [] }: AccountAssignmentF
         e.preventDefault();
         setError(null);
 
-        if (!selectedEmail || !selectedGroup || !accountSize) {
-            setError("Please fill in all fields");
+        if (!selectedEmail || !selectedGroup || !accountSize || !note || !imageFile) {
+            setError("Please fill in all fields (Note and Proof are required)");
             return;
         }
 
         setLoading(true);
         try {
+            let imageUrl = "";
+            if (imageFile) {
+                const fileExt = imageFile.name.split('.').pop();
+                const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+                const { error: uploadError } = await supabase.storage
+                    .from('proofs')
+                    .upload(fileName, imageFile);
+
+                if (uploadError) throw new Error("Image upload failed: " + uploadError.message);
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('proofs')
+                    .getPublicUrl(fileName);
+                imageUrl = publicUrl;
+            }
+
             const response = await fetch("/api/mt5/assign", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -118,6 +139,8 @@ export default function AccountAssignmentForm({ users = [] }: AccountAssignmentF
                     mt5Group: MT5_GROUPS[selectedGroup as keyof typeof MT5_GROUPS],
                     accountSize: accountSize,
                     planType: selectedGroup,
+                    note,
+                    imageUrl
                 }),
             });
 
@@ -127,14 +150,22 @@ export default function AccountAssignmentForm({ users = [] }: AccountAssignmentF
             }
 
             setSuccess(true);
-            setTimeout(() => {
-                router.push("/mt5");
-            }, 2000);
+            // No auto redirect
         } catch (err: any) {
             setError(err.message || "Failed to assign account");
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleAssignAnother = () => {
+        setSuccess(false);
+        setSelectedEmail("");
+        setSelectedGroup("");
+        setAccountSize("");
+        setNote("");
+        setImageFile(null);
+        setError(null);
     };
 
     if (success) {
@@ -145,10 +176,35 @@ export default function AccountAssignmentForm({ users = [] }: AccountAssignmentF
                         <Server className="h-8 w-8 text-emerald-600" />
                     </div>
                     <h2 className="text-xl font-semibold text-gray-900 mb-2">Account Assigned Successfully!</h2>
-                    <p className="text-gray-600">
+                    <p className="text-gray-600 mb-8">
                         The MT5 account has been created and credentials have been sent to the user's email.
                     </p>
-                    <p className="text-sm text-gray-500 mt-4">Redirecting to MT5 accounts...</p>
+
+                    <div className="flex bg-gray-50 border border-gray-100 rounded-lg p-4 mb-8 text-left max-w-md mx-auto">
+                        <div className="flex-1 space-y-1">
+                            <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Assigned To</p>
+                            <p className="font-medium text-gray-900">{selectedEmail}</p>
+                        </div>
+                        <div className="flex-1 space-y-1 border-l border-gray-200 pl-4">
+                            <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Plan</p>
+                            <p className="font-medium text-gray-900">{selectedGroup} - ${accountSize?.toLocaleString()}</p>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-center gap-4">
+                        <button
+                            onClick={() => router.push('/mt5')}
+                            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                            View All Accounts
+                        </button>
+                        <button
+                            onClick={handleAssignAnother}
+                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+                        >
+                            Assign Another Account
+                        </button>
+                    </div>
                 </div>
             </div>
         );
@@ -281,6 +337,60 @@ export default function AccountAssignmentForm({ users = [] }: AccountAssignmentF
                     </div>
                 </div>
 
+                <div className="border-t border-gray-100 pt-8">
+                    <h3 className="text-base font-semibold text-gray-900 mb-6">Assignment Justification</h3>
+
+                    <div className="space-y-6">
+                        <div>
+                            <label htmlFor="note" className="block text-sm font-medium text-gray-700 mb-2">
+                                Note / Reason <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                                <textarea
+                                    id="note"
+                                    rows={3}
+                                    value={note}
+                                    onChange={(e) => setNote(e.target.value)}
+                                    placeholder="Why is this account being assigned?"
+                                    className="block w-full rounded-lg border border-gray-300 pl-10 pr-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                                />
+                                <FileText className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Proof / Attachment <span className="text-red-500">*</span>
+                            </label>
+                            <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-indigo-400 transition-colors bg-gray-50/50">
+                                <div className="space-y-1 text-center">
+                                    <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                                    <div className="flex text-sm text-gray-600">
+                                        <label
+                                            htmlFor="file-upload"
+                                            className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500"
+                                        >
+                                            <span>Upload a file</span>
+                                            <input
+                                                id="file-upload"
+                                                name="file-upload"
+                                                type="file"
+                                                className="sr-only"
+                                                accept="image/*"
+                                                onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                                            />
+                                        </label>
+                                        <p className="pl-1">or drag and drop</p>
+                                    </div>
+                                    <p className="text-xs text-gray-500">
+                                        {imageFile ? imageFile.name : "PNG, JPG up to 5MB"}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Error Message */}
                 {error && (
                     <div className="rounded-lg bg-red-50 border border-red-200 p-4">
@@ -299,7 +409,7 @@ export default function AccountAssignmentForm({ users = [] }: AccountAssignmentF
                     </button>
                     <button
                         type="submit"
-                        disabled={loading || !selectedEmail || !selectedGroup || !accountSize}
+                        disabled={loading || !selectedEmail || !selectedGroup || !accountSize || !note || !imageFile}
                         className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                         {loading ? "Creating Account..." : "Assign Account"}

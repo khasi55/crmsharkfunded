@@ -3,6 +3,8 @@ import { Server as HTTPServer } from 'http';
 import { supabase } from '../lib/supabase';
 
 let io: SocketIOServer | null = null;
+const DEBUG = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
+
 
 export function initializeSocket(httpServer: HTTPServer) {
     io = new SocketIOServer(httpServer, {
@@ -31,7 +33,7 @@ export function initializeSocket(httpServer: HTTPServer) {
     });
 
     io.on('connection', async (socket) => {
-        console.log(`🔌 WebSocket connected: ${socket.id}`);
+        if (DEBUG) console.log(`🔌 WebSocket connected: ${socket.id}`);
 
         // Handle authentication - expect userId from client
         socket.on('authenticate', async (data: { userId: string }) => {
@@ -54,7 +56,10 @@ export function initializeSocket(httpServer: HTTPServer) {
                     challenges: [] // No longer auto-subscribing
                 });
 
-                console.log(`🔐 Socket authenticated for user: ${userId}`);
+                console.log(`🔐 Socket authenticated for user: ${userId}`); // Auth is important, but maybe debug only? Let's keep it visible for now or debug?
+                // User asked to wrap high volume logs. Auth is 1 per session. 
+                // Let's wrap it to be consistent with "logs in terminal" request.
+                if (DEBUG) console.log(`🔐 Socket authenticated for user: ${userId}`);
             } catch (error) {
                 console.error('Authentication error:', error);
                 socket.emit('auth_error', { message: 'Authentication failed' });
@@ -65,18 +70,18 @@ export function initializeSocket(httpServer: HTTPServer) {
         socket.on('subscribe_challenge', (challengeId: string) => {
             const roomName = `challenge_${challengeId}`;
             socket.join(roomName);
-            console.log(`📡 Socket ${socket.id} subscribed to ${roomName}`);
+            if (DEBUG) console.log(`📡 Socket ${socket.id} subscribed to ${roomName}`);
         });
 
         // Handle unsubscribe
         socket.on('unsubscribe_challenge', (challengeId: string) => {
             const roomName = `challenge_${challengeId}`;
             socket.leave(roomName);
-            console.log(`📴 Socket ${socket.id} unsubscribed from ${roomName}`);
+            if (DEBUG) console.log(`📴 Socket ${socket.id} unsubscribed from ${roomName}`);
         });
 
         socket.on('disconnect', () => {
-            console.log(`🔌 WebSocket disconnected: ${socket.id}`);
+            if (DEBUG) console.log(`🔌 WebSocket disconnected: ${socket.id}`);
         });
 
         socket.on('error', (error) => {
@@ -124,7 +129,7 @@ export function broadcastTradeUpdate(challengeId: string, trade: any) {
 
     const roomName = `challenge_${challengeId}`;
     io.to(roomName).emit('trade_update', trade);
-    console.log(`📤 Broadcasted trade update to room: ${roomName}`);
+    if (DEBUG) console.log(`📤 Broadcasted trade update to room: ${roomName}`);
 }
 
 export function broadcastBalanceUpdate(challengeId: string, balanceData: any) {
@@ -135,7 +140,7 @@ export function broadcastBalanceUpdate(challengeId: string, balanceData: any) {
 
     const roomName = `challenge_${challengeId}`;
     io.to(roomName).emit('balance_update', balanceData);
-    console.log(`📤 Broadcasted balance update to room: ${roomName}`);
+    if (DEBUG) console.log(`📤 Broadcasted balance update to room: ${roomName}`);
 }
 
 export function broadcastToUser(userId: string, event: string, data: any) {
@@ -145,5 +150,5 @@ export function broadcastToUser(userId: string, event: string, data: any) {
     }
 
     io.to(`user_${userId}`).emit(event, data);
-    console.log(`📤 Broadcasted ${event} to user: ${userId}`);
+    if (DEBUG) console.log(`📤 Broadcasted ${event} to user: ${userId}`);
 }

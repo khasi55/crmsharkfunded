@@ -436,25 +436,25 @@ function AccountSwitcherContent({
                                 )}
                             >
                                 <div className="flex justify-between items-start mb-4">
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-3 min-w-0">
                                         <div className={cn(
-                                            "w-10 h-10 rounded-lg flex items-center justify-center transition-colors",
+                                            "w-10 h-10 rounded-lg flex items-center justify-center transition-colors shrink-0",
                                             isSelected ? "bg-blue-500/20 text-blue-400" : "bg-[#1C212B] text-gray-500"
                                         )}>
                                             <TrendingUp size={20} />
                                         </div>
-                                        <div>
-                                            <p className="font-bold text-white text-sm">
+                                        <div className="min-w-0">
+                                            <p className="font-bold text-white text-sm truncate pr-2">
                                                 {acc.account_number}
                                                 <span className="text-gray-500 text-xs font-normal ml-2">#{acc.login}</span>
                                             </p>
-                                            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">
+                                            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider truncate">
                                                 {acc.account_type?.replace(/_/g, ' ') || 'PHASE 1'}
                                             </p>
                                         </div>
                                     </div>
                                     <span className={cn(
-                                        "text-[10px] font-bold px-2.5 py-1 rounded-md capitalize",
+                                        "text-[10px] font-bold px-2.5 py-1 rounded-md capitalize shrink-0 ml-2",
                                         status.toLowerCase() === 'active' ? "bg-blue-500/10 text-blue-400" :
                                             status.toLowerCase() === 'passed' ? "bg-green-500/10 text-green-400" :
                                                 (status.toLowerCase() === 'failed' || status.toLowerCase() === 'not passed') ? "bg-red-500/10 text-red-400" :

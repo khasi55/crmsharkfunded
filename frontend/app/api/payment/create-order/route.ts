@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 
+function logDebug(msg: string) {
+    console.log(`⏱️ [${new Date().toISOString()}] ${msg}`);
+}
+
+
 /**
  * Create Payment Order (Step 1 of purchase flow)
  * User selects plan → Create order → Redirect to payment gateway
@@ -57,6 +62,8 @@ export async function POST(request: NextRequest) {
                     order_id: orderId,
                     amount: amount,
                     currency: 'USD',
+                    // ... (rest would follow, but I'm only replacing the top part and imports)
+
                     status: 'pending',
                     account_type_name: `Competition: ${competition.title}`,
                     account_size: 100000, // Default competition balance
@@ -99,6 +106,7 @@ export async function POST(request: NextRequest) {
         }
 
         // 2. Handle Challenge Types (Existing Logic)
+        // 2. Handle Challenge Types (Existing Logic)
         // Determine account type name
         let accountTypeName = '';
         if (model === 'pro') {
@@ -111,15 +119,26 @@ export async function POST(request: NextRequest) {
             else if (type === '2-step') accountTypeName = '2 Step';
         }
 
-        // Fetch account type
-        const { data: accountType, error: accountTypeError } = await supabase
-            .from('account_types')
-            .select('*')
-            .eq('name', accountTypeName)
-            .eq('status', 'active')
-            .single();
+        // OPTIMIZATION: Fetch Profile and Account Type in Parallel to reduce cross-region latency
+        logDebug(`Fetching Account Type (${accountTypeName}) and Profile...`);
+        const [accountTypeRes, profileRes] = await Promise.all([
+            supabase
+                .from('account_types')
+                .select('*')
+                .eq('name', accountTypeName)
+                .eq('status', 'active')
+                .single(),
+            supabase
+                .from('profiles')
+                .select('full_name, email')
+                .eq('id', user.id)
+                .single()
+        ]);
 
-        if (accountTypeError || !accountType) {
+        const accountType = accountTypeRes.data;
+        const profile = profileRes.data;
+
+        if (accountTypeRes.error || !accountType) {
             return NextResponse.json({
                 error: 'Invalid account type configuration'
             }, { status: 400 });
@@ -154,11 +173,11 @@ export async function POST(request: NextRequest) {
 
         const finalAmount = basePrice - discountAmount;
 
-        // Generate order ID
-        const { data: orderIdResult } = await supabase.rpc('generate_order_id');
-        const orderId = orderIdResult || `SF-ORDER-${Date.now()}-${require('crypto').randomBytes(4).toString('hex')}`;
+        // Generate ID Locally to save 1 Round Trip (US -> AUS)
+        const orderId = `SF-ORDER-${Date.now()}-${require('crypto').randomBytes(4).toString('hex')}`;
 
         // Create payment order (store everything in USD)
+        logDebug(`Creating DB order...`);
         const { data: order, error: orderError } = await supabase
             .from('payment_orders')
             .insert({
@@ -190,19 +209,15 @@ export async function POST(request: NextRequest) {
                 error: 'Failed to create order'
             }, { status: 500 });
         }
-
-        // Get user profile for payment gateway
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('full_name, email')
-            .eq('id', user.id)
-            .single();
+        logDebug(`DB order created: ${order.order_id}`);
 
         // Initialize payment with gateway
+        logDebug(`Initializing Gateway ${gateway}...`);
         const { getPaymentGateway } = await import('@/lib/payment-gateways');
         const paymentGateway = getPaymentGateway(gateway.toLowerCase());
 
         // Payment gateway will handle currency conversion internally
+        const startGateway = Date.now();
         const paymentResponse = await paymentGateway.createOrder({
             orderId: order.order_id,
             amount: finalAmount, // USD amount - gateway converts if needed
@@ -215,6 +230,7 @@ export async function POST(request: NextRequest) {
                 platform: platform,
             },
         });
+        logDebug(`Gateway response received in ${Date.now() - startGateway}ms`);
 
         if (!paymentResponse.success) {
             console.error('Payment gateway error:', paymentResponse.error);
@@ -245,6 +261,7 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
     }
 }
+
 
 // Helper function to calculate price in USD
 async function calculatePrice(type: string, model: string, size: string, supabase: any): Promise<number> {

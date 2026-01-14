@@ -53,7 +53,7 @@ export class RulesService {
         const typeStr = (challengeType || '').toLowerCase();
         const groupStr = normalizedGroup;
 
-        if (typeStr.includes('funded') || typeStr.includes('master') || groupStr.includes('funded') || groupStr.includes('master')) {
+        if (typeStr.includes('funded') || typeStr.includes('master') || typeStr.includes('instant') || groupStr.includes('funded') || groupStr.includes('master') || groupStr.includes('instant')) {
             profitTargetPercent = 0;
         } else if (typeStr.includes('phase 2') || typeStr.includes('step 2') || groupStr.includes('phase 2')) {
             profitTargetPercent = 5;

@@ -35,10 +35,19 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchAccounts();
-
         // Realtime Subscription for Account Updates
         const supabase = createClient();
+
+        // Skip subscription if we are using placeholder keys (prevents console errors)
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
+            // Attempt to fetch once but don't subscribe
+            fetchAccounts();
+            return;
+        }
+
+        fetchAccounts();
+
         const channel = supabase
             .channel('realtime-accounts')
             .on(
@@ -62,6 +71,15 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
     const fetchAccounts = async () => {
         try {
+            // Check if we have a session first to avoid "No active session" error
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session) {
+                setLoading(false);
+                return;
+            }
+
             const data = await fetchFromBackend('/api/dashboard/accounts');
 
 

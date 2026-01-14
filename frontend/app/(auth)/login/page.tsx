@@ -38,9 +38,9 @@ export default function LoginPage() {
             router.refresh()
         } catch (err: any) {
             setError(err.message)
-        } finally {
             setLoading(false)
         }
+        // finally block removed to keep loading state true on success
     }
 
     return (

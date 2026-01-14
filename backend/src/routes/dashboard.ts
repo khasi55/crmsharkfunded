@@ -112,7 +112,7 @@ router.get('/trades', authenticate, async (req: AuthRequest, res: Response) => {
         // Debug Log to file
         const logPath = require('path').join(process.cwd(), 'backend_manual_debug.log');
         // fs.appendFileSync(logPath, `[${new Date().toISOString()}] Trades Request - User: ${user.id}, Account: ${accountId}, Filter: ${filter}\n`);
-        console.log(`[DASHBOARD-TRADES-HIT] User: ${user.id}, Account: ${accountId}`);
+        // console.log(`[DASHBOARD-TRADES-HIT] User: ${user.id}, Account: ${accountId}`);
 
         if (accountId) {
             // fs.appendFileSync('backend_debug.log', `[${new Date().toISOString()}] Filtering by Challenge ID: ${accountId}\n`);
@@ -277,13 +277,13 @@ console.log('✅ Dashboard routes loaded, registering /objectives endpoint...');
 // GET /api/dashboard/objectives
 // Calculates risk metrics (daily loss, total loss, profit target) from trades
 router.get('/objectives', authenticate, async (req: AuthRequest, res: Response) => {
-    console.log(`📊 Objectives endpoint HIT - Starting handler`);
+    // console.log(`📊 Objectives endpoint HIT - Starting handler`);
 
     try {
         const user = req.user;
         const { challenge_id } = req.query;
 
-        console.log(`📊 Objectives endpoint called - User: ${user?.id}, Challenge: ${challenge_id}`);
+        // console.log(`📊 Objectives endpoint called - User: ${user?.id}, Challenge: ${challenge_id}`);
 
         if (!user) {
             console.log('❌ No user - returning 401');
@@ -295,7 +295,7 @@ router.get('/objectives', authenticate, async (req: AuthRequest, res: Response) 
             return res.status(400).json({ error: 'Missing challenge_id' });
         }
 
-        console.log(`✅ Auth passed, fetching trades...`);
+        // console.log(`✅ Auth passed, fetching trades...`);
 
         // Fetch all trades for this challenge
         const { data: trades, error } = await supabase
@@ -309,9 +309,9 @@ router.get('/objectives', authenticate, async (req: AuthRequest, res: Response) 
             return res.status(500).json({ error: 'Database error' });
         }
 
-        console.log(`📊 Fetched ${trades?.length || 0} trades for challenge ${challenge_id}`);
+        // console.log(`📊 Fetched ${trades?.length || 0} trades for challenge ${challenge_id}`);
         if (trades && trades.length > 0) {
-            console.log(`   Sample trade:`, trades[0]);
+            // console.log(`   Sample trade:`, trades[0]);
         }
 
         // Fetch challenge limits and DATA
@@ -387,14 +387,14 @@ router.get('/objectives', authenticate, async (req: AuthRequest, res: Response) 
             }
         }
 
-        console.log(`📊 Objectives calculated for challenge ${challenge_id}:`);
-        console.log(`   Total trades: ${trades?.length || 0}`);
-        console.log(`   Today: ${today}`);
-        console.log(`   Daily Loss: $${dailyLoss}, Daily Profit: $${dailyProfit}`);
-        console.log(`   Total Loss: $${totalLoss}, Total Profit: $${totalProfit}`);
+        // console.log(`📊 Objectives calculated for challenge ${challenge_id}:`);
+        // console.log(`   Total trades: ${trades?.length || 0}`);
+        // console.log(`   Today: ${today}`);
+        // console.log(`   Daily Loss: $${dailyLoss}, Daily Profit: $${dailyProfit}`);
+        // console.log(`   Total Loss: $${totalLoss}, Total Profit: $${totalProfit}`);
 
         // Log for debugging
-        console.log(`🛡️ Rules Applied: Day=${rules.max_daily_loss_percent}%, Total=${rules.max_total_loss_percent}%, Target=${rules.profit_target_percent}%`);
+        // console.log(`🛡️ Rules Applied: Day=${rules.max_daily_loss_percent}%, Total=${rules.max_total_loss_percent}%, Target=${rules.profit_target_percent}%`);
 
         const responseData = {
             objectives: {
@@ -425,7 +425,7 @@ router.get('/objectives', authenticate, async (req: AuthRequest, res: Response) 
             }
         };
 
-        console.log(`📤 Sending response:`, JSON.stringify(responseData, null, 2));
+        // console.log(`📤 Sending response:`, JSON.stringify(responseData, null, 2));
         return res.json(responseData);
 
     } catch (error) {
@@ -503,7 +503,7 @@ router.get('/consistency', authenticate, async (req: AuthRequest, res: Response)
         if (!challenge_id) return res.status(400).json({ error: 'Missing challenge_id' });
 
         // Fetch trades
-        console.log(`🔍 Consistency Check - Challenge: ${challenge_id}, User: ${user.id}`);
+        // console.log(`🔍 Consistency Check - Challenge: ${challenge_id}, User: ${user.id}`);
 
         const { data: trades, error } = await supabase
             .from('trades')
@@ -516,16 +516,16 @@ router.get('/consistency', authenticate, async (req: AuthRequest, res: Response)
             throw error;
         }
 
-        console.log(`✅ Found ${trades?.length || 0} trades for consistency.`);
+        // console.log(`✅ Found ${trades?.length || 0} trades for consistency.`);
 
         // Calculate consistency
         const winningTrades = (trades || []).filter(t => Number(t.profit_loss) > 0);
-        console.log(`📊 Stats: Total Trades=${trades?.length}, Winning=${winningTrades.length}`);
+        // console.log(`📊 Stats: Total Trades=${trades?.length}, Winning=${winningTrades.length}`);
 
         const totalProfit = winningTrades.reduce((sum, t) => sum + Number(t.profit_loss), 0);
         const largestWin = winningTrades.reduce((max, t) => Math.max(max, Number(t.profit_loss)), 0);
 
-        console.log(`💰 Profit: Total=${totalProfit}, Largest=${largestWin}`);
+        // console.log(`💰 Profit: Total=${totalProfit}, Largest=${largestWin}`);
 
         // Score logic: 100 - (Largest Win / Total Profit * 100)
         let consistencyScore = 100;
@@ -535,7 +535,7 @@ router.get('/consistency', authenticate, async (req: AuthRequest, res: Response)
             concentration = (largestWin / totalProfit) * 100;
             consistencyScore = Math.max(0, 100 - concentration);
         }
-        console.log(`✅ Calculated Score: ${consistencyScore}% (Conc: ${concentration}%)`);
+        // console.log(`✅ Calculated Score: ${consistencyScore}% (Conc: ${concentration}%)`);
 
         // Stats
         const avgWin = winningTrades.length > 0 ? totalProfit / winningTrades.length : 0;

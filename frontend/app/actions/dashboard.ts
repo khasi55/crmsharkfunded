@@ -36,9 +36,24 @@ export async function getEquityCurveData(challengeId: string, initialBalance: nu
     // Fetch challenge details (status, current_equity) along with trades
     const { data: challenge } = await supabase
         .from('challenges')
-        .select('status, current_equity')
+        .select('status, current_equity, created_at')
         .eq('id', challengeId)
         .single();
+
+    // 2b. Calculate Prior PnL if period is filtered
+    let priorPnL = 0;
+    if (period !== 'ALL') {
+        const { data: priorTrades } = await supabase
+            .from('trades')
+            .select('profit_loss, commission, swap')
+            .eq('challenge_id', challengeId)
+            .lt('close_time', startDate.toISOString())
+            .not('close_time', 'is', null);
+
+        if (priorTrades) {
+            priorPnL = priorTrades.reduce((sum, t) => sum + (t.profit_loss || 0) + (t.commission || 0) + (t.swap || 0), 0);
+        }
+    }
 
     // Fetch all closed trades for this account
     // Must select commission and swap too
@@ -55,36 +70,37 @@ export async function getEquityCurveData(challengeId: string, initialBalance: nu
         return [];
     }
 
-    // 3. Compute Cumulative Equity from Closed Trades
-    let runningEquity = initialBalance;
-    let runningProfit = 0;
+    // 3. Compute Cumulative Equity from Closed Trades (Trade-Wise)
+    let runningEquity = initialBalance + priorPnL;
+    let runningProfit = priorPnL;
 
-    // Group trades by day
-    const tradesByDay: Record<string, number> = {};
-    if (trades) {
-        trades.forEach(t => {
-            const date = new Date(t.close_time).toISOString().split('T')[0];
-            const grossPnl = t.profit_loss || 0;
-            const fees = (t.commission || 0) + (t.swap || 0);
-            const netPnl = grossPnl + fees;
+    const equityCurve = (trades || []).map(t => {
+        const grossPnl = t.profit_loss || 0;
+        const fees = (t.commission || 0) + (t.swap || 0);
+        const netPnl = grossPnl + fees;
 
-            tradesByDay[date] = (tradesByDay[date] || 0) + netPnl;
-        });
-    }
+        runningEquity += netPnl;
+        runningProfit += netPnl;
 
-    const sortedDays = Object.keys(tradesByDay).sort();
-
-    const equityCurve = sortedDays.map(date => {
-        const dailyPnL = tradesByDay[date];
-        runningEquity += dailyPnL;
-        runningProfit += dailyPnL;
+        const dateObj = new Date(t.close_time);
 
         return {
-            date: date,
+            date: t.close_time, // Full timestamp for trade-wise
             equity: runningEquity,
             profit: runningProfit,
-            displayDate: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+            displayDate: dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
         };
+    });
+
+    // 4. Prepend Start Point of the period
+    const startPointDate = (period === 'ALL' && challenge?.created_at) ? challenge.created_at : startDate.toISOString();
+    const dObj = new Date(startPointDate);
+    // If period is ALL, use Created date.
+    equityCurve.unshift({
+        date: startPointDate,
+        equity: initialBalance + priorPnL, // Equity at start of this period
+        profit: priorPnL,
+        displayDate: dObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     });
 
     // --- MANIPULATION FOR BREACHED ACCOUNTS ---
@@ -104,18 +120,18 @@ export async function getEquityCurveData(challengeId: string, initialBalance: nu
         // Only append/fix if there is a discrepancy > $1 (to ignore floating point noise)
         // Or simplified: Just push the current equity as the "Latest" status.
 
-        // If we have points, check date
-        if (lastPoint && lastPoint.date === today) {
+        // If we have points, check date (compare YYYY-MM-DD part)
+        if (lastPoint && lastPoint.date.startsWith(today)) {
             // Overwrite today's point with Real Equity
             lastPoint.equity = currentEquity;
             lastPoint.profit = equityDiff;
         } else {
             // Append new point for "Now"
             equityCurve.push({
-                date: today,
+                date: new Date().toISOString(),
                 equity: currentEquity,
                 profit: equityDiff,
-                displayDate: 'Today' // or formatted date
+                displayDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
             });
         }
     }

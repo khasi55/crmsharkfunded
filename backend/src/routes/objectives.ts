@@ -23,11 +23,11 @@ router.post('/calculate', authenticate, async (req: AuthRequest, res: Response) 
     // console.log(`📊 OBJECTIVES CALCULATE ENDPOINT HIT`);
 
     try {
-        console.log("📊 OBJECTIVES HANDLER V3 - Checking for Breach Reason");
+        // console.log("📊 OBJECTIVES HANDLER V3 - Checking for Breach Reason");
         const { challenge_id } = req.body;
 
 
-        fs.appendFileSync('backend_request_debug.log', `[OBJ-ENTRY] Body: ${JSON.stringify(req.body)}\n`);
+        // fs.appendFileSync('backend_request_debug.log', `[OBJ-ENTRY] Body: ${JSON.stringify(req.body)}\n`);
 
         if (!challenge_id) {
             fs.appendFileSync('backend_request_debug.log', `[OBJ-ERROR] Missing Challenge ID\n`);
@@ -119,14 +119,14 @@ router.post('/calculate', authenticate, async (req: AuthRequest, res: Response) 
         });
 
         // Fetch challenge data with live equity/balance
-        console.log(`🔍 [DEBUG] Fetching challenge columns: current_equity, initial_balance...`);
+        // console.log(`🔍 [DEBUG] Fetching challenge columns: current_equity, initial_balance...`);
         const { data: challenge } = await supabase
             .from('challenges')
             .select('current_equity, initial_balance, start_of_day_equity, current_balance')
             .eq('id', challenge_id)
             .single();
 
-        fs.appendFileSync('backend_request_debug.log', `[DB-DATA] Challenge: ${JSON.stringify(challenge)}\n`);
+        // fs.appendFileSync('backend_request_debug.log', `[DB-DATA] Challenge: ${JSON.stringify(challenge)}\n`);
 
         // --- DYNAMIC RULES CALCULATION ---
         // Use centralized RulesService to determin limits based on Group & Account Size
@@ -206,7 +206,7 @@ router.post('/calculate', authenticate, async (req: AuthRequest, res: Response) 
             }
         }
 
-        console.log(`📊 Backend Realized PnL (Adjusted for Breach): ${realizedPnL}`);
+        // console.log(`📊 Backend Realized PnL (Adjusted for Breach): ${realizedPnL}`);
 
         // Keep stats mainly for informational "Trade Analysis"
         // But override the Risk Metrics with the Live Equity Values above.
@@ -250,7 +250,7 @@ router.post('/calculate', authenticate, async (req: AuthRequest, res: Response) 
 
 
         // Use relative path to match server.ts
-        fs.appendFileSync('backend_request_debug.log', `[OBJECTIVES-RESP] ${JSON.stringify(responsePayload)}\n`);
+        // fs.appendFileSync('backend_request_debug.log', `[OBJECTIVES-RESP] ${JSON.stringify(responsePayload)}\n`);
 
         return res.json(responsePayload);
 

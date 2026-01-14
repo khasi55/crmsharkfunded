@@ -201,11 +201,12 @@ export default function EquityCurveChart() {
                             dy={10}
                         />
                         <YAxis
+                            domain={['auto', 'auto']}
                             stroke="#374151"
                             tick={{ fill: '#6b7280', fontSize: 11, fontWeight: 500 }}
                             tickLine={false}
                             axisLine={false}
-                            tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                            tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`}
                             dx={-10}
                         />
                         <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#ffffff20', strokeWidth: 1 }} />

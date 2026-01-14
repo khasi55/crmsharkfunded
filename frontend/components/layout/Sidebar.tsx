@@ -16,7 +16,8 @@ import {
     Settings,
     LogOut,
     ChevronLeft,
-    Swords
+    Swords,
+    Sparkles
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -36,6 +37,7 @@ const menuItems = [
     { icon: Calendar, label: "Calendar", href: "/economics" },
     { icon: Wallet, label: "Payouts", href: "/payouts" },
     { icon: Users, label: "Affiliate", href: "/affiliate" },
+    { icon: Sparkles, label: "Zenvestt", href: "/zenvestt" },
     { icon: Settings, label: "Settings", href: "/settings" },
 ];
 
@@ -92,6 +94,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         src="/sidebar-overlay.png"
                         alt=""
                         fill
+                        sizes="260px"
                         className="object-cover object-top"
                         priority
                     />

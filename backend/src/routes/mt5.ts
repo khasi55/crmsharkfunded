@@ -60,6 +60,43 @@ router.get('/accounts', async (req: Request, res: Response) => {
         if (challenges && challenges.length > 0) {
             const userIds = Array.from(new Set(challenges.map((c: any) => c.user_id).filter(Boolean)));
 
+            const challengeIds = challenges.map((c: any) => c.id);
+            // Extract order_ids from metadata (legacy/website created)
+            const orderIds = challenges
+                .map((c: any) => c.metadata?.order_id)
+                .filter((id: any) => typeof id === 'string' && id.startsWith('SF-'));
+
+            // Fetch orders by challenge_id OR order_id
+            let orders: any[] = [];
+
+            // 1. Fetch by linked challenge_id
+            const { data: linkedOrders } = await supabase
+                .from('payment_orders')
+                .select('challenge_id, order_id, payment_gateway, payment_method')
+                .in('challenge_id', challengeIds);
+
+            orders = linkedOrders || [];
+
+            // 2. Fetch by metadata order_id (if needed)
+            if (orderIds.length > 0) {
+                const { data: metaOrders } = await supabase
+                    .from('payment_orders')
+                    .select('challenge_id, order_id, payment_gateway, payment_method')
+                    .in('order_id', orderIds);
+
+                // Merge avoiding duplicates if possible, though strict dedupe isn't critical for map
+                if (metaOrders) {
+                    orders = [...orders, ...metaOrders];
+                }
+            }
+
+            // Deduplicate and Map
+            const orderMap = new Map();
+            orders.forEach((o: any) => {
+                if (o.challenge_id) orderMap.set(o.challenge_id, o); // Primary Link
+                if (o.order_id) orderMap.set(o.order_id, o);         // Secondary Link (Metadata key)
+            });
+
             const { data: profiles } = await supabase
                 .from('profiles')
                 .select('id, full_name, email')
@@ -67,11 +104,28 @@ router.get('/accounts', async (req: Request, res: Response) => {
 
             const profileMap = new Map(profiles?.map((p: any) => [p.id, p]));
 
-            accountsWithProfiles = challenges.map((c: any) => ({
-                ...c,
-                profiles: profileMap.get(c.user_id) || { full_name: 'Unknown', email: 'No email' },
-                plan_type: c.metadata?.plan_type || c.plan_type
-            }));
+            accountsWithProfiles = challenges.map((c: any) => {
+                // Try to find order by challenge ID first, then by metadata order_id
+                let order = orderMap.get(c.id);
+                if (!order && c.metadata?.order_id) {
+                    order = orderMap.get(c.metadata.order_id);
+                }
+
+                // Merge payment metadata if exists
+                const metadata = c.metadata || {};
+
+                if (order) {
+                    metadata.payment_provider = order.payment_gateway; // e.g. 'sharkpay'
+                    metadata.payment_method = order.payment_method;     // e.g. 'upi'
+                }
+
+                return {
+                    ...c,
+                    profiles: profileMap.get(c.user_id) || { full_name: 'Unknown', email: 'No email' },
+                    plan_type: metadata.plan_type || c.plan_type,
+                    metadata: metadata
+                };
+            });
         }
 
         res.json({ accounts: accountsWithProfiles, total: accountsWithProfiles.length });
@@ -85,11 +139,11 @@ router.get('/accounts', async (req: Request, res: Response) => {
 // POST /api/mt5/assign - Assign new MT5 account to user
 router.post('/assign', async (req, res: Response) => {
     try {
-        const { email, mt5Group, accountSize, planType } = req.body;
+        const { email, mt5Group, accountSize, planType, note, imageUrl } = req.body;
 
         // Validate required fields
-        if (!email || !mt5Group || !accountSize || !planType) {
-            res.status(400).json({ error: 'Missing required fields' });
+        if (!email || !mt5Group || !accountSize || !planType || !note || !imageUrl) {
+            res.status(400).json({ error: 'Missing required fields (Note and Proof are mandatory)' });
             return;
         }
 
@@ -172,7 +226,9 @@ router.post('/assign', async (req, res: Response) => {
                 challenge_type: challengeType,
                 metadata: {
                     plan_type: planType,
-                    assigned_via: 'admin_manual'
+                    assigned_via: 'admin_manual',
+                    assignment_note: note,
+                    assignment_image_url: imageUrl
                 }
             })
             .select()

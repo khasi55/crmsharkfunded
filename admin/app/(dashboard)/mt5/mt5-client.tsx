@@ -10,17 +10,28 @@ interface Account {
     user_id: string;
     challenge_number: string | null;
     initial_balance: number;
+    current_balance?: number;
+    current_equity?: number;
     plan_type: string;
     login: number | null;
     status: string;
     challenge_type: string;
     created_at: string;
     mt5_group?: string;
+    server?: string;
     profiles?: {
         full_name: string | null;
         email: string | null;
     };
     challenge_category?: string;
+    metadata?: {
+        assigned_via?: string;
+        plan_type?: string;
+        assignment_note?: string;
+        assignment_image_url?: string;
+        payment_provider?: string;
+        [key: string]: any;
+    };
 }
 
 export default function AdminMT5Client() {
@@ -33,6 +44,9 @@ export default function AdminMT5Client() {
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [sizeFilter, setSizeFilter] = useState<string>("all");
     const [groupFilter, setGroupFilter] = useState<string>("all");
+    const [sourceFilter, setSourceFilter] = useState<string>("all");
+    const [dateFrom, setDateFrom] = useState<string>("");
+    const [dateTo, setDateTo] = useState<string>("");
     const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => {
@@ -41,7 +55,7 @@ export default function AdminMT5Client() {
 
     useEffect(() => {
         applyFilters();
-    }, [accounts, activeTab, statusFilter, sizeFilter, groupFilter, searchQuery]);
+    }, [accounts, activeTab, statusFilter, sizeFilter, groupFilter, sourceFilter, dateFrom, dateTo, searchQuery]);
 
     const fetchAccounts = async () => {
         setLoading(true);
@@ -58,6 +72,46 @@ export default function AdminMT5Client() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleExport = () => {
+        const headers = [
+            "ID", "Name", "Email", "Login", "Server",
+            "Initial Balance", "Current Balance", "Equity",
+            "Type", "Plan", "Group", "Source", "Status", "Date"
+        ];
+
+        const csvContent = filteredAccounts.map(account => {
+            const source = account.metadata?.assigned_via === 'admin_manual'
+                ? 'Admin Assigned'
+                : (account.metadata?.payment_provider || 'Checkout');
+
+            return [
+                account.id,
+                account.profiles?.full_name || "Unknown",
+                account.profiles?.email || "No email",
+                account.login || "-",
+                account.server || "Mazi Finance",
+                account.initial_balance,
+                account.current_balance || 0,
+                account.current_equity || 0,
+                account.challenge_type,
+                account.plan_type,
+                account.mt5_group || "-",
+                source,
+                account.status,
+                new Date(account.created_at).toLocaleDateString()
+            ].map(field => `"${field}"`).join(",");
+        }).join("\n");
+
+        const blob = new Blob([headers.join(",") + "\n" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `mt5_accounts_export_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     const applyFilters = () => {
@@ -100,8 +154,30 @@ export default function AdminMT5Client() {
             filtered = filtered.filter(a => a.initial_balance === size);
         }
 
+        // Group filter
         if (groupFilter !== "all") {
             filtered = filtered.filter(a => a.mt5_group === groupFilter);
+        }
+
+        // Source filter
+        if (sourceFilter !== "all") {
+            if (sourceFilter === "admin") {
+                filtered = filtered.filter(a => a.metadata?.assigned_via === 'admin_manual');
+            } else if (sourceFilter === "checkout") {
+                filtered = filtered.filter(a => a.metadata?.assigned_via !== 'admin_manual');
+            }
+        }
+
+        // Date Range filter
+        if (dateFrom) {
+            const from = new Date(dateFrom);
+            filtered = filtered.filter(a => new Date(a.created_at) >= from);
+        }
+        if (dateTo) {
+            const to = new Date(dateTo);
+            // End of day adjustment
+            to.setHours(23, 59, 59, 999);
+            filtered = filtered.filter(a => new Date(a.created_at) <= to);
         }
 
         // Search filter
@@ -139,6 +215,24 @@ export default function AdminMT5Client() {
                 <div>
                     <h1 className="text-2xl font-semibold text-gray-900">MT5 Accounts</h1>
                     <p className="text-sm text-gray-600 mt-1">Manage all MT5 trading accounts</p>
+                </div>
+                <div className="flex gap-3">
+                    <button
+                        onClick={handleExport}
+                        className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                        <svg className="mr-2 h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Export CSV
+                    </button>
+                    <Link
+                        href="/mt5/assign"
+                        className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Assign Account
+                    </Link>
                 </div>
             </div>
 
@@ -186,72 +280,111 @@ export default function AdminMT5Client() {
 
             {/* Filters */}
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                        <Filter className="h-4 w-4" />
-                        Filters:
+                <div className="flex flex-col gap-4">
+                    {/* Top Row: Search and Basic Filters */}
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                            <Filter className="h-4 w-4" />
+                            Filters:
+                        </div>
+
+                        {/* Search Input */}
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Search accounts..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 w-64"
+                            />
+                        </div>
+
+                        {/* Status Filter */}
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                        >
+                            <option value="all">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="passed">Passed</option>
+                            <option value="breached">Breached</option>
+                            <option value="failed">Failed</option>
+                        </select>
+
+                        {/* Size Filter */}
+                        <select
+                            value={sizeFilter}
+                            onChange={(e) => setSizeFilter(e.target.value)}
+                            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                        >
+                            <option value="all">All Sizes</option>
+                            {uniqueSizes.map(size => (
+                                <option key={size} value={size}>${size.toLocaleString()}</option>
+                            ))}
+                        </select>
+
+                        {/* Group Filter */}
+                        <select
+                            value={groupFilter}
+                            onChange={(e) => setGroupFilter(e.target.value)}
+                            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                        >
+                            <option value="all">All MT5 Groups</option>
+                            {MT5_GROUP_FILTERS.map(group => (
+                                <option key={group.value} value={group.value}>{group.label}</option>
+                            ))}
+                        </select>
+
+                        {/* Source Filter */}
+                        <select
+                            value={sourceFilter}
+                            onChange={(e) => setSourceFilter(e.target.value)}
+                            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                        >
+                            <option value="all">All Sources</option>
+                            <option value="admin">Admin Assigned</option>
+                            <option value="checkout">Checkout / Payment Gateway</option>
+                        </select>
                     </div>
 
-                    {/* Search Input */}
-                    <div className="relative">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
-                        <input
-                            type="text"
-                            placeholder="Search accounts..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 w-64"
-                        />
+                    {/* Bottom Row: Date Filters */}
+                    <div className="flex items-center gap-4 pt-2 border-t border-gray-100">
+                        <span className="text-sm font-medium text-gray-700">Created Between:</span>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="date"
+                                value={dateFrom}
+                                onChange={(e) => setDateFrom(e.target.value)}
+                                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                            />
+                            <span className="text-gray-400">to</span>
+                            <input
+                                type="date"
+                                value={dateTo}
+                                onChange={(e) => setDateTo(e.target.value)}
+                                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                            />
+                        </div>
+
+                        {(dateFrom || dateTo || statusFilter !== "all" || sizeFilter !== "all" || groupFilter !== "all" || sourceFilter !== "all" || searchQuery) && (
+                            <button
+                                onClick={() => {
+                                    setDateFrom("");
+                                    setDateTo("");
+                                    setStatusFilter("all");
+                                    setSizeFilter("all");
+                                    setGroupFilter("all");
+                                    setSourceFilter("all");
+                                    setSearchQuery("");
+                                }}
+                                className="ml-auto text-sm text-red-600 hover:text-red-700 font-medium hover:underline"
+                            >
+                                Clear All Filters
+                            </button>
+                        )}
                     </div>
-
-                    {/* Status Filter */}
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
-                    >
-                        <option value="all">All Status</option>
-                        <option value="active">Active</option>
-                        <option value="passed">Passed</option>
-                        <option value="breached">Breached</option>
-                        <option value="failed">Failed</option>
-                    </select>
-
-                    {/* Size Filter */}
-                    <select
-                        value={sizeFilter}
-                        onChange={(e) => setSizeFilter(e.target.value)}
-                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
-                    >
-                        <option value="all">All Sizes</option>
-                        {uniqueSizes.map(size => (
-                            <option key={size} value={size}>${size.toLocaleString()}</option>
-                        ))}
-                    </select>
-
-                    {/* Group Filter */}
-                    <select
-                        value={groupFilter}
-                        onChange={(e) => setGroupFilter(e.target.value)}
-                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
-                    >
-                        <option value="all">All MT5 Groups</option>
-                        {MT5_GROUP_FILTERS.map(group => (
-                            <option key={group.value} value={group.value}>{group.label}</option>
-                        ))}
-                    </select>
-
-                    <button
-                        onClick={() => {
-                            setStatusFilter("all");
-                            setSizeFilter("all");
-                            setGroupFilter("all");
-                            setSearchQuery("");
-                        }}
-                        className="ml-auto text-sm text-indigo-600 hover:text-indigo-700 font-medium"
-                    >
-                        Clear Filters
-                    </button>
                 </div>
             </div>
 
@@ -321,6 +454,7 @@ export default function AdminMT5Client() {
                                 <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Size</th>
                                 <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">MT5 Login</th>
                                 <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Group</th>
+                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Source</th>
                                 <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Status</th>
                                 <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Created</th>
                             </tr>
@@ -328,13 +462,13 @@ export default function AdminMT5Client() {
                         <tbody className="divide-y divide-gray-200">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                                         Loading accounts...
                                     </td>
                                 </tr>
                             ) : filteredAccounts.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                                         No accounts found matching your filters.
                                     </td>
                                 </tr>
@@ -365,6 +499,17 @@ export default function AdminMT5Client() {
                                         </td>
                                         <td className="px-6 py-4 font-medium text-xs text-gray-700 font-mono">
                                             {account.mt5_group || "-"}
+                                        </td>
+                                        <td className="px-6 py-4 text-xs">
+                                            {account.metadata?.assigned_via === 'admin_manual' ? (
+                                                <span className="inline-flex items-center px-2 py-1 rounded bg-purple-50 text-purple-700 font-medium">
+                                                    Admin Assigned
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center px-2 py-1 rounded bg-gray-100 text-gray-700 font-medium capitalize">
+                                                    {account.metadata?.payment_provider || "Checkout"}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4">
                                             <StatusBadge status={account.status} />
