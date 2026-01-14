@@ -265,11 +265,14 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
 
     } catch (e: any) {
         if (e.code !== 'ECONNREFUSED' && attempt <= MAX_RETRIES) {
-            console.warn(`⚠️ Risk Batch failed (Attempt ${attempt}/${MAX_RETRIES}). Retrying in 100ms...`);
+            // console.warn(`⚠️ Risk Batch failed (Attempt ${attempt}/${MAX_RETRIES}). Retrying in 100ms...`);
             await new Promise(resolve => setTimeout(resolve, 100));
             return processBatch(challenges, riskGroups, attempt + 1);
         } else {
-            console.error("❌ Error processing risk batch:", e.message);
+            // Only log critical errors, not just connectivity flakes
+            if (e.message && !e.message.includes('522')) {
+                console.error("❌ Risk Scheduler Error:", e.message);
+            }
         }
     }
 }
