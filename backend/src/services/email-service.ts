@@ -129,6 +129,10 @@ export class EmailService {
                     Prepare your strategy, manage your risk, and compete with the best traders.
                 </p>
 
+                <div style="background-color: #fff3cd; color: #856404; padding: 12px; border-radius: 4px; margin: 15px 0; border: 1px solid #ffeeba;">
+                    <strong>ℹ️ Important:</strong> The competition starts this coming <strong>Monday (19th January 2026)</strong>. Trading begins on that day.
+                </div>
+
                 <p style="font-size: 14px; color: #444;">
                     We wish you strong discipline, sharp execution, and a profitable journey ahead.
                 </p>
@@ -148,6 +152,8 @@ ${competitionTitle}
 
 You are now officially part of the Shark Battle Ground.
 Prepare your strategy and compete with the best.
+
+IMPORTANT: The competition starts this coming Monday. Trading begins on that day.
 
 Best regards,
 Shark Funded Team
