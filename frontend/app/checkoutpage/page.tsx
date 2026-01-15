@@ -227,8 +227,8 @@ function CheckoutContent() {
                                         <div className="space-y-1">
                                             {type.features.map(f => (
                                                 <div key={f} className="flex items-center gap-1.5 text-[10px]">
-                                                    <Check size={10} className={cn(challengeType === type.id ? "text-blue-400" : "text-slate-600")} />
-                                                    <span className={cn(challengeType === type.id ? "text-slate-300" : "text-slate-600")}>{f}</span>
+                                                    <Check size={10} className={cn(challengeType === type.id ? "text-blue-600" : "text-slate-600")} />
+                                                    <span className={cn(challengeType === type.id ? "text-[#0a0d20] font-medium" : "text-slate-600")}>{f}</span>
                                                 </div>
                                             ))}
                                         </div>
