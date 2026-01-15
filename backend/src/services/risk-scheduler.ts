@@ -65,9 +65,9 @@ async function runRiskCheck() {
             const chunk = challenges.slice(i, i + BATCH_SIZE);
             await processBatch(chunk, riskGroups || []);
 
-            // Rate limit: Sleep 200ms between batches to prevent bridge overload
+            // Rate limit: Sleep 500ms between batches to prevent bridge overload
             if (i + BATCH_SIZE < challenges.length) {
-                await new Promise(resolve => setTimeout(resolve, 200));
+                await new Promise(resolve => setTimeout(resolve, 500));
             }
         }
 
@@ -266,8 +266,8 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
 
     } catch (e: any) {
         if (e.code !== 'ECONNREFUSED' && attempt <= MAX_RETRIES) {
-            // console.warn(`⚠️ Risk Batch failed (Attempt ${attempt}/${MAX_RETRIES}). Retrying in 100ms...`);
-            await new Promise(resolve => setTimeout(resolve, 100));
+            // console.warn(`⚠️ Risk Batch failed (Attempt ${attempt}/${MAX_RETRIES}). Retrying in 500ms...`);
+            await new Promise(resolve => setTimeout(resolve, 500));
             return processBatch(challenges, riskGroups, attempt + 1);
         } else {
             // Only log critical errors, not just connectivity flakes

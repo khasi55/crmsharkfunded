@@ -69,7 +69,8 @@ async function processBatch(challenges: any[], attempt = 1) {
         const trades: any[] = [];
 
         // Parallelize with concurrency limit (e.g. 5 concurrent requests)
-        const CONCURRENCY = 5;
+        // Parallelize with concurrency limit (Reduced to 1 for stability)
+        const CONCURRENCY = 1;
         for (let i = 0; i < logins.length; i += CONCURRENCY) {
             const chunk = logins.slice(i, i + CONCURRENCY);
             const chunkPromises = chunk.map(login => fetchMT5Trades(login).catch((err: any) => {
@@ -81,6 +82,11 @@ async function processBatch(challenges: any[], attempt = 1) {
             chunkResults.forEach(res => {
                 if (Array.isArray(res)) trades.push(...res);
             });
+
+            // Polite Delay to prevent ECONNRESET
+            if (i + CONCURRENCY < logins.length) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
         }
 
         if (trades.length === 0) return;

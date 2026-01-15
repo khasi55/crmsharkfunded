@@ -1,5 +1,6 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
+import { EmailService } from '../services/email-service';
 
 // ============================================
 // TYPES (Mirrored from original engine)
@@ -83,6 +84,7 @@ export class CoreRiskEngine {
      */
     async logViolation(challengeId: string, userId: string, violation: RiskViolation): Promise<void> {
         try {
+            // 1. Log to DB
             await this.supabase.from('core_risk_violations').insert({
                 challenge_id: challengeId,
                 user_id: userId,
@@ -94,8 +96,35 @@ export class CoreRiskEngine {
                 trade_ticket: violation.trade_ticket,
                 metadata: violation.metadata
             });
+
+            // 2. Send Email Notification
+            // Fetch Account Login
+            const { data: challenge } = await this.supabase
+                .from('challenges')
+                .select('login')
+                .eq('id', challengeId)
+                .single();
+
+            // Fetch User Profile
+            const { data: profile } = await this.supabase
+                .from('profiles')
+                .select('email, full_name')
+                .eq('id', userId)
+                .single();
+
+            if (challenge && profile && profile.email) {
+                console.log(`📧 Sending breach notification to ${profile.email} for account ${challenge.login}`);
+                await EmailService.sendBreachNotification(
+                    profile.email,
+                    profile.full_name || 'Trader',
+                    String(challenge.login),
+                    violation.violation_type,
+                    violation.description
+                );
+            }
+
         } catch (error) {
-            console.error('Failed to log core violation:', error);
+            console.error('Failed to log core violation or send email:', error);
         }
     }
 

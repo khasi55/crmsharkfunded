@@ -1,6 +1,7 @@
 import { Router, Response, Request } from 'express';
 import { supabase } from '../lib/supabase';
 import { createMT5Account } from '../lib/mt5-bridge';
+import { EmailService } from '../services/email-service';
 
 const router = Router();
 
@@ -139,6 +140,12 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             mt5Group = 'demo\\s\\0-sf';
         }
 
+        // Override for Competitions
+        if (internalOrderId && String(internalOrderId).startsWith('SF-COMP')) {
+            mt5Group = 'demo\\SF\\2-Pro';
+            console.log('🏆 Detected Competition Order. Enforcing group:', mt5Group);
+        }
+
         const mt5Data = await createMT5Account({
             name: fullName,
             email: email,
@@ -179,7 +186,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
                 login: mt5Data.login,
                 master_password: mt5Data.password,
                 investor_password: mt5Data.investor_password || '',
-                server: mt5Data.server || 'Mazi Finance',
+                server: mt5Data.server || 'ALFX Limited',
                 platform: order.platform,
                 leverage: order.account_types.leverage,
             })
@@ -195,6 +202,18 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         }
 
         console.log('✅ Account created successfully for order:', internalOrderId);
+
+        // Send Email Credentials
+        if (email) {
+            await EmailService.sendAccountCredentials(
+                email,
+                fullName,
+                String(mt5Data.login),
+                mt5Data.password,
+                mt5Data.server || 'ALFX Limited',
+                mt5Data.investor_password
+            );
+        }
 
         if (req.method === 'GET') {
             return res.redirect(`${process.env.FRONTEND_URL}/payment/success?orderId=${internalOrderId}&amount=${order.amount}`);

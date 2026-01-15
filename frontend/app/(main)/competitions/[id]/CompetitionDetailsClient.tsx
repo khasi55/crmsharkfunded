@@ -173,9 +173,22 @@ export default function CompetitionDetailsClient({ competitionId }: { competitio
                 }
             } else {
                 // FREE FLOW
+                const { createClient } = await import("@/utils/supabase/client");
+                const supabase = createClient();
+                const { data: { session } } = await supabase.auth.getSession();
+
+                if (!session?.access_token) {
+                    alert("Please login to join");
+                    setJoining(false);
+                    return;
+                }
+
                 const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'}/api/competitions/${competitionId}/join`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`
+                    },
                     body: JSON.stringify({
                         user_id: userId
                     })

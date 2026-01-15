@@ -2,6 +2,7 @@ import { Router, Response, Request } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { createMT5Account } from '../lib/mt5-bridge';
+import { EmailService } from '../services/email-service';
 
 const router = Router();
 // const MT5_BRIDGE_URL = process.env.MT5_BRIDGE_URL || 'http://localhost:8000';
@@ -218,7 +219,7 @@ router.post('/assign', async (req, res: Response) => {
                 login: mt5Login,
                 master_password: masterPassword,
                 investor_password: investorPassword,
-                server: 'Mazi Finance',
+                server: 'ALFX Limited',
                 platform: 'MT5',
                 group: finalGroup, // Save the assigned group
                 leverage: 100,
@@ -240,25 +241,18 @@ router.post('/assign', async (req, res: Response) => {
             return;
         }
 
-        // 5. Send email with credentials (asynchronously - fire and forget)
-        // We don't await this so the UI response is instant
-        fetch(process.env.API_URL + '/api/email/send-account-credentials', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                email: profile.email,
-                name: profile.full_name || 'Trader',
-                accountSize: accountSize,
-                login: mt5Login,
-                masterPassword: masterPassword,
-                investorPassword: investorPassword,
-                server: 'Mazi Finance',
-                mt5Group: mt5Group,
-                planType: planType,
-            }),
-        }).catch(emailError => {
-            console.error('Email sending failed (async):', emailError);
-        });
+        // 5. Send email with credentials (asynchronously)
+        // We don't await this so the UI response is instant, but we use the service directly now
+        if (profile.email) {
+            EmailService.sendAccountCredentials(
+                profile.email,
+                profile.full_name || 'Trader',
+                String(mt5Login),
+                masterPassword,
+                'ALFX Limited',
+                investorPassword
+            ).catch(err => console.error("Async Email Error:", err));
+        }
 
         res.json({
             success: true,

@@ -1,6 +1,7 @@
 import express, { Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { EmailService } from '../services/email-service';
 
 const router = express.Router();
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -113,7 +114,7 @@ router.post('/:id/join', authenticate, async (req: AuthRequest, res: Response) =
         // Fetch competition to get account settings
         const { data: competition, error: compError } = await supabase
             .from('competitions')
-            .select('initial_balance, platform')
+            .select('initial_balance, platform, title')
             .eq('id', id)
             .single();
 
@@ -149,7 +150,7 @@ router.post('/:id/join', authenticate, async (req: AuthRequest, res: Response) =
                 body: JSON.stringify({
                     name: profile?.full_name || 'Trader',
                     email: profile?.email,
-                    group: 'demo\\S\\Competition', // Default competition group
+                    group: 'demo\\comp', // Updated competition group as per user request
                     leverage: 100,
                     balance: initialBalance, // Dynamic Balance
                     callback_url: callbackUrl
@@ -172,7 +173,7 @@ router.post('/:id/join', authenticate, async (req: AuthRequest, res: Response) =
                         login: mt5Data.login,
                         master_password: mt5Data.password,
                         investor_password: mt5Data.investor_password || '',
-                        server: 'Mazi Finance',
+                        server: 'ALFX Limited', // Using updated server name
                         platform: 'MT5',
                         leverage: 100,
                         challenge_type: 'Competition', // Correct type for competitions
@@ -197,6 +198,29 @@ router.post('/:id/join', authenticate, async (req: AuthRequest, res: Response) =
                         status: 'active'
                     })
                     .eq('id', participant.id);
+
+                // 5. Send Emails
+                if (profile && profile.email) {
+                    try {
+                        // Competition Joined Email
+                        await EmailService.sendCompetitionJoined(profile.email, profile.full_name || 'Trader', competition?.title || 'Competition');
+
+                        // Account Credentials Email
+                        await EmailService.sendAccountCredentials(
+                            profile.email,
+                            profile.full_name || 'Trader',
+                            String(mt5Data.login),
+                            mt5Data.password,
+                            'ALFX Limited',
+                            mt5Data.investor_password
+                        );
+                    } catch (emailErr) {
+                        console.error("❌ Error sending competition emails:", emailErr);
+                    }
+                }
+            } else {
+                const errText = await bridgeResponse.text();
+                console.error(`❌ MT5 Bridge Failed: ${bridgeResponse.status} ${bridgeResponse.statusText} - ${errText}`);
             }
         } catch (mt5Error) {
             console.error('Failed to create MT5 account for competition join:', mt5Error);

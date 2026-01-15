@@ -24,8 +24,16 @@ export async function createMT5Account(params: MT5AccountParams) {
     });
 
     if (!response.ok) {
-        const errorData = await response.json() as any;
-        throw new Error(errorData.detail || 'Failed to create MT5 account via bridge');
+        let errorMsg = 'Failed to create MT5 account via bridge';
+        try {
+            const errorData = await response.json() as any;
+            errorMsg = errorData.detail || errorMsg;
+        } catch (e) {
+            // If JSON parse fails, it's likely an HTML error page (502/504/524)
+            const text = await response.text().catch(() => 'No response body');
+            errorMsg = `Bridge Error ${response.status}: ${text.substring(0, 200)}...`;
+        }
+        throw new Error(errorMsg);
     }
 
     return await response.json() as any;

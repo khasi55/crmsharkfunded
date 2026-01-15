@@ -2,6 +2,7 @@ import express from 'express';
 import { supabase } from '../lib/supabase'; // Adjust path if needed
 import { authenticate } from '../middleware/auth'; // Ensure admin auth
 import { RulesService } from '../services/rules-service'; // Import RulesService
+import { EmailService } from '../services/email-service'; // Import EmailService
 
 const router = express.Router();
 
@@ -302,6 +303,28 @@ router.post('/upgrade-account', authenticate, async (req: any, res: any) => {
             } else {
                 console.log(`✅ Archived and Deleted old account ${sourceAccount.login}`);
             }
+        }
+
+        // 6. Send Credentials Email
+        // Fetch user email if not in profile, fallback is already handled in payload generation but let's be sure
+        const userEmail = payload.email;
+        const userName = `${payload.firstName} ${payload.lastName}`;
+
+        console.log(`📧 Sending credentials email to ${userEmail}...`);
+
+        // Don't await email to prevent blocking response? Or await to ensure it sent?
+        // Let's await but catch error so we don't fail the request if email fails
+        try {
+            await EmailService.sendAccountCredentials(
+                userEmail,
+                userName,
+                String(newAccountData.login),
+                newAccountData.password,
+                newAccountData.server || 'ALFX Limited',
+                newAccountData.investorPassword
+            );
+        } catch (emailErr) {
+            console.error("Failed to send credentials email:", emailErr);
         }
 
         res.json({ success: true, newAccount: newChallenge });

@@ -1,6 +1,7 @@
 import { Router, Response, Request } from 'express';
 import { supabase } from '../lib/supabase';
 import { createMT5Account } from '../lib/mt5-bridge';
+import { EmailService } from '../services/email-service';
 
 const router = Router();
 
@@ -199,6 +200,15 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         let leverage = 100;
         if (isCompetition) {
             leverage = 100;
+            mt5Group = 'demo\\SF\\2-Pro'; // FORCE Override for Competitions
+        } else if (order.metadata && order.metadata.is_competition) {
+            mt5Group = 'demo\\comp';
+        }
+
+        // Double check via Order ID pattern
+        if (String(internalOrderId).startsWith('SF-COMP')) {
+            mt5Group = 'demo\\comp';
+            console.log('🏆 Detected Competition Order via ID. Enforcing group:', mt5Group);
         }
 
         console.log(`Creating MT5 account in group: ${mt5Group} for ${fullName}`);
@@ -235,7 +245,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
                 login: mt5Data.login,
                 master_password: mt5Data.password,
                 investor_password: mt5Data.investor_password || '',
-                server: mt5Data.server || 'Mazi Finance',
+                server: mt5Data.server || 'ALFX Limited',
                 platform: order.platform,
                 leverage: leverage,
                 group: mt5Group, // Store actual used group
@@ -264,6 +274,32 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         }
 
         console.log('✅ Success: Challenge created for order', internalOrderId);
+
+        // 7. Send Emails (Credentials & Welcome)
+        if (email) {
+            console.log(`📧 Sending emails for order ${internalOrderId} to ${email}`);
+
+            // If Competition, send "Joined" email
+            if (isCompetition) {
+                await EmailService.sendCompetitionJoined(
+                    email,
+                    fullName,
+                    order.metadata?.competition_title || 'Trading Competition'
+                ).catch((e: any) => console.error('Failed to send comp joined email:', e));
+            }
+
+            // Always send Credentials
+            await EmailService.sendAccountCredentials(
+                email,
+                fullName,
+                String(mt5Data.login),
+                mt5Data.password,
+                mt5Data.server || 'ALFX Limited',
+                mt5Data.investor_password
+            ).catch((e: any) => console.error('Failed to send credentials email:', e));
+
+            console.log(`✅ Emails queued.`);
+        }
 
         // 7. Success Redirect
         if (req.method === 'GET') {

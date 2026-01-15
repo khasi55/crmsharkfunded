@@ -34,15 +34,17 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             return;
         }
 
-        // 2. Standard Supabase Auth
         const authHeader = req.headers.authorization;
+        console.log(`🔐 [AuthDebug] Header: ${authHeader ? 'Present' : 'Missing'}, Value: ${authHeader?.substring(0, 20)}...`);
+
         if (!authHeader) {
             res.status(401).json({ error: 'Missing Authorization header' });
             return;
         }
 
         const token = authHeader.split(' ')[1]; // Bearer <token>
-        if (!token) {
+        if (!token || token === 'undefined' || token === 'null') {
+            console.error('🔐 [AuthDebug] Invalid token string:', token);
             res.status(401).json({ error: 'Invalid token format' });
             return;
         }
