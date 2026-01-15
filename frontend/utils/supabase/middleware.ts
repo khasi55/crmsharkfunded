@@ -41,6 +41,19 @@ export async function updateSession(request: NextRequest) {
     // supabase.auth.getUser(). A simple mistake could make it very hard to debug
     // issues with users being randomly logged out.
 
+    // --- LOCKDOWN MODE: Redirect ALL traffic to Checkout Page ---
+    // The middleware matcher in frontend/middleware.ts excludes '/checkoutpage', '/api', and assets.
+    // So if we are here, we are on a page that should be locked (Dashboard, Login, Home, etc.).
+
+    // Allow access only to specific paths if necessary (e.g. auth callback), otherwise redirect.
+    if (!request.nextUrl.pathname.startsWith('/checkoutpage')) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/checkoutpage'
+        return NextResponse.redirect(url)
+    }
+
+    // --- OLD AUTH LOGIC (Commented Out for Lockdown) ---
+    /*
     const {
         data: { user },
     } = await supabase.auth.getUser()
@@ -72,6 +85,7 @@ export async function updateSession(request: NextRequest) {
         url.pathname = '/login'
         return NextResponse.redirect(url)
     }
+    */
 
     return supabaseResponse
 }

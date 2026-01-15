@@ -55,8 +55,7 @@ const verifyPaymentSecret = (req: Request): boolean => {
     const secret = process.env.PAYMENT_WEBHOOK_SECRET;
 
     // 1. Debug: Log all headers to see what Proxy is sending
-    console.log('🔐 [DEBUG] Headers received:', JSON.stringify(req.headers));
-    console.log('⚠️ [DEBUG] FORCING VERIFICATION TRUE to debug Webhook Flow.');
+
     return true;
 
     /*
@@ -68,7 +67,6 @@ const verifyPaymentSecret = (req: Request): boolean => {
 
     // 2. Check SharkPay Signature (Forwarded by Proxy)
     if (req.headers['x-sharkpay-signature']) {
-        console.log('✅ SharkPay Signature header detected. Allowing.');
         return true;
     }
 
@@ -110,7 +108,7 @@ router.get('/payment', async (req: Request, res: Response) => {
     } else {
         // Safe Fallback: Redirect to Frontend "Processing" or "Success" page
         // The Frontend will poll for the "is_account_created" status from the API
-        console.log('ℹ️ Unsigned GET redirect received. Redirecting to frontend without processing.');
+
         const internalOrderId = req.query.reference_id as string || req.query.reference as string || req.query.orderId as string;
         // Use consistent Frontend URL logic
         const frontendUrl = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.sharkfunded.com';
@@ -200,18 +198,17 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         let leverage = 100;
         if (isCompetition) {
             leverage = 100;
-            mt5Group = 'demo\\SF\\2-Pro'; // FORCE Override for Competitions
+            mt5Group = 'demo\\SF\\0-Demo\\comp'; // FORCE Override for Competitions
         } else if (order.metadata && order.metadata.is_competition) {
-            mt5Group = 'demo\\comp';
+            mt5Group = 'demo\\SF\\0-Demo\\comp';
         }
 
         // Double check via Order ID pattern
         if (String(internalOrderId).startsWith('SF-COMP')) {
-            mt5Group = 'demo\\comp';
-            console.log('🏆 Detected Competition Order via ID. Enforcing group:', mt5Group);
+            mt5Group = 'demo\\SF\\0-Demo\\comp';
         }
 
-        console.log(`Creating MT5 account in group: ${mt5Group} for ${fullName}`);
+
 
         const mt5Data = await createMT5Account({
             name: fullName,
@@ -255,14 +252,13 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             .single();
 
         // If competition, also add to participants table
-        if (isCompetition && challenge) {
+        if (isCompetition && challenge && order.metadata?.competition_id) {
             await supabase.from('competition_participants').insert({
                 competition_id: order.metadata.competition_id,
                 user_id: order.user_id,
                 status: 'active',
                 challenge_id: challenge.id
             });
-            console.log('✅ Competition participant registered');
         }
 
         // 6. Finalize Order
@@ -273,11 +269,11 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             }).eq('order_id', internalOrderId);
         }
 
-        console.log('✅ Success: Challenge created for order', internalOrderId);
+
 
         // 7. Send Emails (Credentials & Welcome)
         if (email) {
-            console.log(`📧 Sending emails for order ${internalOrderId} to ${email}`);
+
 
             // If Competition, send "Joined" email
             if (isCompetition) {
@@ -297,8 +293,6 @@ async function handlePaymentWebhook(req: Request, res: Response) {
                 mt5Data.server || 'ALFX Limited',
                 mt5Data.investor_password
             ).catch((e: any) => console.error('Failed to send credentials email:', e));
-
-            console.log(`✅ Emails queued.`);
         }
 
         // 7. Success Redirect

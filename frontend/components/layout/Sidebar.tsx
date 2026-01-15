@@ -25,20 +25,20 @@ import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const menuItems = [
-    { icon: LayoutGrid, label: "Overview", href: "/overview" },
-    { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
-    { icon: Trophy, label: "Challenges", href: "/challenges" },
-    { icon: Swords, label: "Competitions", href: "/competitions" },
-    { icon: UserCheck, label: "KYC", href: "/kyc" },
-    { icon: Gift, label: "Rewards", href: "/rewards" },
-    { icon: Medal, label: "Certificates", href: "/certificates" },
-    { icon: BarChart2, label: "Ranking", href: "/ranking" },
-    { icon: Calendar, label: "Calendar", href: "/economics" },
-    { icon: Wallet, label: "Payouts", href: "/payouts" },
-    { icon: Users, label: "Affiliate", href: "/affiliate" },
-    { icon: Sparkles, label: "Zenvestt", href: "/zenvestt" },
-    { icon: Settings, label: "Settings", href: "/settings" },
+const menuItems: { icon: any, label: string, href: string }[] = [
+    // { icon: LayoutGrid, label: "Overview", href: "/overview" },
+    // { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
+    // { icon: Trophy, label: "Challenges", href: "/challenges" },
+    // { icon: Swords, label: "Competitions", href: "/competitions" },
+    // { icon: UserCheck, label: "KYC", href: "/kyc" },
+    // { icon: Gift, label: "Rewards", href: "/rewards" },
+    // { icon: Medal, label: "Certificates", href: "/certificates" },
+    // { icon: BarChart2, label: "Ranking", href: "/ranking" },
+    // { icon: Calendar, label: "Calendar", href: "/economics" },
+    // { icon: Wallet, label: "Payouts", href: "/payouts" },
+    // { icon: Users, label: "Affiliate", href: "/affiliate" },
+    // { icon: Sparkles, label: "Zenvestt", href: "/zenvestt" },
+    // { icon: Settings, label: "Settings", href: "/settings" },
 ];
 
 interface SidebarProps {

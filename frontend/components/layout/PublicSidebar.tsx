@@ -18,11 +18,11 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 
 const menuItems = [
-    { icon: Home, label: "Home", href: "/" },
+    // { icon: Home, label: "Home", href: "/" },
     { icon: CreditCard, label: "Plans", href: "/checkoutpage" },
-    { icon: Shield, label: "Features", href: "/features" },
-    { icon: HelpCircle, label: "FAQ", href: "/faq" },
-    { icon: Phone, label: "Contact", href: "/contact" },
+    // { icon: Shield, label: "Features", href: "/features" },
+    // { icon: HelpCircle, label: "FAQ", href: "/faq" },
+    // { icon: Phone, label: "Contact", href: "/contact" },
 ];
 
 interface SidebarProps {
@@ -147,7 +147,7 @@ export default function PublicSidebar({ isOpen = true, onClose }: SidebarProps) 
                     </div>
 
                     {/* Auth Buttons */}
-                    <div className="p-4 space-y-2 mt-auto">
+                    {/* <div className="p-4 space-y-2 mt-auto">
                         <Link href="/login">
                             <div className={cn(
                                 "flex items-center justify-center w-full bg-white/5 hover:bg-white/10 text-white transition-all duration-300 border border-white/10",
@@ -166,7 +166,7 @@ export default function PublicSidebar({ isOpen = true, onClose }: SidebarProps) 
                                 {!isCollapsed && "Sign Up"}
                             </div>
                         </Link>
-                    </div>
+                    </div> */}
                 </div>
             </motion.aside>
         </>

@@ -142,7 +142,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
 
         // Override for Competitions
         if (internalOrderId && String(internalOrderId).startsWith('SF-COMP')) {
-            mt5Group = 'demo\\SF\\2-Pro';
+            mt5Group = 'demo\\SF\\0-Demo\\comp';
             console.log('🏆 Detected Competition Order. Enforcing group:', mt5Group);
         }
 

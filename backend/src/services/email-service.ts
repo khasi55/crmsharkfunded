@@ -112,18 +112,46 @@ export class EmailService {
      * Send Competition Joined Confirmation
      */
     static async sendCompetitionJoined(email: string, name: string, competitionTitle: string) {
-        const subject = `Competition Entry Confirmed - ${competitionTitle}`;
+        const subject = `🏆 Entry Confirmed: Welcome to Shark Battle Ground – ${competitionTitle}`;
 
         const html = `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                <h2 style="color: #2e7d32;">You're In!</h2>
-                <p>Dear ${name},</p>
-                <p>You have successfully joined the competition: <strong>${competitionTitle}</strong>.</p>
-                <p>We wish you the best of luck!</p>
+            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #ffffff; border-radius: 12px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
+                <h2 style="color: #0d47a1; margin-bottom: 10px;">Welcome to the Battle Ground, ${name}! 🔥</h2>
+                
+                <p style="font-size: 15px; color: #333;">Your entry has been successfully confirmed for:</p>
+                
+                <div style="padding: 12px 16px; background: #f3f7ff; border-left: 4px solid #0d47a1; margin: 15px 0; font-weight: bold;">
+                    ${competitionTitle}
+                </div>
+
+                <p style="font-size: 14px; color: #444;">
+                    You are now officially part of the <strong>Shark Battle Ground</strong>.  
+                    Prepare your strategy, manage your risk, and compete with the best traders.
+                </p>
+
+                <p style="font-size: 14px; color: #444;">
+                    We wish you strong discipline, sharp execution, and a profitable journey ahead.
+                </p>
+
+                <p style="margin-top: 25px; font-size: 13px; color: #666;">
+                    Best regards,<br/>
+                    <strong>Shark Funded Team</strong>
+                </p>
             </div>
         `;
 
-        const text = `Dear ${name},\\n\\nYou have successfully joined the competition: ${competitionTitle}.\\n\\nGood luck!`;
+        const text = `
+Welcome to the Battle Ground, ${name}!
+
+Your entry has been successfully confirmed for:
+${competitionTitle}
+
+You are now officially part of the Shark Battle Ground.
+Prepare your strategy and compete with the best.
+
+Best regards,
+Shark Funded Team
+        `;
 
         await this.sendEmail(email, subject, html, text);
     }

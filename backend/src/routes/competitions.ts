@@ -150,7 +150,7 @@ router.post('/:id/join', authenticate, async (req: AuthRequest, res: Response) =
                 body: JSON.stringify({
                     name: profile?.full_name || 'Trader',
                     email: profile?.email,
-                    group: 'demo\\comp', // Updated competition group as per user request
+                    group: 'demo\\SF\\0-Demo\\comp', // Updated competition group as per user request
                     leverage: 100,
                     balance: initialBalance, // Dynamic Balance
                     callback_url: callbackUrl
@@ -203,7 +203,7 @@ router.post('/:id/join', authenticate, async (req: AuthRequest, res: Response) =
                 if (profile && profile.email) {
                     try {
                         // Competition Joined Email
-                        await EmailService.sendCompetitionJoined(profile.email, profile.full_name || 'Trader', competition?.title || 'Competition');
+                        await EmailService.sendCompetitionJoined(profile.email, profile.full_name || 'Trader', competition?.title || 'Shark Battle Ground');
 
                         // Account Credentials Email
                         await EmailService.sendAccountCredentials(
