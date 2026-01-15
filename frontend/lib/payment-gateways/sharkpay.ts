@@ -67,7 +67,7 @@ export class SharkPayGateway implements PaymentGateway {
                 name: params.customerName,
                 email: params.customerEmail,
                 reference_id: params.orderId, // Our internal order ID
-                success_url: `${backendUrl}/api/webhooks/payment?reference_id=${params.orderId}&status=success`,
+                success_url: `${frontendUrl}/payment/success?orderId=${params.orderId}`,
                 failed_url: `${frontendUrl}/payment/failed`,
                 callback_url: `${backendUrl}/api/webhooks/payment`,
             };
