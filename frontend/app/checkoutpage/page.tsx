@@ -363,15 +363,7 @@ function CheckoutContent() {
                             <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Total Price</p>
                             <p className="text-2xl font-bold text-[#0a0d20] tracking-tight">${plan.price.toFixed(2)}</p>
                         </div>
-                        <div className="h-8 w-px bg-slate-200 hidden md:block"></div>
-                        <div className="flex items-center gap-2 w-full md:w-auto">
-                            <input
-                                type="text"
-                                placeholder="Discount Code"
-                                className="bg-[#EDF6FE] border border-slate-200 rounded-lg px-3 py-2 text-sm text-[#0a0d20] focus:outline-none focus:border-blue-500/50 w-full"
-                            />
-                            <button className="bg-white/5 hover:bg-slate-200 text-[#0a0d20] px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 transition-colors">Apply</button>
-                        </div>
+
                     </div>
 
                     <div className="flex items-center gap-3 w-full md:w-auto">
