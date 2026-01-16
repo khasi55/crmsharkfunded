@@ -15,7 +15,7 @@ const PLAN_DETAILS: Record<string, any> = {
 };
 
 const CHALLENGE_TYPES = [
-    { id: "competition", title: "Shark Battle Ground", description: "Join the ultimate trading arena. Win prizes.", features: ["$9 Entry", "1:30 Leverage", "100K Account", "Starts Mon (Asian) - Ends Fri"] },
+    { id: "competition", title: "Shark Battle Ground", description: "Join the ultimate trading arena. Win prizes.", features: ["$9 Entry", "1:30 Leverage", "100K Account", "Starts Mon (Asian) - Ends Sun"] },
 ];
 
 function CheckoutContent() {
