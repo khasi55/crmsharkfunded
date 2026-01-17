@@ -7,7 +7,8 @@ import { updateSession } from '@/utils/supabase/middleware'
 const ALLOWED_IPS = [
     '127.0.0.1', // Localhost IPv4
     '::1',       // Localhost IPv6
-    '192.168.70.84' // User Local IP
+    '192.168.70.84', // User Local IP
+    '164.90.158.92'  // User Remote IP
 ];
 
 export async function middleware(request: NextRequest) {
