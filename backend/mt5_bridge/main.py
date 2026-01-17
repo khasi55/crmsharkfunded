@@ -89,6 +89,15 @@ try:
             start_dynamic_polling(worker, interval=10, reload_interval=300)
         except Exception as e:
             print(f"⚠️ Failed to start Trade Poller: {e}")
+
+        # Start Risk Engine
+        try:
+            from risk_engine import RiskEngine
+            risk_engine = RiskEngine(worker)
+            risk_engine.start()
+        except Exception as e:
+             print(f"⚠️ Failed to start Risk Engine: {e}")
+
 except ImportError:
     print("❌ mt5_worker module not found. Running in Mock Mode.")
     # Mock Worker for local development without MT5

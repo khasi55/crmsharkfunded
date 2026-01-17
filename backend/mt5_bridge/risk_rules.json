@@ -1,0 +1,42 @@
+{
+    "demo\\S\\0-SF": {
+        "max_drawdown_percent": 8.0,
+        "daily_drawdown_percent": 4.0,
+        "reset_hour_gmt": 0
+    },
+    "demo\\S\\1-SF": {
+        "max_drawdown_percent": 10.0,
+        "daily_drawdown_percent": 5.0,
+        "reset_hour_gmt": 0
+    },
+    "demo\\S\\2-SF": {
+        "max_drawdown_percent": 10.0,
+        "daily_drawdown_percent": 5.0,
+        "reset_hour_gmt": 0
+    },
+    "demo\\SF\\0-Pro": {
+        "max_drawdown_percent": 8.0,
+        "daily_drawdown_percent": 4.0,
+        "reset_hour_gmt": 0
+    },
+    "demo\\SF\\1-Pro": {
+        "max_drawdown_percent": 10.0,
+        "daily_drawdown_percent": 5.0,
+        "reset_hour_gmt": 0
+    },
+    "demo\\SF\\2-Pro": {
+        "max_drawdown_percent": 10.0,
+        "daily_drawdown_percent": 5.0,
+        "reset_hour_gmt": 0
+    },
+    "SF Funded Live": {
+        "max_drawdown_percent": 10.0,
+        "daily_drawdown_percent": 5.0,
+        "reset_hour_gmt": 0
+    },
+    "demo\\SF\\0-Demo\\comp": {
+        "max_drawdown_percent": 10.0,
+        "daily_drawdown_percent": 5.0,
+        "reset_hour_gmt": 0
+    }
+}

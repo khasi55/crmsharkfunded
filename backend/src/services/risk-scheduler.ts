@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import { EmailService } from './email-service';
 
 
 dotenv.config();
@@ -12,7 +13,7 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 const supabase = createClient(supabaseUrl!, supabaseKey!);
-const BRIDGE_URL = process.env.BRIDGE_URL || 'https://2b267220ca1b.ngrok-free.app';
+const BRIDGE_URL = process.env.BRIDGE_URL || 'https://bridge.sharkfunded.co';
 // console.log("🔍 [Risk Scheduler] Using BRIDGE_URL:", BRIDGE_URL);
 
 // --- CONFIGURATION ---
@@ -30,7 +31,7 @@ let isProcessing = false;
 
 async function runRiskCheck() {
     if (isProcessing) {
-        console.log("⚠️ [Risk Scheduler] Previous cycle still running. Skipping.");
+        // console.log("⚠️ [Risk Scheduler] Previous cycle still running. Skipping.");
         return;
     }
     isProcessing = true;
@@ -67,7 +68,7 @@ async function runRiskCheck() {
 
             // Rate limit: Sleep 500ms between batches to prevent bridge overload
             if (i + BATCH_SIZE < challenges.length) {
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise(resolve => setTimeout(resolve, 50));
             }
         }
 
@@ -177,6 +178,11 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                     status: challenge.status // maintain existing status by default
                 };
 
+                // DEBUG: Inspect limits for troubleshooting breach latency
+                // if (res.equity < Number(challenge.initial_balance)) {
+                console.log(`🔍 [RiskDebug] Account: ${res.login} | Equity: ${res.equity} | Balance: ${res.balance} | Limit: ${effectiveLimit} | BridgeStatus: ${res.status}`);
+                // }
+
                 // --- PROFIT TARGET CHECK ---
                 // Determine Profit Target % based on simplified logic (mirrors RulesService)
                 let profitTargetPercent = 8; // Default Phase 1
@@ -238,6 +244,23 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                                 timestamp: new Date()
                             }
                         });
+
+                        // Send Breach Email (Injecting here to cover race condition)
+                        try {
+                            const { data: { user } } = await supabase.auth.admin.getUserById(challenge.user_id);
+                            if (user && user.email) {
+                                console.log(`📧 [RiskScheduler] Sending breach email to ${user.email} for account ${res.login}`);
+                                await EmailService.sendBreachNotification(
+                                    user.email,
+                                    user.user_metadata?.full_name || 'Trader',
+                                    String(res.login),
+                                    'Max Loss Limit Exceeded',
+                                    `Equity (${res.equity}) dropped below Limit`
+                                );
+                            }
+                        } catch (emailErr) {
+                            console.error('🔥 [RiskScheduler] Failed to send breach email:', emailErr);
+                        }
                     }
                 }
 

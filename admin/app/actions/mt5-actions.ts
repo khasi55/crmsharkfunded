@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'secure_admin_key_123';
 
-export async function executeAccountAction(login: number, action: 'disable' | 'stop-out') {
+export async function executeAccountAction(login: number, action: 'disable' | 'stop-out' | 'enable') {
     // 1. Verify Admin Session Cookie
     const cookieStore = await cookies();
     const adminSession = cookieStore.get("admin_session");
@@ -15,7 +15,11 @@ export async function executeAccountAction(login: number, action: 'disable' | 's
     }
 
     // 2. Determine Endpoint
-    const endpoint = action === 'disable' ? '/api/mt5/admin/disable' : '/api/mt5/admin/stop-out';
+    let endpoint = '';
+    if (action === 'disable') endpoint = '/api/mt5/admin/disable';
+    else if (action === 'stop-out') endpoint = '/api/mt5/admin/stop-out';
+    else if (action === 'enable') endpoint = '/api/mt5/admin/enable';
+
     const url = `${BACKEND_URL}${endpoint}`;
 
     try {

@@ -214,3 +214,33 @@ class MT5Worker:
         print(f"Worker: Creating account for {first} {last}")
         # Logic depends on API
         return {"login": 0, "password": "PW", "investor_password": "INV"}
+
+    def get_group_users(self, group):
+        """Fetch all users in a group with their equity/balance"""
+        users = []
+        if self._manager:
+            # Assuming Manager API has UserLogins or similar
+            # Real Manager API usually returns just logins, then we need UserRequest for each.
+            # Start with getting logins
+            try:
+                logins = self._manager.UserLogins(group) or []
+                for login in logins:
+                    user_data = self._manager.UserRequest(login)
+                    if user_data:
+                         # Normalize to object
+                         users.append({
+                             "login": user_data.Login,
+                             "group": user_data.Group,
+                             "equity": user_data.Equity,
+                             "balance": user_data.Balance
+                         })
+            except Exception as e:
+                print(f"Error fetching group users {group}: {e}")
+        
+        # If using Client API (Terminal), we can only see OURSELF
+        elif self._use_client_api:
+            # We can only return the currently logged in user if they match the group
+            # This is a limitation of Client API. 
+            pass
+            
+        return users

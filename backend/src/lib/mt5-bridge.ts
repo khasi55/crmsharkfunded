@@ -11,7 +11,7 @@ export interface MT5AccountParams {
 
 export async function createMT5Account(params: MT5AccountParams) {
     // Use BRIDGE_URL (Internal/Local) if set, otherwise API_URL (Public/Ngrok)
-    const mt5ApiUrl = process.env.MT5_BRIDGE_URL || process.env.MT5_API_URL || 'http://localhost:8000';
+    const mt5ApiUrl = process.env.MT5_BRIDGE_URL || process.env.MT5_API_URL || 'https://bridge.sharkfunded.co';
 
     const response = await fetch(`${mt5ApiUrl}/create-account`, {
         method: 'POST',

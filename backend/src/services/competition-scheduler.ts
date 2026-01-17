@@ -15,15 +15,15 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 export function startCompetitionScheduler() {
-    console.log("🏆 Competition Scheduler initialized. Schedule: '* * * * *' (Every Minute)");
+    console.log("🏆 Competition Scheduler initialized. Schedule: '*/10 * * * *' (Every 10 Minutes)");
 
-    cron.schedule('* * * * *', async () => {
+    cron.schedule('*/10 * * * *', async () => {
         await checkCompetitionStatus();
     });
 }
 
 async function checkCompetitionStatus() {
-    console.log("🏆 [Competition Scheduler] Checking dates...");
+    // console.log("🏆 [Competition Scheduler] Checking dates...");
     const now = new Date().toISOString();
 
     try {

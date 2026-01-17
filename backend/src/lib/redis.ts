@@ -24,4 +24,8 @@ export const redis = new Redis(REDIS_URL || '', {
 redis.on('error', (err) => console.error('🔴 Redis Client Error:', err));
 redis.on('connect', () => {
     if (DEBUG) console.log('🟢 Redis Client Connected');
+    // Attempt to set eviction policy for BullMQ reliability
+    redis.config('SET', 'maxmemory-policy', 'noeviction').catch(err => {
+        if (DEBUG) console.warn('⚠️ Could not set Redis eviction policy (requires admin permissions):', err.message);
+    });
 });

@@ -26,21 +26,21 @@ import { logoutAdmin } from "@/app/actions/admin-auth";
 // ... (imports remain)
 
 const navigation = [
-    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ['super_admin', 'sub_admin', 'risk_admin', 'payouts_admin'] },
-    { name: "Users", href: "/users", icon: Users, roles: ['super_admin', 'sub_admin', 'risk_admin'] },
-    { name: "Accounts List", href: "/accounts", icon: List, roles: ['super_admin', 'sub_admin', 'risk_admin'] },
-    { name: "MT5 Accounts", href: "/mt5", icon: Server, roles: ['super_admin', 'sub_admin', 'risk_admin'] },
-    { name: "Risk Settings", href: "/mt5-risk", icon: Gauge, roles: ['super_admin', 'risk_admin'] },
-    { name: "Payments", href: "/payments", icon: CreditCard, roles: ['super_admin', 'sub_admin'] }, // Changed from settings/payment to /payments for report
-    { name: "Settings", href: "/settings/payment", icon: Settings, roles: ['super_admin'] },
-    { name: "Assign Account", href: "/mt5/assign", icon: UserPlus, roles: ['super_admin', 'sub_admin', 'risk_admin'] },
-    { name: "KYC Requests", href: "/kyc", icon: FileText, roles: ['super_admin', 'sub_admin', 'payouts_admin'] },
-    { name: "Payouts", href: "/payouts", icon: CreditCard, roles: ['super_admin', 'sub_admin', 'payouts_admin'] },
-    { name: "Affiliate Payouts", href: "/affiliates", icon: Wallet, roles: ['super_admin', 'payouts_admin', 'sub_admin'] },
-    { name: "Competitions", href: "/competitions", icon: Trophy, roles: ['super_admin', 'sub_admin'] },
-    { name: "Coupons", href: "/coupons", icon: Ticket, roles: ['super_admin', 'sub_admin'] },
-    { name: "System Health", href: "/system-health", icon: Activity, roles: ['super_admin'] },
-    { name: "Admins", href: "/admins", icon: ShieldCheck, roles: ['super_admin'] },
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin', 'payouts_admin'] },
+    { name: "Users", href: "/users", icon: Users, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'] },
+    { name: "Accounts List", href: "/accounts", icon: List, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'] },
+    { name: "MT5 Accounts", href: "/mt5", icon: Server, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'] },
+    { name: "Risk Settings", href: "/mt5-risk", icon: Gauge, roles: ['super_admin', 'admin', 'risk_admin'] },
+    { name: "Payments", href: "/payments", icon: CreditCard, roles: ['super_admin', 'admin', 'sub_admin'] }, // Changed from settings/payment to /payments for report
+    { name: "Settings", href: "/settings/payment", icon: Settings, roles: ['super_admin', 'admin'] },
+    { name: "Assign Account", href: "/mt5/assign", icon: UserPlus, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'] },
+    { name: "KYC Requests", href: "/kyc", icon: FileText, roles: ['super_admin', 'admin', 'sub_admin', 'payouts_admin'] },
+    { name: "Payouts", href: "/payouts", icon: CreditCard, roles: ['super_admin', 'admin', 'sub_admin', 'payouts_admin'] },
+    { name: "Affiliate Payouts", href: "/affiliates", icon: Wallet, roles: ['super_admin', 'admin', 'payouts_admin', 'sub_admin'] },
+    { name: "Competitions", href: "/competitions", icon: Trophy, roles: ['super_admin', 'admin', 'sub_admin'] },
+    { name: "Coupons", href: "/coupons", icon: Ticket, roles: ['super_admin', 'admin', 'sub_admin'] },
+    { name: "System Health", href: "/system-health", icon: Activity, roles: ['super_admin', 'admin'] },
+    { name: "Admins", href: "/admins", icon: ShieldCheck, roles: ['super_admin', 'admin'] },
 ];
 
 interface AdminSidebarProps {
@@ -51,7 +51,7 @@ interface AdminSidebarProps {
     };
 }
 
-export function AdminSidebar({ user }: AdminSidebarProps) {
+export function AdminSidebar({ user, onClose }: AdminSidebarProps & { onClose?: () => void }) {
     const pathname = usePathname();
     const userRole = user?.role || 'sub_admin';
 
@@ -85,6 +85,7 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
                         <Link
                             key={item.name}
                             href={item.href}
+                            onClick={onClose}
                             className={cn(
                                 "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200",
                                 isActive

@@ -142,20 +142,38 @@ export default function SettingsPage() {
         setSaveMessage(null);
 
         try {
-            // Update profile via API
-            const data = await fetchFromBackend('/api/user/profile', {
-                method: 'PUT',
-                body: JSON.stringify({
-                    full_name: profile.fullName,
-                    display_name: profile.displayName,
-                    phone: profile.phone,
-                    country: profile.country,
-                    address: profile.address,
-                    pincode: profile.pincode,
-                })
-            });
+            if (activeTab === 'security') {
+                // Validate Password
+                if (!security.newPass || security.newPass.length < 6) {
+                    throw new Error("Password must be at least 6 characters");
+                }
+                if (security.newPass !== security.confirmPass) {
+                    throw new Error("Passwords do not match");
+                }
 
-            setSaveMessage({ type: 'success', text: 'Profile updated successfully!' });
+                // Call Password Update Endpoint
+                await fetchFromBackend('/api/user/update-password', {
+                    method: 'PUT',
+                    body: JSON.stringify({ password: security.newPass })
+                });
+
+                setSaveMessage({ type: 'success', text: 'Password updated successfully!' });
+                setSecurity({ current: "", newPass: "", confirmPass: "" }); // Reset form
+            } else {
+                // Update profile via API
+                await fetchFromBackend('/api/user/profile', {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        full_name: profile.fullName,
+                        display_name: profile.displayName,
+                        phone: profile.phone,
+                        country: profile.country,
+                        address: profile.address,
+                        pincode: profile.pincode,
+                    })
+                });
+                setSaveMessage({ type: 'success', text: 'Profile updated successfully!' });
+            }
             setTimeout(() => setSaveMessage(null), 3000);
         } catch (err: any) {
             console.error("Save error:", err);

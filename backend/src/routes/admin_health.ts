@@ -6,7 +6,7 @@ import { redis } from '../lib/redis';
 const router = Router();
 
 
-const BRIDGE_URL = process.env.BRIDGE_URL || 'https://2b267220ca1b.ngrok-free.app';
+const BRIDGE_URL = process.env.BRIDGE_URL || 'https://bridge.sharkfunded.co';
 
 // GET /api/admin/health - System health monitoring (no auth - admin portal access)
 router.get('/', async (req, res: Response) => {
@@ -77,7 +77,8 @@ router.get('/', async (req, res: Response) => {
                 method: 'GET',
                 signal: controller.signal,
                 headers: {
-                    'ngrok-skip-browser-warning': 'true'
+                    'ngrok-skip-browser-warning': 'true',
+                    'X-API-Key': process.env.MT5_API_KEY || ''
                 }
             });
             clearTimeout(timeoutId);

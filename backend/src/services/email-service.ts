@@ -19,8 +19,8 @@ export class EmailService {
             user: EmailService.SMTP_USER,
             pass: EmailService.SMTP_PASS
         },
-        debug: true, // Show debug output
-        logger: true // Log to console
+        debug: false, // Show debug output
+        logger: false // Log to console
     });
 
     /**

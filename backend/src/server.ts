@@ -203,8 +203,10 @@ import { startTradeSyncWorker } from './workers/trade-sync-worker';
 import { startCompetitionScheduler } from './services/competition-scheduler';
 import { startLeaderboardBroadcaster } from './services/leaderboard-service';
 
-startRiskMonitor(60); // Risk checks every 60s (optimized from 20s)
-startRiskEventWorker(); // Start Event Listener
+
+// startRiskMonitor(5); // DISABLED: Using Python Bridge Push
+// startRiskEventWorker(); // Start Event Listener
+console.log('🛑 [Risk Monitor] Polling Disabled (Bridge Push Mode)');
 startDailyEquityReset(); // Schedule midnight reset
 startTradeSyncScheduler(); // Dispatch jobs every 10s
 startCompetitionScheduler(); // Schedule competition status checks

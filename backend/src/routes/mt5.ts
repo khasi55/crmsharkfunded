@@ -6,7 +6,7 @@ import { EmailService } from '../services/email-service';
 
 const router = Router();
 // const MT5_BRIDGE_URL = process.env.MT5_BRIDGE_URL || 'http://localhost:8000';
-const MT5_BRIDGE_URL = process.env.MT5_BRIDGE_URL || 'https://2b267220ca1b.ngrok-free.app';
+const MT5_BRIDGE_URL = process.env.MT5_BRIDGE_URL || 'https://bridge.sharkfunded.co';
 
 // Helper function to generate random MT5 login (7-9 digits)
 function generateMT5Login(): number {
@@ -183,6 +183,8 @@ router.post('/assign', async (req, res: Response) => {
             challengeType = 'lite_2_step';
         } else if (lowerPlan.includes('funded') || lowerPlan.includes('master')) {
             challengeType = 'funded';
+        } else if (lowerPlan.includes('competition') || lowerPlan.includes('battle')) {
+            challengeType = 'Competition';
         } else {
             // Fallbacks
             if (lowerPlan.includes('evaluation')) challengeType = 'Evaluation';
@@ -390,7 +392,10 @@ router.post('/admin/disable', authenticate, async (req: AuthRequest, res: Respon
 
         const response = await fetch(`${MT5_BRIDGE_URL}/disable-account`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': process.env.MT5_API_KEY || ''
+            },
             body: JSON.stringify({ login: Number(login) })
         });
 
@@ -430,7 +435,10 @@ router.post('/admin/stop-out', authenticate, async (req: AuthRequest, res: Respo
 
         const response = await fetch(`${MT5_BRIDGE_URL}/stop-out-account`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': process.env.MT5_API_KEY || ''
+            },
             body: JSON.stringify({ login: Number(login) })
         });
 
@@ -452,6 +460,47 @@ router.post('/admin/stop-out', authenticate, async (req: AuthRequest, res: Respo
     } catch (error) {
         console.error('Admin Stop Out Error:', error);
         res.status(500).json({ error: 'Failed to stop out account' });
+    }
+});
+
+// POST /api/mt5/admin/enable
+router.post('/admin/enable', authenticate, async (req: AuthRequest, res: Response) => {
+    try {
+        const { login } = req.body;
+
+        if (!req.user) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        console.log(`🔌 Admin Request: Enable account ${login} using Bridge: ${MT5_BRIDGE_URL}`);
+
+        const response = await fetch(`${MT5_BRIDGE_URL}/enable-account`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': process.env.MT5_API_KEY || ''
+            },
+            body: JSON.stringify({ login: Number(login) })
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            console.error(`❌ Bridge Error (${response.status}):`, errText);
+            throw new Error(`Bridge error: ${errText}`);
+        }
+
+        const result = await response.json();
+
+        // Update local DB status
+        await supabase
+            .from('challenges')
+            .update({ status: 'active' })
+            .eq('login', login);
+
+        res.json(result);
+    } catch (error) {
+        console.error('Admin Enable Error:', error);
+        res.status(500).json({ error: 'Failed to enable account' });
     }
 });
 
@@ -711,5 +760,83 @@ router.post('/trades/webhook', async (req: Request, res: Response) => {
 });
 
 
+
+
+// POST /api/mt5/webhook - General Purpose Webhook (Breach, etc.)
+router.post('/webhook', async (req: Request, res: Response) => {
+    try {
+        const body = req.body;
+        console.log(`🔔 [Backend] Received Event Webhook:`, JSON.stringify(body, null, 2));
+
+        if (body.event === 'account_breached') {
+            const { login, reason, equity, balance } = body;
+
+            // 1. Find Challenge
+            const { data: challenge, error: findError } = await supabase
+                .from('challenges')
+                .select('*')
+                .eq('login', login)
+                .single();
+
+            if (findError || !challenge) {
+                console.error(`❌ [Webhook] Challenge not found for login ${login}`);
+                res.status(404).json({ error: 'Challenge not found' });
+                return;
+            }
+
+            if (challenge.status === 'breached' || challenge.status === 'failed') {
+                console.log(`ℹ️ [Webhook] Challenge ${login} already marked as ${challenge.status}.`);
+                res.json({ success: true, message: 'Already processed' });
+                return;
+            }
+
+            // 2. Update Status
+            const { error: updateError } = await supabase
+                .from('challenges')
+                .update({
+                    status: 'breached',
+                    current_equity: equity,
+                    current_balance: balance
+                })
+                .eq('id', challenge.id);
+
+            if (updateError) {
+                console.error(`❌ [Webhook] Failed to update challenge status:`, updateError);
+                res.status(500).json({ error: updateError.message });
+                return;
+            }
+
+            // 3. Send Notification
+            try {
+                // Fetch User Email & Name via Admin API
+                const { data: userData, error: userError } = await supabase.auth.admin.getUserById(challenge.user_id);
+
+                if (userError || !userData.user) {
+                    console.error(`❌ [Webhook] Failed to fetch user for breach email: ${userError?.message}`);
+                } else {
+                    const email = userData.user.email;
+                    const name = userData.user.user_metadata?.full_name || userData.user.user_metadata?.name || 'Trader';
+
+                    if (email) {
+                        const description = `Account Equity (${equity}) fell below the limit allowed by the risk rules using balance ${balance}.`;
+                        await EmailService.sendBreachNotification(email, name, String(login), reason, description);
+                        console.log(`📧 [Webhook] Breach email sent to ${email}`);
+                    }
+                }
+            } catch (emailErr) {
+                console.error(`⚠️ [Webhook] Failed to send breach email:`, emailErr);
+            }
+
+            console.log(`✅ [Webhook] Processed Breach for ${login}: ${reason}`);
+            res.json({ success: true, action: 'breached' });
+            return;
+        }
+
+        res.json({ status: 'ignored', message: 'Unknown event type' });
+    } catch (error) {
+        console.error('Webhook Error:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
 
 export default router;

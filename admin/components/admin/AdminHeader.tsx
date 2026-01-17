@@ -1,26 +1,40 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Bell, Search, ChevronRight } from "lucide-react";
+import { Bell, Search, ChevronRight, Menu } from "lucide-react";
 
-export function AdminHeader() {
+interface AdminHeaderProps {
+    onMenuClick?: () => void;
+}
+
+export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
     const pathname = usePathname();
 
     // Generate breadcrumbs from pathname
     const segments = pathname.split('/').filter(Boolean).slice(1); // remove 'admin'
 
     return (
-        <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-8">
-            {/* Breadcrumbs */}
-            <div className="flex items-center gap-2 text-sm">
-                <span className="font-medium text-gray-900">Admin</span>
-                {segments.length > 0 && <ChevronRight className="h-4 w-4 text-gray-400" />}
-                {segments.map((segment, index) => (
-                    <div key={segment} className="flex items-center gap-2">
-                        <span className="capitalize font-medium text-gray-600">{segment}</span>
-                        {index < segments.length - 1 && <ChevronRight className="h-4 w-4 text-gray-400" />}
-                    </div>
-                ))}
+        <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 md:px-8">
+            <div className="flex items-center gap-4">
+                {/* Mobile Menu Button */}
+                <button
+                    onClick={onMenuClick}
+                    className="md:hidden p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                    <Menu className="h-6 w-6" />
+                </button>
+
+                {/* Breadcrumbs */}
+                <div className="flex items-center gap-2 text-sm overflow-hidden whitespace-nowrap">
+                    <span className="font-medium text-gray-900 hidden sm:inline">Admin</span>
+                    {segments.length > 0 && <ChevronRight className="h-4 w-4 text-gray-400 hidden sm:block" />}
+                    {segments.map((segment, index) => (
+                        <div key={segment} className="flex items-center gap-2">
+                            <span className="capitalize font-medium text-gray-600">{segment}</span>
+                            {index < segments.length - 1 && <ChevronRight className="h-4 w-4 text-gray-400" />}
+                        </div>
+                    ))}
+                </div>
             </div>
 
             {/* Actions */}

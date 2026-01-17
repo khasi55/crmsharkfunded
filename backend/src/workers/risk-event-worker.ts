@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { CoreRiskEngine } from '../engine/risk-engine-core';
 import { AdvancedRiskEngine } from '../engine/risk-engine-advanced';
+import { EmailService } from '../services/email-service';
 
 dotenv.config();
 
@@ -130,6 +131,25 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
             violation_type: 'max_loss_breach',
             details: { equity: newEquity, balance: newBalance, timestamp: new Date() }
         });
+
+        // Send Breach Email
+        try {
+            const { data: { user } } = await supabase.auth.admin.getUserById(challenge.user_id);
+            if (user && user.email) {
+                console.log(`📧 Sending breach email to ${user.email} for account ${login}`);
+                await EmailService.sendBreachNotification(
+                    user.email,
+                    user.user_metadata?.full_name || 'Trader',
+                    String(login),
+                    'Max Loss Limit Exceeded',
+                    `Equity (${newEquity}) dropped below Limit (${effectiveLimit})`
+                );
+            } else {
+                console.warn(`⚠️ Could not find user email for breach notification (User ID: ${challenge.user_id})`);
+            }
+        } catch (emailError) {
+            console.error('🔥 Failed to send breach email:', emailError);
+        }
 
         // Disable MT5 Account (Async call to bridge - don't await blocking)
         // fetch(`${process.env.BRIDGE_URL}/disable-account`, ... )
