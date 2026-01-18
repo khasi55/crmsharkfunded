@@ -12,38 +12,14 @@ const ALLOWED_IPS = [
     '94.207.224.23',  // User Remote IP 2
     '5.192.18.70'    // New IP Added
 ];
-
 export async function middleware(request: NextRequest) {
     const path = request.nextUrl.pathname;
 
     // 🔒 Dashboard Protection Logic
     // Protect /dashboard and other sensitive routes
-    if (path.startsWith('/dashboard') ||
-        path.startsWith('/overview') ||
-        path.startsWith('/challenges') ||
-        path.startsWith('/competitions') ||
-        path.startsWith('/kyc') ||
-        path.startsWith('/certificates') ||
-        path.startsWith('/ranking') ||
-        path.startsWith('/payouts') ||
-        path.startsWith('/affiliate') ||
-        path.startsWith('/settings')) {
-
-        // Get Client IP
-        let ip = (request as any).ip || request.headers.get('x-forwarded-for') || '127.0.0.1';
-
-        // Handle proxies (x-forwarded-for can be "client, proxy1, proxy2")
-        if (ip.includes(',')) {
-            ip = ip.split(',')[0].trim();
-        }
-
-        // console.log(`🔒 [Middleware] Accessing ${path} from IP: ${ip}`);
-
-        if (!ALLOWED_IPS.includes(ip)) {
-            console.log(`⛔ [Middleware] Blocked IP ${ip} accessing ${path} -> Redirecting to Checkout`);
-            return NextResponse.redirect(new URL('/checkoutpage', request.url));
-        }
-    }
+    // 🛡️ IP WHITELIST DISABLED
+    // Code removed to allow public access as per request
+    // if (path.startsWith('/dashboard') ... ) { ... }
 
     return await updateSession(request)
 }
