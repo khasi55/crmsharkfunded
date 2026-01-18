@@ -107,6 +107,7 @@ function DashboardContent() {
                         </div>
 
                         <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto">
+                            {/* HIDING NEW CHALLENGE BUTTON AS REQUESTED
                             <Link
                                 href="/challenges"
                                 className="flex items-center gap-1.5 bg-gradient-to-b from-[#1d4ed8] to-[#1e40af] active:from-[#1E3A8A] active:to-[#1d4ed8] text-white text-xs md:text-sm font-medium px-3 md:px-4 py-2 md:py-2.5 rounded-full shadow-lg shadow-blue-900/20 transition-all border border-blue-500/20 active:scale-95 touch-manipulation whitespace-nowrap"
@@ -115,6 +116,7 @@ function DashboardContent() {
                                 <span className="hidden sm:inline">New Challenge</span>
                                 <span className="sm:hidden">New</span>
                             </Link>
+                            */}
 
                             {/* User Profile Dropdown */}
                             <div className="relative">

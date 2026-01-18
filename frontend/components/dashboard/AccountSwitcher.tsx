@@ -289,12 +289,14 @@ function AccountSwitcherContent({
                     </div>
                 </div>
 
+                {/* HIDING BUY CHALLENGE AS REQUESTED
                 <Link
                     href="/challenges"
                     className="w-full bg-blue-600 active:bg-blue-700 text-white font-semibold py-3 sm:py-3.5 rounded-xl flex items-center justify-center gap-2 text-sm transition-all mb-4 sm:mb-6 shadow-lg shadow-blue-500/20 touch-manipulation"
                 >
                     <ShoppingCart size={18} /> BUY CHALLENGE
                 </Link>
+                */}
 
                 {/* Filters Row - Scrollable on mobile */}
                 <div className="flex items-center gap-3 mb-4 overflow-x-auto pb-2 scrollbar-none">

@@ -28,7 +28,7 @@ import { motion, AnimatePresence } from "framer-motion";
 const menuItems: { icon: any, label: string, href: string }[] = [
     { icon: LayoutGrid, label: "Overview", href: "/overview" },
     { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
-    { icon: Trophy, label: "Challenges", href: "/challenges" },
+    // { icon: Trophy, label: "Challenges", href: "/challenges" },
     { icon: Swords, label: "Competitions", href: "/competitions" },
     { icon: UserCheck, label: "KYC", href: "/kyc" },
     // { icon: Gift, label: "Rewards", href: "/rewards" },
