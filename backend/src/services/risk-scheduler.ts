@@ -106,7 +106,12 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
 
             if (!rule) {
                 // Fallback rules
-                rule = { max_drawdown_percent: 10, daily_drawdown_percent: 5 };
+                const typeStr = (c.challenge_type || '').toLowerCase();
+                if (typeStr.includes('competition')) {
+                    rule = { max_drawdown_percent: 11, daily_drawdown_percent: 4 };
+                } else {
+                    rule = { max_drawdown_percent: 10, daily_drawdown_percent: 5 };
+                }
             }
 
             const currentBalance = Number(c.current_balance);
@@ -184,7 +189,14 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 const normalizedGroup = (challenge.group || '').replace(/\\/g, '\\').toLowerCase();
                 let rule = riskGroupMap.get(normalizedGroup);
                 if (!rule) rule = riskGroups.find(g => g.group_name === challenge.group);
-                if (!rule) rule = { max_drawdown_percent: 10, daily_drawdown_percent: 5 };
+                if (!rule) {
+                    const typeStr = (challenge.challenge_type || '').toLowerCase();
+                    if (typeStr.includes('competition')) {
+                        rule = { max_drawdown_percent: 11, daily_drawdown_percent: 4 };
+                    } else {
+                        rule = { max_drawdown_percent: 10, daily_drawdown_percent: 5 };
+                    }
+                }
 
                 const initialBalance = Number(challenge.initial_balance);
                 const currentBalance = Number(res.balance);
