@@ -30,10 +30,15 @@ interface ChallengeRules {
     current_total_loss?: number;
     current_profit?: number;
     start_of_day_equity?: number;
+    daily_remaining?: number;
+    total_remaining?: number;
 }
 
-function ObjectiveRow({ title, timer, max, current, threshold, status, isLossLimit }: ObjectiveRowProps) {
+function ObjectiveRow({ title, timer, max, current, threshold, status, isLossLimit, remainingOverride }: ObjectiveRowProps & { remainingOverride?: number }) {
     const percentage = Math.min(100, Math.max(0, (current / max) * 100));
+
+    // Use override if available, otherwise fallback to simple calc (for loading states etc)
+    const remainingVal = remainingOverride !== undefined ? remainingOverride : Math.max(0, max - current);
 
     return (
         <div className="p-5 rounded-xl border border-white/10 bg-[#050923] hover:border-white/20 transition-all">
@@ -87,7 +92,7 @@ function ObjectiveRow({ title, timer, max, current, threshold, status, isLossLim
                     ${current.toLocaleString()}
                 </span>
                 <span className="text-xs font-bold text-white">
-                    Remaining: ${Math.max(0, max - current).toLocaleString()}
+                    Remaining: ${remainingVal.toLocaleString()}
                 </span>
             </div>
         </div>
@@ -170,6 +175,8 @@ export default function TradingObjectives() {
                         current_total_loss: data.total_loss.current ?? 0,
                         current_profit: data.profit_target.current ?? 0,
                         start_of_day_equity: data.daily_loss.start_of_day_equity ?? 0,
+                        daily_remaining: data.daily_loss.remaining,
+                        total_remaining: data.total_loss.remaining,
                     });
                 }
             } catch (error) {
@@ -267,6 +274,7 @@ export default function TradingObjectives() {
                     threshold={(rules.start_of_day_equity || initialBalance) - rules.max_daily_loss_amount}
                     status={getDailyLossStatus()}
                     isLossLimit={true}
+                    remainingOverride={rules.daily_remaining}
                 />
 
                 <ObjectiveRow
@@ -276,6 +284,7 @@ export default function TradingObjectives() {
                     threshold={initialBalance - rules.max_total_loss_amount}
                     status={getTotalLossStatus()}
                     isLossLimit={true}
+                    remainingOverride={rules.total_remaining}
                 />
 
                 {rules.profit_target_amount > 0 && (

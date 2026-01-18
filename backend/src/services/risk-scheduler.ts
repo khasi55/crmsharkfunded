@@ -111,12 +111,13 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
 
             const currentBalance = Number(c.current_balance);
             const totalLimit = initialBalance * (1 - (rule.max_drawdown_percent / 100));
-            // Trade-Wise / Floating Drawdown: Limit is based on Current Balance (not Start of Day)
-            const tradeWiseLimit = currentBalance * (1 - (rule.daily_drawdown_percent / 100));
+            const startOfDayEquity = Number((c as any).start_of_day_equity || initialBalance);
+            // Daily Drawdown: Limit is StartOfDay - (InitialBalance * Percent)
+            // This aligns with RulesService which calculates MaxDailyLoss based on InitialBalance
+            const dailyLimit = startOfDayEquity - (initialBalance * (rule.daily_drawdown_percent / 100));
 
             // EFFECTIVE LIMIT: stricter of the two (Higher equity value is stricter)
-            // Use Max Drawdown (Static) and Trade-Wise Drawdown (Floating)
-            const effectiveLimit = Math.max(totalLimit, tradeWiseLimit);
+            const effectiveLimit = Math.max(totalLimit, dailyLimit);
 
 
 
@@ -185,14 +186,20 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 if (!rule) rule = riskGroups.find(g => g.group_name === challenge.group);
                 if (!rule) rule = { max_drawdown_percent: 10, daily_drawdown_percent: 5 };
 
-                const initialLimitLog = Number(challenge.initial_balance) * (1 - (rule.max_drawdown_percent / 100));
-                const dailyLimitLog = Number(challenge.current_balance) * (1 - (rule.daily_drawdown_percent / 100));
-                const effectiveLimit = Math.max(initialLimitLog, dailyLimitLog);
+                const initialBalance = Number(challenge.initial_balance);
+                const currentBalance = Number(res.balance);
 
-                // DEBUG: Inspect limits for troubleshooting breach latency
-                // if (res.equity < Number(challenge.initial_balance)) {
-                console.log(`🔍 [RiskDebug] Account: ${res.login} | Equity: ${res.equity} | Balance: ${res.balance} | Limit: ${effectiveLimit} | BridgeStatus: ${res.status}`);
-                // }
+                // --- LIMIT RECALCULATION (Local Validation) ---
+                const startOfDayEquity = Number((challenge as any).start_of_day_equity || initialBalance);
+
+                // 1. Total Limit (Static)
+                const totalLimit = initialBalance * (1 - (rule.max_drawdown_percent / 100));
+
+                // 2. Daily Limit (Fixed Amount from Initial Balance)
+                const dailyLimit = startOfDayEquity - (initialBalance * (rule.daily_drawdown_percent / 100));
+
+                // Effective Limit
+                const effectiveLimit = Math.max(totalLimit, dailyLimit);
 
                 // --- PROFIT TARGET CHECK ---
                 // Determine Profit Target % based on simplified logic (mirrors RulesService)
@@ -201,12 +208,70 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 const groupStr = (challenge.group || '').toLowerCase();
 
                 if (typeStr.includes('funded') || typeStr.includes('master') || typeStr.includes('instant') || typeStr.includes('competition') ||
-                    groupStr.includes('funded') || groupStr.includes('master') || groupStr.includes('competition')) {
+                    groupStr.includes('funded') || groupStr.includes('master') || groupStr.includes('instant') || groupStr.includes('competition')) {
                     profitTargetPercent = 0; // No target for funded/master/instant/competition
                 } else if (typeStr.includes('phase 2') || typeStr.includes('step 2') || groupStr.includes('phase 2')) {
                     profitTargetPercent = 5;
                 } else if (typeStr.includes('phase 1') || typeStr.includes('step 1') || groupStr.includes('phase 1')) {
                     profitTargetPercent = 8;
+                }
+
+                // LOCAL BREACH OVERRIDE
+                if (res.login === 889224326) {
+                    console.log(`🔍 DEBUG 889224326:`);
+                    console.log(`   Equity (Bridge): ${res.equity}`);
+                    console.log(`   SoD Equity (DB): ${startOfDayEquity}`);
+                    console.log(`   Initial Balance: ${initialBalance}`);
+                    console.log(`   Daily Loss %: ${rule.daily_drawdown_percent}`);
+                    console.log(`   Daily Limit: ${dailyLimit}`);
+                    console.log(`   Total Limit: ${totalLimit}`);
+                    console.log(`   Effective Limit: ${effectiveLimit}`);
+                    console.log(`   Is Breach? ${res.equity < effectiveLimit}`);
+                }
+
+                if (res.equity < effectiveLimit) {
+                    // Force Status to Breached even if Bridge reported Active
+                    // console.log(`🛡️ Local Breach Detected: ${res.login} (Eq: ${res.equity} < Lim: ${effectiveLimit})`);
+                    // Mock the status so the detailed logic below picks it up
+                    // But we must handle it carefully to ensure logs/emails fire
+                    if (challenge.status !== 'breached' && challenge.status !== 'failed') {
+                        updateData.status = 'breached';
+                        console.log(`🛑 LOCAL BREACH CONFIRMED: Account ${res.login}. Equity: ${res.equity} < Limit: ${effectiveLimit}`);
+
+                        // Inject Trigger Logic (Copying from below block to avoid refactoring huge chunks)
+                        systemLogs.push({
+                            source: 'RiskScheduler',
+                            level: 'ERROR',
+                            message: `Risk Breach (Local): Account ${res.login} disabled. Equity: ${res.equity}`,
+                            details: { login: res.login, violation: 'max_loss', limit: effectiveLimit }
+                        });
+
+                        violationLogs.push({
+                            challenge_id: challenge.id,
+                            user_id: challenge.user_id,
+                            violation_type: 'max_loss_breach',
+                            details: {
+                                equity: res.equity,
+                                balance: res.balance,
+                                limit: effectiveLimit,
+                                timestamp: new Date()
+                            }
+                        });
+
+                        // Async Email (fail-safe)
+                        try {
+                            const { data: { user } } = await supabase.auth.admin.getUserById(challenge.user_id);
+                            if (user && user.email) {
+                                EmailService.sendBreachNotification(
+                                    user.email,
+                                    user.user_metadata?.full_name || 'Trader',
+                                    String(res.login),
+                                    'Max Loss Limit Exceeded',
+                                    `Equity (${res.equity}) dropped below Limit (${effectiveLimit})`
+                                ).catch(e => console.error(e));
+                            }
+                        } catch (e) { console.error(e) }
+                    }
                 }
 
                 if (profitTargetPercent > 0) {
@@ -280,11 +345,16 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
 
             // 1. Bulk Upsert Challenges (1 DB Call)
             if (updatesToUpsert.length > 0) {
+                const breachedUpdate = updatesToUpsert.find(u => u.status === 'breached');
+                if (breachedUpdate) {
+                    console.log(`💾 Committing BREACH to DB:`, JSON.stringify(breachedUpdate, null, 2));
+                }
+
                 const { error } = await supabase
                     .from('challenges')
                     .upsert(updatesToUpsert);
 
-                if (error) console.error("❌ Bulk update failed:", error.message);
+                if (error) console.error("❌ Bulk update failed:", error.message, error.details);
             }
 
             // 2. Bulk Insert Logs

@@ -19,7 +19,7 @@ export function startDailyEquityReset() {
 }
 
 // Reuse BRIDGE_URL logic
-const BRIDGE_URL = process.env.BRIDGE_URL || process.env.MT5_API_URL || 'https://2b267220ca1b.ngrok-free.app';
+const BRIDGE_URL = process.env.BRIDGE_URL || 'https://bridge.sharkfunded.co';
 
 async function performDailyReset() {
     try {
