@@ -9,7 +9,8 @@ const ALLOWED_IPS = [
     '::1',       // Localhost IPv6
     '192.168.70.84', // User Local IP
     '164.90.158.92', // User Remote IP 1
-    '94.207.224.23'  // User Remote IP 2
+    '94.207.224.23',  // User Remote IP 2
+    '5.192.18.70'    // New IP Added
 ];
 
 export async function middleware(request: NextRequest) {
