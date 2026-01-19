@@ -118,103 +118,68 @@ router.post('/calculate', authenticate, async (req: AuthRequest, res: Response) 
             }
         });
 
-        // Fetch challenge data with live equity/balance
-        // console.log(`🔍 [DEBUG] Fetching challenge columns: current_equity, initial_balance...`);
-        const { data: challenge } = await supabase
+        // Fetch challenge with LIVE equity
+        const { data: challengeData, error: cError } = await supabase
             .from('challenges')
-            .select('current_equity, initial_balance, start_of_day_equity, current_balance')
+            .select('current_equity, initial_balance, start_of_day_equity, current_balance, status')
             .eq('id', challenge_id)
             .single();
 
-        // fs.appendFileSync('backend_request_debug.log', `[DB-DATA] Challenge: ${JSON.stringify(challenge)}\n`);
+        if (cError || !challengeData) {
+            console.error("❌ Error fetching challenge data:", cError);
+            return res.status(500).json({ error: 'Challenge data not found' });
+        }
 
-        // --- DYNAMIC RULES CALCULATION ---
-        // Use centralized RulesService to determin limits based on Group & Account Size
+        // --- DYNAMIC RULES ---
         const { maxDailyLoss, maxTotalLoss, profitTarget, rules } = await RulesService.calculateObjectives(challenge_id);
 
-        const calculatedMaxDailyLoss = maxDailyLoss;
-        const calculatedMaxTotalLoss = maxTotalLoss;
-        const calculatedProfitTarget = profitTarget;
+        const initialBalance = Number(challengeData.initial_balance);
+        const currentEquity = Number(challengeData.current_equity);
+        // Fallback to initial balance if Start of Day is null (e.g. new account)
+        const startOfDayEquity = Number(challengeData.start_of_day_equity ?? initialBalance);
 
-        const maxDailyLossPercent = rules.max_daily_loss_percent;
-        const maxTotalLossPercent = rules.max_total_loss_percent;
-        const profitTargetPercent = rules.profit_target_percent;
+        // 1. Daily Loss Calculation (Equity Based)
+        // Formula: Net Change since Start of Day
+        const dailyNet = currentEquity - startOfDayEquity;
+        let dailyLoss = 0;
+        let dailyProfit = 0;
 
-        // Use Realized PnL (Closed Trades Sum) to match Trade History (~-807)
-        // instead of Equity which includes open PnL/credits (~-899)
-
-        // Define start_of_day_equity explicitly here for use in response
-        const safeInitialBalance = Number(challenge?.initial_balance ?? 0);
-        const startOfDayEquity = Number(challenge?.start_of_day_equity ?? safeInitialBalance);
-
-        // 1. Total Loss (Drawdown) = -realizedPnL (if negative)
-        // 1. Total Loss (Drawdown) = -realizedPnL (if negative)
-        let realizedPnL = netPnL;
-        let currentTotalLoss = realizedPnL < 0 ? Math.abs(realizedPnL) : 0;
-
-        // 2. Daily Loss = Using today's closed trade sum
-        let currentDailyLoss = dailyNetPnL < 0 ? Math.abs(dailyNetPnL) : 0;
-
-        // 3. Profit = realizedPnL (if positive)
-        let currentProfit = realizedPnL > 0 ? realizedPnL : 0;
-
-        // --- FIX FOR BREACHED ACCOUNTS ---
-        // If account is breached, use EQUITY to determine the final P&L (including open trades)
-        // Access 'challenge' from RulesService.calculateObjectives result (I need to update RulesService or use local `challenge` var)
-        // Wait, `challenge` var is fetched above at line 122.
-
-        // Refetch challenge with STATUS to be sure
-        const { data: dbChallenge, error: dbError } = await supabase
-            .from('challenges')
-            .select('*')
-            .eq('id', challenge_id)
-            .single();
-
-        if (dbError) {
-            console.error("❌ Error fetching dbChallenge (Line 161):", dbError);
+        if (dailyNet >= 0) {
+            dailyProfit = dailyNet;
+            dailyLoss = 0; // In profit for the day
+        } else {
+            dailyLoss = Math.abs(dailyNet);
+            dailyProfit = 0;
         }
 
-        if (dbChallenge && (dbChallenge.status === 'breached' || dbChallenge.status === 'failed')) {
-            console.log(`⚠️ Account ${challenge_id} is BREACHED/FAILED. Using Equity for Objectives.`);
-            const initialBalance = Number(dbChallenge.initial_balance);
-            const currentEquity = Number(dbChallenge.current_equity);
+        // 2. Total Loss Calculation (Equity Based)
+        // Formula: Net Change since Inception
+        const totalNet = currentEquity - initialBalance;
+        let totalLoss = 0;
+        let totalProfit = 0;
 
-            // Total P&L based on Equity
-            const equityNetPnL = currentEquity - initialBalance;
-
-            console.log(`🔍 [BREACH-DEBUG] ID: ${challenge_id}`);
-            console.log(`   Initial Bal: ${initialBalance}, Equity: ${currentEquity}`);
-            console.log(`   EquityNetPnL: ${equityNetPnL}`);
-
-            if (equityNetPnL >= 0) {
-                currentProfit = equityNetPnL;
-                currentTotalLoss = 0;
-                realizedPnL = equityNetPnL; // update for logging
-            } else {
-                currentTotalLoss = Math.abs(equityNetPnL);
-                currentProfit = 0;
-                realizedPnL = equityNetPnL;
-            }
-
-            // Daily P&L based on Start of Day Equity
-            const startOfDayEquity = Number(dbChallenge.start_of_day_equity ?? initialBalance);
-            const dailyEquityNet = currentEquity - startOfDayEquity;
-
-            console.log(`   StartDayEquity: ${startOfDayEquity}`);
-            console.log(`   DailyEquityNet: ${dailyEquityNet}`);
-
-            if (dailyEquityNet >= 0) {
-                // daily profit
-                currentDailyLoss = 0;
-            } else {
-                currentDailyLoss = Math.abs(dailyEquityNet);
-            }
+        if (totalNet >= 0) {
+            totalProfit = totalNet;
+            totalLoss = 0;
+        } else {
+            totalLoss = Math.abs(totalNet);
+            totalProfit = 0;
         }
 
-        // console.log(`📊 Backend Realized PnL (Adjusted for Breach): ${realizedPnL}`);
+        // 3. REMAINING BUFFER CALCULATION (Crucial Fix)
+        // Breach Level = SOD Equity - MaxDailyLoss
+        // Remaining = CurrentEquity - BreachLevel
+        const dailyBreachLevel = startOfDayEquity - maxDailyLoss;
+        const dailyRemaining = Math.max(0, currentEquity - dailyBreachLevel);
 
-        // Keep stats mainly for informational "Trade Analysis"
-        // But override the Risk Metrics with the Live Equity Values above.
+        // Total Breach Level = Initial Balance - MaxTotalLoss
+        const totalBreachLevel = initialBalance - maxTotalLoss;
+        const totalRemaining = Math.max(0, currentEquity - totalBreachLevel);
+
+        // 4. Profit Target
+        // For profit target, we usually look at Total Profit (Realized + Floating) = totalNet
+        const currentProfitMetric = Math.max(0, totalNet);
+
 
         const responsePayload = {
             stats: {
@@ -225,31 +190,31 @@ router.post('/calculate', authenticate, async (req: AuthRequest, res: Response) 
             },
             objectives: {
                 daily_loss: {
-                    current: currentDailyLoss,
+                    current: dailyLoss,
                     max_allowed: maxDailyLoss,
-                    remaining: Math.max(0, maxDailyLoss - currentDailyLoss),
-                    threshold: maxDailyLoss * 0.95,
-                    start_of_day_equity: startOfDayEquity, // Pass this to frontend for correct calculation
-                    status: currentDailyLoss >= maxDailyLoss ? 'breached' : currentDailyLoss >= maxDailyLoss * 0.8 ? 'warning' : 'passed'
+                    remaining: dailyRemaining,
+                    threshold: dailyBreachLevel,
+                    start_of_day_equity: startOfDayEquity,
+                    status: currentEquity <= dailyBreachLevel ? 'breached' : 'passed'
                 },
                 total_loss: {
-                    current: currentTotalLoss,
+                    current: totalLoss,
                     max_allowed: maxTotalLoss,
-                    remaining: Math.max(0, maxTotalLoss - currentTotalLoss),
-                    threshold: maxTotalLoss * 0.9,
-                    status: currentTotalLoss >= maxTotalLoss ? 'breached' : currentTotalLoss >= maxTotalLoss * 0.8 ? 'warning' : 'passed'
+                    remaining: totalRemaining,
+                    threshold: totalBreachLevel,
+                    status: currentEquity <= totalBreachLevel ? 'breached' : 'passed'
                 },
                 profit_target: {
-                    current: currentProfit,
+                    current: currentProfitMetric,
                     target: profitTarget,
-                    remaining: Math.max(0, profitTarget - currentProfit),
+                    remaining: Math.max(0, profitTarget - currentProfitMetric),
                     threshold: profitTarget,
-                    status: (profitTarget > 0 && currentProfit >= profitTarget) ? 'passed' : 'ongoing'
+                    status: (profitTarget > 0 && currentProfitMetric >= profitTarget) ? 'passed' : 'ongoing'
                 },
                 rules: {
-                    max_daily_loss_percent: maxDailyLossPercent,
-                    max_total_loss_percent: maxTotalLossPercent,
-                    profit_target_percent: profitTargetPercent
+                    max_daily_loss_percent: rules.max_daily_loss_percent,
+                    max_total_loss_percent: rules.max_total_loss_percent,
+                    profit_target_percent: rules.profit_target_percent
                 }
             }
         };

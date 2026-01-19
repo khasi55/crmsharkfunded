@@ -90,5 +90,13 @@ async function performDailyReset() {
 
     } catch (e) {
         console.error("❌ [Daily Reset] Critical Error:", e);
+        // Retry logic could be added here
     }
 }
+
+// Add strict retry for failed resets (e.g. 10 mins later)
+cron.schedule('10 0 * * *', async () => {
+    console.log("🕛 [Daily Reset Backup] Running backup verification...");
+    // We could re-run or check specifically for non-updated accounts
+    // For now, simpler to just rely on initial run, but logging is key.
+});

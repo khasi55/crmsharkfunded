@@ -28,7 +28,7 @@ export class EmailService {
      */
     static async sendEmail(to: string, subject: string, bodyHtml: string, bodyText: string = '') {
         try {
-            console.log(`📧 Attempting to send email via SMTP to ${to}...`);
+            // console.log(`📧 Attempting to send email via SMTP to ${to}...`);
 
             const fromHeader = `"${this.FROM_NAME}" <${this.FROM_EMAIL}>`;
             console.log(`📧 Sender Header: ${fromHeader}`);
@@ -41,7 +41,7 @@ export class EmailService {
                 html: bodyHtml
             });
 
-            console.log(`✅ Email sent: ${info.messageId}`);
+            // console.log(`✅ Email sent: ${info.messageId}`);
             return info;
         } catch (error: any) {
             console.error('🔥 Error sending email via SMTP:', error.message);

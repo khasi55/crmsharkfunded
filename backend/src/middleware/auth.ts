@@ -34,6 +34,23 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             return;
         }
 
+        // 2. Check for Admin Cookie (from Admin Portal)
+        const adminSessionId = req.cookies?.['admin_session'];
+        if (adminSessionId) {
+            const { data: adminUser, error: adminError } = await getSupabase()
+                .from('admin_users')
+                .select('id, email, full_name, role')
+                .eq('id', adminSessionId)
+                .single();
+
+            if (!adminError && adminUser) {
+                // console.log(`[Auth] Authenticated Admin via Cookie: ${adminUser.email}`);
+                req.user = { id: adminUser.id, role: adminUser.role || 'admin', email: adminUser.email };
+                next();
+                return;
+            }
+        }
+
         const authHeader = req.headers.authorization;
         console.log(`🔐 [AuthDebug] Header: ${authHeader ? 'Present' : 'Missing'}, Value: ${authHeader?.substring(0, 20)}...`);
 

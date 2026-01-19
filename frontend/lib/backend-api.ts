@@ -5,19 +5,25 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_U
 /**
  * Fetch wrapper for Backend APIs (authenticated)
  */
-export async function fetchFromBackend(endpoint: string, options: RequestInit = {}) {
+export async function fetchFromBackend(endpoint: string, options: RequestInit & { requireAuth?: boolean } = {}) {
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
 
-    if (!session) {
-        throw new Error('No active session');
+    if (!session && options.requireAuth !== false) {
+        console.warn('fetchFromBackend: No active session for endpoint', endpoint);
+        // throw new Error('No active session'); // Soften this for now to prevent crashes on public data
     }
 
-    const headers = {
+
+    const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-        ...options.headers,
+        ...options.headers as Record<string, string>,
     };
+
+    if (session) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+
 
     // Ensure endpoint starts with /
     const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;

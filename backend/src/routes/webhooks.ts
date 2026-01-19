@@ -123,7 +123,7 @@ router.get('/payment', async (req: Request, res: Response) => {
 async function handlePaymentWebhook(req: Request, res: Response) {
     try {
         const body = req.method === 'GET' ? req.query : req.body;
-        console.log('💰 Payment webhook/redirect received:', { method: req.method, body });
+        // console.log('💰 [Payment] Webhook received');
 
         const internalOrderId = body.reference_id || body.reference || body.orderId || body.internalOrderId;
         const status = body.status || body.event?.split('.')[1];

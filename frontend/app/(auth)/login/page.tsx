@@ -18,6 +18,11 @@ export default function LoginPage() {
     const router = useRouter()
     const supabase = createClient()
 
+    // Prefetch dashboard for instant transition
+    useState(() => {
+        router.prefetch('/dashboard')
+    })
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)

@@ -69,16 +69,16 @@ function DashboardContent() {
         window.location.href = '/login';
     };
 
-    // Cohesive Loading Effect on Account Switch
-    useEffect(() => {
-        if (selectedAccount) {
-            setIsLoading(true);
-            const timer = setTimeout(() => {
-                setIsLoading(false);
-            }, 800);
-            return () => clearTimeout(timer);
-        }
-    }, [selectedAccount?.id]);
+    // Cohesive Loading Effect on Account Switch - REMOVED for speed
+    // useEffect(() => {
+    //     if (selectedAccount) {
+    //         setIsLoading(true);
+    //         const timer = setTimeout(() => {
+    //             setIsLoading(false);
+    //         }, 800);
+    //         return () => clearTimeout(timer);
+    //     }
+    // }, [selectedAccount?.id]);
 
     return (
         <div className="flex h-screen overflow-hidden bg-transparent text-slate-900 relative">

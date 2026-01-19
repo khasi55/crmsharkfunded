@@ -12,6 +12,8 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware (Restart Triggered)
+import cookieParser from 'cookie-parser';
+app.use(cookieParser());
 app.use(cors({
     origin: (origin, callback) => {
         const allowedOrigins = [

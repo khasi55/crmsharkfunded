@@ -176,6 +176,16 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 const challenge = challengeMap.get(res.login);
                 if (!challenge) continue;
 
+                // SAFETY CHECK: Zero Equity Glitch Protection
+                // If equity is 0 but balance is significant (> 1% of initial), ignore the zero equity
+                // This prevents false breaches when the bridge returns 0 due to timeouts/errors
+                const isZeroEquityGlitch = (res.equity <= 0.01) && (res.balance > (Number(challenge.initial_balance) * 0.01));
+
+                if (isZeroEquityGlitch) {
+                    console.warn(`⚠️ IGNORED Zero Equity Glitch for ${res.login}. Equity: ${res.equity}, Balance: ${res.balance}`);
+                    continue;
+                }
+
                 const updateData: any = {
                     id: challenge.id, // Required for upsert to match correct row
                     user_id: challenge.user_id, // Required to satisfy NOT NULL constraint during upsert check
