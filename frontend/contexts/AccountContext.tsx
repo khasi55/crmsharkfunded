@@ -71,14 +71,9 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
     const fetchAccounts = async () => {
         try {
-            // Check if we have a session first to avoid "No active session" error
+            // Auth check handled by middleware and backend
             const supabase = createClient();
-            const { data: { session } } = await supabase.auth.getSession();
 
-            if (!session) {
-                setLoading(false);
-                return;
-            }
 
             const data = await fetchFromBackend('/api/dashboard/accounts');
 

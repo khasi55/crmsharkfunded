@@ -1,7 +1,10 @@
 'use client'
 
+
 import { useState } from 'react'
 import Link from 'next/link'
+
+import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Loader2, Mail, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react'
 import AuthCard from '@/components/auth/AuthCard'
@@ -13,6 +16,7 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const router = useRouter()
+    const supabase = createClient()
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -20,27 +24,20 @@ export default function LoginPage() {
         setError(null)
 
         try {
-            const response = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ email, password }),
+            const { error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
             })
 
-            const data = await response.json()
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Login failed')
+            if (error) {
+                throw error
             }
 
             router.push('/dashboard')
-            router.refresh()
         } catch (err: any) {
             setError(err.message)
             setLoading(false)
         }
-        // finally block removed to keep loading state true on success
     }
 
     return (
