@@ -351,14 +351,14 @@ export default function CompetitionDetailsClient({ competitionId }: { competitio
                                 <tr>
                                     <th className="px-6 py-4 font-semibold text-slate-500">Rank</th>
                                     <th className="px-6 py-4 font-semibold text-slate-500">Name</th>
-                                    <th className="px-6 py-4 font-semibold text-slate-500 hidden md:table-cell">Country</th>
                                     <th className="px-6 py-4 font-semibold text-slate-500 text-right">Trades</th>
                                     <th className="px-6 py-4 font-semibold text-slate-500 text-right">Profit</th>
                                     <th className="px-6 py-4 font-semibold text-slate-500 text-right">Gain</th>
+                                    <th className="px-6 py-4 font-semibold text-slate-500 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 text-slate-700">
-                                {leaderboard.map((p: any) => (
+                                {leaderboard.slice(0, 10).map((p: any) => (
                                     <tr
                                         key={p.id}
                                         className="hover:bg-slate-50/50 transition-colors cursor-pointer"
@@ -373,15 +373,23 @@ export default function CompetitionDetailsClient({ competitionId }: { competitio
                                                 <span className="font-semibold">{p.username}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 hidden md:table-cell">
-                                            <span className="text-lg">🌍</span>
-                                        </td>
                                         <td className="px-6 py-4 text-right font-mono">{p.trades_count}</td>
                                         <td className={cn("px-6 py-4 text-right font-mono font-medium", (p.profit || 0) >= 0 ? "text-green-600" : "text-red-600")}>
                                             ${(p.profit || 0).toLocaleString()}
                                         </td>
                                         <td className={cn("px-6 py-4 text-right font-bold", p.score >= 0 ? "text-green-600" : "text-red-600")}>
                                             {p.score.toFixed(2)}%
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <button
+                                                className="text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg transition-colors border border-slate-200"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    fetchUserTrades(p.challenge_id, p.username);
+                                                }}
+                                            >
+                                                View Trades
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}
