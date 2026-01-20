@@ -9,13 +9,14 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 
-async function checkParticipants() {
-    console.log("Checking User 889224326...");
+async function checkSpecificUser() {
+    const login = process.argv[2] ? parseInt(process.argv[2]) : 889224326;
+    console.log(`Checking User ${login}...`);
 
     const { data: challenge } = await supabase
         .from('challenges')
         .select('*')
-        .eq('login', 889224326)
+        .eq('login', login)
         .single();
 
     if (!challenge) { console.log("Account not found"); return; }
@@ -44,4 +45,4 @@ async function checkParticipants() {
     console.log(`💰 Total PnL for Challenge ${challenge.login}: ${totalPnL}`);
 }
 
-checkParticipants();
+checkSpecificUser();

@@ -101,21 +101,17 @@ export async function getLeaderboard(competitionId: string) {
                 id: p.user_id,
                 rank: index + 1,
                 username: profile?.full_name || `Trader ${p.user_id.substring(0, 4)}...`,
-                score: gain, // Use dynamic Gain % instead of DB score
+                score: gain, // Use dynamic Gain % based on Equity
                 status: effectiveStatus,
                 avatar_url: profile?.avatar_url,
                 trades_count,
-                profit: equityProfit, // Use Equity Profit (Floating) instead of Closed Profit
+                profit: equityProfit, // Use Equity Profit
                 win_ratio,
                 challenge_id: p.challenge_id
             };
         });
 
-        // DEBUG: Inspect Types
-        if (leaderboard.length > 0) {
-            console.log("DEBUG SORT: First Item Score Type:", typeof leaderboard[0].score, "Value:", leaderboard[0].score);
-            console.log("DEBUG SORT: Before Sort (Slice 5):", leaderboard.slice(0, 5).map(p => `${p.username}: ${p.score}`));
-        }
+
 
         // CUSTOM RULE: user says "breached accounts are out of race" -> Filter them out completely
         const activeLeaderboard = leaderboard.filter((p: any) => p.status !== 'breached' && p.status !== 'failed');
@@ -190,12 +186,12 @@ export async function updateLeaderboardScores(competitionId: string) {
             if (!challenge) return { user_id: p.user_id, score: -999999, rank: 9999 };
 
             const initialBalance = challenge.initial_balance || 100000;
-            // const currentEquity = challenge.current_equity ?? initialBalance;
+            const currentEquity = challenge.current_equity ?? initialBalance;
 
-            const userTrades = tradesMap[p.challenge_id] || [];
-            const profit = userTrades.reduce((sum, t) => sum + (t.profit_loss || 0), 0);
+            // Calculate Profit based on Equity (Includes Floating PnL)
+            const profit = currentEquity - initialBalance;
 
-            // Calculate Gain based on Closed Profit Only
+            // Calculate Gain based on Equity
             const gain = initialBalance > 0 ? (profit / initialBalance) * 100 : 0;
             const status = challenge.status;
 

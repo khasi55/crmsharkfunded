@@ -10,7 +10,7 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PU
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 async function main() {
-    const login = 889224461;
+    const login = process.argv[2] ? parseInt(process.argv[2]) : 889224461;
     const dateStr = '2026-01-19';
     const startOfDay = new Date(`${dateStr}T00:00:00Z`).toISOString();
     const endOfDay = new Date(`${dateStr}T23:59:59Z`).toISOString();

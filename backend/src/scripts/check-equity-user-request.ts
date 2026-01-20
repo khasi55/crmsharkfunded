@@ -16,8 +16,8 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function checkEquity() {
-    const login = 889224461;
+async function main() {
+    const login = process.argv[2] ? parseInt(process.argv[2]) : 889224461;
     console.log(`Checking Equity for account ${login}...`);
     const { data: challenge, error } = await supabase
         .from('challenges')
@@ -36,4 +36,4 @@ async function checkEquity() {
     console.log(`Start Of Day: ${challenge.start_of_day_equity}`);
 }
 
-checkEquity();
+main();
