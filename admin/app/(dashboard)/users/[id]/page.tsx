@@ -5,7 +5,7 @@ import { StatusBadge } from "@/components/admin/StatusBadge";
 export default async function AdminUserDetailsPage({
     params,
 }: {
-    params: { id: string };
+    params: Promise<{ id: string }>;
 }) {
     const { id } = await params; // Await params in Next.js 15+
     const supabase = await createClient();
