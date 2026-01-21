@@ -35,18 +35,18 @@ export default function TradeHistory() {
     const [currentPage, setCurrentPage] = useState(1);
     const tradesPerPage = 20;
 
+    const [stats, setStats] = useState({
+        totalTrades: 0,
+        openTrades: 0,
+        closedTrades: 0,
+        totalPnL: 0
+    });
+    const [totalPages, setTotalPages] = useState(1);
+
     // Reset to page 1 when filter changes
     useEffect(() => {
         setCurrentPage(1);
     }, [filter, selectedAccount]);
-
-    // Pagination Logic
-    const indexOfLastTrade = currentPage * tradesPerPage;
-    const indexOfFirstTrade = indexOfLastTrade - tradesPerPage;
-    const currentTrades = trades.slice(indexOfFirstTrade, indexOfLastTrade);
-    const totalPages = Math.ceil(trades.length / tradesPerPage);
-
-    const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
     // WebSocket Subscription for Real-time Updates
     const { socket } = useSocket();
@@ -77,20 +77,33 @@ export default function TradeHistory() {
         return () => {
             socket.off('trade_update', handleTradeUpdate);
         };
-    }, [filter, selectedAccount, socket]);
+    }, [filter, selectedAccount, socket, currentPage]); // Added currentPage dependency
 
     const fetchTrades = async (isSilent = false) => {
         try {
             if (!selectedAccount) return;
             if (!isSilent) setLoading(true);
 
-
             // fetchFromBackend handles auth headers automatically
-            const data = await fetchFromBackend(`/api/dashboard/trades?filter=${filter}&limit=500&accountId=${selectedAccount.id}`);
+            // Server-side pagination: page=${currentPage}&limit=${tradesPerPage}
+            const data = await fetchFromBackend(`/api/dashboard/trades?filter=${filter}&page=${currentPage}&limit=${tradesPerPage}&accountId=${selectedAccount.id}`);
 
+            if (data.trades) {
+                setTrades(data.trades);
 
+                // Use server-provided stats if available, otherwise fallback (though backend should provide them now)
+                if (data.stats) {
+                    setStats(data.stats);
+                }
 
-            setTrades(data.trades || []);
+                // Calculate total pages from server metadata
+                if (data.pagination) {
+                    setTotalPages(data.pagination.totalPages);
+                } else {
+                    // Fallback if backend doesn't return pagination metadata yet
+                    setTotalPages(1);
+                }
+            }
         } catch (error) {
             console.error('Error fetching trades:', error);
             // Fallback to demo data on error
@@ -100,7 +113,7 @@ export default function TradeHistory() {
         }
     };
 
-
+    const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
@@ -131,14 +144,6 @@ export default function TradeHistory() {
         return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
     };
 
-    const stats = {
-        totalTrades: trades.length,
-        openTrades: trades.filter(t => !t.close_time).length,
-        closedTrades: trades.filter(t => t.close_time).length,
-        // Match User Expectation: Sum of Closed Trades (Net PnL)
-        totalPnL: trades.filter(t => t.close_time).reduce((sum, t) => sum + (t.profit_loss || 0) + (t.commission || 0) + (t.swap || 0), 0),
-    };
-
     if (loading) {
         return (
             <div className="bg-[#050923] border border-white/10 rounded-xl p-6 animate-pulse">
@@ -147,6 +152,9 @@ export default function TradeHistory() {
             </div>
         );
     }
+
+    const indexOfFirstTradeOnPage = (currentPage - 1) * tradesPerPage;
+    const indexOfLastTradeOnPage = indexOfFirstTradeOnPage + trades.length; // Use trades.length as it's already the paginated slice
 
     return (
         <motion.div
@@ -202,7 +210,7 @@ export default function TradeHistory() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                        {currentTrades.map((trade) => {
+                        {trades.map((trade) => { // CHANGED: Map directly over trades (which are already paginated by backend)
                             const netProfit = (trade.profit_loss || 0) + (trade.commission || 0) + (trade.swap || 0);
                             return (
                                 <tr
@@ -290,10 +298,10 @@ export default function TradeHistory() {
             </div>
 
             {/* Pagination Controls */}
-            {trades.length > 0 && (
+            {stats.totalTrades > 0 && (
                 <div className="flex items-center justify-between px-6 py-4 border-t border-white/5 bg-black/10">
                     <div className="text-xs text-gray-400">
-                        Showing <span className="font-medium text-white">{indexOfFirstTrade + 1}</span> to <span className="font-medium text-white">{Math.min(indexOfLastTrade, trades.length)}</span> of <span className="font-medium text-white">{trades.length}</span> trades
+                        Showing <span className="font-medium text-white">{((currentPage - 1) * tradesPerPage) + 1}</span> to <span className="font-medium text-white">{Math.min(currentPage * tradesPerPage, stats.totalTrades)}</span> of <span className="font-medium text-white">{stats.totalTrades}</span> trades
                     </div>
                     <div className="flex items-center gap-2">
                         <button
@@ -317,7 +325,7 @@ export default function TradeHistory() {
 
 
             {/* Empty State */}
-            {trades.length === 0 && (
+            {stats.totalTrades === 0 && (
                 <div className="flex flex-col items-center justify-center py-12">
                     <History size={48} className="text-gray-600 mb-4" />
                     <h4 className="text-lg font-bold text-white mb-2">No Trades Yet</h4>
@@ -325,7 +333,7 @@ export default function TradeHistory() {
             )}
 
             {/* Summary Footer */}
-            {trades.length > 0 && (
+            {stats.totalTrades > 0 && (
                 <div className="grid grid-cols-4 gap-px bg-white/5 border-t border-white/10">
                     <div className="bg-[#050923] p-4 text-center">
                         <p className="text-xs text-gray-400 mb-1">Total Trades</p>

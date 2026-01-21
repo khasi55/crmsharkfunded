@@ -294,3 +294,26 @@
 [2026-01-18T07:06:43.888Z] Found 174 trades
 [2026-01-18T07:06:43.890Z] Returning 100 leaderboard entries
 [2026-01-18T07:06:43.892Z] Serving 100 entries from cache
+[2026-01-21T04:17:44.262Z] Fetching fresh ranking for accountSize: All
+[2026-01-21T04:17:44.666Z] Found 167 active challenges
+[2026-01-21T04:17:44.666Z] Fetching profiles for 132 users
+[2026-01-21T04:17:45.116Z] Mapped 132 profiles
+[2026-01-21T04:17:45.116Z] Fetching trades for 167 challenges
+[2026-01-21T04:17:45.591Z] Fetching fresh ranking for accountSize: 100k
+[2026-01-21T04:17:45.902Z] Found 1000 trades
+[2026-01-21T04:17:45.908Z] Returning 100 leaderboard entries
+[2026-01-21T04:17:45.911Z] Serving 100 entries from cache
+[2026-01-21T04:17:46.054Z] Found 150 active challenges
+[2026-01-21T04:17:46.055Z] Fetching profiles for 130 users
+[2026-01-21T04:17:46.449Z] Mapped 130 profiles
+[2026-01-21T04:17:46.449Z] Fetching trades for 150 challenges
+[2026-01-21T04:17:47.206Z] Found 1000 trades
+[2026-01-21T04:17:47.210Z] Returning 100 leaderboard entries
+[2026-01-21T04:21:38.614Z] Fetching fresh ranking for accountSize: All
+[2026-01-21T04:21:39.094Z] Found 166 active challenges
+[2026-01-21T04:21:39.094Z] Fetching profiles for 131 users
+[2026-01-21T04:21:39.477Z] Mapped 131 profiles
+[2026-01-21T04:21:39.478Z] Fetching trades for 166 challenges
+[2026-01-21T04:21:40.241Z] Found 1000 trades
+[2026-01-21T04:21:40.247Z] Returning 100 leaderboard entries
+[2026-01-21T04:21:40.249Z] Serving 100 entries from cache

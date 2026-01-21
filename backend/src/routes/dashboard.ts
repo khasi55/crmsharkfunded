@@ -96,65 +96,112 @@ router.get('/calendar', authenticate, async (req: AuthRequest, res: Response) =>
 router.get('/trades', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const user = req.user;
-        const { accountId, filter, limit } = req.query;
+        const { accountId, filter, limit, page } = req.query;
 
         if (!user) {
             res.status(401).json({ error: 'Not authenticated' });
             return;
         }
 
-        let query = supabase
+        // Base Query
+        let baseQuery = supabase
             .from('trades')
-            .select('id, ticket, symbol, type, lots, open_price, close_price, open_time, close_time, profit_loss, commission, swap, comment')
-            .eq('user_id', user.id)
-            .order('open_time', { ascending: false }); // Latest first
-
-        // Debug Log to file
-        const logPath = require('path').join(process.cwd(), 'backend_manual_debug.log');
-        // fs.appendFileSync(logPath, `[${new Date().toISOString()}] Trades Request - User: ${user.id}, Account: ${accountId}, Filter: ${filter}\n`);
-        // console.log(`[DASHBOARD-TRADES-HIT] User: ${user.id}, Account: ${accountId}`);
+            .select('id, ticket, symbol, type, lots, open_price, close_price, open_time, close_time, profit_loss, commission, swap, comment', { count: 'exact' })
+            .eq('user_id', user.id);
 
         if (accountId) {
-            // fs.appendFileSync('backend_debug.log', `[${new Date().toISOString()}] Filtering by Challenge ID: ${accountId}\n`);
-            query = query.eq('challenge_id', accountId);
+            baseQuery = baseQuery.eq('challenge_id', accountId);
         }
 
         // Filter by Status
         if (filter === 'open') {
-            query = query.is('close_time', null);
+            baseQuery = baseQuery.is('close_time', null);
         } else if (filter === 'closed') {
-            query = query.not('close_time', 'is', null);
+            baseQuery = baseQuery.not('close_time', 'is', null);
         }
 
-        // Limit
-        if (limit) {
-            query = query.limit(Number(limit));
+        // --- Aggregation Stats (Run separately or optimize) ---
+        // We need: Total Trades, Open Trades, Closed Trades, Total PnL.
+        // Doing this efficiently requires specific aggregation queries or post-processing if volume is low.
+        // For performance on large datasets, we should use RPC or separate count queries.
+        // "Total PnL" is the most expensive to calculate if we don't scan all rows. 
+        // Let's assume for now we use a separate efficient query for stats if possible, 
+        // or just accept we might need to sum on DB side.
+        // Supabase doesn't easily support "Sum" without RPC. 
+        // Strategy: Fetch ALL "profit_loss" column only for the stats (lightweight), and Paginator for the rows.
+
+        // 1. Efficient Stats Gathering
+        let totalTrades = 0;
+        let openTrades = 0;
+        let closedTrades = 0;
+        let totalPnL = 0;
+
+        // Optimization: If accountId is provided, we can fetch PnL from challenge equity directly
+        // and avoid scanning the entire trades table for simple counts.
+        if (accountId) {
+            const [
+                { count: total },
+                { count: open },
+                { count: closed },
+                { data: challenge }
+            ] = await Promise.all([
+                supabase.from('trades').select('*', { count: 'exact', head: true }).eq('challenge_id', accountId),
+                supabase.from('trades').select('*', { count: 'exact', head: true }).eq('challenge_id', accountId).is('close_time', null),
+                supabase.from('trades').select('*', { count: 'exact', head: true }).eq('challenge_id', accountId).not('close_time', 'is', null),
+                supabase.from('challenges').select('initial_balance, current_equity').eq('id', accountId).single()
+            ]);
+
+            totalTrades = total || 0;
+            openTrades = open || 0;
+            closedTrades = closed || 0;
+
+            if (challenge) {
+                // Total PnL = Current Equity - Initial Balance
+                // This is much faster than summing thousands of rows
+                totalPnL = (Number(challenge.current_equity) || 0) - (Number(challenge.initial_balance) || 0);
+            }
+        } else {
+            // Fallback for "All Accounts" view (less common, but needs support)
+            // We'll stick to the simpler query but optimize selection
+            const { data: allTradesForStats, error: statsError } = await baseQuery
+                .select('profit_loss, commission, swap, close_time'); // Minimal columns
+
+            if (statsError) throw statsError;
+
+            const statsData = (allTradesForStats || []);
+            totalTrades = statsData.length;
+            openTrades = statsData.filter((t: any) => !t.close_time).length;
+            closedTrades = statsData.filter((t: any) => t.close_time).length;
+            totalPnL = statsData.reduce((sum: number, t: any) => sum + (Number(t.profit_loss) || 0) + (Number(t.commission) || 0) + (Number(t.swap) || 0), 0);
         }
 
-        const { data: trades, error } = await query;
+        // 2. Fetch Paginated Rows
+        const pageNum = Number(page || 1);
+        const limitNum = Number(limit || 20);
+        const from = (pageNum - 1) * limitNum;
+        const to = from + limitNum - 1;
+
+        let paginatedQuery = supabase
+            .from('trades')
+            .select('id, ticket, symbol, type, lots, open_price, close_price, open_time, close_time, profit_loss, commission, swap, comment')
+            .eq('user_id', user.id)
+            .order('open_time', { ascending: false })
+            .range(from, to);
+
+        if (accountId) paginatedQuery = paginatedQuery.eq('challenge_id', accountId);
+        if (filter === 'open') paginatedQuery = paginatedQuery.is('close_time', null);
+        else if (filter === 'closed') paginatedQuery = paginatedQuery.not('close_time', 'is', null);
+
+        const { data: trades, error } = await paginatedQuery;
 
         if (error) {
-            // fs.appendFileSync('backend_debug.log', `[${new Date().toISOString()}] DB Error: ${JSON.stringify(error)}\n`);
             console.error('Error fetching trades:', error);
             res.status(500).json({ error: 'Failed to fetch trades' });
             return;
         }
 
         // Format trades for frontend
-        // Format trades for frontend
         const formattedTrades = (trades || [])
-            .filter(t => {
-                const typeStr = String(t.type).toLowerCase();
-                const commentStr = String(t.comment || '').toLowerCase();
-                const symbolStr = String(t.symbol || '');
-                const isZeroLots = Number(t.lots) === 0;
-
-                const isValidType = ['0', '1', 'buy', 'sell'].includes(typeStr);
-                const isDeposit = commentStr.includes('deposit') || commentStr.includes('balance') || commentStr.includes('initial');
-                const isInvalidSymbol = symbolStr.trim() === '';
-
-                return isValidType && !isDeposit && !isInvalidSymbol && !isZeroLots;
-            })
             .map(t => ({
                 id: t.id,
                 ticket_number: t.ticket,
@@ -170,7 +217,21 @@ router.get('/trades', authenticate, async (req: AuthRequest, res: Response) => {
                 swap: t.swap
             }));
 
-        res.json({ trades: formattedTrades });
+        res.json({
+            trades: formattedTrades,
+            stats: {
+                totalTrades,
+                openTrades,
+                closedTrades,
+                totalPnL
+            },
+            pagination: {
+                page: pageNum,
+                limit: limitNum,
+                total: totalTrades,
+                totalPages: Math.ceil(totalTrades / limitNum)
+            }
+        });
 
     } catch (error) {
         console.error('Dashboard trades API error:', error);
