@@ -7,6 +7,9 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
     title: "Dashboard | SharkFunded ",
     description: "SharkFunded Trading Platform",
+    icons: {
+        icon: "/shark-logo.png",
+    },
 };
 
 export default function RootLayout({
