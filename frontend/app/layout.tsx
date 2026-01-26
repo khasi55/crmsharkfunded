@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-    title: "SharkFunded CRM",
+    title: "Dashboard | SharkFunded ",
     description: "SharkFunded Trading Platform",
 };
 
