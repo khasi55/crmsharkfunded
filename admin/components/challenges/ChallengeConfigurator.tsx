@@ -8,6 +8,46 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { fetchFromBackend } from "@/lib/backend-api";
 
+
+export const pricingConfig = {
+    Prime: {
+        '5K': { price: '$59', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '10K': { price: '$89', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '25K': { price: '$236', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '50K': { price: '$412', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '100K': { price: '$610', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+    },
+    LiteTwoStep: {
+        '5K': { price: '$30', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
+        '10K': { price: '$55', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
+        '25K': { price: '$125', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
+        '50K': { price: '$235', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
+        '100K': { price: '$440', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
+    },
+    LiteOneStep: {
+        '5K': { price: '$48', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
+        '10K': { price: '$70', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
+        '25K': { price: '$150', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
+        '50K': { price: '$260', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
+        '100K': { price: '$550', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
+    },
+    InstantLite: {
+        '3K': { price: '$34', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
+        '6K': { price: '$59', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
+        '12K': { price: '$89', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
+        '25K': { price: '$249', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
+        '50K': { price: '$499', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
+        '100K': { price: '$799', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
+    },
+    InstantPrime: {
+        '5K': { price: '$49', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
+        '10K': { price: '$83', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
+        '25K': { price: '$199', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
+        '50K': { price: '$350', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
+        '100K': { price: '$487', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
+    }
+} as const;
+
 // --- Data ---
 const CHALLENGE_TYPES = [
     { id: "1-step", label: "One Step", desc: "Single phase evaluation" },
@@ -16,47 +56,74 @@ const CHALLENGE_TYPES = [
 ];
 
 const MODELS = [
-    { id: "standard", label: "SharkFunded", desc: "Classic model" },
-    { id: "pro", label: "SharkFunded Pro", desc: "Higher leverage" }
+    { id: "standard", label: "SharkFunded Lite", desc: "Classic model" },
+    { id: "pro", label: "SharkFunded Prime", desc: "Higher leverage" }
 ];
 
-const SIZES = [5000, 10000, 25000, 50000, 100000, 200000];
-
 const PLATFORMS = [
-    { id: "mt5", label: "MetaTrader 5" },
-    { id: "tradelocker", label: "TradeLocker" }
+    { id: "mt5", label: "MetaTrader 5" }
 ];
 
 const PAYMENT_GATEWAYS = [
-    { id: "sharkpay", label: "SharkPay", currency: "INR", desc: "Pay in Indian Rupees (₹)", icon: "🇮🇳" },
-    { id: "paymid", label: "Paymid", currency: "USD", desc: "Pay in US Dollars ($)", icon: "🇺🇸" }
+    { id: "sharkpay", label: "SharkPay", currency: "INR", desc: "Pay in Indian Rupees (₹)", icon: "🇮🇳" }
 ];
+
+// Helper to map size number to string key
+const getSizeKey = (size: number): string => {
+    if (size >= 1000) {
+        return `${size / 1000}K`;
+    }
+    return `${size}`;
+};
+
+// Helper to map type/model to config key
+const getConfigKey = (type: string, model: string): keyof typeof pricingConfig | null => {
+    if (type === 'Instant') {
+        return model === 'pro' ? 'InstantPrime' : 'InstantLite';
+    }
+    if (model === 'pro') {
+        return 'Prime';
+    }
+    // Standard model
+    if (type === '1-step') return 'LiteOneStep';
+    if (type === '2-step') return 'LiteTwoStep';
+
+    return null;
+};
+
 
 // --- Utility Components ---
 const RadioPill = ({
     active,
     label,
     onClick,
-    subLabel = ""
+    subLabel = "",
+    disabled = false
 }: {
     active: boolean;
     label: string;
     onClick: () => void;
-    subLabel?: string
+    subLabel?: string;
+    disabled?: boolean;
 }) => (
-    <div
-        onClick={onClick}
+    <button
+        onClick={disabled ? undefined : onClick}
+        disabled={disabled}
         className={cn(
-            "relative flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all duration-200 select-none",
-            active
+            "relative flex items-center gap-3 p-4 rounded-xl border text-left transition-all duration-200 select-none w-full",
+            disabled
+                ? "bg-muted/50 border-transparent opacity-50 cursor-not-allowed"
+                : "cursor-pointer",
+            !disabled && active
                 ? "bg-primary/10 border-primary shadow-[0_0_0_1px_rgba(var(--primary),1)]"
-                : "bg-card border-border hover:border-gray-600"
+                : !disabled && "bg-card border-border hover:border-gray-600"
         )}
     >
         {/* Radio Circle */}
         <div className={cn(
-            "w-5 h-5 rounded-full border flex items-center justify-center transition-colors",
-            active ? "border-primary bg-primary" : "border-gray-500"
+            "w-5 h-5 rounded-full border flex items-center justify-center transition-colors shrink-0",
+            active ? "border-primary bg-primary" : "border-gray-500",
+            disabled && "border-gray-600 bg-transparent"
         )}>
             {active && <div className="w-2 h-2 rounded-full bg-white" />}
         </div>
@@ -65,7 +132,7 @@ const RadioPill = ({
             <span className={cn("text-sm font-bold", active ? "text-primary" : "text-foreground")}>{label}</span>
             {subLabel && <span className="text-[10px] text-muted-foreground">{subLabel}</span>}
         </div>
-    </div>
+    </button>
 );
 
 const SectionHeader = ({ title, sub }: { title: string, sub: string }) => (
@@ -162,7 +229,31 @@ export default function ChallengeConfigurator() {
     // State
     const [type, setType] = useState("2-step");
     const [model, setModel] = useState("standard");
+
+    // Dynamic available sizes based on current selection
+    const availableSizes = (() => {
+        const configKey = getConfigKey(type, model);
+        if (!configKey) return [];
+
+        const sizesStr = Object.keys(pricingConfig[configKey]);
+        // Convert "5K" -> 5000
+        return sizesStr.map(s => {
+            const num = parseInt(s.replace('K', ''));
+            return num * 1000;
+        }).sort((a, b) => a - b);
+    })();
+
     const [size, setSize] = useState(100000);
+
+    // Reset size if current size is not in available options when type/model changes
+    useEffect(() => {
+        if (!availableSizes.includes(size)) {
+            if (availableSizes.length > 0) {
+                setSize(availableSizes[0]);
+            }
+        }
+    }, [type, model, availableSizes, size]);
+
     const [platform, setPlatform] = useState("mt5");
     const [gateway, setGateway] = useState("sharkpay");
     const [coupon, setCoupon] = useState("");
@@ -173,6 +264,7 @@ export default function ChallengeConfigurator() {
 
     const [isPurchasing, setIsPurchasing] = useState(false);
     const [purchasedCredentials, setPurchasedCredentials] = useState<any>(null);
+    const [agreedToTerms, setAgreedToTerms] = useState(false);
 
     // Clear applied coupon when configuration changes
     useEffect(() => {
@@ -183,38 +275,27 @@ export default function ChallengeConfigurator() {
     }, [type, model, size]); // Re-run when these change
 
     // Price Calculation
-    // Base prices in USD hardcoded for simplicity
     const getBasePrice = () => {
-        if (type === "1-step") {
-            if (size === 5000) return 39;
-            if (size === 10000) return 69;
-            if (size === 25000) return 149;
-            if (size === 50000) return 279;
-            if (size === 100000) return 499;
-            if (size === 200000) return 949;
-        }
-        if (type === "2-step") {
-            if (size === 5000) return 29;
-            if (size === 10000) return 49;
-            if (size === 25000) return 119;
-            if (size === 50000) return 229;
-            if (size === 100000) return 449;
-            if (size === 200000) return 899;
-        }
-        if (type === "instant") {
-            // Approx 8-10% of account size for instant
-            return size * 0.08;
-        }
-        return size * 0.005; // Default fallback
+        const configKey = getConfigKey(type, model);
+        if (!configKey) return 0;
+
+        const sizeKey = getSizeKey(size);
+        const config = pricingConfig[configKey] as any;
+        const sizeConfig = config[sizeKey];
+
+        if (!sizeConfig) return 0;
+
+        // Remove '$' and parse
+        return parseInt(sizeConfig.price.replace('$', ''));
     };
 
-    let priceUSD = getBasePrice();
-    if (model === "pro") priceUSD = Math.round(priceUSD * 1.2);
+    const basePriceUSD = getBasePrice();
+    // Pro multiplier is already built into the Prime prices in the config
 
-    const basePriceUSD = Math.round(priceUSD);
     const discountAmount = appliedCoupon ? appliedCoupon.discount.amount : 0;
-    const finalPriceUSD = basePriceUSD - discountAmount;
+    const finalPriceUSD = Math.max(0, basePriceUSD - discountAmount);
     const finalPriceINR = Math.round(finalPriceUSD * 84); // Simple fixed rate: 84
+
 
     const selectedGateway = PAYMENT_GATEWAYS.find(g => g.id === gateway);
     const displayPrice = gateway === 'sharkpay' ? finalPriceINR : finalPriceUSD;
@@ -312,7 +393,7 @@ export default function ChallengeConfigurator() {
             {/* Page Header */}
             <div className="mb-8 flex items-center gap-4">
                 <div className="h-8 w-1 bg-primary rounded-full" />
-                <h1 className="text-3xl font-black tracking-tight text-white">New Challenge</h1>
+                <h1 className="text-3xl font-black tracking-tight text-black">New Challenge</h1>
             </div>
 
             <div className="flex flex-col xl:flex-row gap-12">
@@ -324,15 +405,22 @@ export default function ChallengeConfigurator() {
                     <section>
                         <SectionHeader title="Challenge Type" sub="Choose the type of challenge you want to take" />
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {CHALLENGE_TYPES.map(t => (
-                                <RadioPill
-                                    key={t.id}
-                                    active={type === t.id}
-                                    label={t.label}
-                                    subLabel={t.desc}
-                                    onClick={() => setType(t.id)}
-                                />
-                            ))}
+                            {CHALLENGE_TYPES.map(t => {
+                                const isDisabled = model === 'pro' && t.id === '1-step';
+                                return (
+                                    <RadioPill
+                                        key={t.id}
+                                        active={type === t.id}
+                                        label={t.label}
+                                        subLabel={t.desc}
+                                        disabled={isDisabled}
+                                        onClick={() => {
+                                            if (isDisabled) return;
+                                            setType(t.id);
+                                        }}
+                                    />
+                                );
+                            })}
                         </div>
                     </section>
 
@@ -346,58 +434,25 @@ export default function ChallengeConfigurator() {
                                     active={model === m.id}
                                     label={m.label}
                                     subLabel={m.desc}
-                                    onClick={() => setModel(m.id)}
+                                    onClick={() => {
+                                        setModel(m.id);
+                                        // Auto-switch to 2-step if user selects Pro while on 1-step
+                                        if (m.id === 'pro' && type === '1-step') {
+                                            setType('2-step');
+                                        }
+                                    }}
                                 />
                             ))}
                         </div>
                     </section>
 
-                    {/* 3. Customize Rules (Accordion) */}
-                    <section className="rounded-xl border border-border bg-card/50 overflow-hidden">
-                        <div
-                            onClick={() => setShowRules(!showRules)}
-                            className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors"
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 rounded bg-primary/10 text-primary">
-                                    <Info size={18} />
-                                </div>
-                                <div>
-                                    <h4 className="font-bold text-sm">Customise Trading Rules</h4>
-                                    <p className="text-[10px] text-muted-foreground">Adjust your challenge parameters</p>
-                                </div>
-                            </div>
-                            {showRules ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                        </div>
 
-                        <AnimatePresence>
-                            {showRules && (
-                                <motion.div
-                                    initial={{ height: 0, opacity: 0 }}
-                                    animate={{ height: "auto", opacity: 1 }}
-                                    exit={{ height: 0, opacity: 0 }}
-                                    className="border-t border-border px-4 py-6 bg-card"
-                                >
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div>
-                                            <p className="text-xs font-bold mb-3 text-muted-foreground">Profit Target (Phase 1)</p>
-                                            <div className="flex gap-2">
-                                                <button className="flex-1 py-2 text-xs font-bold rounded border border-primary bg-primary/10 text-primary">8%</button>
-                                                <button className="flex-1 py-2 text-xs font-bold rounded border border-border text-muted-foreground hover:bg-white/5">10%</button>
-                                            </div>
-                                        </div>
-                                        {/* More options placeholder */}
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </section>
 
                     {/* 4. Account Size */}
                     <section>
                         <SectionHeader title="Account Size" sub="Choose your preferred account size" />
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                            {SIZES.map(s => (
+                            {availableSizes.map(s => (
                                 <RadioPill
                                     key={s}
                                     active={size === s}
@@ -470,12 +525,6 @@ export default function ChallengeConfigurator() {
 
                 {/* --- Right Column: Summary --- */}
                 <div className="w-full xl:w-[450px] shrink-0 xl:sticky xl:top-8 space-y-6">
-
-                    {/* Billing Details Placeholder */}
-                    <div className="space-y-4">
-                        <SectionHeader title="Billing Details" sub="Enter your billing info" />
-                        {/* Placeholder Inputs */}
-                    </div>
 
                     {/* Coupon Code */}
                     <div>
@@ -554,10 +603,15 @@ export default function ChallengeConfigurator() {
 
                             {/* Terms Checkbox */}
                             <div className="bg-white/5 rounded-lg p-4 text-[11px] text-muted-foreground space-y-2">
-                                <div className="flex gap-2">
-                                    <input type="checkbox" className="mt-0.5" />
+                                <label className="flex gap-2 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        className="mt-0.5"
+                                        checked={agreedToTerms}
+                                        onChange={(e) => setAgreedToTerms(e.target.checked)}
+                                    />
                                     <span>I agree with all the following terms:</span>
-                                </div>
+                                </label>
                                 <ul className="list-disc pl-5 space-y-1 opacity-80">
                                     <li>I have read and agreed to the Terms of Use.</li>
                                     <li>All information matches government ID.</li>
@@ -566,8 +620,8 @@ export default function ChallengeConfigurator() {
 
                             <button
                                 onClick={handlePurchase}
-                                disabled={isPurchasing}
-                                className="w-full py-4 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100"
+                                disabled={isPurchasing || !agreedToTerms}
+                                className="w-full py-4 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100 disabled:cursor-not-allowed"
                             >
                                 {isPurchasing ? (
                                     <>
