@@ -14,11 +14,11 @@ const TARGETS = [
 ];
 
 async function resendCredentials() {
-    console.log("📧 Starting Manual Email Resend (By Login/Email)...");
+    console.log(" Starting Manual Email Resend (By Login/Email)...");
 
     for (const target of TARGETS) {
         console.log(`\n---------------------------------------------------`);
-        console.log(`🔍 Processing: ${target.email} (Login: ${target.login || 'Auto'})`);
+        console.log(` Processing: ${target.email} (Login: ${target.login || 'Auto'})`);
 
         let challenge: any = null;
         let user: any = null;
@@ -32,10 +32,10 @@ async function resendCredentials() {
                 .single();
 
             if (data) {
-                console.log(`✅ Found Challenge via Login: ${data.id}`);
+                console.log(`Found Challenge via Login: ${data.id}`);
                 challenge = data;
             } else {
-                console.error(`❌ Challenge lookup by login failed: ${error?.message}`);
+                console.error(`Challenge lookup by login failed: ${error?.message}`);
             }
         }
 
@@ -45,7 +45,7 @@ async function resendCredentials() {
             user = users.find(u => u.email === target.email);
 
             if (user) {
-                console.log(`✅ Found Auth User: ${user.id}`);
+                console.log(` Found Auth User: ${user.id}`);
                 // Find challenge for this user
                 const { data: cData } = await supabase
                     .from('challenges')
@@ -60,7 +60,7 @@ async function resendCredentials() {
         }
 
         if (!challenge) {
-            console.error("❌ Could not find any challenge record. Skipping.");
+            console.error(" Could not find any challenge record. Skipping.");
             continue;
         }
 
@@ -73,7 +73,7 @@ async function resendCredentials() {
             const password = challenge.master_password || challenge.password;
 
             if (password) {
-                console.log(`📤 Sending Credentials to ${emailToSend}...`);
+                console.log(` Sending Credentials to ${emailToSend}...`);
                 await EmailService.sendAccountCredentials(
                     emailToSend,
                     name,
@@ -82,13 +82,13 @@ async function resendCredentials() {
                     challenge.server || 'SharkFunded-Demo',
                     challenge.investor_password // This matches DB column
                 );
-                console.log(`🚀 Email Sent successfully!`);
+                console.log(` Email Sent successfully!`);
             } else {
-                console.warn(`⚠️ No password found in DB for ${challenge.login}. Cannot send credentials.`);
+                console.warn(` No password found in DB for ${challenge.login}. Cannot send credentials.`);
             }
 
         } catch (e: any) {
-            console.error(`🔥 Failed to send email: ${e.message}`);
+            console.error(` Failed to send email: ${e.message}`);
         }
     }
 }

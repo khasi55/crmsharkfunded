@@ -11,7 +11,7 @@ export async function fetchFromBackend(endpoint: string, options: RequestInit & 
 
     if (!session && options.requireAuth !== false) {
         console.warn('fetchFromBackend: No active session for endpoint', endpoint);
-        // throw new Error('No active session'); // Soften this for now to prevent crashes on public data
+        throw new Error('Authentication required. Please log in again.');
     }
 
 

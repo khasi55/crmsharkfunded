@@ -9,11 +9,11 @@ dotenv.config();
 // Using imported 'supabase' from lib to share config
 
 export function startDailyEquityReset() {
-    console.log("📅 Daily Equity Reset Scheduler initialized. Schedule: '0 0 * * *' (Midnight)");
+    console.log(" Daily Equity Reset Scheduler initialized. Schedule: '0 0 * * *' (Midnight)");
 
     // Schedule task to run at 00:00 every day
     cron.schedule('0 0 * * *', async () => {
-        console.log("🕛 [Daily Reset] Starting Daily Equity Reset...");
+        console.log(" [Daily Reset] Starting Daily Equity Reset...");
         await performDailyReset();
     });
 }
@@ -23,7 +23,7 @@ const BRIDGE_URL = process.env.BRIDGE_URL || 'https://bridge.sharkfunded.co';
 
 async function performDailyReset() {
     try {
-        console.log("🕛 [Daily Reset] Starting Daily Equity Reset...");
+        console.log(" [Daily Reset] Starting Daily Equity Reset...");
 
         // 1. Fetch active challenges
         const { data: challenges, error } = await supabase
@@ -32,11 +32,11 @@ async function performDailyReset() {
             .eq('status', 'active');
 
         if (error || !challenges || challenges.length === 0) {
-            console.log("ℹ️ [Daily Reset] No active challenges found or error:", error);
+            console.log("ℹ[Daily Reset] No active challenges found or error:", error);
             return;
         }
 
-        console.log(`🔄 [Daily Reset] Fetching LIVE data for ${challenges.length} accounts...`);
+        console.log(` [Daily Reset] Fetching LIVE data for ${challenges.length} accounts...`);
 
         // 2. Prepare Bulk Request (Safe Mode: Limit = -Infinity to just get data)
         const payload = challenges.map(c => ({
@@ -57,7 +57,7 @@ async function performDailyReset() {
         });
 
         if (!response.ok) {
-            console.error(`❌ [Daily Reset] Bridge Error: ${response.statusText}`);
+            console.error(`[Daily Reset] Bridge Error: ${response.statusText}`);
             return;
         }
 
@@ -72,7 +72,7 @@ async function performDailyReset() {
             // SAFETY: Do not update if bridge returns precisely 100,000.0 while initial balance is different
             // (This prevents poisoning from the Mock Bridge)
             if (res.equity === 100000 && challenge.initial_balance !== 100000) {
-                console.warn(`⚠️ [Daily Reset] Skipping SOD update for ${res.login}: Bridge returned 100k for ${challenge.initial_balance}k account (Mock mode suspected)`);
+                console.warn(` [Daily Reset] Skipping SOD update for ${res.login}: Bridge returned 100k for ${challenge.initial_balance}k account (Mock mode suspected)`);
                 return;
             }
 
@@ -85,21 +85,21 @@ async function performDailyReset() {
                 })
                 .eq('id', challenge.id);
 
-            if (dbError) console.error(`❌ Failed update for ${res.login}:`, dbError);
+            if (dbError) console.error(`Failed update for ${res.login}:`, dbError);
         });
 
         await Promise.all(updates);
-        console.log(`✅ [Daily Reset] Successfully reset ${results.length} accounts using LIVE data.`);
+        console.log(`[Daily Reset] Successfully reset ${results.length} accounts using LIVE data.`);
 
     } catch (e) {
-        console.error("❌ [Daily Reset] Critical Error:", e);
+        console.error(" [Daily Reset] Critical Error:", e);
         // Retry logic could be added here
     }
 }
 
 // Add strict retry for failed resets (e.g. 10 mins later)
 cron.schedule('10 0 * * *', async () => {
-    console.log("🕛 [Daily Reset Backup] Running backup verification...");
+    console.log("[Daily Reset Backup] Running backup verification...");
     // We could re-run or check specifically for non-updated accounts
     // For now, simpler to just rely on initial run, but logging is key.
 });

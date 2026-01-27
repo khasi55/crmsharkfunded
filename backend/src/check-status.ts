@@ -15,7 +15,7 @@ async function checkStatus() {
     // User ID from previous logs
     const userId = '04a05ed2-1e1d-45aa-86d2-d0572501e7ed';
 
-    console.log(`🔍 Checking participation for User ID: ${userId}`);
+    console.log(` Checking participation for User ID: ${userId}`);
 
     const { data: participations, error } = await supabase
         .from('competition_participants')
@@ -23,17 +23,17 @@ async function checkStatus() {
         .eq('user_id', userId);
 
     if (error) {
-        console.error('❌ Error:', error);
+        console.error(' Error:', error);
         return;
     }
 
     if (participations && participations.length > 0) {
-        console.log(`✅ User is JOINED to ${participations.length} competition(s):`);
+        console.log(` User is JOINED to ${participations.length} competition(s):`);
         participations.forEach(p => {
             console.log(`   - Competition ID: ${p.competition_id} (Status: ${p.status})`);
         });
     } else {
-        console.log('❌ User is NOT joined to any competition.');
+        console.log(' User is NOT joined to any competition.');
     }
 }
 

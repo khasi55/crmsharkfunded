@@ -127,3 +127,77 @@ export async function updateUserEmail(userId: string, newEmail: string) {
         return { error: error.message || "Failed to update email" };
     }
 }
+
+export async function bulkDisableAccounts(logins: number[]) {
+    const cookieStore = await cookies();
+    const adminSession = cookieStore.get("admin_session");
+
+    if (!adminSession?.value) {
+        return { error: "Unauthorized: Please log in again." };
+    }
+
+    const results = {
+        success: 0,
+        failed: 0,
+        errors: [] as string[]
+    };
+
+    // We'll process these in parallel batches to speed it up but not overwhelm the server
+    const BATCH_SIZE = 5;
+
+    for (let i = 0; i < logins.length; i += BATCH_SIZE) {
+        const batch = logins.slice(i, i + BATCH_SIZE);
+        const promises = batch.map(login => executeAccountAction(login, 'disable'));
+
+        const batchResults = await Promise.all(promises);
+
+        batchResults.forEach(res => {
+            if (res.error) {
+                results.failed++;
+                results.errors.push(res.error);
+            } else {
+                results.success++;
+            }
+        });
+    }
+
+    // Revalidate the page path to refresh the UI
+    // revalidatePath('/(dashboard)/accounts'); // We can't use revalidatePath in a generic action without import, but client will reload.
+
+    return {
+        success: true,
+        message: `Processed ${logins.length} accounts. Success: ${results.success}, Failed: ${results.failed}`,
+        details: results
+    };
+}
+
+export async function disableAccountsByGroup(groupName: string) {
+    const cookieStore = await cookies();
+    const adminSession = cookieStore.get("admin_session");
+
+    if (!adminSession?.value) {
+        return { error: "Unauthorized: Please log in again." };
+    }
+
+    const supabase = createAdminClient();
+
+    // 1. Get all accounts in this group
+    const { data: accounts, error } = await supabase
+        .from('challenges')
+        .select('login')
+        .eq('group', groupName); // Note: using 'group' column
+
+    if (error || !accounts) {
+        return { error: "Failed to fetch accounts for this group" };
+    }
+
+    const logins = accounts.map(a => a.login).filter(Boolean);
+
+    if (logins.length === 0) {
+        return { error: "No accounts found in this group with valid logins." };
+    }
+
+    // 2. Reuse bulkDisableAccounts logic logic or call it directly?
+    // Calling directly is better to reuse batching logic.
+    return await bulkDisableAccounts(logins);
+}

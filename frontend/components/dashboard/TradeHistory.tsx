@@ -234,7 +234,7 @@ export default function TradeHistory() {
                                         </span>
                                     </td>
                                     <td className="px-4 py-3 text-right">
-                                        <span className="text-sm text-white">{(trade.lots / 10000).toFixed(2)}</span>
+                                        <span className="text-sm text-white">{(trade.lots / 100).toFixed(2)}</span>
                                     </td>
                                     <td className="px-4 py-3 text-right">
                                         <div className="text-sm text-white">{trade.open_price.toFixed(5)}</div>

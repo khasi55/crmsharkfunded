@@ -14,8 +14,8 @@ const BRIDGE_URL = process.env.BRIDGE_URL || 'https://bridge.sharkfunded.co';
 const MT5_API_KEY = process.env.MT5_API_KEY || 'shark-bridge-secret';
 
 async function testDailyResetDryRun() {
-    console.log("🧪 Starting DRY RUN of Daily Equity Reset Logic...");
-    console.log(`🔌 Bridge URL: ${BRIDGE_URL}`);
+    console.log(" Starting DRY RUN of Daily Equity Reset Logic...");
+    console.log(`Bridge URL: ${BRIDGE_URL}`);
 
     // 1. Fetch active challenges
     const { data: challenges, error } = await supabase
@@ -25,11 +25,11 @@ async function testDailyResetDryRun() {
         .limit(5); // Limit to 5 for test speed
 
     if (error || !challenges || challenges.length === 0) {
-        console.log("ℹ️ No active challenges found or error:", error);
+        console.log("ℹ No active challenges found or error:", error);
         return;
     }
 
-    console.log(`🔄 Preparing to check ${challenges.length} active accounts (Sample)...`);
+    console.log(` Preparing to check ${challenges.length} active accounts (Sample)...`);
 
     // 2. Prepare Bulk Request
     const payload = challenges.map(c => ({
@@ -53,7 +53,7 @@ async function testDailyResetDryRun() {
         const duration = Date.now() - start;
 
         if (!response.ok) {
-            console.error(`❌ Bridge Error: ${response.statusText} (${response.status})`);
+            console.error(`Bridge Error: ${response.statusText} (${response.status})`);
             const text = await response.text();
             console.error(`   Response Body: ${text}`);
             return;
@@ -62,13 +62,13 @@ async function testDailyResetDryRun() {
         const results = (await response.json()) as any[];
 
         if (!Array.isArray(results) && !Array.isArray((results as any).results)) {
-            console.error("❌ Invalid format returned from Bridge:", results);
+            console.error(" Invalid format returned from Bridge:", results);
             return;
         }
 
         const finalResults = Array.isArray(results) ? results : (results as any).results;
 
-        console.log(`✅ Bridge Connect Success (${duration}ms). Received ${finalResults.length} results.`);
+        console.log(` Bridge Connect Success (${duration}ms). Received ${finalResults.length} results.`);
 
         // 4. Simulate Update
         finalResults.forEach((res: any) => {
@@ -81,16 +81,16 @@ async function testDailyResetDryRun() {
             console.log(`   Live Balance:      ${res.balance}`);
 
             if (res.equity === 100000 && challenge.initial_balance !== 100000) {
-                console.warn(`   ⚠️  [Mock Filter] Would SKIP update (Bridge returned default 100k)`);
+                console.warn(`     [Mock Filter] Would SKIP update (Bridge returned default 100k)`);
             } else {
-                console.log(`   ✅ [Action] Would UPDATE 'start_of_day_equity' to ${res.equity}`);
+                console.log(`   [Action] Would UPDATE 'start_of_day_equity' to ${res.equity}`);
             }
         });
 
-        console.log("\n✅ Test Complete. Logic is valid.");
+        console.log("\n Test Complete. Logic is valid.");
 
     } catch (e) {
-        console.error("❌ Critical Error during test:", e);
+        console.error(" Critical Error during test:", e);
     }
 }
 

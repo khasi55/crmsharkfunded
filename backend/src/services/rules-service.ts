@@ -100,7 +100,7 @@ export class RulesService {
                 this.GROUP_CACHE.set(key, group);
             });
             this.lastCacheUpdate = Date.now();
-            console.log(`✅ RulesService: Cached ${this.GROUP_CACHE.size} risk groups.`);
+            console.log(` RulesService: Cached ${this.GROUP_CACHE.size} risk groups.`);
         } catch (e) {
             console.error('RulesService cache refresh failed:', e);
         }

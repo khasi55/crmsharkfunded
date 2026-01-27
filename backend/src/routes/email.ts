@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { emailService } from '../lib/email';
+import { EmailService as NodemailerEmailService } from '../services/email-service';
 
 const router = Router();
 
@@ -251,6 +252,63 @@ SharkFunded Team
 
     } catch (error: any) {
         console.error('Send credentials error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// POST /api/email/send-event-invite - Send Top 32 Event Invitation
+router.post('/send-event-invite', authenticate, async (req: AuthRequest, res: Response) => {
+    try {
+        const { email, name, userIds } = req.body;
+
+        // Mode 1: Bulk Send by User IDs
+        if (userIds && Array.isArray(userIds) && userIds.length > 0) {
+            let successCount = 0;
+            let failCount = 0;
+
+            for (const userId of userIds) {
+                // Fetch user details
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('email, full_name')
+                    .eq('id', userId)
+                    .single();
+
+                if (profile && profile.email) {
+                    await NodemailerEmailService.sendEventInvite(profile.email, profile.full_name || 'Trader');
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+            }
+
+            res.json({ success: true, message: `Sent ${successCount} invites, ${failCount} failed.` });
+            return;
+        }
+
+        // Mode 2: Single Manual Send
+        if (!email || !name) {
+            res.status(400).json({ error: 'Email and name are required for manual send' });
+            return;
+        }
+
+        await NodemailerEmailService.sendEventInvite(email, name);
+        res.json({ success: true, message: `Event invite sent to ${email}` });
+
+    } catch (error: any) {
+        console.error('Send event invite error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// POST /api/email/preview-event-invite - Get HTML preview for Top 32 Event
+router.post('/preview-event-invite', authenticate, async (req: AuthRequest, res: Response) => {
+    try {
+        const { name } = req.body;
+        const html = NodemailerEmailService.getEventInviteHtml(name || "Trader Code");
+        res.json({ success: true, html });
+    } catch (error: any) {
+        console.error('Preview error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

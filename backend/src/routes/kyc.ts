@@ -134,7 +134,14 @@ router.post('/update-status', async (req: Request, res: Response) => {
         // We trust the didit_session_id (which is a UUID known only to the provider and us)
         const kycData = req.body;
 
-        console.log('Received KYC update data:', kycData);
+        console.log('Received KYC update data:', JSON.stringify(kycData, null, 2));
+
+        // Log to file for persistent debugging
+        const fs = require('fs');
+        const path = require('path');
+        const logFile = path.resolve(process.cwd(), 'kyc_webhook_debug.log');
+        const logEntry = `[${new Date().toISOString()}] METHAD: ${req.method} DATA: ${JSON.stringify(kycData)}\n\n`;
+        fs.appendFileSync(logFile, logEntry);
 
         // Extract the session ID and status (Handle various Didit formats)
         let didit_session_id = kycData.didit_session_id || kycData.session_id || kycData.sessionId || kycData.verificationSessionId;
@@ -214,7 +221,11 @@ router.post('/update-status', async (req: Request, res: Response) => {
 
         if (updateError) {
             console.error('Error updating KYC session:', updateError);
-            res.status(500).json({ error: 'Failed to update KYC session' });
+            res.status(500).json({
+                error: 'DEBUG: Failed to update KYC session',
+                details: updateError,
+                message: updateError.message
+            });
             return;
         }
 

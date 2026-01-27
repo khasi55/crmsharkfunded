@@ -21,12 +21,12 @@ let isSyncing = false;
 
 async function runTradeSync() {
     if (isSyncing) {
-        console.log("⚠️ [Trade Sync] Previous cycle still running. Skipping this tick.");
+        console.log(" [Trade Sync] Previous cycle still running. Skipping this tick.");
         return;
     }
     isSyncing = true;
     try {
-        console.log("🔄 [Trade Apps] Starting Bulk Sync Cycle...");
+        console.log(" [Trade Apps] Starting Bulk Sync Cycle...");
 
         // 1. Fetch Active Challenges
         const { data: challenges, error } = await supabase
@@ -48,10 +48,10 @@ async function runTradeSync() {
             }
         }
 
-        console.log(`✅ [Trade Sync] Cycle Complete. Synced ${challenges.length} accounts.`);
+        console.log(`[Trade Sync] Cycle Complete. Synced ${challenges.length} accounts.`);
 
     } catch (e) {
-        console.error("❌ [Trade Sync] Cycle Error:", e);
+        console.error(" [Trade Sync] Cycle Error:", e);
     } finally {
         isSyncing = false;
     }
@@ -74,7 +74,7 @@ async function processBatch(challenges: any[], attempt = 1) {
         for (let i = 0; i < logins.length; i += CONCURRENCY) {
             const chunk = logins.slice(i, i + CONCURRENCY);
             const chunkPromises = chunk.map(login => fetchMT5Trades(login).catch((err: any) => {
-                console.error(`❌ Failed to fetch trades for ${login}:`, err.message);
+                console.error(` Failed to fetch trades for ${login}:`, err.message);
                 return [];
             }));
 
@@ -137,7 +137,7 @@ async function processBatch(challenges: any[], attempt = 1) {
             const { error } = await supabase.from('trades').upsert(uniqueTrades, { onConflict: 'challenge_id, ticket' });
 
             if (error) {
-                console.error("❌ Bulk Upsert Failed:", error);
+                console.error(" Bulk Upsert Failed:", error);
             } else {
                 const uniqueLogins = new Set(trades.map((t: any) => t.login));
                 for (const login of Array.from(uniqueLogins)) {
@@ -164,7 +164,7 @@ async function processBatch(challenges: any[], attempt = 1) {
             await new Promise(resolve => setTimeout(resolve, 1000));
             return processBatch(challenges, attempt + 1);
         } else {
-            console.error(`❌ Error processing batch after ${MAX_RETRIES} attempts:`, e);
+            console.error(` Error processing batch after ${MAX_RETRIES} attempts:`, e);
         }
     }
 }

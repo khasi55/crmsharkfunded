@@ -50,9 +50,9 @@ async function seedRiskGroups() {
             .upsert(group, { onConflict: 'group_name' });
 
         if (error) {
-            console.error(`❌ Failed to seed ${group.group_name}:`, error.message);
+            console.error(` Failed to seed ${group.group_name}:`, error.message);
         } else {
-            console.log(`✅ Seeded ${group.group_name} (Max: ${group.max_drawdown_percent}%, Daily: ${group.daily_drawdown_percent}%)`);
+            console.log(` Seeded ${group.group_name} (Max: ${group.max_drawdown_percent}%, Daily: ${group.daily_drawdown_percent}%)`);
         }
     }
 }

@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { format } from "date-fns";
-import { Award, CheckCircle, Shield, Eye, X, Download, Calendar } from "lucide-react";
+import { Award, CheckCircle2, Eye, X, Download, Calendar, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import PayoutCertificate, { PayoutCertificateRef } from "@/components/certificates/PayoutCertificate";
 
@@ -57,9 +57,17 @@ export default function CertificatesGrid({ payouts, profile }: CertificatesGridP
     }
 
     return (
-        <div className="space-y-12">
+        <div className="space-y-6">
+            <div className="flex flex-col gap-1 mb-8">
+                <h2 className="text-3xl font-bold text-white flex items-center gap-2">
+                    My Certificates
+                </h2>
+                <p className="text-gray-400 text-sm">
+                    Verified proof of your trading success.
+                </p>
+            </div>
 
-            {/* Grid */}
+            {/* Grid of "Direct" Certificates */}
             <motion.div
                 variants={containerVariants}
                 initial="hidden"
@@ -70,53 +78,56 @@ export default function CertificatesGrid({ payouts, profile }: CertificatesGridP
                     <motion.div
                         key={payout.id}
                         variants={itemVariants}
-                        whileHover={{ y: -5, transition: { duration: 0.2 } }}
-                        className="group relative rounded-2xl border border-white/5 bg-[#0a0f1c] hover:border-[#0055FF]/30 transition-all duration-300 overflow-hidden"
+                        layoutId={payout.id}
+                        onClick={() => setSelectedPayout(payout)}
+                        whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+                        className="cursor-pointer group relative aspect-[1.4] rounded-xl overflow-hidden shadow-2xl transition-all duration-300 ring-1 ring-white/10 hover:ring-[#3B82F6]/50 hover:shadow-[#3B82F6]/20 bg-[#000]"
                     >
-                        {/* Preview Header */}
-                        <div className="aspect-[1.5] relative flex items-center justify-center overflow-hidden bg-[#050810]">
+                        {/* CSS-Based Certificate Preview (No Canvas overhead) */}
+                        <div className="absolute inset-x-0 inset-y-0 p-6 flex flex-col items-center justify-center text-center bg-[url('/certificate-bg-pattern.png')] bg-cover bg-center">
+                            {/* Decorative Border */}
+                            <div className="absolute inset-3 border-2 border-[#D4AF37]/30 rounded-lg pointer-events-none" />
+                            <div className="absolute inset-4 border border-[#D4AF37]/10 rounded-md pointer-events-none" />
 
-                            <div className="relative z-10 w-[85%] h-[80%] border border-white/5 rounded-xl bg-[#0a0f1c] flex flex-col items-center justify-center text-center p-6 shadow-sm group-hover:shadow-md transition-shadow duration-300">
-                                <Award size={40} className="text-[#007AFF] mb-3" />
-                                <h3 className="text-white font-serif text-xl tracking-widest mb-2">CERTIFICATE</h3>
-                                <div className="h-0.5 w-8 bg-[#007AFF] mb-3" />
-                                <p className="text-gray-500 text-[10px] font-mono uppercase tracking-widest">
-                                    {payout.id.slice(0, 8)}
-                                </p>
+                            {/* Header */}
+                            <Award className="text-[#3B82F6] mb-3 drop-shadow-[0_0_10px_rgba(59,130,246,0.6)]" size={32} />
+
+                            <h3 className="text-white/90 font-serif text-lg tracking-[0.2em] uppercase mb-1">
+                                Certificate
+                            </h3>
+                            <p className="text-gray-500 text-[9px] uppercase tracking-widest mb-4">
+                                Of Payout
+                            </p>
+
+                            {/* Amount */}
+                            <div className="relative mb-4">
+                                <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 font-sans tracking-tight">
+                                    ${parseFloat(payout.amount).toLocaleString()}
+                                </h1>
+                            </div>
+
+                            {/* Name & details */}
+                            <div className="text-gray-400 text-xs font-serif italic mb-2">
+                                Presented to {userName}
+                            </div>
+
+                            <div className="text-gray-600 text-[10px] font-mono mt-auto">
+                                {format(new Date(payout.processed_at || payout.created_at), "MMM dd, yyyy")} • ID: {payout.id.slice(0, 6)}
+                            </div>
+
+                            {/* Verified Badge */}
+                            <div className="absolute top-6 right-6">
+                                <div className="bg-[#3B82F6]/10 p-1.5 rounded-full border border-[#3B82F6]/20">
+                                    <CheckCircle2 size={14} className="text-[#3B82F6]" />
+                                </div>
                             </div>
                         </div>
 
-                        {/* Details */}
-                        <div className="p-6 bg-[#0a0f1c]">
-                            <div className="flex justify-between items-start mb-6">
-                                <div>
-                                    <p className="text-xs font-semibold text-[#007AFF] uppercase tracking-wider mb-1">
-                                        Payout Verified
-                                    </p>
-                                    <h3 className="font-bold text-2xl text-white">
-                                        ${parseFloat(payout.amount).toLocaleString()}
-                                    </h3>
-                                </div>
-                                <div className="bg-[#007AFF]/10 p-2 rounded-lg">
-                                    <CheckCircle size={20} className="text-[#007AFF]" />
-                                </div>
-                            </div>
-
-                            <div className="flex items-center justify-between text-sm text-gray-500 mb-6">
-                                <span className="flex items-center gap-1.5">
-                                    <Calendar size={14} />
-                                    {format(new Date(payout.processed_at || payout.created_at), "MMM dd, yyyy")}
-                                </span>
-                            </div>
-
-                            {/* Action: Open Modal */}
-                            <button
-                                onClick={() => setSelectedPayout(payout)}
-                                className="w-full py-3 rounded-xl bg-[#007AFF] hover:bg-[#0060C9] text-white text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-2"
-                            >
-                                <Eye size={16} />
-                                View Certificate
-                            </button>
+                        {/* Hover Overlay */}
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-3">
+                            <span className="text-white font-medium flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                                <Eye size={18} /> View Full Detail
+                            </span>
                         </div>
                     </motion.div>
                 ))}
@@ -124,22 +135,21 @@ export default function CertificatesGrid({ payouts, profile }: CertificatesGridP
 
             {/* Empty State */}
             {payouts.length === 0 && (
-                <div className="text-center py-20 bg-gradient-to-b from-white/5 to-transparent rounded-3xl border border-white/10 backdrop-blur-sm">
-                    <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <Award className="text-gray-500" size={40} />
+                <div className="text-center py-24 bg-[#0B0F17]/50 rounded-3xl border border-dashed border-white/10">
+                    <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Award className="text-gray-500" size={32} />
                     </div>
-                    <h3 className="text-2xl font-bold text-white mb-2">No Certificates Yet</h3>
-                    <p className="text-gray-400 max-w-md mx-auto mb-8">
-                        Complete your first payout to see your trophies here.
+                    <h3 className="text-lg font-bold text-white mb-1">No Certificates Yet</h3>
+                    <p className="text-gray-400 text-sm max-w-sm mx-auto">
+                        Your trading achievements will be displayed here as official certificates.
                     </p>
                 </div>
             )}
 
-            {/* Modal Overlay */}
+            {/* Modal */}
             <AnimatePresence>
                 {selectedPayout && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
-                        {/* Backdrop */}
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -148,54 +158,47 @@ export default function CertificatesGrid({ payouts, profile }: CertificatesGridP
                             className="absolute inset-0 bg-black/90 backdrop-blur-md cursor-pointer"
                         />
 
-                        {/* Modal Content */}
                         <motion.div
-                            initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
-                            exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                            transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                            className="relative w-full max-w-5xl bg-[#0a0f1c] border border-white/10 rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col max-h-[95vh]"
+                            layoutId={selectedPayout.id}
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            className="relative w-full max-w-5xl bg-[#0B0F17] rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 flex flex-col"
+                            onClick={(e) => e.stopPropagation()}
                         >
-                            {/* Modal Header */}
-                            <div className="flex items-center justify-between p-6 border-b border-white/10 bg-[#050810]/80 backdrop-blur-lg z-50">
-                                <div>
-                                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                                        <Award className="text-[#007AFF]" size={20} />
-                                        Official Certificate
-                                    </h2>
-                                    <p className="text-sm text-gray-400 mt-1">
-                                        Verified by Shark Funded • {format(new Date(selectedPayout.processed_at || selectedPayout.created_at), "MMMM dd, yyyy")}
-                                    </p>
-                                </div>
-                                <div className="flex items-center gap-3">
+                            {/* Toolbar */}
+                            <div className="flex items-center justify-between px-6 py-4 bg-[#0F1623] border-b border-white/5">
+                                <h3 className="text-white font-semibold flex items-center gap-2">
+                                    <ShieldCheck className="text-[#3B82F6]" size={18} />
+                                    Verified Certificate
+                                </h3>
+                                <div className="flex gap-2">
                                     <button
                                         onClick={() => downloadRef.current?.download()}
-                                        className="px-4 py-2 rounded-lg bg-[#007AFF] hover:bg-[#0060C9] text-white text-sm font-bold transition-all flex items-center gap-2"
+                                        className="px-4 py-2 bg-[#3B82F6] hover:bg-[#2563EB] text-white text-sm font-medium rounded-lg flex items-center gap-2 transition-colors"
                                     >
                                         <Download size={16} />
-                                        Download
+                                        Download PNG
                                     </button>
                                     <button
                                         onClick={() => setSelectedPayout(null)}
-                                        className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all hover:rotate-90"
+                                        className="p-2 text-gray-400 hover:text-white transition-colors"
                                     >
                                         <X size={20} />
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Modal Body */}
-                            <div className="flex-1 overflow-y-auto p-4 md:p-12 bg-[#020408] flex items-center justify-center">
-                                <div className="w-full shadow-2xl relative group max-w-4xl">
-                                    <div className="relative rounded-lg overflow-hidden ring-1 ring-white/10">
-                                        <PayoutCertificate
-                                            ref={downloadRef}
-                                            name={userName}
-                                            amount={parseFloat(selectedPayout.amount)}
-                                            date={selectedPayout.processed_at || selectedPayout.created_at}
-                                            transactionId={selectedPayout.transaction_id || selectedPayout.id}
-                                        />
-                                    </div>
+                            {/* Canvas Container */}
+                            <div className="p-8 md:p-12 bg-[#05080F] flex items-center justify-center overflow-auto max-h-[85vh]">
+                                <div className="w-full max-w-4xl shadow-2xl">
+                                    <PayoutCertificate
+                                        ref={downloadRef}
+                                        name={userName}
+                                        amount={parseFloat(selectedPayout.amount)}
+                                        date={selectedPayout.processed_at || selectedPayout.created_at}
+                                        transactionId={selectedPayout.transaction_id || selectedPayout.id}
+                                    />
                                 </div>
                             </div>
                         </motion.div>

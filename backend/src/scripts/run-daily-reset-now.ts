@@ -18,7 +18,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function performManualDailyReset() {
     try {
-        console.log("🕛 [Manual Reset] Starting Daily Equity Reset for ALL active accounts...");
+        console.log(" [Manual Reset] Starting Daily Equity Reset for ALL active accounts...");
 
         // 1. Fetch active challenges
         const { data: challenges, error } = await supabase
@@ -27,11 +27,11 @@ async function performManualDailyReset() {
             .eq('status', 'active');
 
         if (error || !challenges || challenges.length === 0) {
-            console.log("ℹ️ [Manual Reset] No active challenges found or error:", error);
+            console.log(" [Manual Reset] No active challenges found or error:", error);
             return;
         }
 
-        console.log(`🔄 [Manual Reset] Fetching LIVE data for ${challenges.length} accounts...`);
+        console.log(` [Manual Reset] Fetching LIVE data for ${challenges.length} accounts...`);
 
         // 2. Prepare Bulk Request
         const payload = challenges.map(c => ({
@@ -52,14 +52,14 @@ async function performManualDailyReset() {
         });
 
         if (!response.ok) {
-            console.error(`❌ [Manual Reset] Bridge Error: ${response.statusText}`);
+            console.error(` [Manual Reset] Bridge Error: ${response.statusText}`);
             console.error(await response.text());
             return;
         }
 
         const results = (await response.json()) as any[];
 
-        console.log(`✅ [Manual Reset] Received data for ${results.length} accounts. Updating DB...`);
+        console.log(`[Manual Reset] Received data for ${results.length} accounts. Updating DB...`);
 
         // 4. Update Database with LIVE Equity
         let updatedCount = 0;
@@ -69,7 +69,7 @@ async function performManualDailyReset() {
 
             // Update start_of_day with the LIVE equity
             if (res.equity === 100000 && challenge.initial_balance !== 100000) {
-                console.warn(`⚠️ [Manual Reset] Skipping SOD update for ${res.login}: Bridge returned 100k for ${challenge.initial_balance}k account (Mock mode suspected)`);
+                console.warn(` [Manual Reset] Skipping SOD update for ${res.login}: Bridge returned 100k for ${challenge.initial_balance}k account (Mock mode suspected)`);
                 return;
             }
 
@@ -84,7 +84,7 @@ async function performManualDailyReset() {
                 .eq('id', challenge.id);
 
             if (dbError) {
-                console.error(`❌ Failed update for ${res.login}:`, dbError);
+                console.error(` Failed update for ${res.login}:`, dbError);
             } else {
                 // console.log(`   - Updated ${res.login}: SOD -> ${res.equity}`);
                 updatedCount++;
@@ -92,10 +92,10 @@ async function performManualDailyReset() {
         });
 
         await Promise.all(updates);
-        console.log(`✅ [Manual Reset] Successfully reset ${updatedCount} accounts using LIVE data.`);
+        console.log(` [Manual Reset] Successfully reset ${updatedCount} accounts using LIVE data.`);
 
     } catch (e) {
-        console.error("❌ [Manual Reset] Critical Error:", e);
+        console.error(" [Manual Reset] Critical Error:", e);
     }
 }
 

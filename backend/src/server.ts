@@ -11,7 +11,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware (Restart Triggered)
+
 import cookieParser from 'cookie-parser';
 app.use(cookieParser());
 app.use(cors({
@@ -19,10 +19,14 @@ app.use(cors({
         const allowedOrigins = [
             'http://localhost:3000',
             'http://localhost:3002',
-            'https://app.sharkfunded.com', // Explicit Add
-            'https://admin.sharkfunded.com', // Explicit Add
-            'https://admin-six-gamma-66.vercel.app', // Explicit Add (User Deployment)
-            'https://api.sharkfunded.co', // Explicit Add
+            'https://app.sharkfunded.com',
+            'https://admin.sharkfunded.com',
+            'https://admin-six-gamma-66.vercel.app',
+            'https://api.sharkfunded.co',
+            'https://sharkfunded.co',
+            'https://www.sharkfunded.co',
+            'https://app.sharkfunded.co',
+            'https://admin.sharkfunded.co',
             process.env.FRONTEND_URL,
             process.env.ADMIN_URL
         ].filter(Boolean) as string[];
@@ -39,8 +43,8 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.use((req, res, next) => {
-    // const log = `[${new Date().toISOString()}] ${req.method} ${req.path}\n`;
-    // fs.appendFileSync('backend_request_debug.log', log);
+    const log = `[${new Date().toISOString()}] ${req.method} ${req.path}\n`;
+    fs.appendFileSync('backend_request_debug.log', log);
     // Only log in development
     if (process.env.NODE_ENV === 'development') {
         console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
@@ -87,11 +91,15 @@ import adminSettingsRouter from './routes/admin_settings';
 import adminPaymentRouter from './routes/admin_payments';
 import adminHealthRouter from './routes/admin_health';
 import adminUsersRouter from './routes/admin_users';
+import adminEmailRouter from './routes/admin_email';
+import emailRouter from './routes/email';
+import eventRouter from './routes/event';
 
 app.use('/api/overview', overviewRouter);
 app.use('/api/admin/users', adminUsersRouter); // Register Admin Users Route
 app.use('/api/admin/settings', adminSettingsRouter); // Register Settings Route
 app.use('/api/admin/payments', adminPaymentRouter); // Register Payments Route
+app.use('/api/admin/email', adminEmailRouter); // Register Admin Email Route
 
 app.use('/api/admin/health', adminHealthRouter); // Register Health Route
 app.use('/api/payouts', payoutsRouter);
@@ -110,6 +118,8 @@ app.use('/api/competitions', competitionsRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/objectives', objectivesRouter);
 app.use('/api/ranking', rankingRouter);
+app.use('/api/email', emailRouter);
+app.use('/api/event', eventRouter);
 
 
 app.get('/health', (req, res) => {
@@ -137,10 +147,8 @@ app.post('/api/risk/validate', async (req, res) => {
             .eq('challenge_id', trade.challenge_id)
             .is('close_time', null);
 
-        // Fetch Rules
         const { data: rulesConfig } = await supabase.from('risk_rules_config').select('*').limit(1).single();
 
-        // Default rules if missing
         const rules = {
             allow_weekend_trading: rulesConfig?.allow_weekend_trading ?? true,
             allow_news_trading: rulesConfig?.allow_news_trading ?? true,
@@ -156,7 +164,7 @@ app.post('/api/risk/validate', async (req, res) => {
             openTrades || []
         );
 
-        // Log violations if any
+
         if (violations.length > 0) {
             for (const v of violations) {
                 await advancedEngine.logFlag(trade.challenge_id, trade.user_id, v);
@@ -174,7 +182,7 @@ app.post('/api/risk/validate', async (req, res) => {
     }
 });
 
-// Debug Route for Memory
+
 import v8 from 'v8';
 app.get('/debug/memory', (req, res) => {
     const memory = process.memoryUsage();
@@ -191,11 +199,22 @@ app.get('/debug/memory', (req, res) => {
         }
     });
 });
-// Error handling middleware
+
 app.use((err: any, req: any, res: any, next: any) => {
     const logMessage = `[${new Date().toISOString()}] ERROR: ${err.message}\n${err.stack}\n\n`;
     fs.appendFileSync('backend_error_debug.log', logMessage);
-    res.status(500).json({ error: 'Internal server error', details: err.message, stack: err.stack });
+
+    // Log body for debugging if it's a JSON/webhooks request
+    if (req.body && Object.keys(req.body).length > 0) {
+        fs.appendFileSync('backend_error_debug.log', `BODY: ${JSON.stringify(req.body)}\n\n`);
+    }
+
+    res.status(500).json({
+        error: 'Internal server error',
+        details: err.message,
+        message: err.message,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
 });
 
 // Start Scheduler
@@ -209,8 +228,7 @@ import { startCompetitionScheduler } from './services/competition-scheduler';
 import { startLeaderboardBroadcaster } from './services/leaderboard-service';
 
 
-// startRiskMonitor(5); // DISABLED: Using Python Bridge Push
-// startRiskEventWorker(); // Start Event Listener
+
 console.log('🔄 [Risk Monitor] Polling Enabled (Fallback Mode) - 10s Interval');
 startRiskMonitor(10); // Re-enabled to ensure DB equity is fresh
 startDailyEquityReset(); // Schedule midnight reset
@@ -229,21 +247,18 @@ initializeSocket(httpServer);
 
 const server = httpServer.listen(PORT, () => {
     console.log(`Risk Engine Backend running on port ${PORT}`);
-    console.log(`✅ WebSocket server ready`);
+    console.log(` WebSocket server ready`);
 });
 
 // GLOBAL ERROR HANDLERS (Prevent Crashes)
 process.on('uncaughtException', (err) => {
-    console.error('❌ CRITICAL: Uncaught Exception:', err);
-    // Optional: Graceful shutdown logic here if state is corrupted
-    // server.close(() => process.exit(1));
+    console.error(' CRITICAL: Uncaught Exception:', err);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('❌ CRITICAL: Unhandled Rejection at:', promise, 'reason:', reason);
+    console.error('CRITICAL: Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-// Graceful Shutdown
 process.on('SIGTERM', () => {
     console.log('SIGTERM signal received: closing HTTP server');
     server.close(() => {

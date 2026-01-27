@@ -257,7 +257,11 @@ router.get('/trades/analysis', authenticate, async (req: AuthRequest, res: Respo
         let query = supabase
             .from('trades')
             .select('id, ticket, symbol, type, lots, open_price, close_price, open_time, close_time, profit_loss, comment')
-            .eq('user_id', user.id);
+            .eq('user_id', user.id)
+            .gt('lots', 0) // Filter out zero lots (deposits)
+            .not('symbol', 'is', null) // Filter invalid symbols
+            .gt('open_time', '2023-01-01') // Filter out 1970/old garbage
+            .or('type.eq.0,type.eq.1,type.eq.buy,type.eq.sell'); // Filter valid types (Buy/Sell)
 
         if (accountId) {
             query = query.eq('challenge_id', accountId);
@@ -272,32 +276,18 @@ router.get('/trades/analysis', authenticate, async (req: AuthRequest, res: Respo
         }
 
         // Frontend expects "trades" array to do its own analysis
-        const formattedTrades = (trades || [])
-            .filter(t => {
-                // Filter out non-trading operations (deposits, withdrawals, balance, credit)
-                const typeStr = String(t.type).toLowerCase();
-                const commentStr = String(t.comment || '').toLowerCase();
-                const symbolStr = String(t.symbol || '');
-
-                const isValidType = ['0', '1', 'buy', 'sell'].includes(typeStr);
-                const isDeposit = commentStr.includes('deposit') || commentStr.includes('balance') || commentStr.includes('initial');
-                const isInvalidSymbol = symbolStr.trim() === '';
-                const isZeroLots = Number(t.lots) === 0;
-
-                return isValidType && !isDeposit && !isInvalidSymbol && !isZeroLots;
-            })
-            .map(t => ({
-                id: t.id,
-                ticket_number: t.ticket,
-                symbol: t.symbol,
-                type: t.type,
-                lots: t.lots,
-                open_price: t.open_price,
-                close_price: t.close_price,
-                open_time: t.open_time,
-                close_time: t.close_time,
-                profit_loss: t.profit_loss,
-            }));
+        const formattedTrades = (trades || []).map(t => ({ // Map directly since we filtered in DB
+            id: t.id,
+            ticket_number: t.ticket,
+            symbol: t.symbol,
+            type: t.type,
+            lots: t.lots,
+            open_price: t.open_price,
+            close_price: t.close_price,
+            open_time: t.open_time,
+            close_time: t.close_time,
+            profit_loss: t.profit_loss,
+        }));
 
         console.log(`[DEBUG] /trades/analysis returning ${formattedTrades.length} formatted trades.`);
 

@@ -326,8 +326,8 @@ router.post('/sync-trades', async (req: Request, res: Response) => {
             challenge_id: challenge.id,
             user_id: challenge.user_id,
             symbol: t.symbol,
-            type: t.type === 0 ? 'buy' : t.type === 1 ? 'sell' : 'balance',
-            lots: t.volume / 10000,
+            type: t.type === 0 ? 'sell' : t.type === 1 ? 'buy' : 'balance',
+            lots: t.volume / 100,
             open_price: t.price,
             close_price: t.close_price || null,
             profit_loss: t.profit,
@@ -445,7 +445,7 @@ router.post('/admin/disable', authenticate, async (req: AuthRequest, res: Respon
         // Update local DB status to match
         const { error: dbError } = await supabase
             .from('challenges')
-            .update({ status: 'breached' }) // Map to 'breached' for consistency
+            .update({ status: 'disabled' }) // Manually disabled
             .eq('login', login);
 
         if (dbError) console.error('Failed to update DB status:', dbError);
@@ -592,8 +592,8 @@ router.post('/trades/webhook', async (req: Request, res: Response) => {
                     user_id: challenge.user_id,
                     ticket: Number(t.ticket),
                     symbol: t.symbol,
-                    type: t.type, // Assuming bridge sends 0/1 or raw MT5 type
-                    lots: t.volume / 10000,
+                    type: t.type === 0 ? 'sell' : t.type === 1 ? 'buy' : 'balance', // Inverted mapping
+                    lots: t.volume / 100,
                     open_price: t.open_price || 0,
                     close_price: t.close_price,
                     profit_loss: t.profit,
@@ -754,8 +754,8 @@ router.post('/trades/webhook', async (req: Request, res: Response) => {
             user_id: challenge.user_id,
             symbol: trade.symbol,
             ticket: Number(trade.ticket),
-            type: trade.type === 0 ? 'buy' : trade.type === 1 ? 'sell' : 'balance',
-            lots: trade.volume / 10000,
+            type: trade.type === 0 ? 'sell' : trade.type === 1 ? 'buy' : 'balance',
+            lots: trade.volume / 100,
             open_price: trade.price,
             close_price: trade.close_price,
             profit: trade.profit,

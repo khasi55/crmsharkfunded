@@ -10,7 +10,7 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PU
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 async function main() {
-    const login = '889224437';
+    const login = '88922';
     console.log(`Checking SOD status for account: ${login}`);
 
     const { data: challenge, error } = await supabase

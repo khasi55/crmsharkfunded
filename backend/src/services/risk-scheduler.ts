@@ -163,7 +163,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
             } else if (rawData && Array.isArray(rawData.results)) {
                 results = rawData.results;
             } else {
-                console.error("❌ Bridge returned invalid format:", rawData);
+                console.error(" Bridge returned invalid format:", rawData);
                 throw new Error("Bridge response is not an array or does not contain results array");
             }
 
@@ -182,7 +182,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 const isZeroEquityGlitch = (res.equity <= 0.01) && (res.balance > (Number(challenge.initial_balance) * 0.01));
 
                 if (isZeroEquityGlitch) {
-                    console.warn(`⚠️ IGNORED Zero Equity Glitch for ${res.login}. Equity: ${res.equity}, Balance: ${res.balance}`);
+                    console.warn(` IGNORED Zero Equity Glitch for ${res.login}. Equity: ${res.equity}, Balance: ${res.balance}`);
                     continue;
                 }
 
@@ -240,7 +240,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
 
                 // LOCAL BREACH OVERRIDE
                 if (res.login === 889224326) {
-                    console.log(`🔍 DEBUG 889224326:`);
+                    console.log(` DEBUG 889224326:`);
                     console.log(`   Equity (Bridge): ${res.equity}`);
                     console.log(`   SoD Equity (DB): ${startOfDayEquity}`);
                     console.log(`   Initial Balance: ${initialBalance}`);
@@ -253,12 +253,12 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
 
                 if (res.equity < effectiveLimit) {
                     // Force Status to Breached even if Bridge reported Active
-                    // console.log(`🛡️ Local Breach Detected: ${res.login} (Eq: ${res.equity} < Lim: ${effectiveLimit})`);
+                    // console.log(` Local Breach Detected: ${res.login} (Eq: ${res.equity} < Lim: ${effectiveLimit})`);
                     // Mock the status so the detailed logic below picks it up
                     // But we must handle it carefully to ensure logs/emails fire
                     if (challenge.status !== 'breached' && challenge.status !== 'failed') {
                         updateData.status = 'breached';
-                        console.log(`🛑 LOCAL BREACH CONFIRMED: Account ${res.login}. Equity: ${res.equity} < Limit: ${effectiveLimit}`);
+                        console.log(` LOCAL BREACH CONFIRMED: Account ${res.login}. Equity: ${res.equity} < Limit: ${effectiveLimit}`);
 
                         // Inject Trigger Logic (Copying from below block to avoid refactoring huge chunks)
                         systemLogs.push({
@@ -301,10 +301,10 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                     const targetEquity = initialBalance + (initialBalance * (profitTargetPercent / 100));
 
                     if (res.equity >= targetEquity) {
-                        // Confirm it's not already passed or failed/breached
+                        
                         if (challenge.status === 'active' || challenge.status === 'ongoing') {
                             updateData.status = 'passed';
-                            // console.log(`🎉 PROFIT TARGET HIT: Account ${res.login}. Equity: ${res.equity} >= ${targetEquity}`);
+                           
 
                             systemLogs.push({
                                 source: 'RiskScheduler',
@@ -323,7 +323,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
 
                     // Only log if it wasn't already failed/breached
                     if (challenge.status !== 'breached' && challenge.status !== 'failed') {
-                        console.log(`🛑 BREACH CONFIRMED: Account ${res.login}. Equity: ${res.equity}`);
+                        console.log(` BREACH CONFIRMED: Account ${res.login}. Equity: ${res.equity}`);
 
                         systemLogs.push({
                             source: 'RiskScheduler',
@@ -347,7 +347,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                         try {
                             const { data: { user } } = await supabase.auth.admin.getUserById(challenge.user_id);
                             if (user && user.email) {
-                                console.log(`📧 [RiskScheduler] Sending breach email to ${user.email} for account ${res.login}`);
+                                console.log(` [RiskScheduler] Sending breach email to ${user.email} for account ${res.login}`);
                                 await EmailService.sendBreachNotification(
                                     user.email,
                                     user.user_metadata?.full_name || 'Trader',
@@ -357,7 +357,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                                 );
                             }
                         } catch (emailErr) {
-                            console.error('🔥 [RiskScheduler] Failed to send breach email:', emailErr);
+                            console.error('[RiskScheduler] Failed to send breach email:', emailErr);
                         }
                     }
                 }
@@ -369,21 +369,21 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
             if (updatesToUpsert.length > 0) {
                 const breachedUpdate = updatesToUpsert.find(u => u.status === 'breached');
                 if (breachedUpdate) {
-                    console.log(`💾 Committing BREACH to DB:`, JSON.stringify(breachedUpdate, null, 2));
+                    console.log(` Committing BREACH to DB:`, JSON.stringify(breachedUpdate, null, 2));
                 }
 
                 const { error } = await supabase
                     .from('challenges')
                     .upsert(updatesToUpsert);
 
-                if (error) console.error("❌ Bulk update failed:", error.message, error.details);
+                if (error) console.error(" Bulk update failed:", error.message, error.details);
             }
 
             // 2. Bulk Insert Logs
             if (systemLogs.length > 0) await supabase.from('system_logs').insert(systemLogs);
             if (violationLogs.length > 0) await supabase.from('risk_violations').insert(violationLogs);
 
-            // console.log(`✅ Synced risk batch of ${results.length} accounts.`);
+            
 
         } catch (err: any) {
             clearTimeout(timeoutId);
@@ -392,13 +392,13 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
 
     } catch (e: any) {
         if (e.code !== 'ECONNREFUSED' && attempt <= MAX_RETRIES) {
-            // console.warn(`⚠️ Risk Batch failed (Attempt ${attempt}/${MAX_RETRIES}). Retrying in 500ms...`);
+           
             await new Promise(resolve => setTimeout(resolve, 500));
             return processBatch(challenges, riskGroups, attempt + 1);
         } else {
             // Only log critical errors, not just connectivity flakes
             if (e.message && !e.message.includes('522')) {
-                console.error("❌ Risk Scheduler Error:", e.message);
+                console.error("Risk Scheduler Error:", e.message);
             }
         }
     }

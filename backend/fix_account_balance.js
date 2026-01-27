@@ -29,7 +29,7 @@ async function fixAccount() {
     if (error) {
         console.error("Error updating account:", error);
     } else {
-        console.log("✅ Account updated successfully:", data);
+        console.log(" Account updated successfully:", data);
     }
 }
 

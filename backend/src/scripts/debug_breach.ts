@@ -10,7 +10,7 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PU
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 async function main() {
-    const login = '889224450';
+    const login = '889225368';
     console.log(`Checking breach reason for login: ${login}`);
 
     // 1. Get Challenge Details
@@ -23,7 +23,12 @@ async function main() {
             current_equity, 
             current_balance, 
             start_of_day_equity, 
-            metadata
+            start_of_day_equity, 
+            metadata,
+            user_id,
+            master_password,
+            investor_password,
+            server
         `)
         .eq('login', login)
         .single();
@@ -44,6 +49,10 @@ async function main() {
     const maxDrawdown = initial - currentEq;
     const dailyDrawdown = sod - currentEq;
 
+    console.log("-----------------------------------");
+    console.log(`Server:          ${challenge.server}`);
+    console.log(`Master Pass:     ${challenge.master_password}`);
+    console.log(`Investor Pass:   ${challenge.investor_password}`);
     console.log("-----------------------------------");
     console.log(`Initial Balance: ${initial}`);
     console.log(`SOD Equity:      ${sod}`);

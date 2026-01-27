@@ -73,4 +73,31 @@ router.post('/update-email', checkAdminAuth, async (req, res) => {
     }
 });
 
+// GET /api/admin/users/search - Search users for dropdown (limit 50)
+router.get('/search', checkAdminAuth, async (req, res) => {
+    try {
+        const query = req.query.q as string || '';
+
+        let dbQuery = supabaseAdmin
+            .from('profiles')
+            .select('id, full_name, email')
+            .limit(50);
+
+        if (query) {
+            dbQuery = dbQuery.or(`full_name.ilike.%${query}%,email.ilike.%${query}%`);
+        }
+
+        const { data, error } = await dbQuery;
+
+        if (error) {
+            return res.status(500).json({ error: error.message });
+        }
+
+        res.json({ users: data });
+
+    } catch (error: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 export default router;

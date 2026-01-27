@@ -15,7 +15,7 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 export function startCompetitionScheduler() {
-    console.log("🏆 Competition Scheduler initialized. Schedule: '*/10 * * * *' (Every 10 Minutes)");
+    console.log(" Competition Scheduler initialized. Schedule: '*/10 * * * *' (Every 10 Minutes)");
 
     cron.schedule('*/10 * * * *', async () => {
         await checkCompetitionStatus();
@@ -23,11 +23,11 @@ export function startCompetitionScheduler() {
 }
 
 async function checkCompetitionStatus() {
-    // console.log("🏆 [Competition Scheduler] Checking dates...");
+    
     const now = new Date().toISOString();
 
     try {
-        // 1. Start Competitions (Upcoming -> Active)
+        
         const { data: starting, error: startError } = await supabase
             .from('competitions')
             .update({ status: 'active' })
@@ -37,10 +37,10 @@ async function checkCompetitionStatus() {
 
         if (startError) console.error("Error starting competitions:", startError);
         if (starting && starting.length > 0) {
-            console.log(`✅ Started ${starting.length} competitions: ${starting.map(c => c.title).join(', ')}`);
+            console.log(` Started ${starting.length} competitions: ${starting.map(c => c.title).join(', ')}`);
         }
 
-        // 2. End Competitions (Active -> Ended)
+        
         const { data: ending, error: endError } = await supabase
             .from('competitions')
             .update({ status: 'ended' })
@@ -50,14 +50,12 @@ async function checkCompetitionStatus() {
 
         if (endError) console.error("Error ending competitions:", endError);
         if (ending && ending.length > 0) {
-            console.log(`🏁 Ended ${ending.length} competitions: ${ending.map(c => c.title).join(', ')}`);
+            console.log(` Ended ${ending.length} competitions: ${ending.map(c => c.title).join(', ')}`);
 
-            // TODO: Optional - Disable trading for participants of ended competitions
-            // This would require fetching all participants and calling the bridge or updating challenge status.
-            // keeping it simple for now as requested.
+            
         }
 
     } catch (e) {
-        console.error("❌ Competition Scheduler Error:", e);
+        console.error("Competition Scheduler Error:", e);
     }
 }

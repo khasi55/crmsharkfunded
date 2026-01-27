@@ -13,10 +13,11 @@ const supabase = createClient(supabaseUrl!, supabaseKey!);
 const leaderboardCache: Record<string, { data: any[], timestamp: number }> = {};
 const CACHE_TTL = 30 * 1000; // 30 seconds
 
-export async function getLeaderboard(competitionId: string) {
+export async function getLeaderboard(competitionId: string, limit: number = 100) {
     // console.log("!!! LEADERBOARD SERVICE CALL DETECTED !!!");
     // Check Cache
-    const cached = leaderboardCache[competitionId];
+    const cacheKey = `${competitionId}-${limit}`;
+    const cached = leaderboardCache[cacheKey];
     if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
         return cached.data;
     }
@@ -28,7 +29,8 @@ export async function getLeaderboard(competitionId: string) {
             .select('user_id, score, rank, status, challenge_id')
             .eq('competition_id', competitionId)
             .order('score', { ascending: false })
-            .limit(100);
+            .order('score', { ascending: false })
+            .limit(limit);
 
         if (error) throw error;
 
@@ -123,7 +125,7 @@ export async function getLeaderboard(competitionId: string) {
         activeLeaderboard.forEach((p: any, i: number) => p.rank = i + 1);
 
         // Update Cache
-        leaderboardCache[competitionId] = {
+        leaderboardCache[cacheKey] = {
             data: activeLeaderboard,
             timestamp: Date.now()
         };
@@ -228,7 +230,7 @@ export async function updateLeaderboardScores(competitionId: string) {
                 .from('competition_participants')
                 .upsert(bulkUpdatePayload, { onConflict: 'competition_id, user_id' });
 
-            if (upsertError) console.error("❌ Failed to update leaderboard scores:", upsertError);
+            if (upsertError) console.error(" Failed to update leaderboard scores:", upsertError);
         }
 
     } catch (e) {
@@ -239,7 +241,7 @@ export async function updateLeaderboardScores(competitionId: string) {
 export function startLeaderboardBroadcaster(intervalMs = 30000) {
     if (interval) return;
 
-    console.log(`📡 Leaderboard Broadcaster started (Interval: ${intervalMs}ms)`);
+    console.log(` Leaderboard Broadcaster started (Interval: ${intervalMs}ms)`);
 
     interval = setInterval(async () => {
         try {
@@ -256,7 +258,10 @@ export function startLeaderboardBroadcaster(intervalMs = 30000) {
                 await updateLeaderboardScores(comp.id);
 
                 // 2. Fetch fresh leaderboard
-                delete leaderboardCache[comp.id]; // Invalidate cache
+                // Invalidate all cache keys for this competition (naive simple approach: clear all or regex)
+                // For simplicity, we just won't update cache explicitly here as it expires in 30s. 
+                // But to be safe, let's delete the default key.
+                delete leaderboardCache[`${comp.id}-100`];
 
                 const data = await getLeaderboard(comp.id);
                 broadcastLeaderboard(comp.id, data);

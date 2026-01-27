@@ -44,7 +44,7 @@ async function fixSod() {
     if (uError) {
         console.error('Error updating SOD:', uError);
     } else {
-        console.log('✅ Successfully updated Start Of Day Equity!');
+        console.log(' Successfully updated Start Of Day Equity!');
     }
 }
 

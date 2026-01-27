@@ -290,8 +290,9 @@ router.get('/trades/:challengeId', async (req, res) => {
 router.get('/:id/leaderboard', async (req, res) => {
     try {
         const { id } = req.params;
+        const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
         const { getLeaderboard } = await import('../services/leaderboard-service');
-        const leaderboard = await getLeaderboard(id);
+        const leaderboard = await getLeaderboard(id, limit);
         res.json(leaderboard);
     } catch (error: any) {
         console.error("Leaderboard error:", error);

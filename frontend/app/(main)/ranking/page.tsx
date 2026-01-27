@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, ArrowUp, ArrowDown, Crown, Loader2 } from "lucide-react";
+import { Trophy, ArrowUp, ArrowDown, Crown, Loader2, Medal, TrendingUp, DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Trader {
@@ -48,236 +48,245 @@ export default function RankingPage() {
     const restOfList = traders.slice(3);
 
     return (
-        <div className="space-y-8 p-4 md:p-8 max-w-7xl mx-auto min-h-screen">
-            {/* Header Section */}
-            <div className="flex flex-col md:flex-row justify-between items-end gap-6">
-                <div>
-                    <h1 className="text-4xl font-black text-black flex items-center gap-3 tracking-tight mb-2">
-                        <Trophy className="text-blue-600 drop-shadow-[0_0_15px_rgba(37,99,235,0.2)]" size={36} />
-                        Global Leaderboard
-                    </h1>
-                    <p className="text-slate-500 font-medium">Top performers proving their edge in the market.</p>
-                </div>
+        <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 pb-20">
+            <div className="max-w-7xl mx-auto px-4 md:px-8 pt-12">
 
-                {/* Filter Tabs */}
-                <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200 overflow-x-auto max-w-full no-scrollbar">
-                    {filters.map((filter) => (
-                        <button
-                            key={filter}
-                            onClick={() => setActiveFilter(filter)}
-                            className={cn(
-                                "px-5 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap",
-                                activeFilter === filter
-                                    ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-                                    : "text-slate-500 hover:text-slate-900 hover:bg-slate-200"
-                            )}
-                        >
-                            {filter}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {loading ? (
-                <div className="flex items-center justify-center py-20">
-                    <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
-                </div>
-            ) : (
-                <>
-                    {/* Podium (Top 3) */}
-                    {traders.length >= 1 && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-8 pb-4 relative items-end">
-                            {/* 2nd Place */}
-                            <div className="order-2 md:order-1 flex flex-col items-center">
-                                {topThree[1] && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }}
-                                        className="w-full relative group"
-                                    >
-                                        <div className="bg-[#050923] p-8 rounded-[40px] border border-white/10 text-center relative z-10 shadow-xl overflow-hidden min-h-[320px] flex flex-col justify-center translate-y-4">
-                                            <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-10 h-10 bg-slate-400 rounded-full flex items-center justify-center font-black text-slate-900 border-4 border-[#050923] shadow-lg z-20">2</div>
-
-                                            <div className="w-20 h-20 rounded-full mx-auto mb-6 p-1 bg-slate-400/20 shadow-xl relative">
-                                                <div className="w-full h-full rounded-full border-2 border-[#050923] overflow-hidden bg-slate-800">
-                                                    <img src={topThree[1].avatar} className="w-full h-full object-cover" alt={topThree[1].name} />
-                                                </div>
-                                            </div>
-
-                                            <h3 className="text-xl font-bold text-white mb-1 leading-tight">{topThree[1].name} <span className="text-lg">🌍</span></h3>
-                                            <p className="text-blue-400/80 font-bold text-[10px] mb-8 uppercase tracking-widest">{topThree[1].accountSize} Account</p>
-
-                                            <div className="grid grid-cols-2 gap-3 mt-auto">
-                                                <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-                                                    <p className="text-slate-400 text-[9px] uppercase font-bold tracking-widest mb-1">Profit</p>
-                                                    <p className="text-lg font-black text-white">${topThree[1].totalProfit.toLocaleString()}</p>
-                                                </div>
-                                                <div className="bg-blue-500/10 rounded-2xl p-4 border border-blue-500/10">
-                                                    <p className="text-blue-400/50 text-[9px] uppercase font-bold tracking-widest mb-1">Return</p>
-                                                    <p className="text-lg font-black text-blue-400">{topThree[1].return}%</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                )}
+                {/* Header & Filter Bar */}
+                <div className="flex flex-col md:flex-row justify-between items-end gap-8 mb-16">
+                    <div>
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-3 bg-blue-600 rounded-2xl shadow-lg shadow-blue-600/20 text-white">
+                                <Trophy size={28} className="fill-current" />
                             </div>
-
-                            {/* 1st Place */}
-                            <div className="order-1 md:order-2 flex flex-col items-center">
-                                {topThree[0] && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 50, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-                                        className="w-full relative z-20"
-                                    >
-                                        <div className="bg-[#050923] p-10 rounded-[40px] border border-yellow-500/20 text-center relative shadow-2xl overflow-hidden min-h-[400px] flex flex-col justify-center">
-                                            <div className="absolute top-4 right-0 left-0 flex justify-center">
-                                                <div className="w-24 h-8 bg-yellow-500/5 rounded-full blur-2xl" />
-                                            </div>
-                                            <Crown className="w-10 h-10 text-yellow-500 absolute -top-5 left-1/2 -translate-x-1/2 drop-shadow-[0_0_20px_rgba(234,179,8,0.5)] z-30" />
-
-                                            <div className="w-28 h-28 rounded-full mx-auto mb-6 p-1 bg-gradient-to-br from-yellow-400 via-orange-500 to-yellow-600 shadow-2xl relative">
-                                                <div className="w-full h-full rounded-full border-4 border-[#050923] overflow-hidden bg-slate-900">
-                                                    <img src={topThree[0].avatar} className="w-full h-full object-cover" alt={topThree[0].name} />
-                                                </div>
-                                            </div>
-
-                                            <h3 className="text-2xl font-black text-white mb-2 leading-tight tracking-tight">{topThree[0].name} <span className="text-2xl ml-1">🌍</span></h3>
-                                            <p className="text-yellow-500/90 font-bold mb-10 uppercase tracking-[0.2em] text-[11px]">{topThree[0].accountSize} Account</p>
-
-                                            <div className="grid grid-cols-2 gap-4 mt-auto">
-                                                <div className="bg-white/5 rounded-[24px] p-5 border border-yellow-500/20 shadow-inner">
-                                                    <p className="text-yellow-500/70 text-[10px] uppercase font-bold tracking-widest mb-1.5">Profit</p>
-                                                    <p className="text-xl font-black text-white">${topThree[0].totalProfit.toLocaleString()}</p>
-                                                </div>
-                                                <div className="bg-white/5 rounded-[24px] p-5 border border-blue-500/20 shadow-inner">
-                                                    <p className="text-blue-400/70 text-[10px] uppercase font-bold tracking-widest mb-1.5">Return</p>
-                                                    <p className="text-xl font-black text-blue-400">{topThree[0].return}%</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </div>
-
-                            {/* 3rd Place */}
-                            <div className="order-3 flex flex-col items-center">
-                                {topThree[2] && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }}
-                                        className="w-full relative group"
-                                    >
-                                        <div className="bg-[#050923] p-8 rounded-[40px] border border-white/10 text-center relative z-10 shadow-xl overflow-hidden min-h-[320px] flex flex-col justify-center translate-y-4">
-                                            <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#b45309] rounded-full flex items-center justify-center font-black text-white border-4 border-[#050923] shadow-lg z-20">3</div>
-
-                                            <div className="w-20 h-20 rounded-full mx-auto mb-6 p-1 bg-orange-500/20 shadow-xl relative">
-                                                <div className="w-full h-full rounded-full border-2 border-[#050923] overflow-hidden bg-slate-800">
-                                                    <img src={topThree[2].avatar} className="w-full h-full object-cover" alt={topThree[2].name} />
-                                                </div>
-                                            </div>
-
-                                            <h3 className="text-xl font-bold text-white mb-1 leading-tight">{topThree[2].name} <span className="text-lg">🌍</span></h3>
-                                            <p className="text-blue-400/80 font-bold text-[10px] mb-8 uppercase tracking-widest">{topThree[2].accountSize} Account</p>
-
-                                            <div className="grid grid-cols-2 gap-3 mt-auto">
-                                                <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-                                                    <p className="text-slate-400 text-[9px] uppercase font-bold tracking-widest mb-1">Profit</p>
-                                                    <p className="text-lg font-black text-white">${topThree[2].totalProfit.toLocaleString()}</p>
-                                                </div>
-                                                <div className="bg-blue-500/10 rounded-2xl p-4 border border-blue-500/10">
-                                                    <p className="text-blue-400/50 text-[9px] uppercase font-bold tracking-widest mb-1">Return</p>
-                                                    <p className="text-lg font-black text-blue-400">{topThree[2].return}%</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </div>
+                            <h1 className="text-4xl font-black tracking-tight text-slate-900">Leaderboard</h1>
                         </div>
-                    )}
+                        <p className="text-slate-500 font-medium text-lg ml-1">
+                            Celebrating the top performing traders in our ecosystem.
+                        </p>
+                    </div>
 
-                    {/* List View */}
-                    <div className="bg-[#050923] rounded-[32px] border border-white/10 overflow-hidden shadow-2xl mt-8">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="bg-white/5 text-gray-400 text-[10px] uppercase tracking-widest font-black border-b border-white/5">
-                                        <th className="px-8 py-5">Rank</th>
-                                        <th className="px-8 py-5">Trader</th>
-                                        <th className="px-8 py-5">Account</th>
-                                        <th className="px-8 py-5 text-right">Day Change</th>
-                                        <th className="px-8 py-5 text-right">Total Profit</th>
-                                        <th className="px-8 py-5 text-right">Return</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-white/5">
-                                    <AnimatePresence mode="popLayout">
+                    <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 overflow-x-auto max-w-full">
+                        {filters.map((filter) => (
+                            <button
+                                key={filter}
+                                onClick={() => setActiveFilter(filter)}
+                                className={cn(
+                                    "px-6 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap",
+                                    activeFilter === filter
+                                        ? "bg-slate-900 text-white shadow-md"
+                                        : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                                )}
+                            >
+                                {filter}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {loading ? (
+                    <div className="flex items-center justify-center py-32">
+                        <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+                    </div>
+                ) : (
+                    <>
+                        {/* Podium (Top 3) */}
+                        {traders.length >= 1 && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-end mb-16">
+                                {/* Rank 2 */}
+                                <div className="order-2 md:order-1">
+                                    {topThree[1] && (
+                                        <PodiumCard
+                                            trader={topThree[1]}
+                                            rank={2}
+                                            accentColor="text-slate-400"
+                                            ringColor="ring-slate-200"
+                                            delay={0.1}
+                                        />
+                                    )}
+                                </div>
+
+                                {/* Rank 1 (Center, Largest) */}
+                                <div className="order-1 md:order-2 -translate-y-4 md:-translate-y-8 z-10">
+                                    {topThree[0] && (
+                                        <PodiumCard
+                                            trader={topThree[0]}
+                                            rank={1}
+                                            accentColor="text-yellow-500"
+                                            ringColor="ring-yellow-100"
+                                            isWinner
+                                            delay={0}
+                                        />
+                                    )}
+                                </div>
+
+                                {/* Rank 3 */}
+                                <div className="order-3">
+                                    {topThree[2] && (
+                                        <PodiumCard
+                                            trader={topThree[2]}
+                                            rank={3}
+                                            accentColor="text-orange-700"
+                                            ringColor="ring-orange-100"
+                                            delay={0.2}
+                                        />
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Ranking List */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3 }}
+                            className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden"
+                        >
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-slate-50/50 text-slate-400 text-[11px] uppercase tracking-wider font-bold border-b border-slate-100">
+                                            <th className="px-8 py-6 w-24 text-center">Rank</th>
+                                            <th className="px-8 py-6">Trader</th>
+                                            <th className="px-8 py-6">Account</th>
+                                            <th className="px-8 py-6 text-right">Day Change</th>
+                                            <th className="px-8 py-6 text-right">Total Profit</th>
+                                            <th className="px-8 py-6 text-right">Return</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50">
                                         {traders.length > 3 ? (
                                             restOfList.map((trader, idx) => (
-                                                <motion.tr
+                                                <tr
                                                     key={trader.rank}
-                                                    initial={{ opacity: 0, x: -20 }}
-                                                    animate={{ opacity: 1, x: 0 }}
-                                                    transition={{ delay: idx * 0.05 }}
                                                     className={cn(
-                                                        "hover:bg-blue-50/50 transition-colors group",
-                                                        trader.isMe ? "bg-blue-50" : ""
+                                                        "group hover:bg-blue-50/30 transition-colors duration-200",
+                                                        trader.isMe ? "bg-blue-50/40" : ""
                                                     )}
                                                 >
-                                                    <td className="px-8 py-5">
-                                                        <span className="font-bold text-slate-400 group-hover:text-blue-600 transition-colors">#{trader.rank}</span>
+                                                    <td className="px-8 py-6 text-center">
+                                                        <span className={cn(
+                                                            "font-bold text-lg",
+                                                            trader.rank <= 10 ? "text-slate-900" : "text-slate-400"
+                                                        )}>
+                                                            #{trader.rank}
+                                                        </span>
                                                     </td>
-                                                    <td className="px-8 py-5">
+                                                    <td className="px-8 py-6">
                                                         <div className="flex items-center gap-4">
-                                                            <div className="w-10 h-10 rounded-full bg-slate-200 border-2 border-white shadow-sm overflow-hidden">
+                                                            <div className="w-10 h-10 rounded-full bg-slate-100 ring-2 ring-white shadow-sm overflow-hidden">
                                                                 <img src={trader.avatar} alt={trader.name} className="w-full h-full object-cover" />
                                                             </div>
-                                                            <div className="flex flex-col">
-                                                                <span className="font-bold text-white text-sm">
-                                                                    {trader.name} {trader.isMe && "(You)"}
-                                                                </span>
-                                                                <span className="text-xs text-gray-400 font-medium">{trader.country}</span>
+                                                            <div>
+                                                                <div className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                                                                    {trader.name}
+                                                                    {trader.isMe && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">YOU</span>}
+                                                                </div>
+                                                                <div className="text-xs text-slate-500 font-medium">{trader.country}</div>
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="px-8 py-5">
-                                                        <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-600 font-bold text-[10px] border border-blue-200/50">
+                                                    <td className="px-8 py-6">
+                                                        <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 font-bold text-xs border border-slate-200">
                                                             {trader.accountSize}
                                                         </span>
                                                     </td>
-                                                    <td className="px-8 py-5 text-right">
+                                                    <td className="px-8 py-6 text-right">
                                                         <span className={cn(
                                                             "inline-flex items-center gap-1 font-bold text-sm",
-                                                            trader.dayChange >= 0 ? "text-green-500" : "text-red-500"
+                                                            trader.dayChange >= 0 ? "text-emerald-600" : "text-rose-500"
                                                         )}>
-                                                            {trader.dayChange >= 0 ? <ArrowUp size={12} className="stroke-[3]" /> : <ArrowDown size={12} className="stroke-[3]" />}
+                                                            {trader.dayChange >= 0 ? <ArrowUp size={14} strokeWidth={3} /> : <ArrowDown size={14} strokeWidth={3} />}
                                                             ${Math.abs(trader.dayChange).toLocaleString()}
                                                         </span>
                                                     </td>
-                                                    <td className="px-8 py-5 text-right font-black text-white tracking-tight text-sm">
-                                                        ${trader.totalProfit.toLocaleString()}
+                                                    <td className="px-8 py-6 text-right">
+                                                        <span className="font-bold text-slate-900 tabular-nums">
+                                                            ${trader.totalProfit.toLocaleString()}
+                                                        </span>
                                                     </td>
-                                                    <td className="px-8 py-5 text-right">
-                                                        <span className="text-white font-bold text-sm bg-white/5 px-3 py-1 rounded-full border border-white/10">
+                                                    <td className="px-8 py-6 text-right">
+                                                        <span className={cn(
+                                                            "inline-block font-black text-sm px-3 py-1 rounded-full",
+                                                            trader.return > 0 ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500"
+                                                        )}>
                                                             {trader.return}%
                                                         </span>
                                                     </td>
-                                                </motion.tr>
+                                                </tr>
                                             ))
                                         ) : (
                                             !loading && (
                                                 <tr>
-                                                    <td colSpan={6} className="px-8 py-12 text-center text-slate-400 font-medium">
-                                                        Only top performers are shown here.
+                                                    <td colSpan={6} className="px-8 py-20 text-center text-slate-400">
+                                                        Only the top 3 legends have made it so far.
                                                     </td>
                                                 </tr>
                                             )
                                         )}
-                                    </AnimatePresence>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </>
-            )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </div>
         </div>
     );
+}
+
+// Sub-component for clean podium cards
+function PodiumCard({ trader, rank, accentColor, ringColor, isWinner = false, delay }: { trader: Trader, rank: number, accentColor: string, ringColor: string, isWinner?: boolean, delay: number }) {
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay, type: "spring" }}
+            className={cn(
+                "relative bg-white rounded-[32px] p-8 text-center flex flex-col items-center border border-slate-100",
+                isWinner ? "shadow-2xl shadow-yellow-500/10 min-h-[420px]" : "shadow-xl shadow-slate-200/50 min-h-[360px]"
+            )}
+        >
+            {/* Rank Badge */}
+            <div className={cn(
+                "absolute -top-5 w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg border-4 border-white",
+                rank === 1 ? "bg-yellow-400 text-yellow-900" :
+                    rank === 2 ? "bg-slate-300 text-slate-800" :
+                        "bg-orange-300 text-orange-900"
+            )}>
+                {rank}
+            </div>
+
+            {isWinner && <Crown size={40} className="text-yellow-400 absolute -top-16 drop-shadow-lg" fill="currentColor" />}
+
+            {/* Avatar */}
+            <div className={cn(
+                "rounded-full p-1.5 mb-6 shadow-xl",
+                isWinner ? "w-32 h-32 bg-gradient-to-br from-yellow-300 to-orange-400" : "w-24 h-24 bg-slate-100"
+            )}>
+                <div className="w-full h-full rounded-full overflow-hidden border-4 border-white bg-slate-50">
+                    <img src={trader.avatar} alt={trader.name} className="w-full h-full object-cover" />
+                </div>
+            </div>
+
+            {/* Info */}
+            <h3 className="text-2xl font-black text-slate-900 tracking-tight mb-1">
+                {trader.name}
+            </h3>
+            <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-8">
+                {trader.accountSize} Account
+            </p>
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 gap-4 w-full mt-auto">
+                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Profit</p>
+                    <p className="text-lg font-black text-slate-900">${trader.totalProfit.toLocaleString()}</p>
+                </div>
+                <div className={cn("rounded-2xl p-4 border bg-opacity-10", isWinner ? "bg-yellow-50 border-yellow-100" : "bg-blue-50 border-blue-100")}>
+                    <p className={cn("text-[10px] font-bold uppercase tracking-wider mb-1", isWinner ? "text-yellow-600" : "text-blue-600")}>Return</p>
+                    <p className={cn("text-lg font-black", isWinner ? "text-yellow-600" : "text-blue-600")}>{trader.return}%</p>
+                </div>
+            </div>
+        </motion.div>
+    )
 }

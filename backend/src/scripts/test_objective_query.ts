@@ -23,9 +23,9 @@ async function testQuery() {
         .single();
 
     if (error) {
-        console.error("❌ Error:", error);
+        console.error(" Error:", error);
     } else {
-        console.log("✅ Data:", data);
+        console.log(" Data:", data);
     }
 }
 

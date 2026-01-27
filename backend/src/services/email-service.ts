@@ -1,4 +1,6 @@
 import nodemailer from 'nodemailer';
+import QRCode from 'qrcode';
+import { EventEntryService } from './event-entry-service';
 
 export class EmailService {
     // SMTP Credentials
@@ -41,10 +43,10 @@ export class EmailService {
                 html: bodyHtml
             });
 
-            // console.log(`✅ Email sent: ${info.messageId}`);
+            // console.log(` Email sent: ${info.messageId}`);
             return info;
         } catch (error: any) {
-            console.error('🔥 Error sending email via SMTP:', error.message);
+            console.error(' Error sending email via SMTP:', error.message);
             // Don't throw, just log. We don't want to break the main flow.
         }
     }
@@ -112,11 +114,11 @@ export class EmailService {
      * Send Competition Joined Confirmation
      */
     static async sendCompetitionJoined(email: string, name: string, competitionTitle: string) {
-        const subject = `🏆 Entry Confirmed: Welcome to Shark Battle Ground – ${competitionTitle}`;
+        const subject = ` Entry Confirmed: Welcome to Shark Battle Ground – ${competitionTitle}`;
 
         const html = `
             <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #ffffff; border-radius: 12px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
-                <h2 style="color: #0d47a1; margin-bottom: 10px;">Welcome to the Battle Ground, ${name}! 🔥</h2>
+                <h2 style="color: #0d47a1; margin-bottom: 10px;">Welcome to the Battle Ground, ${name}!</h2>
                 
                 <p style="font-size: 15px; color: #333;">Your entry has been successfully confirmed for:</p>
                 
@@ -130,7 +132,7 @@ export class EmailService {
                 </p>
 
                 <div style="background-color: #fff3cd; color: #856404; padding: 12px; border-radius: 4px; margin: 15px 0; border: 1px solid #ffeeba;">
-                    <strong>ℹ️ Important:</strong> The competition starts this coming <strong>Monday (19th January 2026)</strong>. Trading begins on that day.
+                    <strong> Important:</strong> The competition starts this coming <strong>Monday (19th January 2026)</strong>. Trading begins on that day.
                 </div>
 
                 <p style="font-size: 14px; color: #444;">
@@ -160,5 +162,146 @@ Shark Funded Team
         `;
 
         await this.sendEmail(email, subject, html, text);
+    }
+
+    /**
+     * Send Top 32 Event Invitation
+     */
+    /**
+     * Get Top 32 Event Invitation HTML
+     */
+    static getEventInviteHtml(name: string, qrCodeCid?: string): string {
+        return `
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+        
+        <div style="background: linear-gradient(135deg, #0d47a1 0%, #002171 100%); padding: 40px 20px; text-align: center; color: white;">
+            <h1 style="margin: 0; font-size: 28px; font-weight: 800;">SHARK FUNDED COMMUNITY EVENT</h1>
+           
+        </div>
+
+        <div style="padding: 40px 30px;">
+            <h2>Dear ${name},</h2>
+
+            <p style="font-size: 16px; line-height: 1.6;">
+                We are delighted to invite you to the <strong>Shark Funded Community Event</strong> — an exclusive
+                in-person gathering for our valued traders and partners.
+                <br><br>
+                This event is designed to help you connect with our team, interact with fellow traders, 
+                and gain insights into upcoming opportunities, platform updates, and future growth plans.
+            </p>
+
+            ${qrCodeCid ? `
+            <div style="text-align: center; margin: 30px 0; padding: 20px; background: #f8f9fa; border: 2px dashed #0d47a1; border-radius: 12px;">
+                <h3 style="margin-top: 0; color: #0d47a1;">YOUR ENTRY PASS</h3>
+                <p style="font-size: 14px; margin-bottom: 15px; color: #555;">Please scan this QR code at the venue entrance</p>
+                <img src="${qrCodeCid}" alt="Entry QR Code" style="width: 200px; height: 200px; border-radius: 8px; border: 1px solid #ddd;" />
+                <p style="font-size: 12px; color: #888; margin-top: 10px;">Pass Type: Standard Entry</p>
+            </div>
+            ` : ''}
+
+            <div style="background-color: #f8f9fa; border-left: 5px solid #0d47a1; padding: 20px; margin: 25px 0;">
+                <h3 style="color: #0d47a1;">Event Details</h3>
+                <table style="width:100%;">
+                    <tr><td><strong>Date:</strong></td><td>30th January</td></tr>
+                    <tr><td><strong>Venue:</strong></td><td>Aurika Hotel, Mumbai</td></tr>
+                    <tr>
+                        <td><strong>Location:</strong></td>
+                        <td><a href="https://maps.app.goo.gl/FP1EnzicoJiRueDH8">View on Google Maps</a></td>
+                    </tr>
+                    <tr><td><strong>Time:</strong></td><td>1:00 PM Onwards</td></tr>
+                </table>
+            </div>
+
+            <div style="background-color:#e3f2fd; padding:15px; border-radius:8px;">
+                <strong>Important Note:</strong>
+                <p>Please carry a valid ID and this invitation (QR code) for smooth entry.</p>
+            </div>
+
+            <p style="text-align:center; margin-top:30px;">
+                We look forward to meeting you in person and welcoming you to an engaging and insightful session.
+            </p>
+
+            <hr>
+
+            <p style="text-align:center; font-size:13px;">
+                Warm Regards,<br>
+                <strong>Shark Funded Team</strong><br>
+                <a href="https://sharkfunded.com">www.sharkfunded.com</a>
+            </p>
+        </div>
+    </div>`;
+    }
+
+    static async sendEventInvite(email: string, name: string) {
+        const subject = `Invitation to Shark Funded Community Event – Mumbai`;
+
+        try {
+            // Create Unique Pass in DB
+            const uniqueCode = await EventEntryService.createPass(name, email);
+
+            // Generate QR Code
+            const qrData = JSON.stringify({
+                name: name,
+                email: email,
+                event: 'Shark Funded Community Event',
+                date: '2026-01-30',
+                id: uniqueCode
+            });
+
+            // Generate Data URL for backup/reference if needed, but we used Buffer for proper attachment
+            const qrCodeBuffer = await QRCode.toBuffer(qrData, {
+                errorCorrectionLevel: 'H',
+                margin: 2,
+                color: {
+                    dark: '#000000',
+                    light: '#ffffff'
+                },
+                width: 300
+            });
+
+            const html = this.getEventInviteHtml(name, 'cid:event-qrcode');
+
+            const text = `
+Dear ${name},
+
+You are invited!
+
+We are pleased to invite you to the Shark Funded Exclusive Event. This event brings together our community for an in-person trading meet up, networking, and reward ceremony.
+
+Date: 30th January  
+Venue: Aurika Hotel, Mumbai  
+Time: 1:00 PM Sharp  
+Location: https://maps.app.goo.gl/FP1EnzicoJiRueDH8  
+
+Requirement: Please bring your personal laptop. 
+
+** ENTRY PASS **
+Please show the QR code attached to this email at the entrance.
+
+Regards,  
+Shark Funded Team
+`;
+
+            await this.transporter.sendMail({
+                from: `"${this.FROM_NAME}" <${this.FROM_EMAIL}>`,
+                to: email,
+                subject: subject,
+                text: text,
+                html: html,
+                attachments: [
+                    {
+                        filename: 'entry-qr-code.png',
+                        content: qrCodeBuffer,
+                        cid: 'event-qrcode' // referenced in the HTML
+                    }
+                ]
+            });
+
+        } catch (error: any) {
+            console.error('Error generating/sending Event Invite with QR:', error);
+            // Fallback without QR if it fails (using empty CID or handling gracefully in HTML)
+            const html = this.getEventInviteHtml(name);
+            await this.sendEmail(email, subject, html, 'Your invite (QR generation failed, please contact support).');
+        }
     }
 }

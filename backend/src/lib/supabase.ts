@@ -12,3 +12,4 @@ if (!supabaseUrl || !supabaseKey) {
 
 // Export a SERVICE ROLE client (Admin access)
 export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabaseAdmin = supabase;

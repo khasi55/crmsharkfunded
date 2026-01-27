@@ -18,7 +18,9 @@ import {
     List,
     Gauge,
     Settings,
-    Activity
+    Activity,
+    Scan,
+    Send
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logoutAdmin } from "@/app/actions/admin-auth";
@@ -40,6 +42,8 @@ const navigation = [
     { name: "Competitions", href: "/competitions", icon: Trophy, roles: ['super_admin', 'admin', 'sub_admin'] },
     { name: "Coupons", href: "/coupons", icon: Ticket, roles: ['super_admin', 'admin', 'sub_admin'] },
     { name: "System Health", href: "/system-health", icon: Activity, roles: ['super_admin', 'admin'] },
+    { name: "Event Scanner", href: "/event-scanner", icon: Scan, roles: ['super_admin', 'admin', 'sub_admin'] },
+    { name: "Emails", href: "/emails", icon: Send, roles: ['super_admin', 'admin'] },
     { name: "Admins", href: "/admins", icon: ShieldCheck, roles: ['super_admin', 'admin'] },
 ];
 
@@ -48,16 +52,22 @@ interface AdminSidebarProps {
         email: string;
         full_name: string;
         role: string;
+        permissions?: string[];
     };
 }
 
 export function AdminSidebar({ user, onClose }: AdminSidebarProps & { onClose?: () => void }) {
     const pathname = usePathname();
     const userRole = user?.role || 'sub_admin';
+    const userPermissions = user?.permissions || [];
 
-    const filteredNavigation = navigation.filter(item =>
-        item.roles.includes(userRole)
-    );
+    const filteredNavigation = navigation.filter(item => {
+        // If user has role access
+        if (item.roles.includes(userRole)) return true;
+        // If user has explicit permission (match name lowercase, e.g. "emails")
+        if (userPermissions.includes(item.name.toLowerCase())) return true;
+        return false;
+    });
 
     return (
         <div className="flex h-full w-64 flex-col bg-[#0a0d20] border-r border-white/5">

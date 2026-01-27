@@ -19,6 +19,7 @@ export function StatusBadge({
             case "rejected":
             case "breached":
             case "denied":
+            case "disabled":
                 return "bg-red-50 text-red-700 border-red-200";
             case "paid":
                 return "bg-blue-50 text-blue-700 border-blue-200";

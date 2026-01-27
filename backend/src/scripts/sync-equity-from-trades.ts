@@ -70,10 +70,10 @@ async function syncEquity() {
         if (uError) {
             console.error('Error updating challenge:', uError);
         } else {
-            console.log('✅ Successfully updated challenge equity!');
+            console.log(' Successfully updated challenge equity!');
         }
     } else {
-        console.log('✅ Equity is already correct.');
+        console.log(' Equity is already correct.');
     }
 }
 

@@ -4,23 +4,42 @@ import Link from "next/link";
 import { Server, ChevronRight } from "lucide-react";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { AccountActions } from "@/components/admin/AccountActions";
+import { AccountsTable } from "@/components/admin/AccountsTable";
 
 export default async function AccountsListPage({
     searchParams,
 }: {
-    searchParams: { query?: string; page?: string };
+    searchParams: { query?: string; page?: string; group?: string };
 }) {
     const query = (await searchParams)?.query || "";
-    // const page = parseInt((await searchParams)?.page || "1");
+    const page = parseInt((await searchParams)?.page || "1");
+    const groupFilter = (await searchParams)?.group || "";
+    const PAGE_SIZE = 50;
 
     const supabase = createAdminClient();
+
+    // 0. Fetch Unique Groups for Filter
+    // Using a separate query to get distinct groups. 
+    // Since distinct is hard in simple select, we fetch all non-null groups and de-dupe in JS (not efficient for huge DBs but fine for now)
+    // Or use rpc if available. For now, assuming manageable size.
+    const { data: allGroupsData } = await supabase
+        .from('challenges')
+        .select('group')
+        .not('group', 'is', null);
+
+    // @ts-ignore
+    const uniqueGroups = Array.from(new Set(allGroupsData?.map(d => d.group))).filter(Boolean).sort() as string[];
 
     // 1. Build Query for Challenges
     let challengeQuery = supabase
         .from("challenges")
         .select("*", { count: "exact" })
         .order("created_at", { ascending: false })
-        .limit(100);
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+
+    if (groupFilter) {
+        challengeQuery = challengeQuery.eq('group', groupFilter);
+    }
 
     // Note: Search logic is harder with manual join. 
     // If query is present, we might ideally search profiles first then get challenges, 
@@ -93,6 +112,8 @@ export default async function AccountsListPage({
     // Total Count logic
     // 'count' from query gives total matching the query (or total table if no query)
 
+    const totalPages = Math.ceil((count || 0) / PAGE_SIZE);
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -113,95 +134,13 @@ export default async function AccountsListPage({
             </div>
 
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Account ID</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">User</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Login</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Password</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Type</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Plan / Group</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Balance</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Equity</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Status</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Actions</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Created</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                            {accountsWithProfiles.map((account) => (
-                                <tr key={account.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-6 py-4 font-mono text-xs text-gray-600">
-                                        <div className="text-indigo-600 font-medium">
-                                            {account.challenge_number || `SF-${account.id.slice(0, 8)}`}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div>
-                                            <div className="font-medium text-gray-900">
-                                                {account.profile?.full_name || "Unknown"}
-                                            </div>
-                                            <div className="text-xs text-gray-500 font-mono">
-                                                {account.profile?.email || "No email"}
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 font-mono text-gray-900">
-                                        {account.login || "-"}
-                                    </td>
-                                    <td className="px-6 py-4 font-mono text-gray-900">
-                                        <div className="flex flex-col">
-                                            <span title="Master Password">{account.master_password || "-"}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-gray-900 capitalize">
-                                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
-                                            {account.challenge_type}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="text-gray-900 font-medium text-xs break-words max-w-[150px]">
-                                            {account.plan_type || "Standard"}
-                                        </div>
-                                        <div className="text-[10px] text-gray-500 font-mono truncate max-w-[150px]" title={account.server}>
-                                            {account.mt5_group}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 font-medium text-gray-900">
-                                        ${account.initial_balance?.toLocaleString()}
-                                    </td>
-                                    <td className="px-6 py-4 font-medium text-blue-600">
-                                        ${account.current_equity?.toLocaleString() ?? '-'}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <StatusBadge status={account.status} />
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <AccountActions
-                                            accountId={account.id}
-                                            login={account.login}
-                                            currentStatus={account.status}
-                                            userId={account.profile?.id}
-                                            currentEmail={account.profile?.email}
-                                        />
-                                    </td>
-                                    <td className="px-6 py-4 text-gray-600 text-xs">
-                                        {new Date(account.created_at).toLocaleDateString()}
-                                    </td>
-                                </tr>
-                            ))}
-                            {accountsWithProfiles.length === 0 && (
-                                <tr>
-                                    <td colSpan={11} className="px-6 py-12 text-center text-gray-500">
-                                        No accounts found.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                <AccountsTable
+                    accounts={accountsWithProfiles}
+                    groups={uniqueGroups}
+                    currentPage={page}
+                    totalPages={totalPages}
+                    currentGroupFilter={groupFilter}
+                />
             </div>
         </div>
     );
