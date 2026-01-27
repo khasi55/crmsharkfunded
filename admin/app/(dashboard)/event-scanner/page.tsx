@@ -40,7 +40,8 @@ export default function EventScannerPage() {
                 throw new Error('Invalid Entry Pass Format');
             }
 
-            if (data.event !== 'Shark Funded Exclusive Event') {
+            const validEvents = ['Shark Funded Exclusive Event', 'Shark Funded Community Event'];
+            if (!validEvents.includes(data.event)) {
                 throw new Error(`Wrong Event: ${data.event}`);
             }
 
@@ -91,7 +92,7 @@ export default function EventScannerPage() {
                         <h1 className="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">
                             Event Check-In
                         </h1>
-                        <p className="text-gray-500 dark:text-gray-400 mt-2 font-medium">Shark Funded Exclusive Event</p>
+                        <p className="text-gray-500 dark:text-gray-400 mt-2 font-medium">Shark Funded Events</p>
                     </div>
 
                     {isPaused && (
@@ -170,10 +171,10 @@ export default function EventScannerPage() {
                     {/* Result Column */}
                     <div className="order-2 flex flex-col h-full min-h-[400px]">
                         <div className={`flex-1 rounded-3xl shadow-2xl border transition-all duration-500 flex flex-col relative overflow-hidden ${scannedData
-                                ? 'bg-gradient-to-br from-green-50 to-white dark:from-green-900/10 dark:to-[#0a0d20] border-green-200 dark:border-green-800'
-                                : scanError
-                                    ? 'bg-gradient-to-br from-red-50 to-white dark:from-red-900/10 dark:to-[#0a0d20] border-red-200 dark:border-red-800'
-                                    : 'bg-white dark:bg-[#0a0d20] border-gray-100 dark:border-white/5'
+                            ? 'bg-gradient-to-br from-green-50 to-white dark:from-green-900/10 dark:to-[#0a0d20] border-green-200 dark:border-green-800'
+                            : scanError
+                                ? 'bg-gradient-to-br from-red-50 to-white dark:from-red-900/10 dark:to-[#0a0d20] border-red-200 dark:border-red-800'
+                                : 'bg-white dark:bg-[#0a0d20] border-gray-100 dark:border-white/5'
                             }`}>
 
                             {/* Status Stripe */}
