@@ -20,7 +20,7 @@ router.get('/', async (req, res) => {
     try {
         const { data: admins, error } = await supabase
             .from('admin_users')
-            .select('id, email, full_name, role, created_at')
+            .select('id, email, full_name, role, permissions, created_at')
             .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -35,7 +35,7 @@ router.get('/', async (req, res) => {
 // POST /api/admins - Create new admin
 router.post('/', async (req, res) => {
     try {
-        const { email, password, full_name, role } = req.body;
+        const { email, password, full_name, role, permissions } = req.body;
 
         if (!email || !password || !full_name) {
             res.status(400).json({ error: 'Email, password, and full name are required' });
@@ -59,7 +59,13 @@ router.post('/', async (req, res) => {
         const { data, error } = await supabase
             .from('admin_users')
             .insert([
-                { email, password, full_name, role: role || 'sub_admin' }
+                {
+                    email,
+                    password,
+                    full_name,
+                    role: role || 'sub_admin',
+                    permissions: permissions || [] // Save permissions array
+                }
             ])
             .select()
             .single();

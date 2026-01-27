@@ -22,7 +22,17 @@ export default function AdminsClientPage() {
     const [newPassword, setNewPassword] = useState("");
     const [newFullName, setNewFullName] = useState("");
     const [newRole, setNewRole] = useState("sub_admin");
+    const [newPermissions, setNewPermissions] = useState<string[]>([]);
     const [submitting, setSubmitting] = useState(false);
+
+    // Hardcoded list of available permissions based on Sidebar keys
+    // We use the lowercase name as the permission key
+    const AVAILABLE_PERMISSIONS = [
+        "dashboard", "users", "accounts list", "mt5 accounts", "risk settings",
+        "payments", "settings", "assign account", "kyc requests", "payouts",
+        "affiliate payouts", "competitions", "coupons", "system health",
+        "event scanner", "emails", "admins"
+    ];
 
     useEffect(() => {
         fetchAdmins();
@@ -44,6 +54,14 @@ export default function AdminsClientPage() {
         }
     };
 
+    const togglePermission = (permission: string) => {
+        if (newPermissions.includes(permission)) {
+            setNewPermissions(newPermissions.filter(p => p !== permission));
+        } else {
+            setNewPermissions([...newPermissions, permission]);
+        }
+    };
+
     const handleCreateAdmin = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitting(true);
@@ -58,6 +76,7 @@ export default function AdminsClientPage() {
                     password: newPassword,
                     full_name: newFullName,
                     role: newRole,
+                    permissions: newPermissions
                 }),
             });
 
@@ -73,6 +92,7 @@ export default function AdminsClientPage() {
             setNewPassword("");
             setNewFullName("");
             setNewRole("sub_admin");
+            setNewPermissions([]);
             fetchAdmins(); // Refresh list
         } catch (err: any) {
             setError(err.message);
@@ -188,14 +208,14 @@ export default function AdminsClientPage() {
             {/* Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden max-h-[90vh] flex flex-col">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
                             <h3 className="text-lg font-semibold text-gray-900">Add New Admin</h3>
                             <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-500">
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
-                        <form onSubmit={handleCreateAdmin} className="p-6 space-y-4">
+                        <form onSubmit={handleCreateAdmin} className="p-6 space-y-4 overflow-y-auto">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
                                 <input
@@ -242,6 +262,25 @@ export default function AdminsClientPage() {
                                     placeholder="Secure Password"
                                 />
                                 <p className="text-xs text-amber-600 mt-1">Caution: Stored as plain text per system policy.</p>
+                            </div>
+
+                            {/* Permissions Section */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Detailed Permissions</label>
+                                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-3 bg-gray-50">
+                                    {AVAILABLE_PERMISSIONS.map(limit => (
+                                        <label key={limit} className="flex items-center space-x-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={newPermissions.includes(limit)}
+                                                onChange={() => togglePermission(limit)}
+                                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            />
+                                            <span className="text-xs text-gray-700 capitalize">{limit}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">Check boxes to grant explicit access regardless of role.</p>
                             </div>
 
                             {error && (

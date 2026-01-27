@@ -62,11 +62,20 @@ export function AdminSidebar({ user, onClose }: AdminSidebarProps & { onClose?: 
     const userPermissions = user?.permissions || [];
 
     const filteredNavigation = navigation.filter(item => {
-        // If user has role access
-        if (item.roles.includes(userRole)) return true;
-        // If user has explicit permission (match name lowercase, e.g. "emails")
-        if (userPermissions.includes(item.name.toLowerCase())) return true;
-        return false;
+        // 1. Super Admin always has access to everything
+        if (userRole === 'super_admin') return true;
+
+        // 2. Granular Permissions (Whitelist Mode)
+        // If the user has explicitly defined permissions (non-empty array), 
+        // we STRICTLY respect those and ignore role defaults.
+        // This allows creating "Limited" admins by giving them specific permissions.
+        if (userPermissions && userPermissions.length > 0) {
+            return userPermissions.includes(item.name.toLowerCase());
+        }
+
+        // 3. Fallback to Role-Based Access
+        // If no permissions are set, fall back to the default role configuration.
+        return item.roles.includes(userRole);
     });
 
     return (

@@ -11,7 +11,7 @@ export async function getAdminUser() {
 
     const { data: user, error } = await supabase
         .from("admin_users")
-        .select("id, email, full_name, role")
+        .select("id, email, full_name, role, permissions")
         .eq("id", sessionId)
         .single();
 
@@ -19,5 +19,5 @@ export async function getAdminUser() {
         return null;
     }
 
-    return user;  
+    return user;
 }
