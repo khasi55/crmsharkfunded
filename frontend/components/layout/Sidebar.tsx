@@ -79,7 +79,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     width: isCollapsed ? "80px" : "260px"
                 }}
                 className={cn(
-                    "fixed z-50 flex flex-col transition-all duration-300 overflow-hidden",
+                    "fixed z-50 flex flex-col overflow-hidden",
                     // Mobile: full height, no roundness (standard drawer)
                     "inset-y-0 left-0 h-screen w-[260px]",
                     // Desktop: floating, rounded, shorter height

@@ -331,8 +331,6 @@ function DashboardContent() {
 
 export default function DashboardPage() {
     return (
-        <AccountProvider>
-            <DashboardContent />
-        </AccountProvider>
+        <DashboardContent />
     );
 }

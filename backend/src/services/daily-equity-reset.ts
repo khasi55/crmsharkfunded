@@ -9,12 +9,14 @@ dotenv.config();
 // Using imported 'supabase' from lib to share config
 
 export function startDailyEquityReset() {
-    console.log(" Daily Equity Reset Scheduler initialized. Schedule: '0 0 * * *' (Midnight)");
+    console.log(" Daily Equity Reset Scheduler initialized. Schedule: '0 17 * * *' (5 PM EST / New York Close)");
 
-    // Schedule task to run at 00:00 every day
-    cron.schedule('0 0 * * *', async () => {
-        console.log(" [Daily Reset] Starting Daily Equity Reset...");
+    // Schedule task to run at 17:00 (5 PM) New York Time every day
+    cron.schedule('0 17 * * *', async () => {
+        console.log(" [Daily Reset] Starting Daily Equity Reset (5 PM EST)...");
         await performDailyReset();
+    }, {
+        timezone: "America/New_York"
     });
 }
 
@@ -98,8 +100,10 @@ async function performDailyReset() {
 }
 
 // Add strict retry for failed resets (e.g. 10 mins later)
-cron.schedule('10 0 * * *', async () => {
+cron.schedule('10 17 * * *', async () => {
     console.log("[Daily Reset Backup] Running backup verification...");
     // We could re-run or check specifically for non-updated accounts
     // For now, simpler to just rely on initial run, but logging is key.
+}, {
+    timezone: "America/New_York"
 });

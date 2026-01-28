@@ -217,7 +217,7 @@ router.post('/update-status', async (req: Request, res: Response) => {
             .eq('didit_session_id', didit_session_id)
             // .eq('user_id', user.id) // Removed user check for webhook
             .select()
-            .single();
+            .maybeSingle();
 
         if (updateError) {
             console.error('Error updating KYC session:', updateError);
@@ -226,6 +226,13 @@ router.post('/update-status', async (req: Request, res: Response) => {
                 details: updateError,
                 message: updateError.message
             });
+            return;
+        }
+
+        if (!updatedSession) {
+            console.warn(`⚠️ KYC Session not found for ID: ${didit_session_id}. This might be a test webhook or invalid ID.`);
+            // Return 200 OK to acknowledge receipt even if we can't process it (best practice for webhooks)
+            res.json({ success: true, message: 'Session not found, but webhook received.' });
             return;
         }
 
