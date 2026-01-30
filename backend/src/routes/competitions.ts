@@ -146,7 +146,10 @@ router.post('/:id/join', authenticate, async (req: AuthRequest, res: Response) =
 
             const bridgeResponse = await fetch(`${mt5ApiUrl}/create-account`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': process.env.MT5_API_KEY || ''
+                },
                 body: JSON.stringify({
                     name: profile?.full_name || 'Trader',
                     email: profile?.email,

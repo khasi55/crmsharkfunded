@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowLeft, Clock, Trophy, Users, Shield, TrendingUp, Info, Crown, Award, Target, Zap, Star, Calendar, DollarSign, Medal } from "lucide-react";
+import { ArrowLeft, Clock, Trophy, Users, Shield, TrendingUp, Info } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -42,6 +42,7 @@ export default function CompetitionDetailsClient({ competitionId }: { competitio
     const [leaderboard, setLeaderboard] = useState<Participant[]>([]);
     const [loading, setLoading] = useState(true);
     const [joining, setJoining] = useState(false);
+    const [successModal, setSuccessModal] = useState(false);
 
     const [showTradesModal, setShowTradesModal] = useState(false);
     const [selectedUserTrades, setSelectedUserTrades] = useState<any[]>([]);
@@ -195,9 +196,9 @@ export default function CompetitionDetailsClient({ competitionId }: { competitio
                 });
 
                 if (response.ok) {
-                    // Success! Reload or update state
-                    alert("Successfully joined the competition!");
-                    window.location.reload(); // Simple reload to refresh state
+                    // Success! Show modal
+                    setSuccessModal(true);
+                    setJoining(false);
                 } else {
                     const err = await response.json();
                     alert(`Failed to join: ${err.error}`);
@@ -219,550 +220,303 @@ export default function CompetitionDetailsClient({ competitionId }: { competitio
     const isFree = !competition.entry_fee || competition.entry_fee === 0;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
-            <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-                {/* Back Navigation */}
-                <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="flex items-center gap-3"
-                >
-                    <Link
-                        href="/competitions"
-                        className="group flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-all duration-200"
-                    >
-                        <div className="w-8 h-8 rounded-lg bg-white group-hover:bg-slate-100 border border-slate-200 flex items-center justify-center transition-all">
-                            <ArrowLeft size={16} />
-                        </div>
-                        <span className="font-medium text-sm">Back to Competitions</span>
-                    </Link>
-                </motion.div>
+        <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto min-h-screen space-y-6 sm:space-y-8">
+            {/* Header / Nav code remains same */}
+            <div className="flex items-center gap-3 sm:gap-4 text-slate-500 mb-3 sm:mb-4">
+                <Link href="/competitions" className="active:text-slate-900 transition-colors flex items-center gap-2 text-sm sm:text-base">
+                    <ArrowLeft size={18} className="sm:w-5 sm:h-5" /> Back to Competitions
+                </Link>
+            </div>
 
-                {/* Hero Section - Redesigned */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="relative overflow-hidden bg-gradient-to-br from-white via-blue-50/50 to-purple-50/50 rounded-3xl border border-white shadow-xl shadow-slate-200/50"
-                >
-                    {/* Decorative Elements */}
-                    <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-blue-400/10 to-purple-400/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-                    <div className="absolute bottom-0 left-0 w-72 h-72 bg-gradient-to-tr from-emerald-400/10 to-blue-400/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-
-                    <div className="relative z-10 p-6 sm:p-8 lg:p-10">
-                        {/* Status & Platform */}
-                        <div className="flex flex-wrap items-center gap-3 mb-4">
-                            <div className={cn(
-                                "flex items-center gap-2 px-4 py-2 rounded-full font-bold text-xs uppercase tracking-wider shadow-sm",
-                                competition.status === 'active'
-                                    ? 'bg-emerald-500 text-white'
-                                    : 'bg-slate-400 text-white'
-                            )}>
-                                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+            {/* Title Section */}
+            <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 border border-slate-200 shadow-sm relative overflow-hidden">
+                <div className="flex flex-col gap-4 sm:gap-6 relative z-10">
+                    <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm">
+                            <span className={cn(
+                                "w-2.5 h-2.5 rounded-full",
+                                competition.status === 'active' ? 'bg-green-500' : 'bg-slate-400'
+                            )}></span>
+                            <span className="font-semibold text-slate-500 uppercase tracking-wide">
                                 {competition.status}
+                            </span>
+                            <span className="text-slate-300">|</span>
+                            <div className="flex items-center gap-1">
+                                <Shield size={12} className="sm:w-[14px] sm:h-[14px]" /> {competition.platform || 'MetaTrader 5'}
                             </div>
-
-                            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200 text-slate-700 font-medium text-xs shadow-sm">
-                                <Shield size={14} className="text-blue-500" />
-                                {competition.platform || 'MetaTrader 5'}
-                            </div>
-
-                            <div className={cn(
-                                "flex items-center gap-2 px-4 py-2 rounded-full font-bold text-xs uppercase tracking-wider shadow-sm",
-                                isFree
-                                    ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white"
-                                    : "bg-gradient-to-r from-blue-500 to-purple-500 text-white"
+                            {/* Fee Badge */}
+                            <span className="text-slate-300 hidden sm:inline">|</span>
+                            <span className={cn(
+                                "text-xs sm:text-sm font-bold uppercase tracking-wide px-2 py-0.5 rounded",
+                                isFree ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
                             )}>
-                                <DollarSign size={14} />
-                                {isFree ? "Free Entry" : `$${competition.entry_fee}`}
-                            </div>
+                                {isFree ? "Free Entry" : `Entry: $${competition.entry_fee}`}
+                            </span>
                         </div>
-
-                        {/* Title */}
-                        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-blue-900 to-purple-900 mb-4">
-                            {competition.title}
-                        </h1>
-
-                        {/* Competition Info */}
-                        <div className="flex flex-wrap items-center gap-4 mb-8">
-                            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/80 backdrop-blur border border-slate-200 shadow-sm">
-                                <Calendar size={16} className="text-purple-500" />
-                                <span className="text-sm font-medium text-slate-700">
-                                    Ends {new Date(competition.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                </span>
+                        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900">{competition.title}</h1>
+                        <div className="flex items-center gap-4 sm:gap-6 text-xs sm:text-sm text-slate-500 font-medium pt-2">
+                            <div className="flex items-center gap-2 bg-slate-100 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg">
+                                <Clock size={14} className="text-slate-400 sm:w-4 sm:h-4" />
+                                Ends {new Date(competition.end_date).toLocaleDateString()}
                             </div>
-
-                            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/80 backdrop-blur border border-slate-200 shadow-sm">
-                                <Users size={16} className="text-blue-500" />
-                                <span className="text-sm font-medium text-slate-700">
-                                    {competition.participant_count} participants
-                                </span>
-                            </div>
-
-                            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30">
-                                <Trophy size={16} />
-                                <span className="text-sm font-bold">
-                                    ${competition.prize_pool.toLocaleString()} Prize Pool
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex flex-wrap gap-3">
-                            <button className="group flex items-center gap-2 px-6 py-3 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-sm transition-all hover:shadow-md">
-                                <Info size={16} className="group-hover:text-blue-500 transition-colors" />
-                                Competition Rules
-                            </button>
-
-                            <button className="group flex items-center gap-2 px-6 py-3 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-sm transition-all hover:shadow-md">
-                                <Award size={16} className="group-hover:text-purple-500 transition-colors" />
-                                Prize Breakdown
-                            </button>
-
-                            <button
-                                onClick={handleJoin}
-                                disabled={joining || competition.joined}
-                                className={cn(
-                                    "flex items-center gap-2 px-8 py-3 rounded-xl font-bold text-sm shadow-lg transition-all disabled:opacity-75 disabled:cursor-not-allowed",
-                                    competition.joined
-                                        ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-emerald-500/30"
-                                        : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-blue-500/30 hover:shadow-xl hover:scale-105"
-                                )}
-                            >
-                                {competition.joined ? (
-                                    <>
-                                        <Trophy size={16} />
-                                        Joined
-                                    </>
-                                ) : (
-                                    <>
-                                        <Zap size={16} />
-                                        {joining ? 'Joining...' : (isFree ? 'Join for Free' : `Join for $${competition.entry_fee}`)}
-                                    </>
-                                )}
-                            </button>
                         </div>
                     </div>
-                </motion.div>
 
-                {/* Main Content Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Leaderboard Column */}
-                    <div className="lg:col-span-2 space-y-6">
-                        {/* Podium Section - Redesigned */}
-                        {topThree.length > 0 && (
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.2 }}
-                                className="relative"
-                            >
-                                <div className="absolute inset-0 bg-gradient-to-b from-amber-100/50 via-transparent to-transparent rounded-3xl" />
-
-                                <div className="relative grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 items-end p-6 md:p-8">
-                                    {/* Rank 1 - Winner (Center on Desktop, First on Mobile) */}
-                                    <div className="order-1 md:order-2">
-                                        {topThree[0] && (
-                                            <motion.div
-                                                initial={{ opacity: 0, scale: 0.9 }}
-                                                animate={{ opacity: 1, scale: 1 }}
-                                                transition={{ delay: 0.3 }}
-                                                className="md:-translate-y-8"
-                                            >
-                                                <PodiumCard participant={topThree[0]} rank={1} isWinner onClick={() => fetchUserTrades((topThree[0] as any).challenge_id, topThree[0].username)} />
-                                            </motion.div>
-                                        )}
-                                    </div>
-
-                                    {/* Rank 2 (Left on Desktop, Second on Mobile) */}
-                                    <div className="order-2 md:order-1">
-                                        {topThree[1] && (
-                                            <motion.div
-                                                initial={{ opacity: 0, scale: 0.9 }}
-                                                animate={{ opacity: 1, scale: 1 }}
-                                                transition={{ delay: 0.4 }}
-                                            >
-                                                <PodiumCard participant={topThree[1]} rank={2} onClick={() => fetchUserTrades((topThree[1] as any).challenge_id, topThree[1].username)} />
-                                            </motion.div>
-                                        )}
-                                    </div>
-
-                                    {/* Rank 3 (Right on Desktop, Third on Mobile) */}
-                                    <div className="order-3">
-                                        {topThree[2] && (
-                                            <motion.div
-                                                initial={{ opacity: 0, scale: 0.9 }}
-                                                animate={{ opacity: 1, scale: 1 }}
-                                                transition={{ delay: 0.5 }}
-                                            >
-                                                <PodiumCard participant={topThree[2]} rank={3} onClick={() => fetchUserTrades((topThree[2] as any).challenge_id, topThree[2].username)} />
-                                            </motion.div>
-                                        )}
-                                    </div>
-                                </div>
-                            </motion.div>
-                        )}
-
-                        {/* Leaderboard Table - Redesigned */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.6 }}
-                            className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden"
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+                        <button className="w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 font-semibold text-slate-600 active:text-slate-900 transition-colors text-sm sm:text-base border border-slate-200 rounded-xl">
+                            More Info
+                        </button>
+                        <button className="w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 font-semibold text-slate-600 active:text-slate-900 transition-colors text-sm sm:text-base border border-slate-200 rounded-xl">
+                            Show Prizepool
+                        </button>
+                        <button
+                            onClick={handleJoin}
+                            disabled={joining || competition.joined}
+                            className={cn(
+                                "w-full sm:w-auto px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl font-bold text-white shadow-lg transition-all active:scale-95 touch-manipulation text-sm sm:text-base",
+                                competition.joined
+                                    ? "bg-green-600 cursor-default opacity-90"
+                                    : "bg-blue-600 active:bg-blue-700 shadow-blue-600/20"
+                            )}
                         >
-                            <div className="p-6 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
-                                <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                                    <Trophy size={20} className="text-amber-500" />
-                                    Full Leaderboard
-                                </h2>
-                                <p className="text-sm text-slate-500 mt-1">Live rankings updated in real-time</p>
-                            </div>
-
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="bg-slate-50/50 border-b border-slate-100">
-                                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Rank</th>
-                                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Trader</th>
-                                            <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <Target size={12} />
-                                                    Trades
-                                                </div>
-                                            </th>
-                                            <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <DollarSign size={12} />
-                                                    Profit
-                                                </div>
-                                            </th>
-                                            <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <TrendingUp size={12} />
-                                                    Gain
-                                                </div>
-                                            </th>
-                                            <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-50">
-                                        {leaderboard.slice(0, 10).map((p: any, idx: number) => (
-                                            <tr
-                                                key={p.id}
-                                                className="group hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-purple-50/30 transition-all duration-200 cursor-pointer"
-                                                onClick={() => fetchUserTrades(p.challenge_id, p.username)}
-                                            >
-                                                <td className="px-6 py-5">
-                                                    <div className={cn(
-                                                        "inline-flex items-center justify-center w-10 h-10 rounded-xl font-black text-sm",
-                                                        p.rank === 1 ? "bg-gradient-to-br from-amber-400 to-yellow-500 text-white shadow-lg shadow-amber-500/30" :
-                                                            p.rank === 2 ? "bg-gradient-to-br from-slate-300 to-slate-400 text-white shadow-lg shadow-slate-400/30" :
-                                                                p.rank === 3 ? "bg-gradient-to-br from-orange-400 to-amber-500 text-white shadow-lg shadow-orange-500/30" :
-                                                                    "bg-slate-100 text-slate-600 group-hover:bg-slate-200"
-                                                    )}>
-                                                        {p.rank === 1 ? <Crown size={16} /> : p.rank}
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-5">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={cn(
-                                                            "w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm shadow-md border-2",
-                                                            p.rank <= 3
-                                                                ? "bg-gradient-to-br from-blue-400 to-purple-500 text-white border-white"
-                                                                : "bg-gradient-to-br from-slate-100 to-slate-200 text-slate-700 border-white"
-                                                        )}>
-                                                            {p.username.charAt(0).toUpperCase()}
-                                                        </div>
-                                                        <div className="min-w-0 flex-1">
-                                                            <div className="font-bold text-slate-900 truncate">{p.username}</div>
-                                                            {p.rank <= 3 && (
-                                                                <div className="flex items-center gap-1 text-xs text-amber-600 font-medium">
-                                                                    <Star size={10} fill="currentColor" />
-                                                                    Top Performer
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-5 text-right">
-                                                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-100 text-slate-700 font-mono font-semibold text-sm">
-                                                        {p.trades_count}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-5 text-right">
-                                                    <span className={cn(
-                                                        "inline-flex items-center gap-1 px-3 py-1 rounded-lg font-mono font-bold text-sm max-w-full truncate",
-                                                        (p.profit || 0) >= 0
-                                                            ? "bg-emerald-50 text-emerald-700"
-                                                            : "bg-rose-50 text-rose-700"
-                                                    )}>
-                                                        ${(p.profit || 0).toLocaleString()}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-5 text-right">
-                                                    <span className={cn(
-                                                        "inline-flex items-center gap-1 px-4 py-2 rounded-full font-black text-sm shadow-sm",
-                                                        p.score >= 0
-                                                            ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white"
-                                                            : "bg-gradient-to-r from-rose-500 to-red-500 text-white"
-                                                    )}>
-                                                        {p.score >= 0 ? '+' : ''}{p.score.toFixed(2)}%
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-5 text-right">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            fetchUserTrades(p.challenge_id, p.username);
-                                                        }}
-                                                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-all hover:shadow-md group-hover:bg-slate-200"
-                                                    >
-                                                        <TrendingUp size={12} />
-                                                        View
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {leaderboard.length === 0 && (
-                                            <tr>
-                                                <td colSpan={6} className="px-6 py-20 text-center">
-                                                    <div className="flex flex-col items-center gap-3 text-slate-400">
-                                                        <Trophy size={48} className="opacity-30" />
-                                                        <p className="font-medium">No participants yet</p>
-                                                        <p className="text-sm">Be the first to join this competition!</p>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </motion.div>
-                    </div>
-
-                    {/* Sidebar */}
-                    <div className="space-y-6">
-                        {/* User Stats Card */}
-                        {competition.joined && currentUserStats && (
-                            <motion.div
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: 0.3 }}
-                                className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 rounded-3xl p-6 shadow-2xl shadow-blue-500/30"
-                            >
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl" />
-                                <div className="absolute bottom-0 left-0 w-24 h-24 bg-purple-500/20 rounded-full blur-2xl" />
-
-                                <div className="relative z-10">
-                                    <div className="flex items-center gap-2 mb-6">
-                                        <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
-                                            <Trophy size={20} className="text-amber-300" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-white font-bold text-lg">Your Stats</h3>
-                                            <p className="text-blue-200 text-xs">Live Performance</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-3">
-                                        <div className="bg-white/10 backdrop-blur rounded-2xl p-4 border border-white/20">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="text-blue-200 text-sm font-medium">Current Rank</span>
-                                                <Medal size={16} className="text-amber-300" />
-                                            </div>
-                                            <div className="text-4xl font-black text-white truncate">#{currentUserStats.rank}</div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div className="bg-white/10 backdrop-blur rounded-2xl p-4 border border-white/20">
-                                                <div className="text-blue-200 text-xs uppercase tracking-wide mb-1">Return</div>
-                                                <div className={cn(
-                                                    "text-2xl font-black",
-                                                    currentUserStats.score >= 0 ? "text-emerald-300" : "text-rose-300"
-                                                )}>
-                                                    {currentUserStats.score >= 0 ? '+' : ''}{currentUserStats.score.toFixed(2)}%
-                                                </div>
-                                            </div>
-                                            <div className="bg-white/10 backdrop-blur rounded-2xl p-4 border border-white/20">
-                                                <div className="text-blue-200 text-xs uppercase tracking-wide mb-1">Trades</div>
-                                                <div className="text-2xl font-black text-white">{currentUserStats.trades_count || 0}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </motion.div>
-                        )}
-
-                        {/* Trading Rules */}
-                        <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.4 }}
-                            className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 p-6"
-                        >
-                            <div className="flex items-center gap-2 mb-5">
-                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                                    <Shield size={18} className="text-white" />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-slate-900">Trading Rules</h3>
-                                    <p className="text-xs text-slate-500">Competition guidelines</p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-3">
-                                <div className="flex items-start gap-3 p-3 rounded-xl bg-gradient-to-r from-red-50 to-rose-50 border border-red-100">
-                                    <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
-                                        <span className="text-red-600 font-black text-sm">4%</span>
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="font-bold text-slate-900 text-sm mb-0.5">Max Daily Loss</div>
-                                        <div className="text-xs text-slate-600">Based on start of day equity</div>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-start gap-3 p-3 rounded-xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100">
-                                    <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
-                                        <span className="text-orange-600 font-black text-sm">11%</span>
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="font-bold text-slate-900 text-sm mb-0.5">Max Overall Loss</div>
-                                        <div className="text-xs text-slate-600">Total drawdown limit</div>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-start gap-3 p-3 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100">
-                                    <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                        <Shield size={14} className="text-blue-600" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="font-bold text-slate-900 text-sm mb-0.5">Manual Trading Only</div>
-                                        <div className="text-xs text-slate-600">EA execution prohibited</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </motion.div>
-
-                        {/* Quick Info */}
-                        <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.5 }}
-                            className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-3xl border border-amber-200 shadow-lg p-6"
-                        >
-                            <div className="flex items-center gap-2 mb-4">
-                                <Info size={18} className="text-amber-600" />
-                                <h3 className="font-bold text-slate-900">Pro Tip</h3>
-                            </div>
-                            <p className="text-sm text-slate-700 leading-relaxed">
-                                Focus on consistent gains rather than risky trades. Top performers maintain steady growth throughout the competition.
-                            </p>
-                        </motion.div>
+                            {joining ? 'Joining...' : competition.joined ? 'Joined' : (isFree ? 'Join for Free' : `Join for $${competition.entry_fee}`)}
+                        </button>
                     </div>
                 </div>
             </div>
 
-            {/* Trades Modal - Enhanced */}
-            {showTradesModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="bg-white rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden"
-                    >
-                        {/* Modal Header */}
-                        <div className="bg-gradient-to-r from-slate-50 to-white border-b border-slate-200 p-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
-                                        <TrendingUp size={24} className="text-blue-500" />
-                                        Trade History
-                                    </h2>
-                                    <p className="text-slate-500 text-sm mt-1">
-                                        Viewing trades for <span className="font-bold text-slate-900">{selectedUserName}</span>
-                                    </p>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+                {/* Main Content (Leaderboard) */}
+                <div className="lg:col-span-2 space-y-8">
+                    {/* Podium code remains same - omitted for brevity in search replacement if possible, but safe to include context */}
+                    {topThree.length > 0 && (
+                        <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 pt-12 sm:pt-16 border border-slate-200 shadow-sm flex justify-center items-end gap-2 sm:gap-4 md:gap-8 h-[380px] sm:h-[420px] relative overflow-visible">
+                            {/* ... Podium Inner ... just placeholder logic to ensure context matching ... */}
+                            {/* Rank 2 */}
+                            {topThree[1] && (
+                                <div className="flex flex-col items-center w-1/3 z-10 cursor-pointer active:scale-105 transition-transform" onClick={() => fetchUserTrades((topThree[1] as any).challenge_id, topThree[1].username)}>
+                                    <div className="mb-2 sm:mb-4 text-center">
+                                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-slate-200 mb-1 sm:mb-2 mx-auto border-2 sm:border-4 border-white shadow-sm flex items-center justify-center text-base sm:text-xl font-bold text-slate-500">
+                                            {topThree[1].username.charAt(0)}
+                                        </div>
+                                        <div className="font-bold text-slate-800 text-xs sm:text-sm truncate max-w-[80px] sm:max-w-[120px]">{topThree[1].username}</div>
+                                        <div className="text-green-600 font-bold text-xs sm:text-sm">{topThree[1].score.toFixed(2)}%</div>
+                                    </div>
+                                    <div className="w-full h-24 sm:h-32 bg-gradient-to-t from-slate-200 to-slate-100 rounded-t-xl flex items-start justify-center pt-2 sm:pt-4 relative shadow-inner">
+                                        <div className="text-2xl sm:text-4xl font-black text-slate-400 opacity-50">2</div>
+                                    </div>
                                 </div>
-                                <button
-                                    onClick={() => setShowTradesModal(false)}
-                                    className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 flex items-center justify-center transition-all font-bold text-lg"
-                                >
-                                    ×
-                                </button>
+                            )}
+
+                            {/* Rank 1 */}
+                            {topThree[0] && (
+                                <div className="flex flex-col items-center w-1/3 z-20 -mb-2 sm:-mb-4 cursor-pointer active:scale-105 transition-transform" onClick={() => fetchUserTrades((topThree[0] as any).challenge_id, topThree[0].username)}>
+                                    <div className="mb-2 sm:mb-4 text-center transform scale-105 sm:scale-110">
+                                        <div className="relative">
+                                            <Trophy className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-500 absolute -top-8 sm:-top-10 left-1/2 -translate-x-1/2 drop-shadow-sm" fill="currentColor" />
+                                            <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-full bg-yellow-100 mb-1 sm:mb-2 mx-auto border-2 sm:border-4 border-white shadow-md flex items-center justify-center text-lg sm:text-2xl font-bold text-yellow-700">
+                                                {topThree[0].username.charAt(0)}
+                                            </div>
+                                        </div>
+                                        <div className="font-bold text-slate-900 text-sm sm:text-base truncate max-w-[100px] sm:max-w-[140px]">{topThree[0].username}</div>
+                                        <div className="text-green-600 font-bold text-sm sm:text-base">{topThree[0].score.toFixed(2)}%</div>
+                                    </div>
+                                    <div className="w-full h-32 sm:h-44 bg-gradient-to-t from-yellow-100 to-yellow-50 rounded-t-xl flex items-start justify-center pt-2 sm:pt-4 relative shadow-sm border-t border-yellow-200">
+                                        <div className="text-3xl sm:text-5xl font-black text-yellow-500 opacity-50">1</div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Rank 3 */}
+                            {topThree[2] && (
+                                <div className="flex flex-col items-center w-1/3 z-10 cursor-pointer active:scale-105 transition-transform" onClick={() => fetchUserTrades((topThree[2] as any).challenge_id, topThree[2].username)}>
+                                    <div className="mb-2 sm:mb-4 text-center">
+                                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-orange-100 mb-1 sm:mb-2 mx-auto border-2 sm:border-4 border-white shadow-sm flex items-center justify-center text-base sm:text-xl font-bold text-orange-700">
+                                            {topThree[2].username.charAt(0)}
+                                        </div>
+                                        <div className="font-bold text-slate-800 text-xs sm:text-sm truncate max-w-[80px] sm:max-w-[120px]">{topThree[2].username}</div>
+                                        <div className="text-green-600 font-bold text-xs sm:text-sm">{topThree[2].score.toFixed(2)}%</div>
+                                    </div>
+                                    <div className="w-full h-16 sm:h-24 bg-gradient-to-t from-orange-100 to-orange-50 rounded-t-xl flex items-start justify-center pt-2 sm:pt-4 relative shadow-inner">
+                                        <div className="text-2xl sm:text-4xl font-black text-orange-400 opacity-50">3</div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Table */}
+                    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 border-b border-slate-200">
+                                <tr>
+                                    <th className="px-6 py-4 font-semibold text-slate-500">Rank</th>
+                                    <th className="px-6 py-4 font-semibold text-slate-500">Name</th>
+                                    <th className="px-6 py-4 font-semibold text-slate-500 hidden md:table-cell">Country</th>
+                                    <th className="px-6 py-4 font-semibold text-slate-500 text-right">Trades</th>
+                                    <th className="px-6 py-4 font-semibold text-slate-500 text-right">Profit</th>
+                                    <th className="px-6 py-4 font-semibold text-slate-500 text-right">Gain</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 text-slate-700">
+                                {leaderboard.map((p: any) => (
+                                    <tr
+                                        key={p.id}
+                                        className="hover:bg-slate-50/50 transition-colors cursor-pointer"
+                                        onClick={() => fetchUserTrades(p.challenge_id, p.username)}
+                                    >
+                                        <td className="px-6 py-4 font-bold text-slate-900">#{p.rank}</td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                                                    {p.username.charAt(0)}
+                                                </div>
+                                                <span className="font-semibold">{p.username}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 hidden md:table-cell">
+                                            <span className="text-lg">🌍</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right font-mono">{p.trades_count}</td>
+                                        <td className={cn("px-6 py-4 text-right font-mono font-medium", (p.profit || 0) >= 0 ? "text-green-600" : "text-red-600")}>
+                                            ${(p.profit || 0).toLocaleString()}
+                                        </td>
+                                        <td className={cn("px-6 py-4 text-right font-bold", p.score >= 0 ? "text-green-600" : "text-red-600")}>
+                                            {p.score.toFixed(2)}%
+                                        </td>
+                                    </tr>
+                                ))}
+                                {leaderboard.length === 0 && (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
+                                            No participants yet.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Sidebar */}
+                <div className="space-y-6">
+                    {/* User Stats Card if Joined */}
+                    {competition.joined && (
+                        <div className="bg-blue-600 text-white rounded-3xl p-6 shadow-lg shadow-blue-600/20 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-3 opacity-10">
+                                <Trophy size={120} />
+                            </div>
+                            <h3 className="text-lg font-bold mb-1">Your Stats</h3>
+                            <p className="text-blue-100 text-sm mb-6">Current performance in this competition</p>
+
+                            <div className="space-y-4 relative z-10">
+                                <div className="bg-blue-700/50 rounded-xl p-4 flex justify-between items-center">
+                                    <span className="text-blue-200 text-sm font-medium">Rank</span>
+                                    <span className="text-2xl font-bold">#{currentUserStats?.rank || '-'}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-blue-700/50 rounded-xl p-4">
+                                        <div className="text-blue-200 text-xs uppercase mb-1">Return</div>
+                                        <div className="text-xl font-bold">{currentUserStats ? `${currentUserStats.score.toFixed(2)}%` : '-'}</div>
+                                    </div>
+                                    <div className="bg-blue-700/50 rounded-xl p-4">
+                                        <div className="text-blue-200 text-xs uppercase mb-1">Trades</div>
+                                        <div className="text-xl font-bold">{currentUserStats?.trades_count || 0}</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+                    )}
 
-                        {/* Modal Content */}
-                        <div className="max-h-[60vh] overflow-y-auto">
-                            <table className="w-full">
-                                <thead className="bg-slate-50 sticky top-0 z-10">
-                                    <tr className="border-b border-slate-200">
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Symbol</th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
-                                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Lots</th>
-                                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Open</th>
-                                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Close</th>
-                                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Profit</th>
-                                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Time</th>
+                    {/* Rules / Info */}
+                    <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+                        <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                            <Info size={18} className="text-slate-400" />
+                            Trading Rules
+                        </h3>
+                        <div className="space-y-3">
+                            <div className="flex items-start gap-3 text-sm text-slate-600">
+                                <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <Shield size={12} className="text-slate-500" />
+                                </div>
+                                <div>
+                                    <span className="font-medium text-slate-900 block">4% Max Daily Loss</span>
+                                    Calculating based on equity at start of day.
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-3 text-sm text-slate-600">
+                                <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <Shield size={12} className="text-slate-500" />
+                                </div>
+                                <div>
+                                    <span className="font-medium text-slate-900 block">11% Max Overall Loss</span>
+
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-3 text-sm text-slate-600">
+                                <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <Shield size={12} className="text-slate-500" />
+                                </div>
+                                <div>
+                                    <span className="font-medium text-slate-900 block">EA Execution Prohibited</span>
+                                    Manual trading only.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Trades Modal */}
+            {showTradesModal && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-4xl p-6 space-y-6 relative h-[80vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+                            <div>
+                                <h2 className="text-2xl font-bold text-slate-900">Trade History</h2>
+                                <p className="text-slate-500 text-sm">Viewing trades for <span className="font-semibold text-slate-900">{selectedUserName}</span></p>
+                            </div>
+                            <button
+                                onClick={() => setShowTradesModal(false)}
+                                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors font-bold"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/50">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-slate-100 text-slate-500 border-b border-slate-200 sticky top-0">
+                                    <tr>
+                                        <th className="px-4 py-3 font-semibold">Symbol</th>
+                                        <th className="px-4 py-3 font-semibold">Type</th>
+                                        <th className="px-4 py-3 font-semibold text-right">Lots</th>
+                                        <th className="px-4 py-3 font-semibold text-right">Open Price</th>
+                                        <th className="px-4 py-3 font-semibold text-right">Close Price</th>
+                                        <th className="px-4 py-3 font-semibold text-right">Profit</th>
+                                        <th className="px-4 py-3 font-semibold text-right">Time</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 bg-white">
+                                <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
                                     {tradesLoading ? (
-                                        <tr>
-                                            <td colSpan={7} className="p-12 text-center">
-                                                <div className="flex flex-col items-center gap-3">
-                                                    <div className="w-12 h-12 rounded-full border-4 border-blue-200 border-t-blue-600 animate-spin" />
-                                                    <p className="text-slate-500 font-medium">Loading trades...</p>
-                                                </div>
-                                            </td>
-                                        </tr>
+                                        <tr><td colSpan={7} className="p-8 text-center text-slate-500">Loading trades...</td></tr>
                                     ) : selectedUserTrades.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={7} className="p-12 text-center">
-                                                <div className="flex flex-col items-center gap-3 text-slate-400">
-                                                    <TrendingUp size={48} className="opacity-30" />
-                                                    <p className="font-medium">No trades found</p>
-                                                    <p className="text-sm">This trader hasn't executed any trades yet</p>
-                                                </div>
-                                            </td>
-                                        </tr>
+                                        <tr><td colSpan={7} className="p-8 text-center text-slate-500">No trades found for this user.</td></tr>
                                     ) : (
-                                        selectedUserTrades.map((t: any) => (
+                                        selectedUserTrades.map((t) => (
                                             <tr key={t.id} className="hover:bg-slate-50 transition-colors">
-                                                <td className="px-6 py-4">
-                                                    <span className="font-bold text-slate-900 bg-slate-100 px-3 py-1 rounded-lg text-sm">
-                                                        {t.symbol}
-                                                    </span>
+                                                <td className="px-4 py-3 font-bold text-slate-900">{t.symbol}</td>
+                                                <td className={cn("px-4 py-3 uppercase text-xs font-bold", t.type === 'buy' ? 'text-green-600' : 'text-red-600')}>
+                                                    {t.type}
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <span className={cn(
-                                                        "inline-block px-3 py-1 rounded-full text-xs font-bold uppercase",
-                                                        t.type === 'buy'
-                                                            ? 'bg-emerald-100 text-emerald-700'
-                                                            : 'bg-rose-100 text-rose-700'
-                                                    )}>
-                                                        {t.type}
-                                                    </span>
+                                                <td className="px-4 py-3 text-right font-mono">{t.lots}</td>
+                                                <td className="px-4 py-3 text-right font-mono text-slate-500">{t.open_price}</td>
+                                                <td className="px-4 py-3 text-right font-mono text-slate-500">{t.close_price}</td>
+                                                <td className={cn("px-4 py-3 text-right font-bold font-mono", t.profit_loss >= 0 ? "text-green-600" : "text-red-600")}>
+                                                    ${t.profit_loss?.toFixed(2)}
                                                 </td>
-                                                <td className="px-6 py-4 text-right font-mono text-slate-700">{t.lots}</td>
-                                                <td className="px-6 py-4 text-right font-mono text-slate-500 text-sm">{t.open_price}</td>
-                                                <td className="px-6 py-4 text-right font-mono text-slate-500 text-sm">{t.close_price}</td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <span className={cn(
-                                                        "inline-block px-3 py-1 rounded-lg font-mono font-bold text-sm",
-                                                        t.profit_loss >= 0
-                                                            ? "bg-emerald-50 text-emerald-700"
-                                                            : "bg-rose-50 text-rose-700"
-                                                    )}>
-                                                        ${t.profit_loss?.toFixed(2)}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 text-right text-slate-400 text-xs">
-                                                    {new Date(t.close_time || t.open_time).toLocaleString('en-US', {
-                                                        month: 'short',
-                                                        day: 'numeric',
-                                                        hour: '2-digit',
-                                                        minute: '2-digit'
-                                                    })}
+                                                <td className="px-4 py-3 text-right text-slate-400 text-xs">
+                                                    {new Date(t.close_time || t.open_time).toLocaleString()}
                                                 </td>
                                             </tr>
                                         ))
@@ -770,168 +524,37 @@ export default function CompetitionDetailsClient({ competitionId }: { competitio
                                 </tbody>
                             </table>
                         </div>
-                    </motion.div>
+                    </div>
+                </div>
+            )}
+
+            {/* Success Modal */}
+            {successModal && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md p-8 text-center space-y-6 relative shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Trophy className="w-10 h-10 text-green-600" />
+                        </div>
+
+                        <div className="space-y-2">
+                            <h2 className="text-2xl font-bold text-slate-900">Successfully Joined!</h2>
+                            <p className="text-slate-500">
+                                You have successfully registered for <strong>{competition?.title}</strong>. Good luck!
+                            </p>
+                        </div>
+
+                        <button
+                            onClick={() => {
+                                setSuccessModal(false);
+                                window.location.reload();
+                            }}
+                            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors shadow-lg shadow-blue-600/20"
+                        >
+                            View Leaderboard
+                        </button>
+                    </div>
                 </div>
             )}
         </div>
-    );
-}
-
-// Redesigned Podium Card Component
-function PodiumCard({ participant, rank, isWinner = false, onClick }: {
-    participant: Participant,
-    rank: number,
-    isWinner?: boolean,
-    onClick: () => void
-}) {
-    const getRankConfig = (rank: number) => {
-        switch (rank) {
-            case 1:
-                return {
-                    bg: "bg-gradient-to-br from-amber-400 via-yellow-400 to-amber-500",
-                    border: "border-amber-300",
-                    shadow: "shadow-2xl shadow-amber-500/40",
-                    badge: "bg-gradient-to-r from-amber-500 to-yellow-500",
-                    text: "text-amber-900"
-                };
-            case 2:
-                return {
-                    bg: "bg-gradient-to-br from-slate-300 via-slate-200 to-slate-400",
-                    border: "border-slate-300",
-                    shadow: "shadow-xl shadow-slate-400/30",
-                    badge: "bg-gradient-to-r from-slate-400 to-slate-500",
-                    text: "text-slate-800"
-                };
-            case 3:
-                return {
-                    bg: "bg-gradient-to-br from-orange-400 via-amber-400 to-orange-500",
-                    border: "border-orange-300",
-                    shadow: "shadow-xl shadow-orange-500/30",
-                    badge: "bg-gradient-to-r from-orange-500 to-amber-500",
-                    text: "text-orange-900"
-                };
-            default:
-                return {
-                    bg: "bg-white",
-                    border: "border-slate-200",
-                    shadow: "shadow-lg",
-                    badge: "bg-slate-500",
-                    text: "text-slate-700"
-                };
-        }
-    };
-
-    const config = getRankConfig(rank);
-
-    return (
-        <motion.div
-            whileHover={{ scale: 1.02, y: -4 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={onClick}
-            className={cn(
-                "relative bg-white rounded-3xl p-6 cursor-pointer transition-all border-2 overflow-hidden",
-                config.border,
-                config.shadow,
-                "hover:shadow-2xl"
-            )}
-        >
-            {/* Rank Badge */}
-            <div className={cn(
-                "absolute -top-4 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full flex items-center justify-center font-black text-lg text-white shadow-lg border-4 border-white z-10",
-                config.badge
-            )}>
-                {rank}
-            </div>
-
-            {/* Crown for Winner */}
-            {isWinner && (
-                <div className="absolute -top-12 left-1/2 -translate-x-1/2">
-                    <Crown size={32} className="text-amber-400 drop-shadow-lg animate-pulse" fill="currentColor" />
-                </div>
-            )}
-
-            <div className="flex flex-col items-center pt-6 w-full">
-                {/* Avatar */}
-                <div className={cn(
-                    "relative mb-4",
-                    isWinner ? "w-24 h-24" : "w-20 h-20"
-                )}>
-                    <div className={cn(
-                        "w-full h-full rounded-full p-1",
-                        config.bg
-                    )}>
-                        <div className="w-full h-full rounded-full bg-white flex items-center justify-center border-4 border-white shadow-inner">
-                            <span className={cn(
-                                "font-black",
-                                isWinner ? "text-3xl" : "text-2xl",
-                                config.text
-                            )}>
-                                {participant.username.charAt(0).toUpperCase()}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Rank Medal */}
-                    <div className={cn(
-                        "absolute -bottom-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-lg border-2 border-white",
-                        config.badge
-                    )}>
-                        {rank === 1 ? <Crown size={14} className="text-white" fill="currentColor" /> :
-                            rank === 2 ? <Medal size={14} className="text-white" /> :
-                                <Award size={14} className="text-white" />}
-                    </div>
-                </div>
-
-                {/* Username */}
-                <h3 className={cn(
-                    "font-black text-slate-900 mb-1 text-center truncate w-full px-2",
-                    isWinner ? "text-xl" : "text-lg"
-                )}>
-                    {participant.username}
-                </h3>
-
-                {/* Gain Percentage */}
-                <div className={cn(
-                    "inline-flex items-center gap-1 px-4 py-1.5 rounded-full font-bold text-sm mb-6",
-                    participant.score >= 0
-                        ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg shadow-emerald-500/30"
-                        : "bg-gradient-to-r from-rose-500 to-red-500 text-white shadow-lg shadow-rose-500/30"
-                )}>
-                    <TrendingUp size={14} />
-                    {participant.score >= 0 ? '+' : ''}{participant.score.toFixed(2)}%
-                </div>
-
-                {/* Stats */}
-                <div className="grid grid-cols-2 gap-3 w-full">
-                    <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl p-3 border border-slate-200">
-                        <div className="flex items-center justify-center gap-1 text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">
-                            <Target size={10} />
-                            Trades
-                        </div>
-                        <div className="text-lg font-black text-slate-900 text-center">{participant.trades_count || 0}</div>
-                    </div>
-                    <div className={cn(
-                        "rounded-2xl p-3 border",
-                        isWinner
-                            ? "bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-200"
-                            : "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200"
-                    )}>
-                        <div className={cn(
-                            "flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-wider mb-1",
-                            isWinner ? "text-amber-600" : "text-blue-600"
-                        )}>
-                            <DollarSign size={10} />
-                            Profit
-                        </div>
-                        <div className={cn(
-                            "text-base font-black text-center truncate w-full px-1",
-                            isWinner ? "text-amber-700" : "text-blue-700"
-                        )}>
-                            ${(participant.profit || 0).toLocaleString()}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </motion.div>
     );
 }

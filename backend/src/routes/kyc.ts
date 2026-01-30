@@ -162,38 +162,77 @@ router.post('/update-status', async (req: Request, res: Response) => {
 
         // Normalize Status
         if (status) {
-            status = status.toLowerCase();
+            status = status.toLowerCase().replace(/\s+/g, '_');
         }
 
-        // Prepare update data
+        // --- ENHANCED LOGIC: Fetch Full Data if Missing ---
+        // If the payload is minimal (just status/id) and missing critical data, fetch from API.
+        const isMinimalPayload = !kycData.id_document && !kycData.decision && !kycData.full_name;
+
+        // Import here to avoid circular dependencies if any (though lib/didit is safe)
+        const { getDiditSession } = require('../lib/didit');
+
+        let fullData = kycData;
+        if (isMinimalPayload && didit_session_id) {
+            console.log(`ℹ️ Received minimal KYC payload for ${didit_session_id}. Fetching full details from DiDit...`);
+            try {
+                const fetchedData = await getDiditSession(didit_session_id);
+                if (fetchedData) {
+                    console.log('✅ Successfully fetched full KYC data from API.');
+                    // Merge: existing kycData might have some useful headers/meta, but fetched has the real data.
+                    // We treat fetchedData as the source of truth for identity fields.
+                    fullData = { ...kycData, ...fetchedData };
+
+                    // If fetched data has 'decision' object, unwrap it for easier mapping below 
+                    // (similar to the big payload seen in logs)
+                    if (fetchedData.decision) {
+                        fullData = { ...fullData, ...fetchedData.decision };
+                    }
+                }
+            } catch (err) {
+                console.error('⚠️ Failed to fetch full KYC data:', err);
+                // Continue with what we have to at least update status
+            }
+        }
+
+        // Prepare update data using fullData
         const updateData: any = {
             updated_at: new Date().toISOString(),
-            raw_response: raw_response || kycData, // Ensure we save the full payload
+            raw_response: raw_response || fullData, // Save the richest dataset we have
 
-            // Map Identity Data (handling both camelCase and snake_case + nested didit structure)
-            first_name: kycData.id_document?.extracted_data?.first_name || kycData.first_name || kycData.firstName,
-            last_name: kycData.id_document?.extracted_data?.last_name || kycData.last_name || kycData.lastName,
-            date_of_birth: kycData.id_document?.extracted_data?.date_of_birth || kycData.date_of_birth || kycData.dateOfBirth,
-            nationality: kycData.nationality, // Often in 'extracted_data.nationality' too
-
-            // Map Document Data
-            document_type: kycData.id_document?.extracted_data?.document_type || kycData.document_type || kycData.documentType,
-            document_number: kycData.id_document?.extracted_data?.document_number || kycData.document_number || kycData.documentNumber,
-            document_country: kycData.id_document?.extracted_data?.issuing_country || kycData.document_country || kycData.documentCountry,
-
-            // Map Address Data (Prefer POA)
-            address_line1: kycData.poa?.extracted_data?.address_line_1 || kycData.address_line1 || kycData.addressLine1 || kycData.address,
-            address_line2: kycData.poa?.extracted_data?.address_line_2 || kycData.address_line2 || kycData.addressLine2,
-            city: kycData.poa?.extracted_data?.city || kycData.city,
-            state: kycData.poa?.extracted_data?.state || kycData.state || kycData.province,
-            postal_code: kycData.poa?.extracted_data?.zip_code || kycData.postal_code || kycData.postalCode,
-            country: kycData.id_document?.extracted_data?.issuing_country || kycData.country, // Fallback to ID country if POA missing
-
-            // Map Risk/Biometric Data
-            aml_status: kycData.aml_status || kycData.amlStatus,
-            face_match_score: kycData.face_match?.score || kycData.face_match_score || kycData.faceMatchScore,
-            liveness_score: kycData.liveness_score || kycData.livenessScore,
+            // Helper to get extraction source
+            // Priority: id_document (direct) -> id_verifications[0] (decision) -> root
         };
+
+        const idVerification = fullData.id_verifications?.[0] || {};
+        const extractedData = fullData.id_document?.extracted_data || {};
+
+        // Identity Mapping
+        updateData.first_name = extractedData.first_name || idVerification.first_name || fullData.first_name || fullData.firstName;
+        updateData.last_name = extractedData.last_name || idVerification.last_name || fullData.last_name || fullData.lastName;
+        updateData.date_of_birth = extractedData.date_of_birth || idVerification.date_of_birth || fullData.date_of_birth || fullData.dateOfBirth;
+        updateData.nationality = fullData.nationality || extractedData.issuing_country || idVerification.nationality;
+
+        // Document Mapping
+        updateData.document_type = extractedData.document_type || idVerification.document_type || fullData.document_type || fullData.documentType;
+        updateData.document_number = extractedData.document_number || idVerification.document_number || fullData.document_number || fullData.documentNumber;
+        updateData.document_country = extractedData.issuing_country || idVerification.issuing_country || idVerification.issuing_state || fullData.document_country || fullData.documentCountry;
+
+        // Address Mapping (Prefer POA -> ID Verification Address -> Parsed Address)
+        const poaData = fullData.poa?.extracted_data || {};
+        const parsedAddress = idVerification.parsed_address || {};
+
+        updateData.address_line1 = poaData.address_line_1 || idVerification.address || parsedAddress.street_1 || fullData.address_line1 || fullData.addressLine1 || fullData.address;
+        updateData.address_line2 = poaData.address_line_2 || parsedAddress.street_2 || fullData.address_line2 || fullData.addressLine2;
+        updateData.city = poaData.city || parsedAddress.city || fullData.city;
+        updateData.state = poaData.state || parsedAddress.region || idVerification.issuing_state || fullData.state || fullData.province;
+        updateData.postal_code = poaData.zip_code || parsedAddress.postal_code || fullData.postal_code || fullData.postalCode;
+        updateData.country = extractedData.issuing_country || idVerification.issuing_country || parsedAddress.country || updateData.document_country || fullData.country;
+
+        // Risk/Biometric Data
+        updateData.aml_status = fullData.aml_status || fullData.amlStatus || (fullData.aml_screenings?.[0]?.status);
+        updateData.face_match_score = fullData.face_match?.score || fullData.face_match_score || fullData.faceMatchScore || (fullData.face_matches?.[0]?.face_match_score);
+        updateData.liveness_score = fullData.liveness_score || fullData.livenessScore || (fullData.liveness_checks?.[0]?.liveness_score);
 
         if (status) {
             updateData.status = status;

@@ -91,7 +91,10 @@ export default function CompetitionsClient() {
                             <div className="flex items-center gap-2 uppercase">
                                 {featuredCompetition.platform || 'MetaTrader 5'}
                             </div>
-
+                            <div className="flex items-center gap-2">
+                                <Users size={12} className="text-slate-400 sm:w-[14px] sm:h-[14px]" />
+                                {featuredCompetition.participant_count || 0} Participants
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-8 pt-2 sm:pt-4">
@@ -163,19 +166,33 @@ export default function CompetitionsClient() {
                                 )}></span>
                                 {comp.status === 'active' ? 'Ongoing' : 'Ended'}
                             </div>
+                            {comp.joined && (
+                                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                    Joined
+                                </div>
+                            )}
                             <div className="flex items-center gap-1.5">
                                 <Tag size={10} className="sm:w-3 sm:h-3" />
                                 {comp.entry_fee > 0 ? 'Paid' : 'Free'}
                             </div>
-
+                            <div className="flex items-center gap-1.5">
+                                <Users size={10} className="sm:w-3 sm:h-3" />
+                                {(comp.participant_count || 0).toLocaleString()}
+                            </div>
                         </div>
 
                         <div className="flex items-center justify-between mt-auto">
                             <div className="flex gap-2 text-xs sm:text-sm text-slate-600">
                                 {comp.platform || 'MetaTrader 5'}
                             </div>
-                            <Link href={`/competitions/${comp.id}`} className="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 active:bg-blue-700 text-white rounded-lg text-xs sm:text-sm font-semibold transition-colors touch-manipulation">
-                                View
+                            <Link href={`/competitions/${comp.id}`} className={cn(
+                                "px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors touch-manipulation",
+                                comp.joined
+                                    ? "bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100"
+                                    : "bg-blue-600 active:bg-blue-700 text-white"
+                            )}>
+                                {comp.joined ? 'Participating' : 'View'}
                             </Link>
                         </div>
                     </div>

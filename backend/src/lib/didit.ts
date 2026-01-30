@@ -60,3 +60,44 @@ export async function createDiditSession(userId: string): Promise<DiditSessionRe
         );
     }
 }
+
+export async function getDiditSession(sessionId: string): Promise<any> {
+    if (!DIDIT_API_KEY) {
+        throw new Error('DIDIT_CLIENT_SECRET is not configured');
+    }
+
+    try {
+        const response = await axios.get(
+            // NOTE: The endpoint documentation might vary. Common patterns:
+            // /v2/session/{id} or /v1/session/{id} or /v1/sessions/{id}/decision
+            // Based on generic patterns, trying /v1/session/{id}/decision as it returns the full decision data usually.
+            // If that fails, we can fall back or try base session.
+            `${DIDIT_API_BASE_URL}/v2/session/${sessionId}/decision`,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${DIDIT_API_KEY}`, // Some endpoints need bearer
+                    'X-Api-Key': DIDIT_API_KEY // keep both or switch based on docs. 
+                    // Usually X-Api-Key is enough for DiDit.
+                },
+            }
+        );
+        return response.data;
+    } catch (error: any) {
+        console.warn('Didit Get Session Error (v2/decision), trying fallback:', error.message);
+        try {
+            // Fallback to simple session detail
+            const response = await axios.get(
+                `${DIDIT_API_BASE_URL}/v2/session/${sessionId}`,
+                {
+                    headers: { 'X-Api-Key': DIDIT_API_KEY }
+                }
+            );
+            return response.data;
+        } catch (err: any) {
+            console.error('Didit API Fetch error:', err.response?.data || err.message);
+            // Return null rather than throwing so we don't break the whole webhook flow
+            return null;
+        }
+    }
+}
