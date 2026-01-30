@@ -461,7 +461,7 @@ export default function AccountAssignmentForm({ users = [] }: AccountAssignmentF
                     </button>
                     <button
                         type="submit"
-                        disabled={loading || !selectedEmail || !selectedGroup || !accountSize || !note || !imageFile}
+                        disabled={loading || !selectedEmail || !selectedGroup || !accountSize || !note || !imageFile || (selectedGroup === "Competition Account" && !selectedCompetitionId)}
                         className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                         {loading ? "Creating Account..." : "Assign Account"}

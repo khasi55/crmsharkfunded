@@ -148,6 +148,12 @@ router.post('/assign', async (req, res: Response) => {
             return;
         }
 
+        // Validate Competition ID if applicable
+        if (planType === 'Competition Account' && !competitionId) {
+            res.status(400).json({ error: 'Competition ID is required for Competition Accounts' });
+            return;
+        }
+
         // 1. Find user by email
         const { data: profile, error: profileError } = await supabase
             .from('profiles')
@@ -249,12 +255,12 @@ router.post('/assign', async (req, res: Response) => {
         if (competitionId) {
             const { error: partError } = await supabase
                 .from('competition_participants')
-                .insert({
+                .upsert({
                     competition_id: competitionId,
                     user_id: profile.id,
                     challenge_id: challenge.id,
                     status: 'active'
-                });
+                }, { onConflict: 'competition_id, user_id' });
 
             if (partError) {
                 console.error("Failed to link competition participant:", partError);

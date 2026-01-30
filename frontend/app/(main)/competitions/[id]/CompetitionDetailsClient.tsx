@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import PageLoader from "@/components/ui/PageLoader";
 import { fetchFromBackend } from "@/lib/backend-api";
 import { useSocket } from "@/contexts/SocketContext";
+import PrizePoolModal from "@/components/competitions/PrizePoolModal";
 
 interface Competition {
     id: string;
@@ -43,6 +44,8 @@ export default function CompetitionDetailsClient({ competitionId }: { competitio
     const [loading, setLoading] = useState(true);
     const [joining, setJoining] = useState(false);
     const [successModal, setSuccessModal] = useState(false);
+
+    const [showPrizeModal, setShowPrizeModal] = useState(false);
 
     const [showTradesModal, setShowTradesModal] = useState(false);
     const [selectedUserTrades, setSelectedUserTrades] = useState<any[]>([]);
@@ -263,12 +266,13 @@ export default function CompetitionDetailsClient({ competitionId }: { competitio
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-                        <button className="w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 font-semibold text-slate-600 active:text-slate-900 transition-colors text-sm sm:text-base border border-slate-200 rounded-xl">
-                            More Info
-                        </button>
-                        <button className="w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 font-semibold text-slate-600 active:text-slate-900 transition-colors text-sm sm:text-base border border-slate-200 rounded-xl">
+                        <button
+                            onClick={() => setShowPrizeModal(true)}
+                            className="w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 font-semibold text-slate-600 active:text-slate-900 transition-colors text-sm sm:text-base border border-slate-200 rounded-xl hover:bg-slate-50"
+                        >
                             Show Prizepool
                         </button>
+                        <PrizePoolModal isOpen={showPrizeModal} onClose={() => setShowPrizeModal(false)} />
                         <button
                             onClick={handleJoin}
                             disabled={joining || competition.joined}

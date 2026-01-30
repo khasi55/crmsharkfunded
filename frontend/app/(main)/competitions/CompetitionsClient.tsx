@@ -6,6 +6,7 @@ import { Trophy, Calendar, Users, DollarSign, Clock, BarChart2, Tag, ArrowRight 
 import { cn } from "@/lib/utils";
 import Link from 'next/link';
 import { fetchFromBackend } from "@/lib/backend-api";
+import PrizePoolModal from "@/components/competitions/PrizePoolModal";
 
 interface Competition {
     id: string;
@@ -26,6 +27,7 @@ interface Competition {
 export default function CompetitionsClient() {
     const [competitions, setCompetitions] = useState<Competition[]>([]);
     const [loading, setLoading] = useState(true);
+    const [showPrizeModal, setShowPrizeModal] = useState(false);
 
     useEffect(() => {
         fetchCompetitions();
@@ -118,10 +120,14 @@ export default function CompetitionsClient() {
                                 View Competition
                             </Link>
 
-                            <button className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 text-slate-600 font-semibold active:text-slate-900 transition-colors text-sm sm:text-base">
+                            <button
+                                onClick={() => setShowPrizeModal(true)}
+                                className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 text-slate-600 font-semibold active:text-slate-900 transition-colors text-sm sm:text-base"
+                            >
                                 Show Prizepool
                             </button>
                         </div>
+                        <PrizePoolModal isOpen={showPrizeModal} onClose={() => setShowPrizeModal(false)} />
                     </div>
 
                     {/* 3D Asset / Image */}
