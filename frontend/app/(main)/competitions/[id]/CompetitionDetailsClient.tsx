@@ -438,7 +438,7 @@ export default function CompetitionDetailsClient({ competitionId }: { competitio
                                     <Shield size={12} className="text-slate-500" />
                                 </div>
                                 <div>
-                                    <span className="font-medium text-slate-900 block">4% Max Daily Loss</span>
+                                    <span className="font-medium text-slate-900 block">5% Max Daily Loss</span>
                                     Calculating based on equity at start of day.
                                 </div>
                             </div>
@@ -447,7 +447,7 @@ export default function CompetitionDetailsClient({ competitionId }: { competitio
                                     <Shield size={12} className="text-slate-500" />
                                 </div>
                                 <div>
-                                    <span className="font-medium text-slate-900 block">11% Max Overall Loss</span>
+                                    <span className="font-medium text-slate-900 block">10% Max Overall Loss</span>
 
                                 </div>
                             </div>

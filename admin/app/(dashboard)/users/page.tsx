@@ -3,6 +3,7 @@ import { SearchInput } from "@/components/admin/SearchInput";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { StatusBadge } from "@/components/admin/StatusBadge";
+import { CreateUserButton } from "@/components/users/CreateUserButton";
 
 export default async function AdminUsersPage({
     searchParams,
@@ -39,9 +40,12 @@ export default async function AdminUsersPage({
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-semibold text-gray-900">User Management</h1>
-                <p className="text-sm text-gray-600 mt-1">View and manage all registered users</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-semibold text-gray-900">User Management</h1>
+                    <p className="text-sm text-gray-600 mt-1">View and manage all registered users</p>
+                </div>
+                <CreateUserButton />
             </div>
 
             <div className="bg-white rounded-lg border border-gray-200 p-4">

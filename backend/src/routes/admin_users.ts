@@ -69,6 +69,58 @@ router.post('/update-email', checkAdminAuth, async (req, res) => {
 
     } catch (error: any) {
         console.error('Admin Update Email Error:', error);
+    }
+});
+
+// POST /api/admin/users/create - Create a new user manually
+router.post('/create', checkAdminAuth, async (req, res) => {
+    try {
+        const { email, password, full_name, country } = req.body;
+
+        if (!email || !password || !full_name) {
+            return res.status(400).json({ error: 'Missing required fields: email, password, full_name' });
+        }
+
+        console.log(`👤 Admin Create User Request: ${email}`);
+
+        // 1. Create User in Supabase Auth
+        const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+            email,
+            password,
+            email_confirm: true, // Auto-confirm email since admin created it
+            user_metadata: { full_name, country }
+        });
+
+        if (authError) {
+            console.error('Showstopper: Auth creation failed', authError);
+            return res.status(400).json({ error: 'Auth Creation Failed: ' + authError.message });
+        }
+
+        if (!authUser.user) {
+            return res.status(500).json({ error: 'User created but no user object returned' });
+        }
+
+        // 2. Create Profile in Public Table (if not auto-created by triggers)
+        const profileData = {
+            id: authUser.user.id,
+            email,
+            full_name,
+            country,
+            role: 'user' // Default role
+        };
+
+        const { error: dbError } = await supabaseAdmin
+            .from('profiles')
+            .upsert(profileData);
+
+        if (dbError) {
+            console.error('Warning: Profile creation/update failed', dbError);
+        }
+
+        res.json({ success: true, message: 'User created successfully', user: authUser.user });
+
+    } catch (error: any) {
+        console.error('Admin Create User Error:', error);
         res.status(500).json({ error: 'Internal server error: ' + error.message });
     }
 });
