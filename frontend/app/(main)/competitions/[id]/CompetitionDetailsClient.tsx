@@ -352,8 +352,6 @@ export default function CompetitionDetailsClient({ competitionId }: { competitio
                                 <tr>
                                     <th className="px-6 py-4 font-semibold text-slate-500">Rank</th>
                                     <th className="px-6 py-4 font-semibold text-slate-500">Name</th>
-                                    <th className="px-6 py-4 font-semibold text-slate-500 hidden md:table-cell">Country</th>
-                                    <th className="px-6 py-4 font-semibold text-slate-500 text-right">Trades</th>
                                     <th className="px-6 py-4 font-semibold text-slate-500 text-right">Profit</th>
                                     <th className="px-6 py-4 font-semibold text-slate-500 text-right">Gain</th>
                                 </tr>
@@ -374,10 +372,6 @@ export default function CompetitionDetailsClient({ competitionId }: { competitio
                                                 <span className="font-semibold">{p.username}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 hidden md:table-cell">
-                                            <span className="text-lg">🌍</span>
-                                        </td>
-                                        <td className="px-6 py-4 text-right font-mono">{p.trades_count}</td>
                                         <td className={cn("px-6 py-4 text-right font-mono font-medium", (p.profit || 0) >= 0 ? "text-green-600" : "text-red-600")}>
                                             ${(p.profit || 0).toLocaleString()}
                                         </td>
