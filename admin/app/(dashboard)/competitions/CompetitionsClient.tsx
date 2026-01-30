@@ -45,6 +45,13 @@ export default function CompetitionsClient() {
         image_url: ""
     });
 
+    // Assign Account State
+    const [showAssignModal, setShowAssignModal] = useState(false);
+    const [assignCompetitionId, setAssignCompetitionId] = useState("");
+    const [assignLogin, setAssignLogin] = useState("");
+    const [assignLoading, setAssignLoading] = useState(false);
+
+
     useEffect(() => {
         fetchCompetitions();
     }, []);
@@ -130,6 +137,37 @@ export default function CompetitionsClient() {
             alert(`Failed to create competition: ${error.message || 'Unknown error'}. Check console for details.`);
         }
     };
+
+    const handleAssignAccount = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!assignCompetitionId || !assignLogin) return;
+
+        setAssignLoading(true);
+        try {
+            const result = await fetchFromBackend('/api/competitions/admin/assign-account', {
+                method: 'POST',
+                body: JSON.stringify({
+                    competitionId: assignCompetitionId,
+                    login: Number(assignLogin)
+                })
+            });
+            console.log("✅ Account assigned:", result);
+            alert(`Account ${assignLogin} successfully assigned to competition!`);
+            setShowAssignModal(false);
+            setAssignLogin("");
+        } catch (error: any) {
+            console.error("❌ Assign error:", error);
+            alert(`Failed to assign account: ${error.message || 'Unknown error'}`);
+        } finally {
+            setAssignLoading(false);
+        }
+    };
+
+    const openAssignModal = (compId: string) => {
+        setAssignCompetitionId(compId);
+        setShowAssignModal(true);
+    };
+
 
     if (loading) return <div className="p-8 text-gray-400">Loading...</div>;
 
@@ -435,6 +473,50 @@ export default function CompetitionsClient() {
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Assign Account Modal */}
+            {showAssignModal && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+                    <div className="bg-[#111629] border border-gray-800 rounded-2xl w-full max-w-sm p-6 space-y-6 relative">
+                        <div className="flex justify-between items-center">
+                            <h2 className="text-xl font-bold text-white">Assign Account</h2>
+                            <button onClick={() => setShowAssignModal(false)} className="text-gray-400 hover:text-white">x</button>
+                        </div>
+                        <p className="text-sm text-gray-400">
+                            Enter the Login ID of the MT5 account you want to link to this competition.
+                        </p>
+                        <form onSubmit={handleAssignAccount} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-1">MT5 Login ID</label>
+                                <input
+                                    type="number"
+                                    required
+                                    value={assignLogin}
+                                    onChange={(e) => setAssignLogin(e.target.value)}
+                                    className="w-full bg-gray-900/50 border border-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500/50"
+                                    placeholder="e.g. 10001"
+                                />
+                            </div>
+                            <div className="flex justify-end gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAssignModal(false)}
+                                    className="px-4 py-2 text-sm text-gray-400 hover:text-white"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={assignLoading}
+                                    className="px-4 py-2 text-sm bg-orange-600 hover:bg-orange-500 text-white rounded-lg transition-colors flex items-center gap-2"
+                                >
+                                    {assignLoading ? 'Assigning...' : 'Assign Account'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

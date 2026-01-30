@@ -145,65 +145,106 @@ export default function CompetitionsClient() {
             </div>
 
             {/* Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                {[...otherCompetitions, ...endedCompetitions].map((comp) => (
-                    <div key={comp.id} className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-sm active:shadow-md transition-shadow relative overflow-hidden group">
-                        {/* Countdown Badge */}
-                        <div className="inline-block bg-slate-100 text-slate-600 text-[10px] sm:text-xs font-mono py-1 px-2 rounded-md mb-3 sm:mb-4 font-medium">
-                            {/* Mock Countdown */}
-                            00:00:00:00
-                        </div>
-
-                        <h3 className="text-base sm:text-lg font-bold text-slate-900 mb-3 sm:mb-4 group-active:text-blue-600 transition-colors">
-                            {comp.title}
-                        </h3>
-
-                        <div className="flex items-center gap-3 sm:gap-4 text-[10px] sm:text-xs font-medium text-slate-500 mb-4 sm:mb-6">
-                            <div className="flex items-center gap-1.5">
-                                <span className={cn(
-                                    "w-1.5 h-1.5 rounded-full",
-                                    comp.status === 'active' ? 'bg-green-500' : 'bg-red-500'
-                                )}></span>
-                                {comp.status === 'active' ? 'Ongoing' : 'Ended'}
+            <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-6">Active Competitions</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                    {otherCompetitions.map((comp) => (
+                        <div key={comp.id} className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-sm active:shadow-md transition-shadow relative overflow-hidden group">
+                            {/* Countdown Badge */}
+                            <div className="inline-block bg-slate-100 text-slate-600 text-[10px] sm:text-xs font-mono py-1 px-2 rounded-md mb-3 sm:mb-4 font-medium">
+                                {/* Mock Countdown */}
+                                00:00:00:00
                             </div>
-                            {comp.joined && (
-                                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                                    Joined
+
+                            <h3 className="text-base sm:text-lg font-bold text-slate-900 mb-3 sm:mb-4 group-active:text-blue-600 transition-colors">
+                                {comp.title}
+                            </h3>
+
+                            <div className="flex items-center gap-3 sm:gap-4 text-[10px] sm:text-xs font-medium text-slate-500 mb-4 sm:mb-6">
+                                <div className="flex items-center gap-1.5">
+                                    <span className={cn(
+                                        "w-1.5 h-1.5 rounded-full",
+                                        comp.status === 'active' ? 'bg-green-500' : 'bg-red-500'
+                                    )}></span>
+                                    {comp.status === 'active' ? 'Ongoing' : 'Ended'}
                                 </div>
-                            )}
-                            <div className="flex items-center gap-1.5">
-                                <Tag size={10} className="sm:w-3 sm:h-3" />
-                                {comp.entry_fee > 0 ? 'Paid' : 'Free'}
+                                {comp.joined && (
+                                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                        Joined
+                                    </div>
+                                )}
+                                <div className="flex items-center gap-1.5">
+                                    <Tag size={10} className="sm:w-3 sm:h-3" />
+                                    {comp.entry_fee > 0 ? 'Paid' : 'Free'}
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <Users size={10} className="sm:w-3 sm:h-3" />
+                                    {(comp.participant_count || 0).toLocaleString()}
+                                </div>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                                <Users size={10} className="sm:w-3 sm:h-3" />
-                                {(comp.participant_count || 0).toLocaleString()}
-                            </div>
-                        </div>
 
-                        <div className="flex items-center justify-between mt-auto">
-                            <div className="flex gap-2 text-xs sm:text-sm text-slate-600">
-                                {comp.platform || 'MetaTrader 5'}
+                            <div className="flex items-center justify-between mt-auto">
+                                <div className="flex gap-2 text-xs sm:text-sm text-slate-600">
+                                    {comp.platform || 'MetaTrader 5'}
+                                </div>
+                                <Link href={`/competitions/${comp.id}`} className={cn(
+                                    "px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors touch-manipulation",
+                                    comp.joined
+                                        ? "bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100"
+                                        : "bg-blue-600 active:bg-blue-700 text-white"
+                                )}>
+                                    {comp.joined ? 'Participating' : 'View'}
+                                </Link>
                             </div>
-                            <Link href={`/competitions/${comp.id}`} className={cn(
-                                "px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors touch-manipulation",
-                                comp.joined
-                                    ? "bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100"
-                                    : "bg-blue-600 active:bg-blue-700 text-white"
-                            )}>
-                                {comp.joined ? 'Participating' : 'View'}
-                            </Link>
                         </div>
-                    </div>
-                ))}
-                {competitions.length === 0 && !loading && (
-                    <div className="col-span-full py-12 text-center">
-                        <Trophy className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                        <p className="text-slate-500">No competitions found.</p>
-                    </div>
-                )}
+                    ))}
+                    {otherCompetitions.length === 0 && !loading && (
+                        <div className="col-span-full py-12 text-center">
+                            <p className="text-slate-500">No active competitions found.</p>
+                        </div>
+                    )}
+                </div>
             </div>
+
+            {/* Ended Competitions Section */}
+            {endedCompetitions.length > 0 && (
+                <div className="mt-8 sm:mt-12">
+                    <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                        <Trophy className="text-yellow-500 w-6 h-6" />
+                        Past Competitions
+                    </h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                        {endedCompetitions.map((comp) => (
+                            <div key={comp.id} className="bg-slate-50 rounded-xl sm:rounded-2xl border border-slate-200 p-4 sm:p-6 relative overflow-hidden opacity-90 hover:opacity-100 transition-opacity">
+                                <div className="absolute top-0 right-0 p-4 opacity-10">
+                                    <Trophy size={60} />
+                                </div>
+
+                                <h3 className="text-base sm:text-lg font-bold text-slate-700 mb-2">
+                                    {comp.title}
+                                </h3>
+
+                                <div className="flex items-center gap-3 text-xs font-medium text-slate-500 mb-4">
+                                    <div className="flex items-center gap-1.5">
+                                        <Calendar size={12} />
+                                        {new Date(comp.end_date).toLocaleDateString()}
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <Users size={12} />
+                                        {(comp.participant_count || 0).toLocaleString()}
+                                    </div>
+                                </div>
+
+                                <Link href={`/competitions/${comp.id}`} className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-semibold text-sm hover:bg-slate-100 transition-colors">
+                                    <Trophy size={14} className="text-yellow-500" />
+                                    View Winners
+                                </Link>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

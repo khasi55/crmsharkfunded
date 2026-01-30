@@ -17,7 +17,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
         const { data, error } = await supabase
             .from('competitions')
             .select('*, participants:competition_participants(count)')
-            .in('status', ['upcoming', 'active'])
+            .in('status', ['upcoming', 'active', 'ended', 'completed'])
             .order('start_date', { ascending: true });
 
         if (error) throw error;
@@ -235,6 +235,83 @@ router.post('/:id/join', authenticate, async (req: AuthRequest, res: Response) =
         res.status(500).json({ error: error.message });
     }
 });
+
+// POST /api/competitions/admin/assign-account - Admin manually assign account
+router.post('/admin/assign-account', authenticate, async (req: AuthRequest, res: Response) => {
+    try {
+        const { competitionId, login } = req.body;
+        console.log(`Manual Assignment: Linking account ${login} to competition ${competitionId}`);
+
+        if (!competitionId || !login) {
+            return res.status(400).json({ error: 'Competition ID and Login are required' });
+        }
+
+        // 1. Get Challenge by Login
+        const { data: challenge, error: challengeError } = await supabase
+            .from('challenges')
+            .select('id, user_id, status')
+            .eq('login', login)
+            .single();
+
+        if (challengeError || !challenge) {
+            return res.status(404).json({ error: `Account ${login} not found in CRM` });
+        }
+
+        // 2. Check if already joined
+        const { data: existingParticipant } = await supabase
+            .from('competition_participants')
+            .select('id')
+            .eq('competition_id', competitionId)
+            .eq('user_id', challenge.user_id)
+            .single();
+
+        if (existingParticipant) {
+            return res.status(400).json({ error: 'User is already a participant in this competition' });
+        }
+
+        // 3. Update Challenge Metadata
+        const { error: updateError } = await supabase
+            .from('challenges')
+            .update({
+                challenge_type: 'Competition',
+                metadata: { // Merge or overwrite metadata? Ideally merge, but simple insert for now
+                    is_competition: true,
+                    competition_id: competitionId,
+                    joined_at: new Date().toISOString(),
+                    assigned_by: req.user?.id
+                }
+            })
+            .eq('id', challenge.id);
+
+        if (updateError) {
+            console.error("Error updating challenge:", updateError);
+            return res.status(500).json({ error: 'Failed to update challenge metadata' });
+        }
+
+        // 4. Create Competition Participant
+        const { error: insertError } = await supabase
+            .from('competition_participants')
+            .insert({
+                competition_id: competitionId,
+                user_id: challenge.user_id,
+                challenge_id: challenge.id,
+                status: 'active'
+            });
+
+        if (insertError) {
+            console.error("Error inserting participant:", insertError);
+            return res.status(500).json({ error: 'Failed to add participant record' });
+        }
+
+        console.log(`✅ Successfully assigned ${login} to competition ${competitionId}`);
+        res.json({ message: 'Account assigned successfully', challenge_id: challenge.id });
+
+    } catch (error: any) {
+        console.error("Assign Account Error:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 
 // GET /api/competitions/admin - Admin list all
 router.get('/admin', authenticate, async (req: any, res: Response) => {
