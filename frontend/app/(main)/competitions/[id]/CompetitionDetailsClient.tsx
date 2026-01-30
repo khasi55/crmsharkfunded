@@ -359,7 +359,7 @@ export default function CompetitionDetailsClient({ competitionId }: { competitio
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 text-slate-700">
-                                {leaderboard.slice(0, 20).map((p: any) => (
+                                {leaderboard.slice(0, 15).map((p: any) => (
                                     <tr
                                         key={p.id}
                                         className="hover:bg-slate-50/50 transition-colors cursor-pointer"

@@ -140,7 +140,7 @@ router.get('/accounts', async (req: Request, res: Response) => {
 // POST /api/mt5/assign - Assign new MT5 account to user
 router.post('/assign', async (req, res: Response) => {
     try {
-        const { email, mt5Group, accountSize, planType, note, imageUrl } = req.body;
+        const { email, mt5Group, accountSize, planType, note, imageUrl, competitionId } = req.body;
 
         // Validate required fields
         if (!email || !mt5Group || !accountSize || !planType || !note || !imageUrl) {
@@ -231,7 +231,9 @@ router.post('/assign', async (req, res: Response) => {
                     plan_type: planType,
                     assigned_via: 'admin_manual',
                     assignment_note: note,
-                    assignment_image_url: imageUrl
+                    assignment_image_url: imageUrl,
+                    is_competition: !!competitionId,
+                    competition_id: competitionId
                 }
             })
             .select()
@@ -241,6 +243,25 @@ router.post('/assign', async (req, res: Response) => {
             console.error('Challenge creation error:', challengeError);
             res.status(500).json({ error: 'Failed to create account: ' + challengeError.message });
             return;
+        }
+
+        // 4.5. If Competition, Link Participant
+        if (competitionId) {
+            const { error: partError } = await supabase
+                .from('competition_participants')
+                .insert({
+                    competition_id: competitionId,
+                    user_id: profile.id,
+                    challenge_id: challenge.id,
+                    status: 'active'
+                });
+
+            if (partError) {
+                console.error("Failed to link competition participant:", partError);
+                // Non-fatal, but log it.
+            } else {
+                console.log(`✅ User ${profile.email} linked to competition ${competitionId}`);
+            }
         }
 
         // 5. Send email with credentials (asynchronously)

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Server, Search, Upload, FileText } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
+import { fetchFromBackend } from "@/lib/backend-api";
 
 const supabase = createClient();
 
@@ -49,6 +50,28 @@ export default function AccountAssignmentForm({ users = [] }: AccountAssignmentF
     const [note, setNote] = useState("");
     const [imageFile, setImageFile] = useState<File | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Competition Selection State
+    const [activeCompetitions, setActiveCompetitions] = useState<any[]>([]);
+    const [selectedCompetitionId, setSelectedCompetitionId] = useState("");
+
+    // Fetch active competitions
+    useEffect(() => {
+        const fetchComps = async () => {
+            try {
+                const data = await fetchFromBackend('/api/competitions/admin');
+                if (data) {
+                    // Filter for upcoming or active
+                    const eligible = data.filter((c: any) => c.status === 'active' || c.status === 'upcoming');
+                    setActiveCompetitions(eligible);
+                }
+            } catch (err) {
+                console.error("Failed to fetch competitions", err);
+            }
+        };
+        fetchComps();
+    }, []);
+
 
     // Server-side Search
     useEffect(() => {
@@ -143,7 +166,8 @@ export default function AccountAssignmentForm({ users = [] }: AccountAssignmentF
                     accountSize: accountSize,
                     planType: selectedGroup,
                     note,
-                    imageUrl
+                    imageUrl,
+                    competitionId: selectedGroup === "Competition Account" ? selectedCompetitionId : undefined
                 }),
             });
 
@@ -339,6 +363,31 @@ export default function AccountAssignmentForm({ users = [] }: AccountAssignmentF
                         </div>
                     </div>
                 </div>
+
+                {/* Competition Selector (Only if Competition Account selected) */}
+                {selectedGroup === "Competition Account" && (
+                    <div className="border-t border-gray-100 pt-6 animate-in fade-in slide-in-from-top-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Select Competition <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                            value={selectedCompetitionId}
+                            onChange={(e) => setSelectedCompetitionId(e.target.value)}
+                            className="block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                            required={selectedGroup === "Competition Account"}
+                        >
+                            <option value="">-- Choose Competition --</option>
+                            {activeCompetitions.map(comp => (
+                                <option key={comp.id} value={comp.id}>
+                                    {comp.title} ({comp.status.toUpperCase()})
+                                </option>
+                            ))}
+                        </select>
+                        {activeCompetitions.length === 0 && (
+                            <p className="text-xs text-orange-500 mt-1">No active or upcoming competitions found.</p>
+                        )}
+                    </div>
+                )}
 
                 <div className="border-t border-gray-100 pt-8">
                     <h3 className="text-base font-semibold text-gray-900 mb-6">Assignment Justification</h3>
