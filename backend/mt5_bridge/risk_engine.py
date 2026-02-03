@@ -23,8 +23,9 @@ def load_rules():
 CRM_WEBHOOK_URL = os.environ.get("CRM_WEBHOOK_URL", "http://localhost:3001/api/mt5/webhook")
 
 class RiskEngine:
-    def __init__(self, mt5_worker):
+    def __init__(self, mt5_worker, supabase_client=None):
         self.worker = mt5_worker
+        self.supabase = supabase_client
         self.running = False
         self.thread = None
         self.lock = threading.Lock()
@@ -32,8 +33,14 @@ class RiskEngine:
         # In-Memory State for Daily Equity
         # Key: login (int), Value: { "date": "YYYY-MM-DD", "equity": float }
         self.daily_equity_map = {} 
+        
+        # Funded Accounts Override Cache (Set of Logins)
+        self.funded_cache = set()
+        self.last_cache_refresh = 0
+        self.CACHE_REFRESH_INTERVAL = 60 # Refresh every 60 seconds
 
         load_rules()
+        self.refresh_funded_cache()
 
     def start(self):
         if self.running:
@@ -51,11 +58,45 @@ class RiskEngine:
     def _monitor_loop(self):
         while self.running:
             try:
+                # Periodic Cache Refresh
+                if time.time() - self.last_cache_refresh > self.CACHE_REFRESH_INTERVAL:
+                    self.refresh_funded_cache()
+
                 self.check_all_accounts()
             except Exception as e:
                 print(f"⚠️ [RiskEngine] Error in loop: {e}")
             
             time.sleep(1.0) # Check every 1 second (High Frequency)
+
+    def refresh_funded_cache(self):
+        """Fetches active accounts that should have Funded Rules (10%/5%) instead of Group Rules"""
+        if not self.supabase: return
+        
+        try:
+            # Query for active challenges that are "funded" OR "instant" 
+            # (Note: Instant usually implies 8% rule, but user wants OVERRIDE for "Funded" status. 
+            # We assume database 'challenge_type' contains 'funded' for legit funded accounts)
+            # Actually, per user request, we need to treat Passed Challenges (which become Funded) with 10% rule.
+            # So we look for 'funded' in the type.
+            
+            response = self.supabase.table('challenges') \
+                .select('login') \
+                .eq('status', 'active') \
+                .ilike('challenge_type', '%funded%') \
+                .execute()
+                
+            if response.data:
+                new_cache = set()
+                for row in response.data:
+                    if row.get('login'):
+                        new_cache.add(int(row['login']))
+                self.funded_cache = new_cache
+                # print(f"✅ [RiskEngine] Refreshed Funded Cache: {len(self.funded_cache)} accounts")
+            
+            self.last_cache_refresh = time.time()
+            
+        except Exception as e:
+            print(f"⚠️ [RiskEngine] Cache refresh failed: {e}")
 
     def check_all_accounts(self):
         # Iterate all groups defined in rules
@@ -84,8 +125,18 @@ class RiskEngine:
             # Try escaping backslashes if needed, or check fallback
             return
 
-        max_dd_percent = rule.get("max_drawdown_percent", 10.0)
-        daily_dd_percent = rule.get("daily_drawdown_percent", 5.0)
+        # --- RULE OVERRIDE LOGIC ---
+        if login in self.funded_cache:
+            # Override for Funded Account (Passed Challenge)
+            # Standard Funded Rules: 10% Max, 5% Daily
+            max_dd_percent = 10.0
+            daily_dd_percent = 5.0
+            # print(f"ℹ️ [RiskEngine] Override Applied for {login}: 10%/5%")
+        else:
+            # Standard Group Rules (e.g. 8%/4% for Instant)
+            max_dd_percent = rule.get("max_drawdown_percent", 10.0)
+            daily_dd_percent = rule.get("daily_drawdown_percent", 5.0)
+
         reset_hour = rule.get("reset_hour_gmt", 0)
 
         # 2. Get Initial Balance (Approximation or tracked?)

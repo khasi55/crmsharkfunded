@@ -2,6 +2,8 @@ import { Router, Response, Request } from 'express';
 import { supabase } from '../lib/supabase';
 import { createMT5Account } from '../lib/mt5-bridge';
 import { EmailService } from '../services/email-service';
+import fs from 'fs';
+import path from 'path';
 
 const router = Router();
 
@@ -181,8 +183,19 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             return res.json({ message: 'Order already processed or not found' });
         }
 
+        // ---------------------------------------------------------
+        // AFFILIATE COMMISSION LOGIC
+        // ---------------------------------------------------------
+        try {
+            await processAffiliateCommission(order.user_id, order.amount, order.order_id);
+        } catch (affError) {
+            console.error('⚠️ Failed to process affiliate commission:', affError);
+        }
+        // ---------------------------------------------------------
+
         // 4. Create MT5 Account via Bridge
         const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', order.user_id).single();
+
         const fullName = profile?.full_name || 'Trader';
         const email = profile?.email || 'noemail@sharkfunded.com';
 
@@ -311,4 +324,71 @@ async function handlePaymentWebhook(req: Request, res: Response) {
     }
 }
 
+
 export default router;
+
+async function processAffiliateCommission(userId: string, amount: number, orderId: string) {
+    const logFile = '/tmp/debug_hooks.log';
+    const log = (msg: string) => fs.appendFileSync(logFile, `${new Date().toISOString()} - ${msg}\n`);
+
+    log(`🚀 START processAffiliateCommission: User ${userId}, Order ${orderId}, Amount ${amount}`);
+
+    // 1. Check if user was referred
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('referred_by')
+        .eq('id', userId)
+        .single();
+
+    if (!profile) {
+        log(`❌ Profile not found for ${userId}`);
+        return;
+    }
+    if (!profile.referred_by) {
+        log(`ℹ️ No referrer for user ${userId}`);
+        return;
+    }
+
+    const referrerId = profile.referred_by;
+    log(`✅ Referrer found: ${referrerId}`);
+
+    // 2. Calculate Commission (7% Flat)
+    const commissionRate = 0.07;
+    const commissionAmount = Number((amount * commissionRate).toFixed(2));
+    log(`💰 Calculated Commission: ${commissionAmount}`);
+
+    if (commissionAmount <= 0) return;
+
+    // 3. Insert Earnings Record
+    const { error, data: newRec } = await supabase.from('affiliate_earnings').insert({
+        referrer_id: referrerId,
+        referred_user_id: userId,
+        amount: commissionAmount,
+        commission_type: 'purchase',
+        status: 'pending',
+        metadata: {
+            order_id: orderId,
+            order_amount: amount,
+            rate: commissionRate
+        }
+    }).select().single();
+
+    if (error) {
+        log(`❌ Insert Error: ${error.message}`);
+        console.error('❌ Failed to insert affiliate earnings:', error);
+        return;
+    }
+    log(`✅ Commission inserted: ${newRec?.id}`);
+
+    // 4. Update Profile Totals
+    const { error: rpcError } = await supabase.rpc('increment_affiliate_commission', {
+        p_user_id: referrerId,
+        p_amount: commissionAmount
+    });
+
+    if (rpcError) {
+        log(`⚠️ RPC Error: ${rpcError.message}`);
+    } else {
+        log(`✅ RPC Success`);
+    }
+}

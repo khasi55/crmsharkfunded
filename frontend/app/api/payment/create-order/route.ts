@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 
-
-
-
 /**
  * Create Payment Order (Step 1 of purchase flow)
  * User selects plan → Create order → Redirect to payment gateway
@@ -15,14 +12,24 @@ export async function POST(request: NextRequest) {
 
         let user = sessionUser;
         let dbClient: any = supabase; // Default to authenticated user client
+
         const body = await request.json();
         console.log('📝 Create Order Request Body:', JSON.stringify(body, null, 2));
-        let { type, model, size, platform, coupon, gateway = 'sharkpay', competitionId, customerEmail, password, customerName, referralCode } = body;
+
+        let { type, model, size, platform, coupon, gateway = 'sharkpay', competitionId, customerEmail, password, customerName, referralCode, mt5Group, country, phone } = body;
 
         // Normalize inputs
         if (type) type = type.toLowerCase();
         if (model) model = model.toLowerCase();
         if (platform) platform = platform.toLowerCase();
+
+        // Initialize Admin Client for privileged operations
+        // We do this lazily or here to ensure we have it for referral updates
+        const { createClient: createSupabaseClient } = require('@supabase/supabase-js');
+        const supabaseAdmin = createSupabaseClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_ROLE_KEY
+        );
 
         // Auto-Registration Logic if no session
         if (!user) {
@@ -30,57 +37,22 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Unauthorized: Login or provide email' }, { status: 401 });
             }
 
-            // Create Admin Client for User Management
-            const { createClient: createSupabaseClient } = require('@supabase/supabase-js');
-            const supabaseAdmin = createSupabaseClient(
-                process.env.NEXT_PUBLIC_SUPABASE_URL,
-                process.env.SUPABASE_SERVICE_ROLE_KEY
-            );
-
             // Switch to Admin Client for DB operations (Bypass RLS)
             dbClient = supabaseAdmin;
 
             // 1. Try to get existing user by email
-            // Note: listUsers is the only way to search by email in Admin API efficiently if we don't know the ID
-            // Or we try to createUser and catch failure.
-
-            // Let's try creating first.
             const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
                 email: customerEmail,
                 password: password || 'SharkFunded123!', // Fallback password if not provided
                 email_confirm: true,
-                user_metadata: { full_name: customerName || 'Trader' }
+                user_metadata: {
+                    full_name: customerName || 'Trader',
+                    country: country,
+                    phone_number: phone
+                }
             });
 
             if (createError) {
-                // If user already exists, we SHOULD probably fetch them.
-                // But for security, we shouldn't just let anyone book on anyone's behalf without auth?
-                // However, user explicitly requested "without login".
-                // We'll search for the user by email to get the ID.
-                // User creation failed. We'll try to find them.
-
-
-                // WARNING: This allows unauthenticated orders for existing emails.
-                // In many e-commerce flows (Guest Checkout) this is acceptable as long as we don't expose sensitive info.
-
-                // We can use listUsers to filter? OR just trust the flow. 
-                // Since this is a server-side admin operation, we have power.
-                // But listUsers by email isn't direct in older api.
-                // Actually, let's just use the `payment_orders` logic. 
-                // Ideally we should prompt login. But for this specific task "without login also i need to use":
-
-                // Let's try to get user by ID? No we don't have ID.
-                // We'll proceed by assuming we can't get the ID if we can't create. 
-                // Wait! createUser returns the user object even if they exist? No, it errors.
-
-                // WORKAROUND: We will have to ask the frontend to Login if the account exists, 
-                // OR we can implement a "Guest" user logic that creates a Shadow user?
-                // No, CRM needs a real user.
-
-                // Let's try to find the user in the `profiles` table (publicly accessible? likely not).
-                // We'll use the Admin client to query `auth.users` via RPC or just assume we can get it.
-                // Actually, `supabaseAdmin.rpc` to a function that looks up user_id by email is safest.
-                // OR: just query the `profiles` table if we have RLS bypassing or Service Role:
                 const { data: existingProfile } = await supabaseAdmin
                     .from('profiles')
                     .select('id')
@@ -106,8 +78,12 @@ export async function POST(request: NextRequest) {
         // AFFILIATE REFERRAL LOGIC
         if (referralCode && user) {
             try {
+                // Use Admin client to bypass RLS for referral updates
+                // This is crucial because users usually can't update their own 'referred_by' field
+                const adminDb = supabaseAdmin;
+
                 // Check if user is already referred
-                const { data: currentProfile } = await dbClient
+                const { data: currentProfile } = await adminDb
                     .from('profiles')
                     .select('referred_by')
                     .eq('id', user.id)
@@ -115,7 +91,7 @@ export async function POST(request: NextRequest) {
 
                 if (currentProfile && !currentProfile.referred_by) {
                     // Find referrer by code
-                    const { data: referrer } = await dbClient
+                    const { data: referrer } = await adminDb
                         .from('profiles')
                         .select('id')
                         .eq('referral_code', referralCode)
@@ -123,15 +99,25 @@ export async function POST(request: NextRequest) {
 
                     if (referrer) {
                         console.log(`🔗 Linking user ${user.id} to referrer ${referrer.id} from checkout`);
-                        await dbClient
+                        const { error: updateError } = await adminDb
                             .from('profiles')
                             .update({ referred_by: referrer.id })
                             .eq('id', user.id);
 
-                        // Increment referral count
-                        await dbClient.rpc('increment_referral_count', { p_referrer_id: referrer.id })
-                            .catch((e: any) => console.warn('Referral count increment failed', e));
+                        if (updateError) {
+                            console.error('❌ Failed to link referrer:', updateError);
+                        } else {
+                            // Increment referral count
+                            await adminDb.rpc('increment_referral_count', { p_referrer_id: referrer.id })
+                                .catch((e: any) => console.warn('Referral count increment failed', e));
+                        }
+                    } else {
+                        console.warn(`⚠️ Referral code '${referralCode}' not found.`);
                     }
+                } else {
+                    // Check if they are referring themselves (Self-Referral)
+                    // If so, we might want to log it, but logically they are already "referred" (by themselves or someone else)
+                    // so we do nothing.
                 }
             } catch (refError) {
                 console.warn('Referral processing error:', refError);
@@ -145,7 +131,7 @@ export async function POST(request: NextRequest) {
         }
 
         // SECURITY FIX: Whitelist Allowed Sizes
-        const ALLOWED_SIZES = [5000, 10000, 25000, 50000, 100000, 200000];
+        const ALLOWED_SIZES = [3000, 6000, 12000, 5000, 10000, 25000, 50000, 100000, 200000];
         if (type !== 'competition' && !ALLOWED_SIZES.includes(Number(size))) {
             return NextResponse.json({ error: 'Invalid account size selected.' }, { status: 400 });
         }
@@ -241,7 +227,6 @@ export async function POST(request: NextRequest) {
         }
 
         // 2. Handle Challenge Types (Existing Logic)
-        // 2. Handle Challenge Types (Existing Logic)
         // Determine account type name
         let accountTypeName = '';
         if (model === 'pro') {
@@ -286,22 +271,41 @@ export async function POST(request: NextRequest) {
         let couponError = null;
 
         if (coupon) {
-            const { data: couponResult } = await dbClient
-                .rpc('validate_coupon', {
-                    p_code: coupon,
-                    p_user_id: user.id,
-                    p_amount: basePrice,
-                    p_account_type: accountTypeName,
-                });
+            // FIX: Use direct DB query instead of RPC to ensure consistency with backend/routes/coupons.ts
+            const { data: couponData } = await dbClient
+                .from('discount_coupons')
+                .select('*')
+                .eq('code', coupon.toUpperCase())
+                .eq('is_active', true)
+                .single();
 
-            if (couponResult && couponResult.length > 0) {
-                const result = couponResult[0];
-                if (result.is_valid) {
-                    discountAmount = result.discount_amount;
+            if (couponData) {
+                const now = new Date();
+                const validFrom = new Date(couponData.valid_from);
+                const validUntil = couponData.valid_until ? new Date(couponData.valid_until) : null;
+                const minPurchase = couponData.min_purchase_amount || 0;
+
+                let isValid = true;
+                if (now < validFrom) isValid = false;
+                if (validUntil && now > validUntil) isValid = false;
+                if (basePrice < minPurchase) isValid = false;
+
+                if (isValid) {
+                    if (couponData.discount_type === 'percentage') {
+                        discountAmount = (basePrice * couponData.discount_value) / 100;
+                        if (couponData.max_discount_amount) {
+                            discountAmount = Math.min(discountAmount, couponData.max_discount_amount);
+                        }
+                    } else {
+                        discountAmount = couponData.discount_value;
+                    }
+                    // Cap at total amount
+                    discountAmount = Math.min(discountAmount, basePrice);
                 } else {
-                    couponError = result.error_message;
-                    // Don't fail the order, just ignore invalid coupon
+                    couponError = "Coupon is not valid for this purchase";
                 }
+            } else {
+                couponError = "Invalid coupon code";
             }
         }
 
@@ -330,7 +334,7 @@ export async function POST(request: NextRequest) {
                 metadata: {
                     type,
                     leverage: accountType.leverage,
-                    mt5_group: accountType.mt5_group_name,
+                    mt5_group: mt5Group || accountType.mt5_group_name,
                 },
             })
             .select()
@@ -396,35 +400,91 @@ export async function POST(request: NextRequest) {
 
 
 // Helper function to calculate price in USD
+// Helper function to calculate price in USD
+// Helper function to calculate price in USD
 async function calculatePrice(type: string, model: string, size: string, supabase: any): Promise<number> {
     const sizeNum = Number(size);
-    let priceUSD = 0;
+    const sizeKey = sizeNum >= 1000 ? `${sizeNum / 1000}K` : `${sizeNum}`;
+    const p = (val: string) => parseInt(val.replace('$', ''));
 
-    // Exact pricing matching frontend
-    if (type === '1-step') {
-        if (sizeNum === 5000) priceUSD = 39;
-        else if (sizeNum === 10000) priceUSD = 69;
-        else if (sizeNum === 25000) priceUSD = 149;
-        else if (sizeNum === 50000) priceUSD = 279;
-        else if (sizeNum === 100000) priceUSD = 499;
-        else if (sizeNum === 200000) priceUSD = 949;
-        else priceUSD = sizeNum * 0.005;
-    } else if (type === '2-step') {
-        if (sizeNum === 5000) priceUSD = 29;
-        else if (sizeNum === 10000) priceUSD = 49;
-        else if (sizeNum === 25000) priceUSD = 119;
-        else if (sizeNum === 50000) priceUSD = 229;
-        else if (sizeNum === 100000) priceUSD = 449;
-        else if (sizeNum === 200000) priceUSD = 899;
-        else priceUSD = sizeNum * 0.0045;
-    } else if (type === 'instant') {
-        priceUSD = sizeNum * 0.008;
+    // Determine Config Key matches frontend logic
+    let configKey = '';
+    if (type === 'instant') {
+        configKey = model === 'pro' ? 'InstantPrime' : 'InstantLite';
+    } else if (model === 'pro') {
+        configKey = 'Prime';
+    } else {
+        if (type === '1-step') configKey = 'LiteOneStep';
+        else if (type === '2-step') configKey = 'LiteTwoStep';
     }
 
-    // Pro model markup
+    // Try to fetch dynamic config
+    try {
+        const { data } = await supabase
+            .from('pricing_configurations')
+            .select('config')
+            .eq('key', 'global_pricing')
+            .single();
+
+        if (data?.config && data.config[configKey]) {
+            const sizeSort = data.config[configKey][sizeKey];
+            if (sizeSort && sizeSort.price) {
+                return p(sizeSort.price);
+            }
+        }
+    } catch (e) {
+        console.warn("Failed to fetch dynamic pricing, using fallback", e);
+    }
+
+    // FALLBACK (Hardcoded defaults if DB fails)
     if (model === 'pro') {
-        priceUSD = priceUSD * 1.2;
+        if (type === 'instant') {
+            switch (sizeKey) {
+                case '5K': return p('$49');
+                case '10K': return p('$83');
+                case '25K': return p('$199');
+                case '50K': return p('$350');
+                case '100K': return p('$487');
+            }
+        } else {
+            // Prime
+            switch (sizeKey) {
+                case '5K': return p('$59');
+                case '10K': return p('$89');
+                case '25K': return p('$236');
+                case '50K': return p('$412');
+                case '100K': return p('$610');
+            }
+        }
+    }
+    else {
+        if (type === 'instant') {
+            switch (sizeKey) {
+                case '3K': return p('$34');
+                case '6K': return p('$59');
+                case '12K': return p('$89');
+                case '25K': return p('$249');
+                case '50K': return p('$499');
+                case '100K': return p('$799');
+            }
+        } else if (type === '1-step') {
+            switch (sizeKey) {
+                case '5K': return p('$48');
+                case '10K': return p('$70');
+                case '25K': return p('$150');
+                case '50K': return p('$260');
+                case '100K': return p('$550');
+            }
+        } else if (type === '2-step') {
+            switch (sizeKey) {
+                case '5K': return p('$30');
+                case '10K': return p('$55');
+                case '25K': return p('$125');
+                case '50K': return p('$235');
+                case '100K': return p('$440');
+            }
+        }
     }
 
-    return Math.round(priceUSD);
+    return 9999;
 }

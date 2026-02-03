@@ -62,6 +62,8 @@ export default async function AdminUsersPage({
                                 <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">User Details</th>
                                 <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Status</th>
                                 <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Commission</th>
+                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Country</th>
+                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Phone</th>
                                 <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Referrals</th>
                                 <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Joined Date</th>
                                 <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase text-right">Actions</th>
@@ -90,6 +92,12 @@ export default async function AdminUsersPage({
                                     </td>
                                     <td className="px-6 py-4 font-medium text-gray-900">
                                         ${user.total_commission || 0}
+                                    </td>
+                                    <td className="px-6 py-4 text-gray-600">
+                                        {user.country || '-'}
+                                    </td>
+                                    <td className="px-6 py-4 text-gray-600 text-xs">
+                                        {user.phone_number || '-'}
                                     </td>
                                     <td className="px-6 py-4 text-gray-600">{user.total_referrals || 0}</td>
                                     <td className="px-6 py-4 text-gray-600">

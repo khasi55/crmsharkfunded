@@ -93,7 +93,8 @@ try:
         # Start Risk Engine
         try:
             from risk_engine import RiskEngine
-            risk_engine = RiskEngine(worker)
+            # Pass Supabase client to RiskEngine (if available)
+            risk_engine = RiskEngine(worker, supabase)
             risk_engine.start()
         except Exception as e:
              print(f"⚠️ Failed to start Risk Engine: {e}")

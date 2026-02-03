@@ -47,29 +47,48 @@ export class RulesService {
         }
 
         // Determine Profit Target based on Challenge Type / Group Name
-        // Logic: Phase 1 = 8%, Phase 2 = 5%, Funded = 0%
+        // Logic: Phase 1 = varies by group, Phase 2 = varies by group, Funded/Instant = 0%
         let profitTargetPercent = 8;
 
         const typeStr = (challengeType || '').toLowerCase();
         const groupStr = normalizedGroup;
 
-        if (typeStr.includes('funded') || typeStr.includes('master') || typeStr.includes('instant') || groupStr.includes('funded') || groupStr.includes('master') || groupStr.includes('instant')) {
-            profitTargetPercent = 0;
-        } else if (typeStr.includes('phase 2') || typeStr.includes('step 2') || groupStr.includes('phase 2')) {
-            profitTargetPercent = 5;
-        } else if (typeStr.includes('phase 1') || typeStr.includes('step 1') || groupStr.includes('phase 1')) {
-            profitTargetPercent = 8;
-        }
-
-        // --- NEW: Dynamic Profit Target from DB ---
-        if (dbRule && dbRule.profit_target_percent !== undefined && dbRule.profit_target_percent !== null) {
-            profitTargetPercent = Number(dbRule.profit_target_percent);
-        }
-
         // CRITICAL FIX: Instant/Funded/Competition accounts should NEVER have a profit target for "passing".
         if (typeStr.includes('funded') || typeStr.includes('master') || typeStr.includes('instant') || typeStr.includes('competition') ||
             groupStr.includes('funded') || groupStr.includes('master') || groupStr.includes('instant') || groupStr.includes('competition')) {
             profitTargetPercent = 0;
+        }
+        // Handle Phase 2 for 2-step challenges with specific targets
+        else if (typeStr.includes('phase 2') || typeStr.includes('step 2')) {
+            // For 2-step Standard (demo\S\2-SF): Phase 2 = 6%
+            if (groupStr.includes('demo\\s\\2') || groupStr.includes('2-sf')) {
+                profitTargetPercent = 6;
+            }
+            // For 2-step Pro (demo\SF\2-Pro): Phase 2 = 6%
+            else if (groupStr.includes('demo\\sf\\2') || groupStr.includes('2-pro')) {
+                profitTargetPercent = 6;
+            }
+            else {
+                profitTargetPercent = 5; // Default Phase 2
+            }
+        }
+        // Handle Phase 1 and other challenges - use DB value
+        else if (dbRule && dbRule.profit_target_percent !== undefined && dbRule.profit_target_percent !== null) {
+            profitTargetPercent = Number(dbRule.profit_target_percent);
+        }
+        // Fallback defaults based on challenge type
+        else if (typeStr.includes('phase 1') || typeStr.includes('step 1')) {
+            profitTargetPercent = 8;
+        }
+
+        // --- FUNDED ACCOUNT OVERRIDE ---
+        // If the account is explicitly "Funded" but shares an "Instant" group,
+        // we must override the database rules (which might be 8%/4% for Instant).
+        if (typeStr.includes('funded')) {
+            console.log(`[RulesService] Override for Funded Account (${normalizedGroup}): Enforcing 10% Max / 5% Daily`);
+            maxTotalLossPercent = 10;
+            maxDailyLossPercent = 5;
+            profitTargetPercent = 0; // Ensure 0 regardless of other logic
         }
 
         return {

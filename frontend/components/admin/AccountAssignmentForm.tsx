@@ -5,19 +5,22 @@ import { useRouter } from "next/navigation";
 import { Server, Search } from "lucide-react";
 
 const MT5_GROUPS = {
-    "Lite Instant Funding": "demo\\S\\0-SF",
-    "Lite 1-Step Challenge": "demo\\S\\1-SF",
-    "Lite 2-Step Challenge": "demo\\S\\2-SF",
-    "Prime Instant Funding": "demo\\SF\\0-Pro",
-    "Prime 1-Step Challenge": "demo\\SF\\1-Pro",
-    "Prime 2-Step Challenge": "demo\\SF\\2-Pro",
-    "Funded Live Account": "SF Funded Live",
+    "Lite Instant Funding": "demo\\SF\\0-Pro",
+    "Lite 1-Step Challenge": "demo\\SF\\1-SF",
+    "Lite 2-Step Challenge": "demo\\SF\\2-SF",
+    "Prime Instant Funding": "demo\\S\\0-SF",
+    "Prime 1-Step Challenge": "demo\\S\\1-SF",
+    "Prime 2-Step Challenge": "demo\\S\\2-SF",
+    "Prime Funded Account": "demo\\S\\0-SF", // Reusing Prime Instant Group
+    "Lite Funded Account": "demo\\SF\\0-Pro", // Reusing Lite Instant Group
+    "Competition Account": "demo\\SF\\0-Demo\\comp",
 };
 
 const ACCOUNT_SIZES = {
-    lite: [5000, 10000, 25000, 50000, 100000],
+    lite: [3000, 6000, 12000, 5000, 10000, 25000, 50000, 100000],
     prime: [5000, 10000, 25000, 50000, 100000,],
     funded: [5000, 10000, 25000, 50000, 100000,],
+    competition: [100000],
 };
 
 interface User {
@@ -75,6 +78,7 @@ export default function AccountAssignmentForm({ users }: AccountAssignmentFormPr
         if (selectedGroup.includes("Lite")) return ACCOUNT_SIZES.lite;
         if (selectedGroup.includes("Prime")) return ACCOUNT_SIZES.prime;
         if (selectedGroup.includes("Funded")) return ACCOUNT_SIZES.funded;
+        if (selectedGroup.includes("Competition")) return ACCOUNT_SIZES.competition;
         return [];
     };
 
@@ -209,8 +213,8 @@ export default function AccountAssignmentForm({ users }: AccountAssignmentFormPr
                                             setAccountSize("");
                                         }}
                                         className={`relative group flex flex-col items-start p-4 text-left border rounded-xl transition-all duration-200 ${selectedGroup === group
-                                                ? "border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-600 shadow-sm"
-                                                : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm"
+                                            ? "border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-600 shadow-sm"
+                                            : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm"
                                             }`}
                                     >
                                         <span className={`block text-sm font-semibold mb-1 ${selectedGroup === group ? "text-indigo-900" : "text-gray-900"
@@ -223,8 +227,8 @@ export default function AccountAssignmentForm({ users }: AccountAssignmentFormPr
 
                                         {/* Selection Indicator */}
                                         <div className={`absolute top-3 right-3 h-4 w-4 rounded-full border flex items-center justify-center transition-colors ${selectedGroup === group
-                                                ? "border-indigo-600 bg-indigo-600"
-                                                : "border-gray-300 bg-transparent group-hover:border-gray-400"
+                                            ? "border-indigo-600 bg-indigo-600"
+                                            : "border-gray-300 bg-transparent group-hover:border-gray-400"
                                             }`}>
                                             {selectedGroup === group && (
                                                 <div className="h-1.5 w-1.5 rounded-full bg-white" />
@@ -248,8 +252,8 @@ export default function AccountAssignmentForm({ users }: AccountAssignmentFormPr
                                             type="button"
                                             onClick={() => setAccountSize(size)}
                                             className={`px-5 py-2.5 rounded-lg text-sm font-medium border transition-all duration-200 ${accountSize === size
-                                                    ? "border-indigo-600 bg-indigo-600 text-white shadow-md transform scale-105"
-                                                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50"
+                                                ? "border-indigo-600 bg-indigo-600 text-white shadow-md transform scale-105"
+                                                : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50"
                                                 }`}
                                         >
                                             ${size.toLocaleString()}

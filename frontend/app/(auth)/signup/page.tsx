@@ -3,7 +3,8 @@
 import { useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Loader2, Mail, Lock, ArrowRight, CheckCircle, User, Eye, EyeOff } from 'lucide-react'
+import { Loader2, Mail, Lock, ArrowRight, CheckCircle, User, Eye, EyeOff, Globe, Phone } from 'lucide-react'
+import { COUNTRIES } from '@/lib/countries'
 import AuthCard from '@/components/auth/AuthCard'
 import { motion } from 'framer-motion'
 
@@ -14,6 +15,8 @@ function SignupContent() {
     const [confirmPassword, setConfirmPassword] = useState('')
     const [showPassword, setShowPassword] = useState(false)
     const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+    const [country, setCountry] = useState('')
+    const [phone, setPhone] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [success, setSuccess] = useState(false)
@@ -43,6 +46,8 @@ function SignupContent() {
                     password,
                     fullName,
                     referralCode,
+                    country,
+                    phone,
                 }),
             })
 
@@ -126,6 +131,41 @@ function SignupContent() {
                             className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-12 py-3.5 text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400 font-medium"
                             placeholder="trader@sharkfunded.com"
                         />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider ml-1" htmlFor="country">Country</label>
+                        <div className="relative group">
+                            <Globe className="absolute left-4 top-3.5 w-5 h-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+                            <select
+                                id="country"
+                                required
+                                value={country}
+                                onChange={(e) => setCountry(e.target.value)}
+                                className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl pl-12 pr-4 py-3.5 text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all appearance-none font-medium"
+                            >
+                                <option value="">Select Country</option>
+                                {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider ml-1" htmlFor="phone">Phone</label>
+                        <div className="relative group">
+                            <Phone className="absolute left-4 top-3.5 w-5 h-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+                            <input
+                                id="phone"
+                                type="tel"
+                                required
+                                value={phone}
+                                onChange={(e) => setPhone(e.target.value)}
+                                className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-12 py-3.5 text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400 font-medium"
+                                placeholder="+1 234 567 890"
+                            />
+                        </div>
                     </div>
                 </div>
 

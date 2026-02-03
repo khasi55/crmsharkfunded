@@ -73,30 +73,51 @@ export class SharkPayGateway implements PaymentGateway {
             };
             console.log("🦈 [SharkPay Debug] Payload:", JSON.stringify(payload, null, 2));
 
-            const response = await fetch(`${this.apiUrl}/api/create-order`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Basic ${Buffer.from(`${config.keyId}:${config.keySecret}`).toString('base64')}`,
-                },
-                body: JSON.stringify(payload),
-            });
+            // Add timeout to prevent hanging
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                // console.error('SharkPay API error:', response.status, errorText);
-                throw new Error(`SharkPay API failed: ${response.status} - ${errorText}`);
+            try {
+                const response = await fetch(`${this.apiUrl}/api/create-order`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Basic ${Buffer.from(`${config.keyId}:${config.keySecret}`).toString('base64')}`,
+                    },
+                    body: JSON.stringify(payload),
+                    signal: controller.signal,
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('SharkPay API error:', response.status, errorText);
+                    throw new Error(`SharkPay API failed: ${response.status} - ${errorText}`);
+                }
+
+                const data = await response.json();
+
+                // console.log('SharkPay response:', data);
+
+                return {
+                    success: true,
+                    gatewayOrderId: data.orderId || data.order_id,
+                    paymentUrl: data.checkoutUrl || data.checkout_url || data.url,
+                };
+            } catch (fetchError: any) {
+                clearTimeout(timeoutId);
+
+                // Better error messages for common issues
+                if (fetchError.name === 'AbortError') {
+                    throw new Error('SharkPay API timeout - request took longer than 30 seconds');
+                } else if (fetchError.code === 'ECONNRESET') {
+                    throw new Error('SharkPay API connection reset - please check if the API is reachable');
+                } else if (fetchError.code === 'ENOTFOUND') {
+                    throw new Error(`SharkPay API not found at ${this.apiUrl}`);
+                }
+                throw fetchError;
             }
-
-            const data = await response.json();
-
-            // console.log('SharkPay response:', data);
-
-            return {
-                success: true,
-                gatewayOrderId: data.orderId || data.order_id,
-                paymentUrl: data.checkoutUrl || data.checkout_url || data.url,
-            };
         } catch (error: any) {
             console.error('SharkPay createOrder error:', error);
             return {
@@ -147,8 +168,8 @@ export class SharkPayGateway implements PaymentGateway {
 
 
     private async convertToINR(usdAmount: number): Promise<number> {
-        // Simple Fixed Calculation: USD * 92
-        const USD_TO_INR = 92;
+        // Simple Fixed Calculation: USD * 94
+        const USD_TO_INR = 94;
         return Math.round(usdAmount * USD_TO_INR);
     }
 }

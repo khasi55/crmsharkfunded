@@ -4,7 +4,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 export async function POST(request: NextRequest) {
     try {
-        const { email, password, fullName, referralCode } = await request.json();
+        const { email, password, fullName, referralCode, country, phone } = await request.json();
 
         // Validation
         if (!email || !password) {
@@ -24,6 +24,8 @@ export async function POST(request: NextRequest) {
                 data: {
                     full_name: fullName,
                     referral_code: referralCode,
+                    country: country,
+                    phone_number: phone,
                 },
             },
         });

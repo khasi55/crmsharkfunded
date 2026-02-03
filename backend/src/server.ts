@@ -94,8 +94,10 @@ import adminUsersRouter from './routes/admin_users';
 import adminEmailRouter from './routes/admin_email';
 import emailRouter from './routes/email';
 import eventRouter from './routes/event';
+import publicConfigRouter from './routes/public_config';
 
 app.use('/api/overview', overviewRouter);
+app.use('/api/config', publicConfigRouter);
 app.use('/api/admin/users', adminUsersRouter); // Register Admin Users Route
 app.use('/api/admin/settings', adminSettingsRouter); // Register Settings Route
 app.use('/api/admin/payments', adminPaymentRouter); // Register Payments Route

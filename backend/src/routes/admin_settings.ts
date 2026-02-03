@@ -82,4 +82,55 @@ router.post('/merchant', authenticate, async (req, res) => {
     }
 });
 
+// --- PRICING SETTINGS ---
+
+// GET /api/admin/settings/pricing
+router.get('/pricing', authenticate, async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('pricing_configurations')
+            .select('config')
+            .eq('key', 'global_pricing')
+            .single();
+
+        if (error) {
+            if (error.code === 'PGRST116') { // No rows found
+                return res.json({});
+            }
+            // If table doesn't exist (42P01), return empty
+            if (error.code === '42P01') {
+                return res.json({});
+            }
+            throw error;
+        }
+
+        res.json(data?.config || {});
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /api/admin/settings/pricing
+router.post('/pricing', authenticate, async (req, res) => {
+    try {
+        const config = req.body;
+
+        const { data, error } = await supabase
+            .from('pricing_configurations')
+            .upsert({
+                key: 'global_pricing',
+                config: config,
+                updated_at: new Date()
+            }, { onConflict: 'key' })
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        res.json(data.config);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 export default router;

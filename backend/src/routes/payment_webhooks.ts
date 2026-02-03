@@ -1,5 +1,7 @@
 import { Router, Response, Request } from 'express';
 import { supabase } from '../lib/supabase';
+import fs from 'fs';
+import path from 'path';
 import { createMT5Account } from '../lib/mt5-bridge';
 import { EmailService } from '../services/email-service';
 
@@ -129,22 +131,39 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             return res.json({ message: 'Order already processed' });
         }
 
+        // ---------------------------------------------------------
+        // AFFILIATE COMMISSION LOGIC
+        // ---------------------------------------------------------
+        try {
+            await processAffiliateCommission(order.user_id, order.amount, order.order_id);
+        } catch (affError) {
+            console.error('⚠️ Failed to process affiliate commission:', affError);
+        }
+        // ---------------------------------------------------------
+
         // Create MT5 account
         const profile = await supabase.from('profiles').select('full_name, email').eq('id', order.user_id).single();
         const fullName = profile.data?.full_name || 'Trader';
         const email = profile.data?.email || 'noemail@sharkfunded.com';
 
-        let mt5Group = order.account_types.mt5_group_name;
+        let mt5Group = order.account_types?.mt5_group_name || order.metadata?.mt5_group;
         const accountTypeName = (order.account_type_name || '').toLowerCase();
-        if (accountTypeName.includes('1 step') || accountTypeName.includes('2 step') || accountTypeName.includes('evaluation') || accountTypeName.includes('instant')) {
-            mt5Group = 'demo\\s\\0-sf';
+
+        // Only override if wedidn't get a group from the account type or metadata
+        if (!mt5Group) {
+            // Fallback logic for old orders or missing configuration
+            if (accountTypeName.includes('1 step') || accountTypeName.includes('2 step') || accountTypeName.includes('evaluation') || accountTypeName.includes('instant')) {
+                mt5Group = 'demo\\S\\0-SF'; // Default to Prime Instant as fallback
+            }
         }
 
         // Override for Competitions
         if (internalOrderId && String(internalOrderId).startsWith('SF-COMP')) {
-            mt5Group = 'demo\\SF\\0-Demo\\comp';
+            mt5Group = 'demo\\\\SF\\\\0-Demo\\\\comp';
             console.log('🏆 Detected Competition Order. Enforcing group:', mt5Group);
         }
+
+        console.log(`✅ Using MT5 Group: ${mt5Group} for order ${internalOrderId}`);
 
         const mt5Data = await createMT5Account({
             name: fullName,
@@ -154,6 +173,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             balance: order.account_size,
             callback_url: `${process.env.BACKEND_URL}/api/webhooks/mt5`
         });
+
 
         // ---------------------------------------------------------
         // AFFILIATE COMMISSION LOGIC
@@ -230,25 +250,47 @@ async function handlePaymentWebhook(req: Request, res: Response) {
 }
 
 async function processAffiliateCommission(userId: string, amount: number, orderId: string) {
+    const logFile = path.resolve(__dirname, '../../webhook_debug.log');
+    const log = (msg: string) => fs.appendFileSync(logFile, `${new Date().toISOString()} - ${msg}\n`);
+
+    log(`Processing commission for User ${userId}, Order ${orderId}, Amount ${amount}`);
+
     // 1. Check if user was referred
-    const { data: profile } = await supabase
+    console.log(`🔍 Affiliate Check for User ${userId}...`);
+    const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('referred_by')
         .eq('id', userId)
         .single();
 
+    if (profileError) {
+        log(`❌ Profile Error: ${profileError.message}`);
+        console.error('❌ Error fetching profile for affiliate check:', profileError);
+        return;
+    }
+
     if (!profile || !profile.referred_by) {
-        console.log(`ℹ️ Affiliate: User ${userId} was not referred. Skipping.`);
+        log(`ℹ️ No referrer for user ${userId}`);
+        console.log(`ℹ️ Affiliate: User ${userId} has NO referrer (referred_by is null). Skipping.`);
         return;
     }
 
     const referrerId = profile.referred_by;
+    log(`✅ Referrer found: ${referrerId}`);
+    console.log(`   ✅ User referred by: ${referrerId}`);
 
     // 2. Calculate Commission (7% Flat)
     const commissionRate = 0.07;
     const commissionAmount = Number((amount * commissionRate).toFixed(2));
 
-    if (commissionAmount <= 0) return;
+    log(`💰 Commission: ${commissionAmount}`);
+
+    console.log(`   💰 Amount: ${amount}, Rate: ${commissionRate}, Commission: ${commissionAmount}`);
+
+    if (commissionAmount <= 0) {
+        console.log('   ⚠️ Commission amount is 0 or negative. Skipping.');
+        return;
+    }
 
     console.log(`💰 Crediting ${commissionAmount} commission to ${referrerId} for order ${orderId}`);
 
@@ -267,9 +309,12 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
     });
 
     if (error) {
+        log(`❌ Insert Error: ${error.message}`);
         console.error('❌ Failed to insert affiliate earnings:', error);
         throw error; // Rethrow to be caught by main handler
     }
+
+    log(`✅ Commission inserted successfully.`);
 
     // 4. Update Profile Totals (Optional robust counter)
     const { error: rpcError } = await supabase.rpc('increment_affiliate_commission', {

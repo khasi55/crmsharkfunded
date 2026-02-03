@@ -69,7 +69,7 @@ const PAYMENT_GATEWAYS = [
 ];
 
 // Helper to map size number to string key
-const getSizeKey = (size: number): string => {
+export const getSizeKey = (size: number): string => {
     if (size >= 1000) {
         return `${size / 1000}K`;
     }
@@ -77,7 +77,7 @@ const getSizeKey = (size: number): string => {
 };
 
 // Helper to map type/model to config key
-const getConfigKey = (type: string, model: string): keyof typeof pricingConfig | null => {
+export const getConfigKey = (type: string, model: string): keyof typeof pricingConfig | null => {
     if (type === 'Instant') {
         return model === 'pro' ? 'InstantPrime' : 'InstantLite';
     }
@@ -265,6 +265,8 @@ export default function ChallengeConfigurator() {
     const [isPurchasing, setIsPurchasing] = useState(false);
     const [purchasedCredentials, setPurchasedCredentials] = useState<any>(null);
     const [agreedToTerms, setAgreedToTerms] = useState(false);
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [paymentUrl, setPaymentUrl] = useState("");
 
     // Clear applied coupon when configuration changes
     useEffect(() => {
@@ -344,14 +346,31 @@ export default function ChallengeConfigurator() {
                 return;
             }
 
+            // Determine explicit MT5 group based on user request (Lite = demo\SF, Prime = demo\S)
+            let mt5Group = '';
+
+            // Lite (Standard) Mappings
+            if (model === 'Prime') {
+                if (type === 'Instant') mt5Group = 'demo\\SF\\0-Pro';
+                else if (type === '1-step') mt5Group = 'demo\\SF\\1-SF';
+                else if (type === '2-step') mt5Group = 'demo\\SF\\2-SF';
+            }
+            // Prime (Pro) Mappings
+            else if (model === 'Lite') {
+                if (type === 'Instant') mt5Group = 'demo\\S\\0-SF';
+                else if (type === '1-step') mt5Group = 'demo\\S\\1-SF';
+                else if (type === '2-step') mt5Group = 'demo\\S\\2-SF';
+            }
+
             // Use new payment flow
             const res = await fetch('/api/payment/create-order', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    type,
+                    type: type.toLowerCase(), // Normalize for backend
                     model,
                     size,
+                    mt5Group, // Explicitly passing the group
                     platform,
                     coupon,
                     gateway // User selected gateway
@@ -361,9 +380,10 @@ export default function ChallengeConfigurator() {
             const data = await res.json();
 
             if (res.ok && data.success) {
-                // Redirect to payment gateway
+                // Open payment in iframe modal
                 if (data.paymentUrl) {
-                    window.location.href = data.paymentUrl;
+                    setPaymentUrl(data.paymentUrl);
+                    setShowPaymentModal(true);
                 } else {
                     alert('Payment URL not received. Please contact support.');
                 }
@@ -641,6 +661,29 @@ export default function ChallengeConfigurator() {
                 </div>
 
             </div>
+
+            {/* Payment Modal with Iframe */}
+            {showPaymentModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => setShowPaymentModal(false)}>
+                    <div className="relative w-full h-full md:w-[600px] md:h-[800px] md:rounded-2xl overflow-hidden bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                        {/* Close Button */}
+                        <button
+                            onClick={() => setShowPaymentModal(false)}
+                            className="absolute top-4 right-4 z-10 bg-white/90 hover:bg-white text-slate-700 rounded-full p-2 shadow-lg transition-all active:scale-95"
+                        >
+                            <X className="h-6 w-6" />
+                        </button>
+
+                        {/* Iframe */}
+                        <iframe
+                            src={paymentUrl}
+                            className="w-full h-full border-0"
+                            title="SharkPay Checkout"
+                            allow="payment"
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

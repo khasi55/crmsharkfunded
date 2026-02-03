@@ -200,6 +200,8 @@ router.post('/assign', async (req, res: Response) => {
         // 3. Call Python MT5 Bridge to create account
         const callbackUrl = `${process.env.BACKEND_URL || process.env.FRONTEND_URL}/api/mt5/trades/webhook`;
 
+        console.log(`🔌 [MT5 Assign] Attempting to create account in group: '${finalGroup}' for ${email}`);
+
         const mt5Data = await createMT5Account({
             name: profile.full_name || 'Trader',
             email: profile.email,

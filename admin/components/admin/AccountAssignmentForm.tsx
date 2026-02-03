@@ -9,18 +9,18 @@ import { fetchFromBackend } from "@/lib/backend-api";
 const supabase = createClient();
 
 const MT5_GROUPS = {
-    "Lite Instant Funding": "demo\\S\\0-SF",
-    "Lite 1-Step Challenge": "demo\\S\\1-SF",
-    "Lite 2-Step Challenge": "demo\\S\\2-SF",
-    "Prime Instant Funding": "demo\\SF\\0-Pro",
-    "Prime 1-Step Challenge": "demo\\SF\\1-Pro",
-    "Prime 2-Step Challenge": "demo\\SF\\2-Pro",
+    "Lite Instant Funding": "demo\\SF\\0-Pro",
+    "Lite 1-Step Challenge": "demo\\SF\\1-SF",
+    "Lite 2-Step Challenge": "demo\\SF\\2-SF",
+    "Prime Instant Funding": "demo\\S\\0-SF",
+    "Prime 1-Step Challenge": "demo\\S\\1-SF",
+    "Prime 2-Step Challenge": "demo\\S\\2-SF",
     "Funded Live Account": "SF Funded Live",
-    "Competition Account": "demo\\SF\\0-Demo\\comp"
+    "Competition Account": "demo\\SF\\0-Demo\\comp",
 };
 
 const ACCOUNT_SIZES = {
-    lite: [5000, 10000, 25000, 50000, 100000],
+    lite: [3000, 6000, 12000, 5000, 10000, 25000, 50000, 100000],
     prime: [5000, 10000, 25000, 50000, 100000,],
     funded: [5000, 10000, 25000, 50000, 100000,],
     competition: [100000],
