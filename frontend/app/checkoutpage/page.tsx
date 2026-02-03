@@ -30,7 +30,7 @@ function CheckoutContent() {
 
     // Form State
     const [formData, setFormData] = useState({
-        firstName: "", lastName: "", email: "", country: "", terms: false, password: ""
+        firstName: "", lastName: "", email: "", country: "", terms: false, password: "", referralCode: ""
     });
 
     useEffect(() => {
@@ -90,7 +90,8 @@ function CheckoutContent() {
                     customerName: `${formData.firstName} ${formData.lastName}`,
                     customerEmail: formData.email,
                     country: formData.country,
-                    password: formData.password
+                    password: formData.password,
+                    referralCode: formData.referralCode
                 })
             });
 
@@ -306,6 +307,17 @@ function CheckoutContent() {
                                     className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-[#0a0d20] focus:outline-none focus:border-blue-500/50 transition-colors"
                                 />
                             </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-500">Referral Code (Optional)</label>
+                                <input
+                                    type="text"
+                                    placeholder="Enter code"
+                                    value={formData.referralCode}
+                                    onChange={(e) => setFormData({ ...formData, referralCode: e.target.value })}
+                                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-[#0a0d20] focus:outline-none focus:border-blue-500/50 transition-colors"
+                                />
+                            </div>
                         </div>
 
                         {/* Terms */}
@@ -391,8 +403,8 @@ function CheckoutContent() {
                     </div>
                 </div>
 
-            </main>
-        </div>
+            </main >
+        </div >
     );
 }
 

@@ -16,7 +16,13 @@ export async function POST(request: NextRequest) {
         let user = sessionUser;
         let dbClient: any = supabase; // Default to authenticated user client
         const body = await request.json();
-        const { type, model, size, platform, coupon, gateway = 'sharkpay', competitionId, customerEmail, password, customerName } = body;
+        console.log('📝 Create Order Request Body:', JSON.stringify(body, null, 2));
+        let { type, model, size, platform, coupon, gateway = 'sharkpay', competitionId, customerEmail, password, customerName, referralCode } = body;
+
+        // Normalize inputs
+        if (type) type = type.toLowerCase();
+        if (model) model = model.toLowerCase();
+        if (platform) platform = platform.toLowerCase();
 
         // Auto-Registration Logic if no session
         if (!user) {
@@ -95,6 +101,42 @@ export async function POST(request: NextRequest) {
         // Ensure user is defined
         if (!user) {
             return NextResponse.json({ error: 'User processing failed' }, { status: 500 });
+        }
+
+        // AFFILIATE REFERRAL LOGIC
+        if (referralCode && user) {
+            try {
+                // Check if user is already referred
+                const { data: currentProfile } = await dbClient
+                    .from('profiles')
+                    .select('referred_by')
+                    .eq('id', user.id)
+                    .single();
+
+                if (currentProfile && !currentProfile.referred_by) {
+                    // Find referrer by code
+                    const { data: referrer } = await dbClient
+                        .from('profiles')
+                        .select('id')
+                        .eq('referral_code', referralCode)
+                        .single();
+
+                    if (referrer) {
+                        console.log(`🔗 Linking user ${user.id} to referrer ${referrer.id} from checkout`);
+                        await dbClient
+                            .from('profiles')
+                            .update({ referred_by: referrer.id })
+                            .eq('id', user.id);
+
+                        // Increment referral count
+                        await dbClient.rpc('increment_referral_count', { p_referrer_id: referrer.id })
+                            .catch((e: any) => console.warn('Referral count increment failed', e));
+                    }
+                }
+            } catch (refError) {
+                console.warn('Referral processing error:', refError);
+                // Don't block order creation
+            }
         }
 
         // Validation
@@ -376,7 +418,7 @@ async function calculatePrice(type: string, model: string, size: string, supabas
         else if (sizeNum === 200000) priceUSD = 899;
         else priceUSD = sizeNum * 0.0045;
     } else if (type === 'instant') {
-        priceUSD = sizeNum * 0.08;
+        priceUSD = sizeNum * 0.008;
     }
 
     // Pro model markup

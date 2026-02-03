@@ -244,9 +244,8 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
 
     const referrerId = profile.referred_by;
 
-    // 2. Calculate Commission (15%)
-    // Allow logic to check referrer's tier later (e.g. 20% for partners)
-    const commissionRate = 0.15;
+    // 2. Calculate Commission (7% Flat)
+    const commissionRate = 0.07;
     const commissionAmount = Number((amount * commissionRate).toFixed(2));
 
     if (commissionAmount <= 0) return;

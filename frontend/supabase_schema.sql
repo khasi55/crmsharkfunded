@@ -87,7 +87,47 @@ begin
 end;
 $$ language plpgsql security definer;
 
+
 -- Trigger the function every time a user is created
 create or replace trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- Fix/Update affiliate_earnings table with missing columns
+alter table public.affiliate_earnings 
+add column if not exists commission_type text,
+add column if not exists status text default 'pending',
+add column if not exists metadata jsonb;
+
+-- Create affiliate_withdrawals table
+create table if not exists public.affiliate_withdrawals (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) not null,
+  amount numeric not null,
+  payout_method text not null,
+  payout_details jsonb,
+  status text default 'pending',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  processed_at timestamp with time zone,
+  notes text
+);
+
+-- Enable RLS for withdrawals
+alter table public.affiliate_withdrawals enable row level security;
+
+-- Policies for withdrawals
+create policy "Users can view own withdrawals" on public.affiliate_withdrawals
+  for select using (auth.uid() = user_id);
+
+create policy "Users can request withdrawals" on public.affiliate_withdrawals
+  for insert with check (auth.uid() = user_id);
+
+-- RPC function to increment affiliate commission (used by payment webhooks)
+create or replace function public.increment_affiliate_commission(p_user_id uuid, p_amount numeric)
+returns void as $$
+begin
+  update public.profiles
+  set total_commission = coalesce(total_commission, 0) + p_amount
+  where id = p_user_id;
+end;
+$$ language plpgsql security definer;
