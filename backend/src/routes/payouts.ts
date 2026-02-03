@@ -21,13 +21,11 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
             .eq('is_locked', true)
             .single();
 
-        // Fetch funded accounts
-        const { data: accounts } = await supabase
+        // Fetch ALL active accounts (filter in memory for robustness)
+        const { data: accountsRaw } = await supabase
             .from('challenges')
-            .select('current_balance, initial_balance, challenge_type, status')
-            .eq('user_id', user.id)
-            .in('challenge_type', ['Master Account', 'Funded', 'Instant', 'Instant Funding'])
-            .eq('status', 'active');
+            .select('*')
+            .eq('user_id', user.id);
 
         // Check KYC status (using same admin client)
         const { data: kycSession } = await supabase
@@ -38,19 +36,37 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
             .limit(1)
             .single();
 
-        const isKycVerified = !!kycSession;
-        const hasFundedAccount = accounts && accounts.length > 0;
+        // Robust Filter: Case insensitive check for Funded/Instant types AND Status
+        const fundedAccounts = (accountsRaw || []).filter((acc: any) => {
+            const status = (acc.status || '').toLowerCase();
+            if (status !== 'active') return false;
 
-        // Calculate total profit
+            const type = (acc.challenge_type || '').toLowerCase();
+            return type.includes('instant') || type.includes('funded') || type.includes('master');
+        });
+
+        const isKycVerified = !!kycSession;
+        const hasFundedAccount = fundedAccounts.length > 0;
+
+        console.log(`[Payouts] User ${user.id} - Active Accounts: ${accountsRaw?.length || 0}. Eligible (Funded/Instant): ${fundedAccounts.length}.`);
+
+        // Calculate total profit from FUNDED accounts only
         let totalProfit = 0;
-        if (accounts) {
-            accounts.forEach((acc: any) => {
-                const profit = Number(acc.current_balance) - Number(acc.initial_balance);
-                if (profit > 0) {
-                    totalProfit += profit;
-                }
-            });
-        }
+        const eligibleAccountsDetail = fundedAccounts.map((acc: any) => {
+            const profit = Number(acc.current_balance) - Number(acc.initial_balance);
+            const available = Math.max(0, profit * 0.8);
+            if (profit > 0) {
+                totalProfit += profit;
+            }
+            return {
+                id: acc.id,
+                account_number: acc.mt5_login || acc.id.substring(0, 8), // Ensure we have a display name
+                type: acc.challenge_type,
+                status: acc.status,
+                profit: profit,
+                available: available
+            };
+        });
 
         const availablePayout = totalProfit * 0.8;
         const profitTargetMet = availablePayout > 0;
@@ -73,12 +89,13 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
             .filter((p: any) => p.status === 'pending')
             .reduce((sum: number, p: any) => sum + Number(p.amount), 0);
 
-        res.json({
+        const responsePayload = {
             balance: {
                 available: Math.max(0, availablePayout),
                 totalPaid,
                 pending,
             },
+            accountList: eligibleAccountsDetail,
             walletAddress: wallet?.wallet_address || null,
             hasWallet: !!wallet,
             eligibility: {
@@ -87,7 +104,10 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
                 profitTargetMet: profitTargetMet,
                 kycVerified: isKycVerified
             }
-        });
+        };
+
+        console.log("Payouts Response Payload:", JSON.stringify(responsePayload, null, 2));
+        res.json(responsePayload);
 
     } catch (error: any) {
         console.error('Payout balance error:', error);
@@ -123,7 +143,7 @@ router.get('/history', authenticate, async (req: AuthRequest, res: Response) => 
 router.post('/request', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const user = req.user;
-        const { amount, method } = req.body;
+        const { amount, method, challenge_id } = req.body;
 
         if (!user) {
             res.status(401).json({ error: 'Not authenticated' });
@@ -132,34 +152,63 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
 
         // 2. Validate Available Balance (SECURITY FIX)
         // Re-calculate total profit across ALL funded accounts to be safe
-        const { data: accounts } = await supabase
+        const { data: accountsRaw } = await supabase
             .from('challenges')
-            .select('current_balance, initial_balance, challenge_type, status')
-            .eq('user_id', user.id)
-            .in('challenge_type', ['Master Account', 'Funded', 'Instant', 'Instant Funding', 'prime_instant', 'lite_instant'])
-            .eq('status', 'active');
+            .select('*') // We need mt5_login etc for metadata so select all
+            .eq('user_id', user.id);
 
-        let totalProfit = 0;
-        if (accounts) {
-            accounts.forEach((acc: any) => {
+        // Robust Filter matching balance endpoint
+        const fundedAccounts = (accountsRaw || []).filter((acc: any) => {
+            const status = (acc.status || '').toLowerCase();
+            if (status !== 'active') return false;
+
+            const type = (acc.challenge_type || '').toLowerCase();
+            return type.includes('instant') || type.includes('funded') || type.includes('master');
+        });
+
+        // Ensure target account exists in funded list if provided
+        let targetAccount = null;
+        if (challenge_id) {
+            targetAccount = fundedAccounts.find((acc: any) => acc.id === challenge_id);
+            if (!targetAccount) {
+                return res.status(400).json({ error: 'Invalid or ineligible account selected.' });
+            }
+        }
+
+        let maxPayout = 0;
+
+        if (targetAccount) {
+            const profit = Number(targetAccount.current_balance) - Number(targetAccount.initial_balance);
+            maxPayout = Math.max(0, profit * 0.8);
+        } else {
+            // Legacy global calculation (sum of all)
+            let totalProfit = 0;
+            fundedAccounts.forEach((acc: any) => {
                 const profit = Number(acc.current_balance) - Number(acc.initial_balance);
                 if (profit > 0) {
                     totalProfit += profit;
                 }
             });
+            maxPayout = totalProfit * 0.8;
         }
-
-        // 80% Profit Split
-        const maxPayout = totalProfit * 0.8;
 
         // Check already requested amounts (Pending + Processed)
         const { data: previousPayouts } = await supabase
             .from('payout_requests')
-            .select('amount, status')
+            .select('amount, status, metadata')
             .eq('user_id', user.id)
             .neq('status', 'rejected'); // Count all except rejected
 
-        const alreadyRequested = previousPayouts?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+        // If scoping to account, we must filter previous payouts for that account too
+        let alreadyRequested = 0;
+        if (targetAccount) {
+            // Filter by metadata.challenge_id matching target
+            alreadyRequested = previousPayouts?.filter((p: any) => p.metadata?.challenge_id === targetAccount.id)
+                .reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+        } else {
+            alreadyRequested = previousPayouts?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+        }
+
         const remainingPayout = maxPayout - alreadyRequested;
 
         if (amount > remainingPayout) {
@@ -168,23 +217,16 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
             });
         }
 
-        // 3. Get Specific Account for Metadata (Active logic)
-        const { data: account, error: accError } = await supabase
-            .from('challenges')
-            .select('*')
-            .eq('user_id', user.id)
-            .in('challenge_type', ['Master Account', 'Funded', 'Instant', 'Instant Funding', 'prime_instant', 'lite_instant'])
-            .eq('status', 'active')
-            .limit(1)
-            .single();
+        // 3. Get Specific Account for Metadata
+        // If no challenge_id provided, default to first funded account found
+        const account = targetAccount || fundedAccounts[0];
 
-        if (accError || !account) {
+        if (!account) {
             res.status(400).json({ error: 'No eligible funded account found.' });
             return;
         }
 
         // 2. Validate Consistency (INSTANT ACCOUNTS ONLY)
-        // Fetch account type to get MT5 group
         const { data: accountType } = await supabase
             .from('account_types')
             .select('mt5_group_name')

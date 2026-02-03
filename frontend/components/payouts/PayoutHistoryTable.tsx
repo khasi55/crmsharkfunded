@@ -40,11 +40,10 @@ export default function PayoutHistoryTable({ requests = [] }: { requests?: Payou
                     <tbody className="divide-y divide-white/5">
                         {requests.length === 0 ? (
                             <tr>
-                                <tr>
-                                    <td colSpan={6} className="py-8 text-center text-gray-500 text-sm">
-                                        No payout history found.
-                                    </td>
-                                </tr>                            </tr>
+                                <td colSpan={6} className="py-8 text-center text-gray-500 text-sm">
+                                    No payout history found.
+                                </td>
+                            </tr>
                         ) : (
                             requests.map((tx, index) => (
                                 <motion.tr
@@ -63,7 +62,7 @@ export default function PayoutHistoryTable({ requests = [] }: { requests?: Payou
                                     <td className="py-4 px-4 text-gray-400 text-sm">{tx.payout_method}</td>
                                     <td className="py-4 px-4">
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium capitalize
-                                            ${tx.status === 'processed' ? 'bg-green-500/20 text-green-400' : ''}
+                                            ${tx.status === 'processed' ? 'bg-green-500/20 text-white' : ''}
                                             ${tx.status === 'pending' ? 'bg-amber-500/20 text-amber-400' : ''}
                                             ${tx.status === 'rejected' ? 'bg-red-500/20 text-red-400' : ''}
                                         `}>

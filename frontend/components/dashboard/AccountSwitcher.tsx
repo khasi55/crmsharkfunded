@@ -298,108 +298,6 @@ function AccountSwitcherContent({
                 </Link>
                 */}
 
-                {/* Filters Row - Scrollable on mobile */}
-                <div className="flex items-center gap-3 mb-4 overflow-x-auto pb-2 scrollbar-none">
-                    {/* Type Filter */}
-                    <div className="relative">
-                        <button
-                            onClick={() => {
-                                setShowTypeDropdown(!showTypeDropdown);
-                                setShowStateDropdown(false);
-                                setShowPhaseDropdown(false);
-                            }}
-                            className="flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-white transition-colors whitespace-nowrap bg-[#13161C] border border-white/5 px-3 py-1.5 rounded-lg"
-                        >
-                            <span className="text-gray-500">Type:</span> <span className="text-white">{typeFilter}</span> <ChevronDown size={12} className={cn("transition-transform ml-1", showTypeDropdown && "rotate-180")} />
-                        </button>
-                        {showTypeDropdown && (
-                            <div className="absolute top-full left-0 mt-2 w-32 bg-[#131E29] border border-white/10 rounded-lg shadow-xl z-50 overflow-hidden">
-                                {["All Types", "Challenge", "Funded"].map((option) => (
-                                    <button
-                                        key={option}
-                                        onClick={() => {
-                                            setTypeFilter(option);
-                                            setShowTypeDropdown(false);
-                                        }}
-                                        className={cn(
-                                            "w-full px-3 py-2 text-left text-xs hover:bg-white/5 transition-colors block",
-                                            typeFilter === option ? "text-blue-400 bg-blue-500/10" : "text-gray-400"
-                                        )}
-                                    >
-                                        {option}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* State Filter */}
-                    <div className="relative">
-                        <button
-                            onClick={() => {
-                                setShowStateDropdown(!showStateDropdown);
-                                setShowTypeDropdown(false);
-                                setShowPhaseDropdown(false);
-                            }}
-                            className="flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-white transition-colors whitespace-nowrap bg-[#13161C] border border-white/5 px-3 py-1.5 rounded-lg"
-                        >
-                            <span className="text-gray-500">State:</span> <span className="text-white">{stateFilter}</span> <ChevronDown size={12} className={cn("transition-transform ml-1", showStateDropdown && "rotate-180")} />
-                        </button>
-                        {showStateDropdown && (
-                            <div className="absolute top-full left-0 mt-2 w-32 bg-[#131E29] border border-white/10 rounded-lg shadow-xl z-50 overflow-hidden">
-                                {["All States", "Open", "Closed", "Pending"].map((option) => (
-                                    <button
-                                        key={option}
-                                        onClick={() => {
-                                            setStateFilter(option);
-                                            setShowStateDropdown(false);
-                                        }}
-                                        className={cn(
-                                            "w-full px-3 py-2 text-left text-xs hover:bg-white/5 transition-colors block",
-                                            stateFilter === option ? "text-blue-400 bg-blue-500/10" : "text-gray-400"
-                                        )}
-                                    >
-                                        {option}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Phase Filter */}
-                    <div className="relative">
-                        <button
-                            onClick={() => {
-                                setShowPhaseDropdown(!showPhaseDropdown);
-                                setShowTypeDropdown(false);
-                                setShowStateDropdown(false);
-                            }}
-                            className="flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-white transition-colors whitespace-nowrap bg-[#13161C] border border-white/5 px-3 py-1.5 rounded-lg"
-                        >
-                            <span className="text-gray-500">Phase:</span> <span className="text-white">{phaseFilter}</span> <ChevronDown size={12} className={cn("transition-transform ml-1", showPhaseDropdown && "rotate-180")} />
-                        </button>
-                        {showPhaseDropdown && (
-                            <div className="absolute top-full left-0 mt-2 w-32 bg-[#131E29] border border-white/10 rounded-lg shadow-xl z-50 overflow-hidden">
-                                {["All Phases", "Phase 1", "Phase 2", "Funded"].map((option) => (
-                                    <button
-                                        key={option}
-                                        onClick={() => {
-                                            setPhaseFilter(option);
-                                            setShowPhaseDropdown(false);
-                                        }}
-                                        className={cn(
-                                            "w-full px-3 py-2 text-left text-xs hover:bg-white/5 transition-colors block",
-                                            phaseFilter === option ? "text-blue-400 bg-blue-500/10" : "text-gray-400"
-                                        )}
-                                    >
-                                        {option}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-
                 {/* Search Bar */}
                 <div className="relative mb-2">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
@@ -424,6 +322,7 @@ function AccountSwitcherContent({
                         const isSelected = selectedAccount?.id === acc.id;
                         const pnl = getPnL(acc);
                         const status = getStatusLabel(acc.status);
+                        const displayEquity = (acc.equity && acc.equity > 0) ? acc.equity : acc.balance;
 
                         return (
                             <motion.div
@@ -468,8 +367,8 @@ function AccountSwitcherContent({
 
                                 <div className="flex justify-between items-end">
                                     <div>
-                                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">BALANCE</p>
-                                        <p className="text-white font-bold text-sm">${acc.balance.toLocaleString()}</p>
+                                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">EQUITY</p>
+                                        <p className="text-white font-bold text-sm">${displayEquity.toLocaleString()}</p>
                                     </div>
                                     <div className="text-right">
                                         <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">PNL</p>

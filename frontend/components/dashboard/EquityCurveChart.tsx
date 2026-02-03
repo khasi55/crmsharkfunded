@@ -119,6 +119,12 @@ export default function EquityCurveChart() {
         );
     }
 
+    // Derived stats for display consistency
+    const initialBal = selectedAccount?.initial_balance || 100000;
+    const currentEquityVal = (selectedAccount?.equity && selectedAccount.equity > 0) ? selectedAccount.equity : stats.currentEquity;
+    const currentPnL = currentEquityVal - initialBal;
+    const currentPercent = (currentPnL / initialBal) * 100;
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -137,22 +143,24 @@ export default function EquityCurveChart() {
                         <h3 className="font-bold text-base sm:text-lg text-white">Equity Curve</h3>
                     </div>
                     <div className="flex flex-col">
-                        <p className="text-xs sm:text-sm text-gray-500 font-medium mb-1">Current Balance</p>
+                        <p className="text-xs sm:text-sm text-gray-500 font-medium mb-1">Current Equity</p>
                         <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-1">
-                            <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight">${stats.currentEquity.toLocaleString()}</p>
+                            <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight">
+                                ${currentEquityVal.toLocaleString()}
+                            </p>
                             <div className={cn(
                                 "flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full border text-xs sm:text-sm font-bold whitespace-nowrap",
-                                stats.totalProfit >= 0
+                                currentPnL >= 0
                                     ? "bg-green-500/10 text-green-400 border-green-500/20"
                                     : "bg-red-500/10 text-red-400 border-red-500/20"
                             )}>
-                                {stats.totalProfit >= 0 ? <TrendingUp size={12} className="sm:w-[14px] sm:h-[14px]" /> : <TrendingDown size={12} className="sm:w-[14px] sm:h-[14px]" />}
-                                <span className="text-xs sm:text-sm">{stats.totalProfit >= 0 ? '+' : ''}${Math.abs(stats.totalProfit).toLocaleString()}</span>
+                                {currentPnL >= 0 ? <TrendingUp size={12} className="sm:w-[14px] sm:h-[14px]" /> : <TrendingDown size={12} className="sm:w-[14px] sm:h-[14px]" />}
+                                <span className="text-xs sm:text-sm">{currentPnL >= 0 ? '+' : ''}${Math.abs(currentPnL).toLocaleString()}</span>
                                 <span className={cn(
                                     "text-[10px] sm:text-xs ml-0.5",
-                                    stats.totalProfit >= 0 ? "text-green-400/80" : "text-red-400/80"
+                                    currentPnL >= 0 ? "text-green-400/80" : "text-red-400/80"
                                 )}>
-                                    ({stats.percentChange.toFixed(2)}%)
+                                    ({currentPercent.toFixed(2)}%)
                                 </span>
                             </div>
                         </div>

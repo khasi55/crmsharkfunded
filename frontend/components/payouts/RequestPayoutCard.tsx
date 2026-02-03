@@ -1,24 +1,48 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Wallet, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { ArrowRight, Wallet, AlertTriangle, CheckCircle, Loader2, ChevronDown } from "lucide-react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 
-interface RequestPayoutCardProps {
-    availablePayout: number;
-    walletAddress: string | null;
-    isLoading: boolean;
-    onRequestPayout: (amount: number, method: string) => Promise<boolean>;
+export interface AccountOption {
+    id: string;
+    account_number: string;
+    available: number;
+    profit: number;
+    type: string;
 }
 
-export default function RequestPayoutCard({ availablePayout, walletAddress, isLoading, onRequestPayout }: RequestPayoutCardProps) {
+interface RequestPayoutCardProps {
+    availablePayout: number; // Fallback global available
+    walletAddress: string | null;
+    isLoading: boolean;
+    onRequestPayout: (amount: number, method: string, accountId?: string) => Promise<boolean>;
+    accounts?: AccountOption[];
+}
+
+export default function RequestPayoutCard({ availablePayout: globalAvailable, walletAddress, isLoading, onRequestPayout, accounts = [] }: RequestPayoutCardProps) {
+    console.log("RequestPayoutCard received accounts:", accounts);
     const [amount, setAmount] = useState("");
-    const [method, setMethod] = useState<"crypto">("crypto"); // bank removed for now as user requested USDT only
+    const [method, setMethod] = useState<"crypto">("crypto");
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [selectedAccountId, setSelectedAccountId] = useState<string>("");
 
     const [showConfirmation, setShowConfirmation] = useState(false);
-
     const [submittedAmount, setSubmittedAmount] = useState<string | null>(null);
+
+    // Initialize selected account
+    useEffect(() => {
+        if (accounts && accounts.length > 0 && !selectedAccountId) {
+            setSelectedAccountId(accounts[0].id);
+        }
+    }, [accounts]);
+
+    const getSelectedAccount = () => accounts.find(a => a.id === selectedAccountId);
+
+    // Calculate available based on selection
+    const currentAvailable = selectedAccountId
+        ? (getSelectedAccount()?.available || 0)
+        : globalAvailable;
 
     const handleInitialSubmit = () => {
         setError(null);
@@ -26,8 +50,8 @@ export default function RequestPayoutCard({ availablePayout, walletAddress, isLo
             setError("Please enter a valid amount");
             return;
         }
-        if (parseFloat(amount) > availablePayout) {
-            setError("Amount exceeds available payout");
+        if (parseFloat(amount) > currentAvailable) {
+            setError("Amount exceeds available payout for selected account");
             return;
         }
         if (parseFloat(amount) < 50) {
@@ -38,19 +62,22 @@ export default function RequestPayoutCard({ availablePayout, walletAddress, isLo
             setError("No wallet address found");
             return;
         }
+        if (accounts.length > 0 && !selectedAccountId) {
+            setError("Please select an account");
+            return;
+        }
         setShowConfirmation(true);
     };
 
     const confirmAndPay = async () => {
-        const currentAmount = amount; // Capture current amount
-        const isSuccess = await onRequestPayout(parseFloat(currentAmount), "USDT (TRC20)");
+        const currentAmount = amount;
+        const isSuccess = await onRequestPayout(parseFloat(currentAmount), "USDT (TRC20)", selectedAccountId);
 
         if (isSuccess) {
-            setSubmittedAmount(currentAmount); // Store for success view
+            setSubmittedAmount(currentAmount);
             setShowConfirmation(false);
             setSuccess(true);
             setAmount("");
-            // Reset success state after animation
             setTimeout(() => {
                 setSuccess(false);
                 setSubmittedAmount(null);
@@ -76,7 +103,6 @@ export default function RequestPayoutCard({ availablePayout, walletAddress, isLo
                             className="relative w-24 h-24 bg-gradient-to-tr from-green-500 to-emerald-400 rounded-full flex items-center justify-center mb-6 shadow-[0_0_50px_rgba(34,197,94,0.4)]"
                         >
                             <CheckCircle size={48} className="text-white z-10" />
-                            {/* Particle Explosion */}
                             {[...Array(12)].map((_, i) => (
                                 <motion.div
                                     key={i}
@@ -88,12 +114,7 @@ export default function RequestPayoutCard({ availablePayout, walletAddress, isLo
                                         scale: [0, 1, 0],
                                         rotate: Math.random() * 360,
                                     }}
-                                    transition={{
-                                        duration: 0.8,
-                                        ease: "easeOut",
-                                        delay: 0.2,
-                                        repeat: 0,
-                                    }}
+                                    transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
                                     style={{
                                         backgroundColor: ['#22c55e', '#3b82f6', '#facc15', '#ffffff'][Math.floor(Math.random() * 4)],
                                     }}
@@ -130,6 +151,12 @@ export default function RequestPayoutCard({ availablePayout, walletAddress, isLo
 
                         <div className="flex-1 space-y-4">
                             <div className="bg-white/5 rounded-xl p-5 space-y-4 border border-white/5">
+                                {selectedAccountId && (
+                                    <div className="flex justify-between items-center pb-4 border-b border-white/10">
+                                        <span className="text-gray-400 text-sm font-medium">Account</span>
+                                        <span className="text-white text-sm font-mono tracking-tight">{getSelectedAccount()?.account_number}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between items-center">
                                     <span className="text-gray-400 text-sm font-medium">Amount</span>
                                     <span className="text-white text-xl font-bold tracking-tight">${parseFloat(amount).toFixed(2)}</span>
@@ -178,17 +205,35 @@ export default function RequestPayoutCard({ availablePayout, walletAddress, isLo
                         <p className="text-gray-300 font-medium text-sm mb-6 opacity-80">Withdraw your verified profits to your saved wallet.</p>
 
                         <div className="space-y-6">
-                            {/* Method Selection - Locked to USDT for now */}
-                            <div className="grid grid-cols-1 gap-3">
-                                <button
-                                    className={`flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all duration-300 border-shark-blue bg-shark-blue/20 text-shark-blue shadow-[0_0_20px_rgba(59,130,246,0.2)]`}
-                                >
-                                    <div className="w-12 h-12 bg-shark-blue/20 rounded-xl flex items-center justify-center mb-3">
-                                        <Wallet size={28} className="text-shark-blue" />
+                            {/* Account Selection */}
+                            {accounts.length > 0 && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        Select Source Account
+                                    </label>
+                                    <div className="relative">
+                                        <select
+                                            value={selectedAccountId}
+                                            onChange={(e) => {
+                                                setSelectedAccountId(e.target.value);
+                                                setAmount(""); // Reset amount on change
+                                                setError(null);
+                                            }}
+                                            className="w-full pl-4 pr-10 py-3 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-shark-blue text-white appearance-none cursor-pointer transition-colors"
+                                        >
+                                            {accounts.map(acc => (
+                                                <option key={acc.id} value={acc.id} className="bg-[#050923]">
+                                                    {acc.account_number} ({acc.type}) - Avail: ${acc.available.toFixed(2)}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
                                     </div>
-                                    <span className="text-xs font-bold uppercase tracking-wider">Crypto (USDT TRC20)</span>
-                                </button>
-                            </div>
+                                </div>
+                            )}
+
+                            {/* Method Selection (Hidden as it's single option for now) */}
+                            {/* ... */}
 
                             {/* Amount Input */}
                             <div>
@@ -204,7 +249,7 @@ export default function RequestPayoutCard({ availablePayout, walletAddress, isLo
                                             setAmount(e.target.value);
                                             setError(null);
                                         }}
-                                        disabled={availablePayout <= 0 || !walletAddress || isLoading}
+                                        disabled={currentAvailable <= 0 || !walletAddress || isLoading}
                                         className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-shark-blue text-white font-medium placeholder:text-gray-500 transition-colors disabled:opacity-50"
                                         placeholder="0.00"
                                     />
@@ -217,10 +262,10 @@ export default function RequestPayoutCard({ availablePayout, walletAddress, isLo
                                 )}
 
                                 <div className="flex justify-between items-center mt-3 text-xs">
-                                    <span className="text-gray-400 font-medium">Available to withdraw: <span className="text-white font-bold ml-1">${availablePayout.toFixed(2)}</span></span>
+                                    <span className="text-gray-400 font-medium">Available to withdraw: <span className="text-white font-bold ml-1">${currentAvailable.toFixed(2)}</span></span>
                                     <button
-                                        onClick={() => setAmount(availablePayout.toString())}
-                                        disabled={availablePayout <= 0 || !walletAddress}
+                                        onClick={() => setAmount(currentAvailable.toFixed(2))}
+                                        disabled={currentAvailable <= 0 || !walletAddress}
                                         className="text-shark-blue font-bold uppercase tracking-tight hover:text-blue-400 transition-colors disabled:text-gray-600 px-2 py-1 bg-shark-blue/10 rounded-md"
                                     >
                                         Max Amount
@@ -252,7 +297,7 @@ export default function RequestPayoutCard({ availablePayout, walletAddress, isLo
                             {/* Submit Button */}
                             <button
                                 onClick={handleInitialSubmit}
-                                disabled={availablePayout <= 0 || !walletAddress || isLoading || !amount}
+                                disabled={currentAvailable <= 0 || !walletAddress || isLoading || !amount}
                                 className="relative w-full py-4 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all group disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden shadow-[0_0_20px_rgba(34,197,94,0.0)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] active:scale-[0.98]"
                                 style={{
                                     background: "linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)",

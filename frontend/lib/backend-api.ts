@@ -29,6 +29,7 @@ export async function fetchFromBackend(endpoint: string, options: RequestInit & 
     const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
     const response = await fetch(`${BACKEND_URL}${path}`, {
+        cache: 'no-store', // Disable caching to ensure fresh data
         ...options,
         headers,
     });

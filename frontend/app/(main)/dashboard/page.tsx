@@ -42,11 +42,37 @@ function DashboardContent() {
         return status.charAt(0).toUpperCase() + status.slice(1);
     };
 
-    const formatAccountType = (type: string | undefined) => {
+    const getDetailedAccountName = (account: any) => {
+        if (!account) return 'Account';
+
+        // 1. Try Metadata first (cleanest)
+        if (account.metadata?.model && account.metadata?.type) {
+            const model = account.metadata.model.charAt(0).toUpperCase() + account.metadata.model.slice(1);
+            const type = account.metadata.type === 'instant' ? 'Instant' :
+                account.metadata.type.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+            return `${model} ${type}`;
+        }
+
+        // 2. Fallback to Group Parsing
+        const group = account.group || '';
+        if (group.includes('demo\\SF\\')) { // Lite (Standard)
+            if (group.includes('1-SF')) return 'Lite 1 Step';
+            if (group.includes('2-SF')) return 'Lite 2 Step';
+            if (group.includes('0-Pro')) return 'Lite Instant';
+            return 'Lite Account';
+        }
+        if (group.includes('demo\\S\\')) { // Prime (Pro)
+            if (group.includes('1-SF')) return 'Prime 1 Step';
+            if (group.includes('2-SF')) return 'Prime 2 Step';
+            if (group.includes('0-SF')) return 'Prime Instant';
+            return 'Prime Account';
+        }
+
+        // 3. Fallback to Account Type
+        const type = account.challenge_type || account.account_type;
         if (!type) return 'Account';
-        return type
-            .split('_')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        return type.split('_')
+            .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
             .join(' ');
     };
 
@@ -238,7 +264,7 @@ function DashboardContent() {
                                     <div className="relative z-10">
                                         <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
                                             <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-white">
-                                                {formatAccountType(selectedAccount.account_type)}
+                                                {getDetailedAccountName(selectedAccount)}
                                             </h2>
                                             <span className={cn(
                                                 "px-2.5 py-0.5 rounded text-[10px] font-bold border uppercase",

@@ -22,9 +22,11 @@ export default function PayoutsPage() {
         profitTargetMet: false,
         kycVerified: false
     });
+    const [eligibleAccounts, setEligibleAccounts] = useState<any[]>([]);
     const [walletAddress, setWalletAddress] = useState<string | null>(null);
     const [history, setHistory] = useState<any[]>([]);
     const [requesting, setRequesting] = useState(false);
+    const [debugInfo, setDebugInfo] = useState<any>(null); // State for debug info
 
     useEffect(() => {
         fetchPayoutData();
@@ -34,6 +36,7 @@ export default function PayoutsPage() {
         try {
             // Fetch balance and wallet info from API
             const balanceData = await fetchFromBackend('/api/payouts/balance');
+            console.log("PAYOUT BALANCE DATA:", balanceData);
 
             setStats({
                 available: balanceData.balance.available || 0,
@@ -43,6 +46,17 @@ export default function PayoutsPage() {
             if (balanceData.eligibility) {
                 setEligibility(balanceData.eligibility);
             }
+
+            if (balanceData.accountList) {
+                setEligibleAccounts(balanceData.accountList);
+            } else if (balanceData.eligibleAccounts) {
+                // Fallback for older backend versions
+                setEligibleAccounts(balanceData.eligibleAccounts);
+            }
+            if (balanceData.debug) {
+                setDebugInfo(balanceData.debug);
+            }
+
             setWalletAddress(balanceData.walletAddress || null);
 
             // Fetch payout history from API
@@ -56,7 +70,7 @@ export default function PayoutsPage() {
         }
     };
 
-    const handleRequestPayout = async (amount: number, method: string): Promise<boolean> => {
+    const handleRequestPayout = async (amount: number, method: string, accountId?: string): Promise<boolean> => {
         try {
             setRequesting(true);
 
@@ -68,7 +82,11 @@ export default function PayoutsPage() {
             // Call API to request payout
             const data = await fetchFromBackend('/api/payouts/request', {
                 method: 'POST',
-                body: JSON.stringify({ amount, method }),
+                body: JSON.stringify({
+                    amount,
+                    method,
+                    challenge_id: accountId
+                }),
             });
 
 
@@ -106,6 +124,7 @@ export default function PayoutsPage() {
                 <PayoutStats
                     title="Available for Payout"
                     value={`$${stats.available.toFixed(2)}`}
+                    secondaryValue={stats.available > 0 ? `(Gross: $${(stats.available / 0.8).toFixed(2)})` : ""}
                     description="80% Profit Split"
                     icon={Wallet}
                     trend={{ value: "Ready", isPositive: true }}
@@ -132,7 +151,8 @@ export default function PayoutsPage() {
                         availablePayout={stats.available}
                         walletAddress={walletAddress}
                         isLoading={requesting}
-                        onRequestPayout={handleRequestPayout} // Fixed prop name
+                        onRequestPayout={handleRequestPayout}
+                        accounts={eligibleAccounts}
                     />
 
                     {/* Eligibility / Rules Card */}
@@ -161,6 +181,8 @@ export default function PayoutsPage() {
                             ))}
                         </ul>
                     </div>
+
+
                 </div>
 
                 {/* Right Column - History */}
