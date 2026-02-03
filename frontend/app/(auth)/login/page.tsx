@@ -46,7 +46,8 @@ export default function LoginPage() {
                 throw error
             }
 
-            router.push('/dashboard')
+            // Force a hard navigation to ensure fresh state
+            window.location.href = '/dashboard'
         } catch (err: any) {
             setError(err.message)
             setLoading(false)

@@ -463,11 +463,23 @@ router.post('/admin/disable', authenticate, async (req: AuthRequest, res: Respon
 
         if (!response.ok) {
             const errText = await response.text();
-            console.error(`❌ Bridge Error (${response.status}):`, errText);
-            throw new Error(`Bridge error: ${errText}`);
+
+            // GRACEFUL HANDLING: If account is gone (404), we still want to disable it in CRM
+            if (response.status === 404 || errText.includes('404') || errText.toLowerCase().includes('not found')) {
+                console.warn(`⚠️ Account ${login} not found on Bridge (404). Marking as disabled in CRM anyway.`);
+                // We'll proceed to update DB below
+            } else {
+                console.error(`❌ Bridge Error (${response.status}):`, errText);
+                throw new Error(`Bridge error: ${errText}`);
+            }
         }
 
-        const result = await response.json();
+        let result;
+        if (response.ok) {
+            result = await response.json();
+        } else {
+            result = { success: true, message: 'Account missing on bridge, disabled in CRM.' };
+        }
 
         // Update local DB status to match
         const { error: dbError } = await supabase
@@ -506,11 +518,22 @@ router.post('/admin/stop-out', authenticate, async (req: AuthRequest, res: Respo
 
         if (!response.ok) {
             const errText = await response.text();
-            console.error(`❌ Bridge Error (${response.status}):`, errText);
-            throw new Error(`Bridge error: ${errText}`);
+
+            // GRACEFUL HANDLING
+            if (response.status === 404 || errText.includes('404') || errText.toLowerCase().includes('not found')) {
+                console.warn(`⚠️ Account ${login} not found on Bridge (404). Marking as breached in CRM anyway.`);
+            } else {
+                console.error(`❌ Bridge Error (${response.status}):`, errText);
+                throw new Error(`Bridge error: ${errText}`);
+            }
         }
 
-        const result = await response.json();
+        let result;
+        if (response.ok) {
+            result = await response.json();
+        } else {
+            result = { success: true, message: 'Account missing on bridge, breached in CRM.' };
+        }
 
         // Update local DB status
         await supabase
