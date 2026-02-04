@@ -131,6 +131,8 @@ router.post('/validate', authenticate, async (req: AuthRequest, res: Response) =
                 value: coupon.discount_value,
                 amount: discountAmount
             },
+            affiliate_id: coupon.affiliate_id,
+            commission_rate: coupon.commission_rate,
             finalAmount: finalAmount
         });
 

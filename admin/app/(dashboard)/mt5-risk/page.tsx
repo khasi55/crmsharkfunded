@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Gauge, Server, Activity, Save, RefreshCw } from "lucide-react";
-import { getRiskGroups, saveRiskGroup, getServerConfig, saveServerConfig, getSystemLogs } from "@/app/actions/risk-actions";
+import { Gauge, Server, Activity, Save, RefreshCw, Trash2 } from "lucide-react";
+import { getRiskGroups, saveRiskGroup, deleteRiskGroup, getServerConfig, saveServerConfig, getSystemLogs } from "@/app/actions/risk-actions";
 
 export default function MT5RiskPage() {
     const [activeTab, setActiveTab] = useState<"groups" | "config" | "logs">("groups");
@@ -90,6 +90,17 @@ function RiskGroupsTab() {
         }
     };
 
+    const handleDelete = async (id: string) => {
+        if (!confirm("Are you sure you want to delete this group?")) return;
+        try {
+            await deleteRiskGroup(id);
+            alert("Deleted!");
+            fetchGroups();
+        } catch (e) {
+            alert("Error deleting");
+        }
+    };
+
     // Helper to add new group local row
     const addRow = () => {
         setGroups([...groups, { group_name: "demo\\NewGroup", max_drawdown_percent: 10, daily_drawdown_percent: 5, profit_target_percent: 8 }]);
@@ -165,10 +176,19 @@ function RiskGroupsTab() {
                                         }}
                                     />
                                 </td>
-                                <td className="px-4 py-2">
-                                    <button onClick={() => handleSave(g)} className="text-blue-400 hover:text-blue-300">
+                                <td className="px-4 py-2 flex gap-2">
+                                    <button onClick={() => handleSave(g)} className="text-blue-400 hover:text-blue-300" title="Save">
                                         <Save className="w-4 h-4" />
                                     </button>
+                                    {g.id && (
+                                        <button
+                                            onClick={() => handleDelete(g.id)}
+                                            className="text-red-400 hover:text-red-300"
+                                            title="Delete"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    )}
                                 </td>
                             </tr>
                         ))}

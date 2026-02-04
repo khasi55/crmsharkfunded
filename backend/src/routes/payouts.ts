@@ -50,11 +50,30 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
 
         console.log(`[Payouts] User ${user.id} - Active Accounts: ${accountsRaw?.length || 0}. Eligible (Funded/Instant): ${fundedAccounts.length}.`);
 
+        // Fetch payout history (Active requests: pending, approved, processed)
+        const { data: allPayouts } = await supabase
+            .from('payout_requests')
+            .select('amount, metadata, status')
+            .eq('user_id', user.id)
+            .neq('status', 'rejected');
+
         // Calculate total profit from FUNDED accounts only
         let totalProfit = 0;
+
         const eligibleAccountsDetail = fundedAccounts.map((acc: any) => {
             const profit = Number(acc.current_balance) - Number(acc.initial_balance);
-            const available = Math.max(0, profit * 0.8);
+            let available = Math.max(0, profit * 0.8);
+
+            // Deduct payouts associated with this account
+            const accountPayouts = (allPayouts || []).filter((p: any) =>
+                p.metadata?.challenge_id === acc.id
+            );
+
+            const paidOrPending = accountPayouts.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+
+            // Subtract paid amount from 80% share
+            available = Math.max(0, available - paidOrPending);
+
             if (profit > 0) {
                 totalProfit += profit;
             }
@@ -68,7 +87,7 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
             };
         });
 
-        const availablePayout = totalProfit * 0.8;
+        const availablePayout = eligibleAccountsDetail.reduce((sum: number, acc: any) => sum + acc.available, 0);
         const profitTargetMet = availablePayout > 0;
 
         // Fetch payout history
@@ -132,7 +151,50 @@ router.get('/history', authenticate, async (req: AuthRequest, res: Response) => 
 
         if (error) throw error;
 
-        res.json({ payouts: payouts || [] });
+        // Fetch account details for these payouts
+        const payoutsWithAccount = await Promise.all((payouts || []).map(async (p: any) => {
+            let accountInfo = { account_number: 'N/A', type: '' };
+            let challengeId = p.metadata?.challenge_id;
+
+            // Handle if metadata comes as string (edge case)
+            if (typeof p.metadata === 'string') {
+                try {
+                    const parsed = JSON.parse(p.metadata);
+                    challengeId = parsed.challenge_id;
+                } catch (e) {
+                    console.error('Error parsing metadata JSON:', e);
+                }
+            }
+
+            if (challengeId) {
+                // Default to ID fragment
+                accountInfo.account_number = challengeId.substring(0, 8);
+
+                const { data: challenge } = await supabase
+                    .from('challenges')
+                    .select('mt5_login, challenge_type')
+                    .eq('id', challengeId)
+                    .maybeSingle();
+
+                if (challenge) {
+                    accountInfo = {
+                        account_number: challenge.mt5_login || challengeId.substring(0, 8),
+                        type: challenge.challenge_type
+                    };
+                } else {
+                    console.log(`[Payout History] Challenge not found for ID: ${challengeId}`);
+                }
+            } else {
+                console.log(`[Payout History] No challenge_id in metadata for payout ${p.id}`, p.metadata);
+            }
+
+            return {
+                ...p,
+                ...accountInfo
+            };
+        }));
+
+        res.json({ payouts: payoutsWithAccount });
     } catch (error: any) {
         console.error('Payout history error:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -144,18 +206,38 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
     try {
         const user = req.user;
         const { amount, method, challenge_id } = req.body;
+        console.log(`[Payout Request] User: ${user?.id}, Amount: ${amount}, ChallengeID: ${challenge_id}`);
 
         if (!user) {
             res.status(401).json({ error: 'Not authenticated' });
             return;
         }
 
+        // 1. Fetch & Validate Wallet Address
+        const { data: wallet } = await supabase
+            .from('wallet_addresses')
+            .select('wallet_address')
+            .eq('user_id', user.id)
+            .eq('is_locked', true)
+            .maybeSingle();
+
+        if (!wallet || !wallet.wallet_address) {
+            return res.status(400).json({ error: 'No active/locked wallet address found. Please update your settings.' });
+        }
+
+        console.log(`[Payout Request] Using Wallet: ${wallet.wallet_address}`);
+
         // 2. Validate Available Balance (SECURITY FIX)
         // Re-calculate total profit across ALL funded accounts to be safe
-        const { data: accountsRaw } = await supabase
+        const { data: accountsRaw, error: accountsError } = await supabase
             .from('challenges')
             .select('*') // We need mt5_login etc for metadata so select all
             .eq('user_id', user.id);
+
+        if (accountsError) {
+            console.error('[Payout Request] Error fetching accounts:', accountsError);
+            throw accountsError;
+        }
 
         // Robust Filter matching balance endpoint
         const fundedAccounts = (accountsRaw || []).filter((acc: any) => {
@@ -166,11 +248,16 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
             return type.includes('instant') || type.includes('funded') || type.includes('master');
         });
 
+        console.log(`[Payout Request] Eligible Accounts: ${fundedAccounts.length}`);
+
         // Ensure target account exists in funded list if provided
         let targetAccount = null;
         if (challenge_id) {
             targetAccount = fundedAccounts.find((acc: any) => acc.id === challenge_id);
             if (!targetAccount) {
+                console.warn(`[Payout Request] Target account ${challenge_id} not found in eligible list.`);
+                // Log what WAS found for debugging
+                console.log(`[Payout Request] Available IDs: ${fundedAccounts.map((a: any) => a.id).join(', ')}`);
                 return res.status(400).json({ error: 'Invalid or ineligible account selected.' });
             }
         }
@@ -192,12 +279,19 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
             maxPayout = totalProfit * 0.8;
         }
 
+        console.log(`[Payout Request] Max Payout: ${maxPayout}`);
+
         // Check already requested amounts (Pending + Processed)
-        const { data: previousPayouts } = await supabase
+        const { data: previousPayouts, error: prevPayoutsError } = await supabase
             .from('payout_requests')
             .select('amount, status, metadata')
             .eq('user_id', user.id)
             .neq('status', 'rejected'); // Count all except rejected
+
+        if (prevPayoutsError) {
+            console.error('[Payout Request] Error fetching previous payouts:', prevPayoutsError);
+            throw prevPayoutsError;
+        }
 
         // If scoping to account, we must filter previous payouts for that account too
         let alreadyRequested = 0;
@@ -208,6 +302,8 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
         } else {
             alreadyRequested = previousPayouts?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
         }
+
+        console.log(`[Payout Request] Already Requested: ${alreadyRequested}`);
 
         const remainingPayout = maxPayout - alreadyRequested;
 
@@ -223,57 +319,94 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
 
         if (!account) {
             res.status(400).json({ error: 'No eligible funded account found.' });
-            return;
         }
+
+        console.log(`[Payout Request] Proceeding with account: ${account.id}, Account Type: ${account.account_type_id}`);
 
         // 2. Validate Consistency (INSTANT ACCOUNTS ONLY)
-        const { data: accountType } = await supabase
-            .from('account_types')
-            .select('mt5_group_name')
-            .eq('id', account.account_type_id)
-            .single();
+        let mt5Group = '';
+        let isInstant = false;
 
-        if (!accountType) {
-            res.status(500).json({ error: 'Account type configuration not found.' });
-            return;
+        if (account.account_type_id) {
+            const { data: accountType, error: acTypeError } = await supabase
+                .from('account_types')
+                .select('mt5_group_name')
+                .eq('id', account.account_type_id)
+                .maybeSingle();
+
+            if (acTypeError) {
+                console.error('[Payout Request] Account type fetch error:', acTypeError);
+            } else if (accountType) {
+                mt5Group = accountType.mt5_group_name || '';
+            }
+        } else {
+            console.warn(`[Payout Request] Account ${account.id} has NO account_type_id. Skipping strict group check.`);
         }
 
-        const mt5Group = accountType.mt5_group_name;
-        const isInstant = mt5Group.includes('\\0-') || mt5Group.toLowerCase().includes('instant');
+        console.log(`[Payout Request] Resolved MT5 Group: ${mt5Group} (from ID: ${account.account_type_id})`);
+
+        // Fallback: Check challenge_type if mt5Group logic didn't catch it
+        if (mt5Group) {
+            isInstant = mt5Group.includes('\\0-') || mt5Group.toLowerCase().includes('instant');
+        } else {
+            // Fallback to checking challenge_type string directly if we couldn't resolve group
+            const typeStr = (account.challenge_type || '').toLowerCase();
+            isInstant = typeStr.includes('instant');
+            console.log(`[Payout Request] Fallback Instant Check (from type '${typeStr}'): ${isInstant}`);
+        }
 
         if (isInstant) {
-            // Fetch risk rules for this MT5 group
-            const { data: config } = await supabase
-                .from('risk_rules_config')
-                .select('max_single_win_percent, consistency_enabled')
-                .eq('mt5_group_name', mt5Group)
-                .single();
+            console.log(`[Payout Request] Instant account detected. Checking consistency...`);
 
-            const maxWinPercent = config?.max_single_win_percent || 50;
-            const checkConsistency = config?.consistency_enabled !== false;
+            if (!mt5Group) {
+                console.warn('[Payout Request] Cannot check consistency rules - No MT5 Group resolved. Allowing request.');
+            } else {
+                // Fetch risk rules for this MT5 group
+                const { data: config, error: configError } = await supabase
+                    .from('risk_rules_config')
+                    .select('max_single_win_percent, consistency_enabled')
+                    .eq('mt5_group_name', mt5Group)
+                    .maybeSingle();
 
-            if (checkConsistency) {
-                // Fetch ALL winning trades for this account
-                const { data: trades } = await supabase
-                    .from('trades')
-                    .select('profit_loss, ticket_number')
-                    .eq('challenge_id', account.id)
-                    .gt('profit_loss', 0) // Winning trades only
-                    .gt('lots', 0); // Exclude deposits
+                if (configError) {
+                    console.warn('[Payout Request] Risk config fetch error (using defaults):', configError.message);
+                }
 
-                if (trades && trades.length > 0) {
-                    const totalProfit = trades.reduce((sum, t) => sum + Number(t.profit_loss), 0);
+                const maxWinPercent = config?.max_single_win_percent || 50;
+                const checkConsistency = config?.consistency_enabled !== false;
 
-                    // Check each trade
-                    for (const trade of trades) {
-                        const profit = Number(trade.profit_loss);
-                        const percent = (profit / totalProfit) * 100;
+                console.log(`[Payout Request] Max Win %: ${maxWinPercent}, Consistency Enabled: ${checkConsistency}`);
 
-                        if (percent > maxWinPercent) {
-                            res.status(400).json({
-                                error: `Consistency rule violation: Trade #${trade.ticket_number} represents ${percent.toFixed(1)}% of total profit (Max: ${maxWinPercent}%). Payout denied.`
-                            });
-                            return;
+                if (checkConsistency) {
+                    // Fetch ALL winning trades for this account
+                    const { data: trades, error: tradesError } = await supabase
+                        .from('trades')
+                        .select('profit_loss, ticket_number')
+                        .eq('challenge_id', account.id)
+                        .gt('profit_loss', 0) // Winning trades only
+                        .gt('lots', 0); // Exclude deposits
+
+                    if (tradesError) {
+                        console.error('[Payout Request] Trades fetch error:', tradesError);
+                        throw tradesError;
+                    }
+
+                    if (trades && trades.length > 0) {
+                        const totalProfit = trades.reduce((sum, t) => sum + Number(t.profit_loss), 0);
+                        console.log(`[Payout Request] Total Profit from trades: ${totalProfit}`);
+
+                        // Check each trade
+                        for (const trade of trades) {
+                            const profit = Number(trade.profit_loss);
+                            const percent = (profit / totalProfit) * 100;
+
+                            if (percent > maxWinPercent) {
+                                console.warn(`[Payout Request] Consistency violation. Trade ${trade.ticket_number}: ${percent}%`);
+                                res.status(400).json({
+                                    error: `Consistency rule violation: Trade #${trade.ticket_number} represents ${percent.toFixed(1)}% of total profit (Max: ${maxWinPercent}%). Payout denied.`
+                                });
+                                return;
+                            }
                         }
                     }
                 }
@@ -281,13 +414,15 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
         }
 
         // 3. Create Payout Request
+        console.log(`[Payout Request] Creating payout request record...`);
         const { error: insertError } = await supabase
             .from('payout_requests')
             .insert({
                 user_id: user.id,
                 amount: amount,
                 status: 'pending',
-                method: method || 'crypto',
+                payout_method: method || 'crypto',
+                wallet_address: wallet.wallet_address,
                 metadata: {
                     challenge_id: account.id,
                     request_date: new Date().toISOString()
@@ -295,13 +430,16 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
             });
 
         if (insertError) {
+            console.error('[Payout Request] Insert Error:', insertError);
             throw insertError;
         }
 
         res.json({ success: true, message: 'Payout request submitted successfully' });
 
     } catch (error: any) {
-        console.error('Payout request error:', error);
+        console.error('Payout request error FULL OBJECT:', error); // Log full error object
+        console.error('Payout request error MESSAGE:', error.message);
+        console.error('Payout request error STACK:', error.stack);
         res.status(500).json({ error: error.message || 'Internal server error' });
     }
 });

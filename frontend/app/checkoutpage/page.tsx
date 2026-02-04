@@ -117,7 +117,7 @@ function CheckoutContent() {
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentUrl, setPaymentUrl] = useState("");
     const [formData, setFormData] = useState({
-        firstName: "", lastName: "", email: "", country: "", phone: "", terms: false, password: "", referralCode: ""
+        firstName: "", lastName: "", email: "", country: "", phone: "", terms: false, referralCode: ""
     });
 
     // Dynamic Size Logic
@@ -229,7 +229,6 @@ function CheckoutContent() {
                     customerEmail: formData.email,
                     country: formData.country,
                     phone: formData.phone,
-                    password: formData.password,
                     referralCode: formData.referralCode,
                     coupon: appliedCoupon ? coupon : undefined
                 })
@@ -384,7 +383,8 @@ function CheckoutContent() {
                                     {couponError && <p className="text-xs text-red-500 mt-2">{couponError}</p>}
                                     {appliedCoupon && (
                                         <div className="flex items-center gap-2 text-xs text-green-600 mt-2 font-medium">
-                                            <Check size={12} /> Coupon Applied: -${discountAmount}
+                                            <Check size={12} /> Coupon ({appliedCoupon.coupon.code}) Applied: -${discountAmount}
+                                            {appliedCoupon.discount.type === 'percentage' && ` (${appliedCoupon.discount.value}% OFF)`}
                                         </div>
                                     )}
                                 </div>
@@ -414,7 +414,10 @@ function CheckoutContent() {
                                         </div>
                                         {appliedCoupon && (
                                             <div className="flex justify-between items-center text-green-600">
-                                                <span>Discount</span>
+                                                <span>
+                                                    Discount ({appliedCoupon.coupon.code})
+                                                    {appliedCoupon.discount.type === 'percentage' && ` - ${appliedCoupon.discount.value}%`}
+                                                </span>
                                                 <span className="font-mono">-${discountAmount}</span>
                                             </div>
                                         )}
@@ -491,15 +494,6 @@ function CheckoutContent() {
                                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                     className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
                                     placeholder="+1 234 567 8900"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700">Password</label>
-                                <input
-                                    type="password"
-                                    value={formData.password}
-                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                    className="w-full border border-slate-200 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
                                 />
                             </div>
                             <div className="space-y-2">

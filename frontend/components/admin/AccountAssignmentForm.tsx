@@ -11,8 +11,7 @@ const MT5_GROUPS = {
     "Prime Instant Funding": "demo\\S\\0-SF",
     "Prime 1-Step Challenge": "demo\\S\\1-SF",
     "Prime 2-Step Challenge": "demo\\S\\2-SF",
-    "Prime Funded Account": "demo\\S\\0-SF", // Reusing Prime Instant Group
-    "Lite Funded Account": "demo\\SF\\0-Pro", // Reusing Lite Instant Group
+    "Funded Live Account": "SF Funded Live",
     "Competition Account": "demo\\SF\\0-Demo\\comp",
 };
 

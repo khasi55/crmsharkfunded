@@ -266,26 +266,30 @@ export default function TradingObjectives() {
 
 
             <div className="grid gap-4">
-                <ObjectiveRow
-                    title={`Maximum Daily Loss (${rules.max_daily_loss_percent}%)`}
-                    timer={`Resets In: ${resetTimer}`}
-                    max={rules.max_daily_loss_amount}
-                    current={currentDailyLoss}
-                    threshold={(rules.start_of_day_equity || initialBalance) - rules.max_daily_loss_amount}
-                    status={getDailyLossStatus()}
-                    isLossLimit={true}
-                    remainingOverride={rules.daily_remaining}
-                />
+                {rules.max_daily_loss_percent > 0 && (
+                    <ObjectiveRow
+                        title={`Maximum Daily Loss (${rules.max_daily_loss_percent}%)`}
+                        timer={`Resets In: ${resetTimer}`}
+                        max={rules.max_daily_loss_amount}
+                        current={currentDailyLoss}
+                        threshold={(rules.start_of_day_equity || initialBalance) - rules.max_daily_loss_amount}
+                        status={getDailyLossStatus()}
+                        isLossLimit={true}
+                        remainingOverride={rules.daily_remaining}
+                    />
+                )}
 
-                <ObjectiveRow
-                    title={`Maximum Total Loss (${rules.max_total_loss_percent}%)`}
-                    max={rules.max_total_loss_amount}
-                    current={currentTotalLoss}
-                    threshold={initialBalance - rules.max_total_loss_amount}
-                    status={getTotalLossStatus()}
-                    isLossLimit={true}
-                    remainingOverride={rules.total_remaining}
-                />
+                {rules.max_total_loss_percent > 0 && (
+                    <ObjectiveRow
+                        title={`Maximum Total Loss (${rules.max_total_loss_percent}%)`}
+                        max={rules.max_total_loss_amount}
+                        current={currentTotalLoss}
+                        threshold={initialBalance - rules.max_total_loss_amount}
+                        status={getTotalLossStatus()}
+                        isLossLimit={true}
+                        remainingOverride={rules.total_remaining}
+                    />
+                )}
 
                 {rules.profit_target_amount > 0 && (
                     <ObjectiveRow

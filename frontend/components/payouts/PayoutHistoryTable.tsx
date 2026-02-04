@@ -9,6 +9,7 @@ interface PayoutRequest {
     amount: number;
     payout_method: string;
     status: string;
+    account_number?: string;
 }
 
 export default function PayoutHistoryTable({ requests = [] }: { requests?: PayoutRequest[] }) {
@@ -30,6 +31,7 @@ export default function PayoutHistoryTable({ requests = [] }: { requests?: Payou
                     <thead>
                         <tr className="border-b border-white/5 text-left">
                             <th className="py-4 px-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Date</th>
+                            <th className="py-4 px-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Account</th>
                             <th className="py-4 px-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Amount</th>
                             <th className="py-4 px-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Method</th>
                             <th className="py-4 px-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
@@ -40,7 +42,7 @@ export default function PayoutHistoryTable({ requests = [] }: { requests?: Payou
                     <tbody className="divide-y divide-white/5">
                         {requests.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="py-8 text-center text-gray-500 text-sm">
+                                <td colSpan={7} className="py-8 text-center text-gray-500 text-sm">
                                     No payout history found.
                                 </td>
                             </tr>
@@ -55,6 +57,9 @@ export default function PayoutHistoryTable({ requests = [] }: { requests?: Payou
                                 >
                                     <td className="py-4 px-4 text-gray-400 text-sm">
                                         {format(new Date(tx.created_at), "MMM dd, yyyy")}
+                                    </td>
+                                    <td className="py-4 px-4 text-white font-mono text-sm">
+                                        {tx.account_number || '-'}
                                     </td>
                                     <td className="py-4 px-4 text-white font-medium text-sm">
                                         ${Number(tx.amount).toFixed(2)}

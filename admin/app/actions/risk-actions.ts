@@ -49,6 +49,23 @@ export async function saveRiskGroup(group: any) {
     }
 }
 
+export async function deleteRiskGroup(id: string) {
+    await checkAuth();
+    try {
+        const res = await fetch(`${API_URL}/api/admin/risk/groups/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-admin-api-key': ADMIN_API_KEY
+            }
+        });
+        if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
+        return await res.json();
+    } catch (e: any) {
+        throw e;
+    }
+}
+
 // --- SERVER CONFIG ---
 export async function getServerConfig() {
     await checkAuth();

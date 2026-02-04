@@ -49,6 +49,26 @@ router.post('/groups', authenticate, async (req: any, res: any) => {
     }
 });
 
+router.delete('/groups/:id', authenticate, async (req: any, res: any) => {
+    const { id } = req.params;
+    console.log("🗑️ [Admin Risk] Deleting Group:", id);
+    try {
+        const { error } = await supabase
+            .from('mt5_risk_groups')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            console.error("❌ [Admin Risk] Delete Error:", error.message);
+            throw error;
+        }
+        console.log("✅ [Admin Risk] Deleted Group:", id);
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // --- SERVER CONFIG ---
 router.get('/server-config', authenticate, async (req: any, res: any) => {
     try {

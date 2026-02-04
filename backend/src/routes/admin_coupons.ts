@@ -64,6 +64,8 @@ router.post('/', async (req: Request, res: Response) => {
                 max_uses_per_user: max_uses_per_user || 1,
                 valid_from: valid_from || new Date().toISOString(),
                 valid_until,
+                affiliate_id: req.body.affiliate_id || null,
+                commission_rate: req.body.commission_rate || null,
                 is_active: is_active ?? true
             })
             .select()

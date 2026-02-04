@@ -6,30 +6,23 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
     try {
         const searchParams = request.nextUrl.searchParams;
-        const query = searchParams.get('q');
-
-        if (!query || query.length < 2) {
-            return NextResponse.json({ users: [] });
-        }
-
         const hasReferral = searchParams.get('hasReferral') === 'true';
+
         const supabase = createAdminClient();
 
-        // Search by email or full_name
-        let dbQuery = supabase
+        let query = supabase
             .from('profiles')
             .select('id, email, full_name, referral_code')
-            .or(`email.ilike.%${query}%,full_name.ilike.%${query}%`)
-            .limit(50);
+            .limit(100);
 
         if (hasReferral) {
-            dbQuery = dbQuery.not('referral_code', 'is', null);
+            query = query.not('referral_code', 'is', null);
         }
 
-        const { data: users, error } = await dbQuery;
+        const { data: users, error } = await query;
 
         if (error) {
-            console.error('Search error:', error);
+            console.error('Fetch users error:', error);
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 

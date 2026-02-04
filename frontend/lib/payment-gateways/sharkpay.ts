@@ -39,8 +39,8 @@ export class SharkPayGateway implements PaymentGateway {
 
         // Fallback to ENV
         return {
-            keyId: process.env.SHARKPAY_API_KEY || '',
-            keySecret: process.env.SHARKPAY_API_SECRET || '',
+            keyId: process.env.SHARKPAY_API_KEY || process.env.SHARK_PAYMENT_KEY_ID || '',
+            keySecret: process.env.SHARKPAY_API_SECRET || process.env.SHARK_PAYMENT_KEY_SECRET || '',
             webhookSecret: process.env.SHARKPAY_WEBHOOK_SECRET || '',
             environment: 'sandbox'
         };

@@ -229,13 +229,32 @@ export default function ChallengeConfigurator() {
     // State
     const [type, setType] = useState("2-step");
     const [model, setModel] = useState("standard");
+    const [dynamicPricing, setDynamicPricing] = useState<any>(null);
+
+    // Fetch dynamic pricing on mount
+    useEffect(() => {
+        const fetchPricing = async () => {
+            try {
+                const data = await fetchFromBackend('/api/config/pricing', { requireAuth: false });
+                if (data && Object.keys(data).length > 0) {
+                    setDynamicPricing(data);
+                }
+            } catch (error) {
+                console.warn('Failed to fetch dynamic pricing:', error);
+            }
+        };
+        fetchPricing();
+    }, []);
 
     // Dynamic available sizes based on current selection
     const availableSizes = (() => {
         const configKey = getConfigKey(type, model);
         if (!configKey) return [];
 
-        const sizesStr = Object.keys(pricingConfig[configKey]);
+        const sourceConfig = (dynamicPricing && dynamicPricing[configKey]) ? dynamicPricing : pricingConfig;
+        const config = sourceConfig[configKey as keyof typeof pricingConfig];
+
+        const sizesStr = Object.keys(config);
         // Convert "5K" -> 5000
         return sizesStr.map(s => {
             const num = parseInt(s.replace('K', ''));
@@ -282,7 +301,8 @@ export default function ChallengeConfigurator() {
         if (!configKey) return 0;
 
         const sizeKey = getSizeKey(size);
-        const config = pricingConfig[configKey] as any;
+        const sourceConfig = (dynamicPricing && dynamicPricing[configKey]) ? dynamicPricing : pricingConfig;
+        const config = sourceConfig[configKey as keyof typeof pricingConfig] as any;
         const sizeConfig = config[sizeKey];
 
         if (!sizeConfig) return 0;
@@ -296,7 +316,7 @@ export default function ChallengeConfigurator() {
 
     const discountAmount = appliedCoupon ? appliedCoupon.discount.amount : 0;
     const finalPriceUSD = Math.max(0, basePriceUSD - discountAmount);
-    const finalPriceINR = Math.round(finalPriceUSD * 84); // Simple fixed rate: 84
+    const finalPriceINR = Math.round(finalPriceUSD * 94); // Simple fixed rate: 94 (Synced with Gateway)
 
 
     const selectedGateway = PAYMENT_GATEWAYS.find(g => g.id === gateway);
@@ -349,14 +369,14 @@ export default function ChallengeConfigurator() {
             // Determine explicit MT5 group based on user request (Lite = demo\SF, Prime = demo\S)
             let mt5Group = '';
 
-            // Lite (Standard) Mappings
-            if (model === 'Prime') {
+            // Lite (Standard) Mappings - Matches Admin AccountAssignmentForm
+            if (model === 'standard') {
                 if (type === 'Instant') mt5Group = 'demo\\SF\\0-Pro';
                 else if (type === '1-step') mt5Group = 'demo\\SF\\1-SF';
                 else if (type === '2-step') mt5Group = 'demo\\SF\\2-SF';
             }
-            // Prime (Pro) Mappings
-            else if (model === 'Lite') {
+            // Prime (Pro) Mappings - Matches Admin AccountAssignmentForm
+            else if (model === 'pro') {
                 if (type === 'Instant') mt5Group = 'demo\\S\\0-SF';
                 else if (type === '1-step') mt5Group = 'demo\\S\\1-SF';
                 else if (type === '2-step') mt5Group = 'demo\\S\\2-SF';
@@ -421,7 +441,29 @@ export default function ChallengeConfigurator() {
                 {/* --- Left Column: Configuration --- */}
                 <div className="flex-1 space-y-10">
 
-                    {/* 1. Challenge Type */}
+                    {/* 1. Model */}
+                    <section>
+                        <SectionHeader title="Model" sub="Choose the trading model" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {MODELS.map(m => (
+                                <RadioPill
+                                    key={m.id}
+                                    active={model === m.id}
+                                    label={m.label}
+                                    subLabel={m.desc}
+                                    onClick={() => {
+                                        setModel(m.id);
+                                        // Auto-switch to 2-step if user selects Pro while on 1-step
+                                        if (m.id === 'pro' && type === '1-step') {
+                                            setType('2-step');
+                                        }
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    </section>
+
+                    {/* 2. Challenge Type */}
                     <section>
                         <SectionHeader title="Challenge Type" sub="Choose the type of challenge you want to take" />
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -441,28 +483,6 @@ export default function ChallengeConfigurator() {
                                     />
                                 );
                             })}
-                        </div>
-                    </section>
-
-                    {/* 2. Model */}
-                    <section>
-                        <SectionHeader title="Model" sub="Choose the trading model" />
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {MODELS.map(m => (
-                                <RadioPill
-                                    key={m.id}
-                                    active={model === m.id}
-                                    label={m.label}
-                                    subLabel={m.desc}
-                                    onClick={() => {
-                                        setModel(m.id);
-                                        // Auto-switch to 2-step if user selects Pro while on 1-step
-                                        if (m.id === 'pro' && type === '1-step') {
-                                            setType('2-step');
-                                        }
-                                    }}
-                                />
-                            ))}
                         </div>
                     </section>
 
@@ -576,7 +596,10 @@ export default function ChallengeConfigurator() {
                         {appliedCoupon && (
                             <div className="flex items-center gap-2 text-sm text-green-400 mt-1">
                                 <Check size={14} />
-                                <span>Coupon "{appliedCoupon.coupon.code}" applied!</span>
+                                <span>
+                                    Coupon "{appliedCoupon.coupon.code}" applied!
+                                    {appliedCoupon.discount.type === 'percentage' && ` (${appliedCoupon.discount.value}% OFF)`}
+                                </span>
                             </div>
                         )}
                     </div>
@@ -591,14 +614,17 @@ export default function ChallengeConfigurator() {
                             <div className="flex justify-between items-start text-sm">
                                 <span className="text-muted-foreground">${size.toLocaleString()} — {type === "1-step" ? "One Step" : type === "2-step" ? "Two Step" : "Instant"} {model === "standard" ? "Shark" : "Shark Pro"}</span>
                                 <div className="text-right">
-                                    <span className="font-bold font-mono">{displayCurrency === 'INR' ? '₹' : '$'}{(gateway === 'sharkpay' ? Math.round(basePriceUSD * 84) : basePriceUSD).toLocaleString()}</span>
+                                    <span className="font-bold font-mono">{displayCurrency === 'INR' ? '₹' : '$'}{(gateway === 'sharkpay' ? Math.round(basePriceUSD * 94) : basePriceUSD).toLocaleString()}</span>
                                 </div>
                             </div>
 
                             {appliedCoupon && (
                                 <div className="flex justify-between items-center text-sm">
-                                    <span className="text-green-400">Discount ({appliedCoupon.coupon.code})</span>
-                                    <span className="font-bold font-mono text-green-400">-{displayCurrency === 'INR' ? '₹' : '$'}{(gateway === 'sharkpay' ? Math.round(discountAmount * 84) : discountAmount).toLocaleString()}</span>
+                                    <span className="text-green-400">
+                                        Discount ({appliedCoupon.coupon.code})
+                                        {appliedCoupon.discount.type === 'percentage' && ` - ${appliedCoupon.discount.value}%`}
+                                    </span>
+                                    <span className="font-bold font-mono text-green-400">-{displayCurrency === 'INR' ? '₹' : '$'}{(gateway === 'sharkpay' ? Math.round(discountAmount * 94) : discountAmount).toLocaleString()}</span>
                                 </div>
                             )}
                             <div className="text-xs text-muted-foreground">

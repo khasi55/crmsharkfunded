@@ -145,7 +145,7 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -20 }}
-                        className="absolute inset-0 flex flex-col p-8 bg-[#050923] z-10"
+                        className="flex flex-col p-8 bg-[#050923] z-10"
                     >
                         <h2 className="text-xl font-bold text-white mb-6">Confirm Withdrawal</h2>
 
@@ -168,12 +168,12 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                                 <div className="h-px bg-white/10 my-2" />
                                 <div className="flex justify-between items-center pt-1">
                                     <span className="text-gray-300 text-sm font-medium uppercase tracking-wider">Total Receive</span>
-                                    <span className="text-shark-blue text-2xl font-bold tracking-tight">${parseFloat(amount).toFixed(2)}</span>
+                                    <span className="text-blue-400 text-2xl font-bold tracking-tight">${parseFloat(amount).toFixed(2)}</span>
                                 </div>
                             </div>
 
-                            <div className="bg-shark-blue/10 border border-shark-blue/30 rounded-xl p-4 shadow-inner">
-                                <span className="text-[10px] text-shark-blue uppercase font-black tracking-widest mb-2 block opacity-90">Destination Wallet</span>
+                            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 shadow-inner">
+                                <span className="text-[10px] text-blue-400 uppercase font-black tracking-widest mb-2 block opacity-90">Destination Wallet</span>
                                 <p className="text-xs text-gray-200 font-mono break-all leading-relaxed bg-black/20 p-2 rounded-lg border border-white/5">{walletAddress}</p>
                             </div>
                         </div>

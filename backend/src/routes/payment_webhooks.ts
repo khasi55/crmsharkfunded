@@ -255,35 +255,51 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
 
     log(`Processing commission for User ${userId}, Order ${orderId}, Amount ${amount}`);
 
-    // 1. Check if user was referred
+    // 1. Check if user was referred (Prioritize Affiliate Coupon if present in order)
     console.log(`🔍 Affiliate Check for User ${userId}...`);
-    const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('referred_by')
-        .eq('id', userId)
+
+    // Check order metadata first
+    const { data: orderData } = await supabase
+        .from('payment_orders')
+        .select('metadata')
+        .eq('order_id', orderId)
         .single();
 
-    if (profileError) {
-        log(`❌ Profile Error: ${profileError.message}`);
-        console.error('❌ Error fetching profile for affiliate check:', profileError);
-        return;
+    let referrerId = orderData?.metadata?.affiliate_id;
+
+    if (!referrerId) {
+        // Fallback to profile referral
+        const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('referred_by')
+            .eq('id', userId)
+            .single();
+
+        if (profileError) {
+            log(`❌ Profile Error: ${profileError.message}`);
+            console.error('❌ Error fetching profile for affiliate check:', profileError);
+            return;
+        }
+        referrerId = profile?.referred_by;
     }
 
-    if (!profile || !profile.referred_by) {
+    if (!referrerId) {
         log(`ℹ️ No referrer for user ${userId}`);
-        console.log(`ℹ️ Affiliate: User ${userId} has NO referrer (referred_by is null). Skipping.`);
+        console.log(`ℹ️ Affiliate: User ${userId} has NO referrer (referred_by is null and no affiliate coupon). Skipping.`);
         return;
     }
 
-    const referrerId = profile.referred_by;
     log(`✅ Referrer found: ${referrerId}`);
-    console.log(`   ✅ User referred by: ${referrerId}`);
+    console.log(`   ✅ Referral attributed to: ${referrerId}`);
 
-    // 2. Calculate Commission (7% Flat)
-    const commissionRate = 0.07;
+    // 2. Calculate Commission (Prioritize custom rate from coupon, fallback to 7% flat)
+    const commissionRate = orderData?.metadata?.commission_rate !== undefined && orderData?.metadata?.commission_rate !== null
+        ? Number(orderData.metadata.commission_rate) / 100
+        : 0.07;
+
     const commissionAmount = Number((amount * commissionRate).toFixed(2));
 
-    log(`💰 Commission: ${commissionAmount}`);
+    log(`💰 Commission Rate: ${commissionRate * 100}%, Amount: ${commissionAmount}`);
 
     console.log(`   💰 Amount: ${amount}, Rate: ${commissionRate}, Commission: ${commissionAmount}`);
 
@@ -304,7 +320,8 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
         metadata: {
             order_id: orderId,
             order_amount: amount,
-            rate: commissionRate
+            rate: commissionRate,
+            is_custom_rate: commissionRate !== 0.07
         }
     });
 

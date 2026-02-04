@@ -42,8 +42,13 @@ export class RulesService {
         let maxTotalLossPercent = 10;
 
         if (dbRule) {
-            maxDailyLossPercent = Number(dbRule.daily_drawdown_percent) || 5;
-            maxTotalLossPercent = Number(dbRule.max_drawdown_percent) || 10;
+            maxDailyLossPercent = (dbRule.daily_drawdown_percent !== undefined && dbRule.daily_drawdown_percent !== null)
+                ? Number(dbRule.daily_drawdown_percent)
+                : 5;
+
+            maxTotalLossPercent = (dbRule.max_drawdown_percent !== undefined && dbRule.max_drawdown_percent !== null)
+                ? Number(dbRule.max_drawdown_percent)
+                : 10;
         }
 
         // Determine Profit Target based on Challenge Type / Group Name
@@ -81,15 +86,11 @@ export class RulesService {
             profitTargetPercent = 8;
         }
 
-        // --- FUNDED ACCOUNT OVERRIDE ---
-        // If the account is explicitly "Funded" but shares an "Instant" group,
-        // we must override the database rules (which might be 8%/4% for Instant).
-        if (typeStr.includes('funded')) {
-            console.log(`[RulesService] Override for Funded Account (${normalizedGroup}): Enforcing 10% Max / 5% Daily`);
-            maxTotalLossPercent = 10;
-            maxDailyLossPercent = 5;
-            profitTargetPercent = 0; // Ensure 0 regardless of other logic
-        }
+        // --- FUNDED ACCOUNT OVERRIDE REMOVED ---
+        // We now rely purely on the DB configuration (dbRule) or the defaults (5/10) set above.
+        // If the user wants specific rules for Funded accounts, they must configure the risk group in Admin.
+
+        console.log(`[RulesService] Resolved Rules for '${normalizedGroup}': Max=${maxTotalLossPercent}%, Daily=${maxDailyLossPercent}%, Profit=${profitTargetPercent}% (Source: ${dbRule ? 'DB' : 'DEFAULTS'})`);
 
         return {
             max_daily_loss_percent: maxDailyLossPercent,

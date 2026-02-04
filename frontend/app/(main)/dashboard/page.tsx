@@ -19,9 +19,11 @@ import { useState, useEffect } from "react";
 import CredentialsModal from "@/components/dashboard/CredentialsModal";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { useToast } from "@/contexts/ToastContext";
 
 function DashboardContent() {
     const { selectedAccount, loading } = useAccount();
+    const { toast } = useToast();
     const [syncing, setSyncing] = useState(false);
     const [showCredentials, setShowCredentials] = useState(false);
 
@@ -202,9 +204,9 @@ function DashboardContent() {
                                                     user_id: selectedAccount.user_id
                                                 })
                                             });
-                                            alert('Synced trades successfully');
+                                            toast('Synced trades successfully', 'success');
                                         } catch (err) {
-                                            alert('Sync error');
+                                            toast('Sync error', 'error');
                                         } finally {
                                             setSyncing(false);
                                         }
@@ -266,18 +268,36 @@ function DashboardContent() {
                                             <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-white">
                                                 {getDetailedAccountName(selectedAccount)}
                                             </h2>
+
+                                            {/* Account Type Badge (Prime vs Lite) */}
+                                            {selectedAccount.group && (
+                                                <span className={cn(
+                                                    "px-2.5 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider",
+                                                    selectedAccount.group.includes('demo\\S\\') && !selectedAccount.group.includes('demo\\SF\\')
+                                                        ? "bg-purple-500/20 text-purple-400 border-purple-500/30" // Prime
+                                                        : "bg-blue-500/20 text-blue-400 border-blue-500/30" // Lite
+                                                )}>
+                                                    {selectedAccount.group.includes('demo\\S\\') && !selectedAccount.group.includes('demo\\SF\\') ? "PRIME" : "LITE"}
+                                                </span>
+                                            )}
+
+                                            {/* Phase Badge */}
+                                            <span className="px-2.5 py-0.5 rounded text-[10px] font-bold border border-white/10 bg-white/5 text-gray-300 uppercase tracking-wider">
+                                                {selectedAccount.account_type?.replace(/_/g, ' ').toUpperCase() || 'PHASE 1'}
+                                            </span>
+
                                             <span className={cn(
                                                 "px-2.5 py-0.5 rounded text-[10px] font-bold border uppercase",
                                                 selectedAccount.status?.toLowerCase() === 'failed'
                                                     ? "bg-red-500/20 text-red-400 border-red-500/20"
-                                                    : "bg-blue-500/20 text-blue-400 border-blue-500/20"
+                                                    : "bg-green-500/20 text-green-400 border-green-500/20"
                                             )}>
                                                 {formatStatus(selectedAccount.status)}
                                             </span>
                                         </div>
-                                        <p className="text-green-400 font-medium text-xs sm:text-sm flex items-center gap-2">
-                                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                                            #{selectedAccount.login}
+                                        <p className="text-gray-400 font-medium text-xs sm:text-sm flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                            ID: #{selectedAccount.login}
                                         </p>
                                     </div>
 

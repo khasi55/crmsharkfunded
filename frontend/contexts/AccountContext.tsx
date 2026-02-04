@@ -17,6 +17,8 @@ interface Account {
     equity: number;
     initial_balance: number;
     status: string;
+    group?: string;
+    metadata?: any;
 }
 
 interface AccountContextType {
@@ -93,6 +95,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                     equity: Number(challenge.current_equity),
                     initial_balance: Number(challenge.initial_balance),
                     status: challenge.status || 'active',
+                    group: challenge.group,
+                    metadata: challenge.metadata,
                 }));
 
                 // Optimize: Only update state if data actually changed

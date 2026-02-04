@@ -230,13 +230,15 @@ export async function POST(request: NextRequest) {
         // Determine account type name
         let accountTypeName = '';
         if (model === 'pro') {
-            if (type === 'instant') accountTypeName = 'Instant Funding Pro';
-            else if (type === '1-step') accountTypeName = '1 Step Pro';
-            else if (type === '2-step') accountTypeName = '2 Step Pro';
-        } else {
+            // Prime (Pro) Model -> Maps to 'Standard' names in DB (which have Prime groups \S\)
             if (type === 'instant') accountTypeName = 'Instant Funding';
             else if (type === '1-step') accountTypeName = '1 Step';
             else if (type === '2-step') accountTypeName = '2 Step';
+        } else {
+            // Lite (Standard) Model -> Maps to 'Pro' names in DB (which have Lite groups \SF\) ("Pro means Lite")
+            if (type === 'instant') accountTypeName = 'Instant Funding Pro';
+            else if (type === '1-step') accountTypeName = '1 Step Pro';
+            else if (type === '2-step') accountTypeName = '2 Step Pro';
         }
 
         // OPTIMIZATION: Fetch Profile and Account Type in Parallel to reduce cross-region latency
@@ -269,6 +271,7 @@ export async function POST(request: NextRequest) {
         // Validate and apply coupon discount
         let discountAmount = 0;
         let couponError = null;
+        let affiliateIdFromCoupon = null;
 
         if (coupon) {
             // FIX: Use direct DB query instead of RPC to ensure consistency with backend/routes/coupons.ts
@@ -291,6 +294,7 @@ export async function POST(request: NextRequest) {
                 if (basePrice < minPurchase) isValid = false;
 
                 if (isValid) {
+                    affiliateIdFromCoupon = couponData.affiliate_id;
                     if (couponData.discount_type === 'percentage') {
                         discountAmount = (basePrice * couponData.discount_value) / 100;
                         if (couponData.max_discount_amount) {
@@ -335,6 +339,8 @@ export async function POST(request: NextRequest) {
                     type,
                     leverage: accountType.leverage,
                     mt5_group: mt5Group || accountType.mt5_group_name,
+                    affiliate_id: affiliateIdFromCoupon || null,
+                    commission_rate: coupon ? (await dbClient.from('discount_coupons').select('commission_rate').eq('code', coupon.toUpperCase()).single()).data?.commission_rate : null
                 },
             })
             .select()
@@ -358,8 +364,8 @@ export async function POST(request: NextRequest) {
             orderId: order.order_id,
             amount: finalAmount, // USD amount - gateway converts if needed
             currency: 'USD', // Always pass USD
-            customerEmail: user.email || profile?.email || 'noemail@sharkfunded.com',
-            customerName: profile?.full_name || 'Trader',
+            customerEmail: customerEmail || user.email || profile?.email || 'noemail@sharkfunded.com',
+            customerName: customerName || profile?.full_name || 'Trader',
             metadata: {
                 account_type: accountTypeName,
                 account_size: size,

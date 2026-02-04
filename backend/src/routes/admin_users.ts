@@ -132,8 +132,14 @@ router.get('/search', checkAdminAuth, async (req, res) => {
 
         let dbQuery = supabaseAdmin
             .from('profiles')
-            .select('id, full_name, email')
-            .limit(50);
+            .select('id, full_name, email, referral_code')
+            .limit(100);
+
+        const hasReferral = req.query.hasReferral === 'true';
+
+        if (hasReferral) {
+            dbQuery = dbQuery.not('referral_code', 'is', null);
+        }
 
         if (query) {
             dbQuery = dbQuery.or(`full_name.ilike.%${query}%,email.ilike.%${query}%`);

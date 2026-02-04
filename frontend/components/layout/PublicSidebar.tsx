@@ -147,7 +147,7 @@ export default function PublicSidebar({ isOpen = true, onClose }: SidebarProps) 
                     </div>
 
                     {/* Auth Buttons */}
-                    {/* <div className="p-4 space-y-2 mt-auto">
+                    <div className="p-4 space-y-2 mt-auto">
                         <Link href="/login">
                             <div className={cn(
                                 "flex items-center justify-center w-full bg-white/5 hover:bg-white/10 text-white transition-all duration-300 border border-white/10",
@@ -166,7 +166,7 @@ export default function PublicSidebar({ isOpen = true, onClose }: SidebarProps) 
                                 {!isCollapsed && "Sign Up"}
                             </div>
                         </Link>
-                    </div> */}
+                    </div>
                 </div>
             </motion.aside>
         </>

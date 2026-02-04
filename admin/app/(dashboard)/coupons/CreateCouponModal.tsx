@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { X, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Loader2, User } from "lucide-react";
 
 interface CreateCouponModalProps {
     isOpen: boolean;
@@ -12,6 +12,11 @@ interface CreateCouponModalProps {
 export default function CreateCouponModal({ isOpen, onClose, onSuccess }: CreateCouponModalProps) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [affiliates, setAffiliates] = useState<any[]>([]);
+    const [fetchingAffiliates, setFetchingAffiliates] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [showResults, setShowResults] = useState(false);
+    const [selectedAffiliate, setSelectedAffiliate] = useState<any>(null);
 
     const [formData, setFormData] = useState({
         code: "",
@@ -23,8 +28,58 @@ export default function CreateCouponModal({ isOpen, onClose, onSuccess }: Create
         max_uses: "",
         max_uses_per_user: "1",
         valid_until: "",
+        affiliate_id: "",
+        commission_rate: "",
         is_active: true
     });
+
+    useEffect(() => {
+        if (isOpen) {
+            const timer = setTimeout(() => {
+                if (searchQuery.length >= 2) {
+                    fetchAffiliates(searchQuery);
+                } else if (searchQuery.length === 0) {
+                    fetchAffiliates();
+                }
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [searchQuery, isOpen]);
+
+    const fetchAffiliates = async (query?: string) => {
+        setFetchingAffiliates(true);
+        try {
+            // Fetch users who have referral codes (likely affiliates)
+            const url = query
+                ? `/api/admin/users/search?q=${encodeURIComponent(query)}&hasReferral=true`
+                : '/api/admin/users?hasReferral=true';
+
+            const response = await fetch(url);
+            if (response.ok) {
+                const data = await response.json();
+                setAffiliates(data.users || []);
+            }
+        } catch (err) {
+            console.error("Failed to fetch affiliates:", err);
+        } finally {
+            setFetchingAffiliates(false);
+            setShowResults(true);
+        }
+    };
+
+    const handleSelectAffiliate = (aff: any) => {
+        setSelectedAffiliate(aff);
+        setFormData(prev => ({ ...prev, affiliate_id: aff.id }));
+        setShowResults(false);
+        setSearchQuery("");
+    };
+
+    const clearSelectedAffiliate = () => {
+        setSelectedAffiliate(null);
+        setFormData(prev => ({ ...prev, affiliate_id: "" }));
+        setSearchQuery("");
+        fetchAffiliates();
+    };
 
     if (!isOpen) return null;
 
@@ -41,6 +96,8 @@ export default function CreateCouponModal({ isOpen, onClose, onSuccess }: Create
                 min_purchase_amount: parseFloat(formData.min_purchase_amount),
                 max_uses: formData.max_uses ? parseInt(formData.max_uses) : null,
                 max_uses_per_user: parseInt(formData.max_uses_per_user),
+                affiliate_id: formData.affiliate_id || null,
+                commission_rate: formData.commission_rate ? parseFloat(formData.commission_rate) : null,
                 // transform empty string valid_until to null
                 valid_until: formData.valid_until || null
             };
@@ -72,6 +129,8 @@ export default function CreateCouponModal({ isOpen, onClose, onSuccess }: Create
                 max_uses: "",
                 max_uses_per_user: "1",
                 valid_until: "",
+                affiliate_id: "",
+                commission_rate: "",
                 is_active: true
             });
 
@@ -88,7 +147,7 @@ export default function CreateCouponModal({ isOpen, onClose, onSuccess }: Create
             const checked = (e.target as HTMLInputElement).checked;
             setFormData(prev => ({ ...prev, [name]: checked }));
         } else {
-            setFormData(prev => ({ ...prev, [name]: value }));
+            setFormData(prev => ({ ...prev, [name]: value as any }));
         }
     };
 
@@ -245,6 +304,113 @@ export default function CreateCouponModal({ isOpen, onClose, onSuccess }: Create
                                     <span className="text-sm font-medium text-gray-700">Currently Active</span>
                                 </label>
                             </div>
+                        </div>
+                    </div>
+                    {/* affiliate link */}
+                    <div className="border-t border-gray-100 pt-4">
+                        <h4 className="text-sm font-medium text-gray-900 mb-4">Affiliate Attribution</h4>
+                        <div className="grid grid-cols-1 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                                    <User className="h-4 w-4" />
+                                    Search & Link Affiliate
+                                </label>
+
+                                <div className="space-y-2 relative">
+                                    {selectedAffiliate ? (
+                                        <div className="flex items-center justify-between p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
+                                                    <User className="h-4 w-4 text-indigo-600" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-semibold text-indigo-900">{selectedAffiliate.full_name}</p>
+                                                    <p className="text-xs text-indigo-600">{selectedAffiliate.email}</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={clearSelectedAffiliate}
+                                                className="p-1 hover:bg-indigo-100 rounded-full transition-colors"
+                                            >
+                                                <X className="h-4 w-4 text-indigo-600" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Type name or email to search..."
+                                                    className="block w-full rounded-lg border border-gray-300 px-3 py-2 pl-9 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                    value={searchQuery}
+                                                    onFocus={() => setShowResults(true)}
+                                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                                />
+                                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                    {fetchingAffiliates ? (
+                                                        <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
+                                                    ) : (
+                                                        <X className="h-4 w-4 text-gray-400 rotate-45" />
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {showResults && (searchQuery.length > 0 || affiliates.length > 0) && (
+                                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                                    {affiliates.length > 0 ? (
+                                                        affiliates.map((aff) => (
+                                                            <button
+                                                                key={aff.id}
+                                                                type="button"
+                                                                onClick={() => handleSelectAffiliate(aff)}
+                                                                className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center justify-between border-b border-gray-50 last:border-0"
+                                                            >
+                                                                <div>
+                                                                    <p className="text-sm font-medium text-gray-900">{aff.full_name}</p>
+                                                                    <p className="text-xs text-gray-500">{aff.email}</p>
+                                                                </div>
+                                                                <span className="text-[10px] font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                                                                    {aff.referral_code}
+                                                                </span>
+                                                            </button>
+                                                        ))
+                                                    ) : (
+                                                        <div className="p-4 text-center text-sm text-gray-500">
+                                                            No affiliates found
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                                <p className="mt-1 text-xs text-gray-500">
+                                    {selectedAffiliate ? "Affiliate linked successfully." : "Search and select an affiliate from the results."}
+                                </p>
+                            </div>
+
+                            {formData.affiliate_id && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Custom Commission Rate (%)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        name="commission_rate"
+                                        min="0"
+                                        max="100"
+                                        step="0.1"
+                                        value={formData.commission_rate}
+                                        onChange={handleChange}
+                                        placeholder="Defaults to 7% if empty"
+                                        className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        Override the global 7% commission for this specific coupon.
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </div>
 

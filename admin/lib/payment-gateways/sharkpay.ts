@@ -13,8 +13,8 @@ export class SharkPayGateway implements PaymentGateway {
     private apiUrl: string;
 
     constructor() {
-        this.keyId = process.env.SHARKPAY_API_KEY || '';
-        this.keySecret = process.env.SHARKPAY_API_SECRET || '';
+        this.keyId = process.env.SHARK_PAYMENT_KEY_ID || '';
+        this.keySecret = process.env.SHARK_PAYMENT_KEY_SECRET || '';
         this.apiUrl = process.env.SHARKPAY_API_URL || '';
     }
 
