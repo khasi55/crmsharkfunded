@@ -42,7 +42,7 @@ async function syncAccountTrades(data: { login: number, challenge_id: string, us
             user_id: user_id,
             symbol: t.symbol,
             type: t.type === 0 ? 'sell' : t.type === 1 ? 'buy' : 'balance', // Flipped based on user feedback
-            lots: t.volume / 100000, // Corrected from 10000 to 100000 for Standard Lots
+            lots: t.volume / 100, // Normalize raw MT5 integer volume (e.g. 4000 -> 40)
             open_price: t.price,
             close_price: t.close_price || null,
             profit_loss: t.profit,

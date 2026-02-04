@@ -32,7 +32,7 @@ export async function POST(req: Request) {
                 ticket,
                 symbol,
                 type,
-                lots,
+                lots: lots / 100, // Normalize raw MT5 volume (e.g. 4000 -> 40)
                 price,
                 profit,
                 equity_snapshot: equity,
