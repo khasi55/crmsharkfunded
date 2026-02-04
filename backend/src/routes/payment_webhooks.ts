@@ -134,11 +134,6 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         // ---------------------------------------------------------
         // AFFILIATE COMMISSION LOGIC
         // ---------------------------------------------------------
-        try {
-            await processAffiliateCommission(order.user_id, order.amount, order.order_id);
-        } catch (affError) {
-            console.error('⚠️ Failed to process affiliate commission:', affError);
-        }
         // ---------------------------------------------------------
 
         // Create MT5 account
