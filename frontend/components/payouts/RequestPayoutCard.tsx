@@ -9,6 +9,13 @@ export interface AccountOption {
     available: number;
     profit: number;
     type: string;
+    consistency?: {
+        enabled: boolean;
+        passed: boolean;
+        score: number;
+        maxAllowed: number;
+        details: string;
+    };
 }
 
 interface RequestPayoutCardProps {
@@ -228,6 +235,24 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                                             ))}
                                         </select>
                                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Consistency Check (New) */}
+                            {selectedAccountId && getSelectedAccount()?.consistency?.enabled && (
+                                <div className={`p-3 rounded-lg border flex items-start gap-3 ${getSelectedAccount()?.consistency?.passed ? 'bg-blue-500/10 border-blue-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
+                                    <div className={`p-1 rounded-full ${getSelectedAccount()?.consistency?.passed ? 'bg-blue-500/20 text-blue-400' : 'bg-red-500/20 text-red-400'}`}>
+                                        {getSelectedAccount()?.consistency?.passed ? <CheckCircle size={14} /> : <AlertTriangle size={14} />}
+                                    </div>
+                                    <div>
+                                        <p className={`text-xs font-bold ${getSelectedAccount()?.consistency?.passed ? 'text-blue-400' : 'text-red-400'}`}>
+                                            Consistency Score: {getSelectedAccount()?.consistency?.score.toFixed(1)}%
+                                        </p>
+                                        <p className="text-[10px] text-gray-400 mt-0.5">
+                                            Max allowed single trade profit: {getSelectedAccount()?.consistency?.maxAllowed}%.
+                                            {!getSelectedAccount()?.consistency?.passed && <span className="block mt-1 text-red-300 font-medium">Violation: {getSelectedAccount()?.consistency?.details}</span>}
+                                        </p>
                                     </div>
                                 </div>
                             )}

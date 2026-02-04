@@ -1,6 +1,7 @@
 import { Router, Response, Request } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
+import { RulesService } from '../services/rules-service';
 
 const router = Router();
 
@@ -87,7 +88,16 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
             };
         });
 
-        const availablePayout = eligibleAccountsDetail.reduce((sum: number, acc: any) => sum + acc.available, 0);
+        // Add Consistency Check for each account in accountList
+        const accountsWithConsistency = await Promise.all(eligibleAccountsDetail.map(async (acc: any) => {
+            const consistency = await RulesService.checkConsistency(acc.id);
+            return {
+                ...acc,
+                consistency
+            };
+        }));
+
+        const availablePayout = accountsWithConsistency.reduce((sum: number, acc: any) => sum + acc.available, 0);
         const profitTargetMet = availablePayout > 0;
 
         // Fetch payout history
@@ -114,7 +124,7 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
                 totalPaid,
                 pending,
             },
-            accountList: eligibleAccountsDetail,
+            accountList: accountsWithConsistency,
             walletAddress: wallet?.wallet_address || null,
             hasWallet: !!wallet,
             eligibility: {

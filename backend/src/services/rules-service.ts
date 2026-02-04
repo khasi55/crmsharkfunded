@@ -10,7 +10,7 @@ export interface RiskProfile {
 
 export class RulesService {
     private static GROUP_CACHE: Map<string, any> = new Map();
-    private static CACHE_TTL = 300000; // 5 minutes
+    private static CACHE_TTL = 30000; // 30 seconds (Reduced for more responsiveness)
     private static lastCacheUpdate = 0;
 
     /**
@@ -92,12 +92,16 @@ export class RulesService {
 
         console.log(`[RulesService] Resolved Rules for '${normalizedGroup}': Max=${maxTotalLossPercent}%, Daily=${maxDailyLossPercent}%, Profit=${profitTargetPercent}% (Source: ${dbRule ? 'DB' : 'DEFAULTS'})`);
 
-        return {
+        const rules = {
             max_daily_loss_percent: maxDailyLossPercent,
             max_total_loss_percent: maxTotalLossPercent,
             profit_target_percent: profitTargetPercent,
             challenge_type: challengeType
         };
+
+        console.log(`[RulesService] Resolved Rules for '${normalizedGroup}': Max=${maxTotalLossPercent}%, Daily=${maxDailyLossPercent}%, Profit=${profitTargetPercent}% (Source: \${dbRule ? 'DB' : 'DEFAULTS'})`);
+
+        return rules;
     }
 
     /**
@@ -118,9 +122,10 @@ export class RulesService {
             (data || []).forEach(group => {
                 const key = (group.group_name || '').replace(/\\\\/g, '\\').toLowerCase();
                 this.GROUP_CACHE.set(key, group);
+                console.log(`[RulesService] Cached Group Key: '${key}' (Raw: \${group.group_name})`);
             });
             this.lastCacheUpdate = Date.now();
-            console.log(` RulesService: Cached ${this.GROUP_CACHE.size} risk groups.`);
+            console.log(`RulesService: Cached ${this.GROUP_CACHE.size} risk groups.`);
         } catch (e) {
             console.error('RulesService cache refresh failed:', e);
         }
@@ -157,6 +162,85 @@ export class RulesService {
             profitTarget,
             rules,
             challenge
+        };
+    }
+
+    /**
+     * Check Consistency Rule (Max Single Trade Win %)
+     */
+    static async checkConsistency(challengeId: string) {
+        // 1. Fetch Challenge & Account Type/Group
+        const { data: challenge } = await supabase
+            .from('challenges')
+            .select('id, group, challenge_type, account_type_id, account_types(mt5_group_name)')
+            .eq('id', challengeId)
+            .single();
+
+        if (!challenge) return { enabled: false, passed: true, score: 0, maxAllowed: 0, details: 'Challenge not found' };
+
+        // 2. Resolve MT5 Group
+        const acType: any = challenge.account_types;
+        let mt5Group = (Array.isArray(acType) ? acType[0]?.mt5_group_name : acType?.mt5_group_name) || challenge.group || '';
+
+        // 3. Check if Rule Applies (Instant/Funded only usually)
+        const typeStr = (challenge.challenge_type || '').toLowerCase();
+        const isInstant = typeStr.includes('instant') || typeStr.includes('funded') || typeStr.includes('master');
+
+        if (!isInstant) {
+            return { enabled: false, passed: true, score: 0, maxAllowed: 0, details: 'Rule applies to Instant/Funded only' };
+        }
+
+        // 4. Fetch Config
+        const { data: config } = await supabase
+            .from('risk_rules_config')
+            .select('max_single_win_percent, consistency_enabled')
+            .eq('mt5_group_name', mt5Group)
+            .maybeSingle();
+
+        const enabled = config?.consistency_enabled !== false;
+
+        const maxWinPercent = config?.max_single_win_percent || 50;
+
+        if (!enabled) {
+            return { enabled: false, passed: true, score: 0, maxAllowed: maxWinPercent, details: 'Rule disabled' };
+        }
+
+        // 5. Calculate Score
+        const { data: trades } = await supabase
+            .from('trades')
+            .select('profit_loss, ticket_number')
+            .eq('challenge_id', challengeId)
+            .gt('profit_loss', 0)
+            .gt('lots', 0); // Exclude deposits
+
+        if (!trades || trades.length === 0) {
+            return { enabled: true, passed: true, score: 0, maxAllowed: maxWinPercent, details: 'No winning trades' };
+        }
+
+        const totalProfit = trades.reduce((sum, t) => sum + Number(t.profit_loss), 0);
+        let highestWinPercent = 0;
+        let violationTrade = null;
+
+        if (totalProfit > 0) {
+            for (const trade of trades) {
+                const profit = Number(trade.profit_loss);
+                const percent = (profit / totalProfit) * 100;
+                if (percent > highestWinPercent) {
+                    highestWinPercent = percent;
+                    if (percent > maxWinPercent) {
+                        violationTrade = trade;
+                    }
+                }
+            }
+        }
+
+        return {
+            enabled: true,
+            passed: highestWinPercent <= maxWinPercent,
+            score: highestWinPercent,
+            maxAllowed: maxWinPercent,
+            violationTrade,
+            details: violationTrade ? `Trade #${violationTrade.ticket_number} represents ${highestWinPercent.toFixed(1)}% of profit` : 'Passed'
         };
     }
 }

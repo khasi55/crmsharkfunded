@@ -162,6 +162,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         }
 
         // 3. Status Update (Atomic)
+        console.log(`💰 [Payment] Updating order ${internalOrderId} to paid...`);
         const { data: order, error: updateError } = await supabase
             .from('payment_orders')
             .update({
@@ -171,30 +172,43 @@ async function handlePaymentWebhook(req: Request, res: Response) {
                 paid_at: new Date().toISOString(),
             })
             .eq('order_id', internalOrderId)
-            .eq('status', 'pending')
+            // .eq('status', 'pending') // REMOVED: Allow processing even if already paid just in case
             .select('*, account_types(*)')
             .single();
 
         if (updateError) {
-            // Already processed
-            if (req.method === 'GET') {
-                return res.redirect(`${frontendUrl}/payment/success?orderId=${internalOrderId}`);
+            console.error(`❌ [Payment] Order update error for ${internalOrderId}:`, updateError.message);
+            // If it's just not found or something else, return
+            if (!updateError.message.includes('multiple rows')) {
+                if (req.method === 'GET') {
+                    return res.redirect(`${frontendUrl}/payment/success?orderId=${internalOrderId}`);
+                }
+                return res.json({ message: 'Order update failed or already handled' });
             }
-            return res.json({ message: 'Order already processed or not found' });
         }
+
+        const finalOrder = order;
+        if (!finalOrder) {
+            console.error(`❌ [Payment] Could not find order ${internalOrderId} after update attempt.`);
+            return res.status(404).json({ error: 'Order not found' });
+        }
+
+        console.log(`✅ [Payment] Order ${internalOrderId} is now PAID. Triggering commission check...`);
 
         // ---------------------------------------------------------
         // AFFILIATE COMMISSION LOGIC
         // ---------------------------------------------------------
         try {
-            await processAffiliateCommission(order.user_id, order.amount, order.order_id);
+            console.log(`📣 [Affiliate] Processing commission for Order: ${finalOrder.order_id}`);
+            await processAffiliateCommission(finalOrder.user_id, finalOrder.amount, finalOrder.order_id);
         } catch (affError) {
-            console.error('⚠️ Failed to process affiliate commission:', affError);
+            console.error('⚠️ [Affiliate] Failed to process affiliate commission:', affError);
         }
         // ---------------------------------------------------------
 
         // 4. Create MT5 Account via Bridge
-        const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', order.user_id).single();
+        console.log(`🏗️ [Payment] Creating MT5 account for user ${finalOrder.user_id}...`);
+        const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', finalOrder.user_id).single();
 
         const fullName = profile?.full_name || 'Trader';
         const email = profile?.email || 'noemail@sharkfunded.com';
@@ -336,8 +350,20 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
     };
 
     log(`🚀 START processAffiliateCommission: User ${userId}, Order ${orderId}, Amount ${amount}`);
+    console.log(`🚀 [Affiliate] START: User ${userId}, Order ${orderId}`);
 
-    // 1. Check if user was referred (Prioritize Affiliate Coupon if present in order)
+    // 0. Check if commission already exists for this order to avoid duplicates
+    const { data: existingComm } = await supabase
+        .from('affiliate_earnings')
+        .select('id')
+        .contains('metadata', { order_id: orderId })
+        .maybeSingle();
+
+    if (existingComm) {
+        log(`ℹ️ Commission already exists for order ${orderId}. Skipping duplicate.`);
+        console.log(`ℹ️ [Affiliate] Commission already exists for order ${orderId}. Skipping.`);
+        return;
+    }
     const { data: orderData } = await supabase
         .from('payment_orders')
         .select('metadata')
@@ -359,10 +385,12 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
 
     if (!referrerId) {
         log(`ℹ️ No referrer for user ${userId}`);
+        console.log(`ℹ️ [Affiliate] No referrer found for user ${userId}.`);
         return;
     }
 
     log(`✅ Referrer found: ${referrerId}`);
+    console.log(`✅ [Affiliate] Referrer found: ${referrerId}`);
 
     // 2. Calculate Commission (Prioritize custom rate from coupon, fallback to 7% flat)
     const commissionRate = orderData?.metadata?.commission_rate !== undefined && orderData?.metadata?.commission_rate !== null
@@ -371,6 +399,7 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
 
     const commissionAmount = Number((amount * commissionRate).toFixed(2));
     log(`💰 Commission Rate: ${commissionRate * 100}%, Amount: ${commissionAmount}`);
+    console.log(`💰 [Affiliate] Rate: ${commissionRate * 100}%, Amount: $${commissionAmount}`);
 
     if (commissionAmount <= 0) {
         log('⚠️ Commission amount is 0 or negative. Skipping.');
@@ -407,7 +436,9 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
 
     if (rpcError) {
         log(`⚠️ RPC Error: ${rpcError.message}`);
+        console.error(`❌ [Affiliate] RPC Error updating profile:`, rpcError.message);
     } else {
         log(`✅ RPC Success`);
+        console.log(`✅ [Affiliate] Successfully updated profile totals.`);
     }
 }
