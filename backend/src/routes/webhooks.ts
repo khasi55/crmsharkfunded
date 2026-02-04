@@ -329,35 +329,53 @@ export default router;
 
 async function processAffiliateCommission(userId: string, amount: number, orderId: string) {
     const logFile = '/tmp/debug_hooks.log';
-    const log = (msg: string) => fs.appendFileSync(logFile, `${new Date().toISOString()} - ${msg}\n`);
+    const log = (msg: string) => {
+        try {
+            fs.appendFileSync(logFile, `${new Date().toISOString()} - ${msg}\n`);
+        } catch (e) { }
+    };
 
     log(`🚀 START processAffiliateCommission: User ${userId}, Order ${orderId}, Amount ${amount}`);
 
-    // 1. Check if user was referred
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('referred_by')
-        .eq('id', userId)
+    // 1. Check if user was referred (Prioritize Affiliate Coupon if present in order)
+    const { data: orderData } = await supabase
+        .from('payment_orders')
+        .select('metadata')
+        .eq('order_id', orderId)
         .single();
 
-    if (!profile) {
-        log(`❌ Profile not found for ${userId}`);
-        return;
+    let referrerId = orderData?.metadata?.affiliate_id;
+
+    if (!referrerId) {
+        // Fallback to profile referral
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('referred_by')
+            .eq('id', userId)
+            .single();
+
+        referrerId = profile?.referred_by;
     }
-    if (!profile.referred_by) {
+
+    if (!referrerId) {
         log(`ℹ️ No referrer for user ${userId}`);
         return;
     }
 
-    const referrerId = profile.referred_by;
     log(`✅ Referrer found: ${referrerId}`);
 
-    // 2. Calculate Commission (7% Flat)
-    const commissionRate = 0.07;
-    const commissionAmount = Number((amount * commissionRate).toFixed(2));
-    log(`💰 Calculated Commission: ${commissionAmount}`);
+    // 2. Calculate Commission (Prioritize custom rate from coupon, fallback to 7% flat)
+    const commissionRate = orderData?.metadata?.commission_rate !== undefined && orderData?.metadata?.commission_rate !== null
+        ? Number(orderData.metadata.commission_rate) / 100
+        : 0.07;
 
-    if (commissionAmount <= 0) return;
+    const commissionAmount = Number((amount * commissionRate).toFixed(2));
+    log(`💰 Commission Rate: ${commissionRate * 100}%, Amount: ${commissionAmount}`);
+
+    if (commissionAmount <= 0) {
+        log('⚠️ Commission amount is 0 or negative. Skipping.');
+        return;
+    }
 
     // 3. Insert Earnings Record
     const { error, data: newRec } = await supabase.from('affiliate_earnings').insert({
@@ -369,7 +387,8 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
         metadata: {
             order_id: orderId,
             order_amount: amount,
-            rate: commissionRate
+            rate: commissionRate,
+            is_custom_rate: commissionRate !== 0.07
         }
     }).select().single();
 
