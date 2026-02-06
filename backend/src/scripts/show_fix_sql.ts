@@ -22,10 +22,10 @@ async function fixValidateCoupon() {
         await fetch(`${supabaseUrl}/rest/v1/rpc/exec`, {
             method: 'POST',
             headers: {
-                'apikey': supabaseKey,
+                'apikey': supabaseKey || '',
                 'Authorization': `Bearer ${supabaseKey}`,
                 'Content-Type': 'application/json'
-            },
+            } as Record<string, string>,
             body: JSON.stringify({ query: dropSQL })
         });
     } catch (e) {

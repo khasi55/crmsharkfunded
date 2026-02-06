@@ -20,7 +20,13 @@ async function runMigration() {
         'utf-8'
     );
 
-    const { data, error } = await supabase.rpc('exec_sql', { sql_query: sql }).catch(async () => {
+    let data, error;
+    try {
+        const response = await supabase.rpc('exec_sql', { sql_query: sql });
+        data = response.data;
+        error = response.error;
+    } catch (e) {
+        console.log('Falling back to manual execution...');
         // If exec_sql doesn't exist, try direct execution
         const statements = sql.split(';').filter(s => s.trim());
         for (const statement of statements) {
@@ -30,8 +36,9 @@ async function runMigration() {
                 console.error('Error:', result.error);
             }
         }
-        return { data: null, error: null };
-    });
+        data = null;
+        error = null;
+    }
 
     if (error) {
         console.error('❌ Migration failed:', error);
