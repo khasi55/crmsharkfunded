@@ -44,7 +44,11 @@ const verifyPaymentSecret = (req: Request): boolean => {
         return true;
     }
 
-    // 5. Check Query Param (Legacy/Redirects)
+    // 5. Check EPay (MID validation or generic secret)
+    const epayMid = req.body.mid;
+    if (epayMid && epayMid === process.env.EPAY_MID) return true;
+
+    // 6. Check Query Param (Legacy/Redirects)
     const querySecret = req.query.secret as string;
     if (querySecret === secret) return true;
 
@@ -78,8 +82,9 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         const body = req.body; // ONLY use body (POST), ignore query (GET)
         console.log('Payment webhook received (POST):', { body });
 
-        const internalOrderId = body.reference_id || body.reference || body.orderId || body.internalOrderId;
-        const status = body.status || body.event?.split('.')[1];
+        const internalOrderId = body.reference_id || body.reference || body.orderid || body.orderId || body.internalOrderId;
+        const status = body.status || body.transt || body.event?.split('.')[1];
+        const amount = body.amount || body.tranmt || body.receive_amount;
 
         if (!internalOrderId) {
             console.error('Missing order ID in webhook:', body);
@@ -91,15 +96,22 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             event_type: body.event || 'unknown',
             gateway: body.gateway || 'unknown',
             order_id: internalOrderId,
-            gateway_order_id: body.orderId || body.transaction_id,
-            amount: body.amount,
+            gateway_order_id: body.transactionid || body.transaction_id || body.orderId || body.orderid,
+            amount: amount,
             status: status || 'unknown',
             utr: body.utr,
             request_body: body,
         });
 
         // Check success
-        const isSuccess = status === 'success' || status === 'paid' || status === 'verified' || body.event === 'payment.success';
+        const statusLower = String(status || '').toLowerCase();
+        const isSuccess =
+            statusLower === 'success' ||
+            statusLower === 'paid' ||
+            statusLower === 'verified' ||
+            statusLower === 'purchased' ||
+            statusLower === 'payment accepted' ||
+            body.event === 'payment.success';
 
         if (!isSuccess) {
             console.log('Payment not successful:', status);
