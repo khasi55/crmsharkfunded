@@ -2,11 +2,14 @@ import { cn } from "@/lib/utils";
 
 export function StatusBadge({
     status,
+    upgradedTo,
     className,
 }: {
     status: string;
+    upgradedTo?: string;
     className?: string;
 }) {
+    const displayStatus = upgradedTo ? "disabled" : status;
     const getStyles = (status: string) => {
         switch (status.toLowerCase()) {
             case "approved":
@@ -32,14 +35,14 @@ export function StatusBadge({
         <span
             className={cn(
                 "inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-medium capitalize",
-                getStyles(status),
+                getStyles(displayStatus),
                 className
             )}
         >
             <span className={cn(
                 "mr-1.5 h-1.5 w-1.5 rounded-full bg-current"
             )} />
-            {status}
+            {displayStatus}
         </span>
     );
 }

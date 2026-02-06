@@ -2,7 +2,7 @@
 
 import { getAdminUser } from "@/utils/get-admin-user";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:3001';
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'secure_admin_key_123';
 
 async function checkAuth() {
@@ -14,7 +14,7 @@ async function checkAuth() {
 export async function getMerchantSettings() {
     await checkAuth();
     try {
-        const res = await fetch(`${API_URL}/api/admin/settings/merchant`, {
+        const res = await fetch(`${BACKEND_URL}/api/admin/settings/merchant`, {
             headers: { 'x-admin-api-key': ADMIN_API_KEY },
             cache: 'no-store'
         });
@@ -29,7 +29,7 @@ export async function getMerchantSettings() {
 export async function saveMerchantSetting(setting: any) {
     await checkAuth();
     try {
-        const res = await fetch(`${API_URL}/api/admin/settings/merchant`, {
+        const res = await fetch(`${BACKEND_URL}/api/admin/settings/merchant`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

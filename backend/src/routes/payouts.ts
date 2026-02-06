@@ -438,10 +438,28 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
                     request_date: new Date().toISOString()
                 }
             });
-
         if (insertError) {
             console.error('[Payout Request] Insert Error:', insertError);
             throw insertError;
+        }
+
+        // Notify Admins
+        try {
+            const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
+            const userName = profile?.full_name || 'User';
+
+            // Dynamic import to avoid top-level issues if any
+            const { NotificationService } = await import('../services/notification-service');
+
+            await NotificationService.createNotification(
+                'New Payout Request',
+                `${userName} requested a payout of $${amount} via ${method || 'crypto'}.`,
+                'payout',
+                user.id,
+                { payout_request_id: 'pending', amount, challenge_id: account.id }
+            );
+        } catch (notifError) {
+            console.error('Failed to send notification (non-blocking):', notifError);
         }
 
         res.json({ success: true, message: 'Payout request submitted successfully' });
@@ -472,7 +490,45 @@ router.get('/admin', async (req: Request, res: Response) => {
             throw error;
         }
 
-        res.json({ payouts: requests || [] });
+        // Fetch account details for each payout
+        const requestsWithAccount = await Promise.all((requests || []).map(async (req: any) => {
+            let accountInfo = null;
+            let challengeId = req.metadata?.challenge_id;
+
+            // Handle metadata as string edge case
+            if (typeof req.metadata === 'string') {
+                try {
+                    const parsed = JSON.parse(req.metadata);
+                    challengeId = parsed.challenge_id;
+                } catch (e) {
+                    console.log(`[Admin Payouts] Failed to parse metadata for ${req.id}:`, req.metadata);
+                }
+            }
+
+            if (challengeId) {
+                const { data: challenge } = await supabase
+                    .from('challenges')
+                    .select('login, investor_password, current_equity, current_balance')
+                    .eq('id', challengeId)
+                    .maybeSingle();
+
+                if (challenge) {
+                    accountInfo = {
+                        login: challenge.login,
+                        investor_password: challenge.investor_password,
+                        equity: challenge.current_equity,
+                        balance: challenge.current_balance
+                    };
+                }
+            }
+
+            return {
+                ...req,
+                account_info: accountInfo
+            };
+        }));
+
+        res.json({ payouts: requestsWithAccount });
     } catch (error: any) {
         console.error('Admin payouts error:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -505,15 +561,19 @@ router.get('/admin/:id', async (req: Request, res: Response) => {
         if (request.metadata && request.metadata.challenge_id) {
             const { data: challenge } = await supabase
                 .from('challenges')
-                .select('id, mt5_login, account_type_id, initial_balance, account_types(name, mt5_group_name)')
+                .select('id, login, investor_password, current_equity, current_balance, initial_balance, account_types(name, mt5_group_name)')
                 .eq('id', request.metadata.challenge_id)
                 .single();
 
             if (challenge) {
                 const accountType: any = challenge.account_types;
                 accountInfo = {
-                    mt5_login: challenge.mt5_login,
+                    login: challenge.login,
+                    investor_password: challenge.investor_password,
+                    equity: challenge.current_equity,
+                    balance: challenge.current_balance,
                     account_type: accountType?.name,
+                    group: accountType?.mt5_group_name,
                     account_size: challenge.initial_balance,
                 };
             }

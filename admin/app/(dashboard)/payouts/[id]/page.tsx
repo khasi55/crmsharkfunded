@@ -15,9 +15,13 @@ interface PayoutRequest {
     rejection_reason?: string;
     transaction_id?: string;
     account_info?: {
-        mt5_login: string;
+        login: string;
+        investor_password?: string;
+        equity?: number;
+        balance?: number;
         account_type: string;
         account_size: number;
+        group?: string;
     };
     profiles: {
         full_name: string;
@@ -35,6 +39,19 @@ export default function AdminPayoutDetailsPage() {
     const [error, setError] = useState<string | null>(null);
     const [processing, setProcessing] = useState(false);
     const [rejectionReason, setRejectionReason] = useState("");
+
+    // ... (useEffect remains same) ...
+
+    const formatCurrency = (val?: number) => {
+        if (val === undefined || val === null) return '-';
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+    };
+
+    const copyToClipboard = (text: string, label: string) => {
+        navigator.clipboard.writeText(text);
+        // We'll use a simple alert or just console if toast component isn't handy in this file,
+        // but let's assume standard behavior or just rely on clipboard API success
+    };
 
     useEffect(() => {
         if (!id) return;
@@ -61,6 +78,7 @@ export default function AdminPayoutDetailsPage() {
     }, [id]);
 
     async function handleApprove(e: React.FormEvent) {
+        // ... (same as before) ...
         e.preventDefault();
         if (!id) return;
 
@@ -80,7 +98,7 @@ export default function AdminPayoutDetailsPage() {
                 throw new Error(data.error || 'Failed to approve payout');
             }
 
-            router.push('/admin/payouts');
+            router.push('/payouts');
         } catch (err: any) {
             console.error('Error approving payout:', err);
             alert(`Error: ${err.message}`);
@@ -89,6 +107,7 @@ export default function AdminPayoutDetailsPage() {
     }
 
     async function handleReject(e: React.FormEvent) {
+        // ... (same as before) ...
         e.preventDefault();
         if (!id || !rejectionReason.trim()) {
             alert('Please provide a rejection reason');
@@ -111,7 +130,7 @@ export default function AdminPayoutDetailsPage() {
                 throw new Error(data.error || 'Failed to reject payout');
             }
 
-            router.push('/admin/payouts');
+            router.push('/payouts');
         } catch (err: any) {
             console.error('Error rejecting payout:', err);
             alert(`Error: ${err.message}`);
@@ -165,17 +184,63 @@ export default function AdminPayoutDetailsPage() {
 
                         {request.account_info && (
                             <div className="border-t pt-4 pb-2 space-y-3 border-gray-100">
-                                <div className="flex justify-between">
-                                    <dt className="text-gray-500">MT5 Account</dt>
-                                    <dd className="font-mono font-semibold text-gray-900">{request.account_info.mt5_login}</dd>
+                                <h3 className="font-semibold text-gray-900 mb-2">Account Information</h3>
+
+                                <div className="flex justify-between items-center group">
+                                    <dt className="text-gray-500">Login ID</dt>
+                                    <div className="flex items-center gap-2">
+                                        <dd className="font-mono font-semibold text-gray-900">{request.account_info.login}</dd>
+                                        <button
+                                            onClick={() => copyToClipboard(request.account_info!.login, 'Login ID')}
+                                            className="text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            title="Copy Login"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="flex justify-between">
-                                    <dt className="text-gray-500">Account Type</dt>
-                                    <dd className="font-medium text-gray-900">{request.account_info.account_type}</dd>
+
+                                <div className="flex justify-between items-center group">
+                                    <dt className="text-gray-500">Investor Password</dt>
+                                    <div className="flex items-center gap-2">
+                                        <dd className="font-mono bg-gray-50 px-2 py-0.5 rounded text-gray-700">
+                                            {request.account_info.investor_password || 'N/A'}
+                                        </dd>
+                                        {request.account_info.investor_password && (
+                                            <button
+                                                onClick={() => copyToClipboard(request.account_info!.investor_password!, 'Investor Password')}
+                                                className="text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                title="Copy Password"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
+
                                 <div className="flex justify-between">
-                                    <dt className="text-gray-500">Account Size</dt>
-                                    <dd className="font-medium text-gray-900">${request.account_info.account_size?.toLocaleString()}</dd>
+                                    <dt className="text-gray-500">Current Equity</dt>
+                                    <dd className="font-medium text-gray-900">{formatCurrency(request.account_info.equity)}</dd>
+                                </div>
+
+                                <div className="flex justify-between">
+                                    <dt className="text-gray-500">Current Balance</dt>
+                                    <dd className="font-medium text-gray-900">{formatCurrency(request.account_info.balance)}</dd>
+                                </div>
+
+                                <div className="pt-2 border-t border-dashed border-gray-100">
+                                    <div className="flex justify-between">
+                                        <dt className="text-gray-500 text-xs">Account Type</dt>
+                                        <dd className="text-xs text-gray-600">{request.account_info.account_type}</dd>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <dt className="text-gray-500 text-xs">Account Group</dt>
+                                        <dd className="text-xs text-gray-600 font-mono">{request.account_info.group || '-'}</dd>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <dt className="text-gray-500 text-xs">Initial Size</dt>
+                                        <dd className="text-xs text-gray-600">${request.account_info.account_size?.toLocaleString()}</dd>
+                                    </div>
                                 </div>
                             </div>
                         )}

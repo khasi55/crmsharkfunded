@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { createAdminClient } from "@/utils/supabase/admin";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:3001';
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'secure_admin_key_123';
 
 export async function executeAccountAction(login: number, action: 'disable' | 'stop-out' | 'enable') {

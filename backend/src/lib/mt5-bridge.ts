@@ -99,3 +99,26 @@ export async function fetchMT5History(login: number, fromTimestamp?: number) {
         return [];
     }
 }
+
+export async function disableMT5Account(login: number) {
+    const mt5ApiUrl = process.env.MT5_BRIDGE_URL || process.env.MT5_API_URL || 'https://bridge.sharkfunded.co';
+
+    const response = await fetch(`${mt5ApiUrl}/disable-account`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.MT5_API_KEY || ''
+        },
+        body: JSON.stringify({ login: Number(login) })
+    });
+
+    if (!response.ok) {
+        const errText = await response.text();
+        // If 404, we consider it already "disabled" or missing, which is fine for our cleanup
+        if (response.status !== 404) {
+            throw new Error(`Bridge error: ${errText}`);
+        }
+    }
+
+    return { success: true };
+}

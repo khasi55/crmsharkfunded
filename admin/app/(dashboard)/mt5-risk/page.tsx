@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import { Gauge, Server, Activity, Save, RefreshCw, Trash2 } from "lucide-react";
 import { getRiskGroups, saveRiskGroup, deleteRiskGroup, getServerConfig, saveServerConfig, getSystemLogs } from "@/app/actions/risk-actions";
+import ChallengeTypeRulesTab from "@/components/admin/ChallengeTypeRulesTab";
 
 export default function MT5RiskPage() {
-    const [activeTab, setActiveTab] = useState<"groups" | "config" | "logs">("groups");
+    const [activeTab, setActiveTab] = useState<"challenge_rules" | "groups" | "config" | "logs">("challenge_rules");
 
     return (
         <div className="p-6 space-y-6">
@@ -19,6 +20,16 @@ export default function MT5RiskPage() {
             {/* TABS */}
             <div className="flex gap-4 border-b border-gray-200">
                 <button
+                    onClick={() => setActiveTab("challenge_rules")}
+                    className={`pb-3 px-1 flex items-center gap-2 text-sm font-medium transition-colors ${activeTab === "challenge_rules"
+                        ? "text-blue-500 border-b-2 border-blue-500"
+                        : "text-gray-600 hover:text-gray-900"
+                        }`}
+                >
+                    <Gauge className="w-4 h-4" />
+                    Challenge Type Rules
+                </button>
+                <button
                     onClick={() => setActiveTab("groups")}
                     className={`pb-3 px-1 flex items-center gap-2 text-sm font-medium transition-colors ${activeTab === "groups"
                         ? "text-blue-500 border-b-2 border-blue-500"
@@ -26,7 +37,7 @@ export default function MT5RiskPage() {
                         }`}
                 >
                     <Gauge className="w-4 h-4" />
-                    Risk Groups
+                    MT5 Groups (Legacy)
                 </button>
                 <button
                     onClick={() => setActiveTab("config")}
@@ -52,6 +63,7 @@ export default function MT5RiskPage() {
 
             {/* CONTENT */}
             <div className="min-h-[400px]">
+                {activeTab === "challenge_rules" && <ChallengeTypeRulesTab />}
                 {activeTab === "groups" && <RiskGroupsTab />}
                 {activeTab === "config" && <ServerConfigTab />}
                 {activeTab === "logs" && <SystemLogsTab />}
@@ -103,7 +115,13 @@ function RiskGroupsTab() {
 
     // Helper to add new group local row
     const addRow = () => {
-        setGroups([...groups, { group_name: "demo\\NewGroup", max_drawdown_percent: 10, daily_drawdown_percent: 5, profit_target_percent: 8 }]);
+        setGroups([...groups, {
+            group_name: "demo\\NewGroup",
+            challenge_type: "Phase 1",
+            max_drawdown_percent: 10,
+            daily_drawdown_percent: 5,
+            profit_target_percent: 8
+        }]);
     };
 
     if (loading) return <div>Loading...</div>;
@@ -120,6 +138,7 @@ function RiskGroupsTab() {
                     <thead className="bg-white border border-gray-200 text-gray-900 uppercase">
                         <tr>
                             <th className="px-4 py-3">Group Name (MT5)</th>
+                            <th className="px-4 py-3">Challenge Type</th>
                             <th className="px-4 py-3">Max DD (%)</th>
                             <th className="px-4 py-3">Daily DD (%)</th>
                             <th className="px-4 py-3">Profit Target (%)</th>
@@ -139,6 +158,23 @@ function RiskGroupsTab() {
                                             setGroups(newG);
                                         }}
                                     />
+                                </td>
+                                <td className="px-4 py-2">
+                                    <select
+                                        className="bg-transparent border border-gray-200 rounded px-2 py-1 text-gray-900 w-32"
+                                        value={g.challenge_type || 'Phase 1'}
+                                        onChange={(e) => {
+                                            const newG = [...groups];
+                                            newG[idx].challenge_type = e.target.value;
+                                            setGroups(newG);
+                                        }}
+                                    >
+                                        <option value="Phase 1">Phase 1</option>
+                                        <option value="Phase 2">Phase 2</option>
+                                        <option value="funded">Funded</option>
+                                        <option value="instant">Instant</option>
+                                        <option value="competition">Competition</option>
+                                    </select>
                                 </td>
                                 <td className="px-4 py-2">
                                     <input

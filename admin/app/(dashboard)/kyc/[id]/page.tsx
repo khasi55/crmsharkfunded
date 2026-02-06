@@ -38,12 +38,20 @@ interface KYCSession {
     face_match_score?: number;
     liveness_score?: number;
 
+    // Manual Document Upload
+    manual_document_url?: string;
+    manual_document_type?: string;
+    rejection_reason?: string;
+    approved_by?: string;
+    approved_at?: string;
+
     profiles: {
         full_name: string;
         email: string;
     };
     raw_response?: Record<string, any>;
 }
+
 
 export default function AdminKYCDetailsPage() {
     const params = useParams();
@@ -305,7 +313,231 @@ export default function AdminKYCDetailsPage() {
                         </div>
                     </div>
 
+                    {/* Manual Document Upload & Actions */}
+                    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                        <h2 className="mb-4 text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Manual Actions</h2>
+
+                        {session.status === 'approved' || session.status === 'rejected' ? (
+                            <div className="text-sm text-gray-500 italic p-4 bg-gray-50 rounded border border-gray-100">
+                                <div className="font-medium text-gray-700 mb-2">This KYC has already been {session.status}.</div>
+                                {session.approved_at && <div className="mt-1">✓ Approved on: {new Date(session.approved_at).toLocaleString()}</div>}
+                                {session.rejection_reason && (
+                                    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-red-700">
+                                        <strong>Rejection Reason:</strong> {session.rejection_reason}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <ManualKYCActions sessionId={session.id} />
+                        )}
+                    </div>
+
+                    {/* Show Manual Document if Uploaded */}
+                    {session.manual_document_url && (
+                        <div className="rounded-xl border border-green-200 bg-green-50 p-6 shadow-sm">
+                            <h2 className="mb-4 text-lg font-semibold text-green-900 border-b border-green-200 pb-2">Manually Uploaded Document</h2>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-xs text-green-700 font-medium">Document Type</label>
+                                    <div className="capitalize">{session.manual_document_type || 'Unknown'}</div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-green-700 font-medium mb-2">Document Preview</label>
+                                    <div className="relative aspect-video rounded-lg overflow-hidden border-2 border-green-300">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={session.manual_document_url} alt="Manual KYC Document" className="object-contain w-full h-full bg-white" />
+                                    </div>
+                                    <a
+                                        href={session.manual_document_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="mt-2 inline-flex items-center text-sm text-green-700 hover:text-green-900 hover:underline font-medium"
+                                    >
+                                        View Original Document
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                 </div>
+            </div>
+        </div>
+    );
+}
+
+// Manual KYC Actions Component
+function ManualKYCActions({ sessionId }: { sessionId: string }) {
+    const router = useRouter();
+    const [uploading, setUploading] = useState(false);
+    const [processing, setProcessing] = useState(false);
+    const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string>('');
+    const [documentType, setDocumentType] = useState('passport');
+    const [rejectionReason, setRejectionReason] = useState('');
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setUploadedFile(file);
+            // Create preview
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPreviewUrl(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleApprove = async () => {
+        setProcessing(true);
+        try {
+            let documentUrl = '';
+
+            // Upload file if provided
+            if (uploadedFile) {
+                setUploading(true);
+                const formData = new FormData();
+                formData.append('file', uploadedFile);
+                formData.append('bucket', 'kyc-documents');
+                formData.append('path', `kyc/${sessionId}/${uploadedFile.name}`);
+
+                const uploadRes = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!uploadRes.ok) {
+                    throw new Error('Failed to upload document');
+                }
+
+                const uploadData = await uploadRes.json();
+                documentUrl = uploadData.url;
+                setUploading(false);
+            }
+
+            // Approve KYC
+            const response = await fetch(`/api/kyc/admin/${sessionId}/approve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    document_url: documentUrl,
+                    document_type: documentType
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to approve KYC');
+            }
+
+            alert('KYC approved successfully!');
+            router.push('/kyc');
+        } catch (error: any) {
+            alert(`Error: ${error.message}`);
+        } finally {
+            setProcessing(false);
+            setUploading(false);
+        }
+    };
+
+    const handleReject = async () => {
+        if (!rejectionReason.trim()) {
+            alert('Please provide a rejection reason');
+            return;
+        }
+
+        setProcessing(true);
+        try {
+            const response = await fetch(`/api/kyc/admin/${sessionId}/reject`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason: rejectionReason })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to reject KYC');
+            }
+
+            alert('KYC rejected');
+            router.push('/kyc');
+        } catch (error: any) {
+            alert(`Error: ${error.message}`);
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            {/* File Upload */}
+            <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700">Upload KYC Document (Optional)</label>
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <select
+                        value={documentType}
+                        onChange={(e) => setDocumentType(e.target.value)}
+                        className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                    >
+                        <option value="passport">Passport</option>
+                        <option value="drivers_license">Driver's License</option>
+                        <option value="national_id">National ID</option>
+                        <option value="utility_bill">Utility Bill</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={handleFileChange}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                </div>
+                {previewUrl && (
+                    <div className="mt-3">
+                        <label className="block text-xs text-gray-500 mb-2">Preview</label>
+                        <div className="relative aspect-video max-w-md rounded-lg overflow-hidden border-2 border-blue-200">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={previewUrl} alt="Preview" className="object-contain w-full h-full bg-gray-50" />
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Approve Button */}
+            <button
+                onClick={handleApprove}
+                disabled={processing || uploading}
+                className="w-full rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 px-4 py-3 font-semibold text-white shadow-md hover:from-green-700 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+                {uploading ? 'Uploading...' : processing ? 'Processing...' : '✓ Approve KYC'}
+            </button>
+
+            <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-gray-200" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-white px-2 text-gray-500">Or</span>
+                </div>
+            </div>
+
+            {/* Reject Section */}
+            <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700">Rejection Reason</label>
+                <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="Provide a detailed reason for rejecting this KYC request..."
+                    rows={4}
+                    className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+                    disabled={processing}
+                />
+                <button
+                    onClick={handleReject}
+                    disabled={processing || !rejectionReason.trim()}
+                    className="w-full rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-4 py-3 font-semibold text-white shadow-md hover:from-red-700 hover:to-rose-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                    {processing ? 'Processing...' : '✗ Reject KYC'}
+                </button>
             </div>
         </div>
     );

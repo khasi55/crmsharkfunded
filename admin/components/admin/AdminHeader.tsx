@@ -1,20 +1,36 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { Bell, Search, ChevronRight, Menu } from "lucide-react";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
+import { Search, ChevronRight, Menu } from "lucide-react";
+import { NotificationPopover } from "@/components/admin/NotificationPopover";
 
 interface AdminHeaderProps {
     onMenuClick?: () => void;
 }
 
 export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
+    const searchParams = useSearchParams();
+    const router = useRouter();
     const pathname = usePathname();
 
     // Generate breadcrumbs from pathname
     const segments = pathname.split('/').filter(Boolean).slice(1); // remove 'admin'
 
+    const handleSearch = (term: string) => {
+        const params = new URLSearchParams(searchParams);
+        if (term) {
+            params.set('query', term);
+        } else {
+            params.delete('query');
+        }
+        // Reset page when searching
+        params.set('page', '1');
+
+        router.replace(`${pathname}?${params.toString()}`);
+    };
+
     return (
-        <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 md:px-8">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200 bg-white/80 px-4 backdrop-blur-md md:px-8">
             <div className="flex items-center gap-4">
                 {/* Mobile Menu Button */}
                 <button
@@ -38,21 +54,21 @@ export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-4">
-                <div className="relative hidden w-80 md:block">
+            <div className="flex items-center gap-2 md:gap-4">
+                <div className="relative hidden w-64 md:block lg:w-80">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                     <input
                         type="text"
                         placeholder="Search..."
-                        className="h-9 w-full rounded-lg border border-gray-300 bg-white pl-10 pr-4 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                        defaultValue={searchParams.get('query')?.toString()}
+                        onChange={(e) => handleSearch(e.target.value)}
+                        className="h-9 w-full rounded-full border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
                     />
                 </div>
 
-                <div className="flex items-center gap-3 border-l border-gray-200 pl-4">
-                    <button className="relative rounded-lg p-2 text-gray-500 hover:bg-gray-50">
-                        <Bell className="h-5 w-5" />
-                        <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
-                    </button>
+                <div className="flex items-center gap-2 pl-2">
+                    <NotificationPopover />
+                    <div className="h-8 w-px bg-gray-200 mx-1 hidden sm:block" />
                 </div>
             </div>
         </header>

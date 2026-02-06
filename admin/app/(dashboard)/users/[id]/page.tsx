@@ -13,6 +13,7 @@ import {
     FileText,
     ExternalLink
 } from "lucide-react";
+import { EditUserButton } from "@/components/users/EditUserButton";
 
 export default async function AdminUserDetailsPage({
     params,
@@ -53,7 +54,12 @@ export default async function AdminUserDetailsPage({
                         <ArrowLeft className="h-4 w-4 mr-1" />
                         Back to Users
                     </Link>
-                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight">{profile.full_name}</h1>
+                    <div className="flex items-center justify-between">
+                        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">{profile.full_name}</h1>
+                        <div className="ml-4">
+                            <EditUserButton user={profile} />
+                        </div>
+                    </div>
                     <div className="flex flex-wrap items-center gap-3 mt-1">
                         <p className="text-sm text-gray-600 px-2.5 py-0.5 bg-gray-100 rounded-full">{profile.email}</p>
                         <span className="text-xs font-mono text-gray-400 font-medium tracking-tight">ID: {profile.id}</span>

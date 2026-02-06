@@ -86,10 +86,14 @@ export class AdvancedRiskEngine {
         // Check if trade opened quickly after loss with larger size
         const timeDiff = new Date(trade.open_time).getTime() - new Date(lastTrade.close_time!).getTime();
         if (timeDiff < 5 * 60 * 1000 && trade.lots > lastTrade.lots) {
+            // Convert lots to standard format (assuming stored as micro lots * 100)
+            const lastLots = lastTrade.lots >= 100 ? (lastTrade.lots / 100).toFixed(2) : lastTrade.lots;
+            const currentLots = trade.lots >= 100 ? (trade.lots / 100).toFixed(2) : trade.lots;
+
             return {
                 violation_type: 'martingale',
                 severity: 'warning', // Usually warning first
-                description: `Martingale Detected: Increased lots (${lastTrade.lots} -> ${trade.lots}) after loss.`,
+                description: `Martingale Detected: Increased lots (${lastLots} -> ${currentLots}) after loss.`,
                 trade_ticket: trade.ticket_number
             };
         }

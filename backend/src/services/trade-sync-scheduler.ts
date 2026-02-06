@@ -112,7 +112,7 @@ async function processBatch(challenges: any[], attempt = 1) {
                 user_id: challenge.user_id,
                 symbol: t.symbol,
                 type: t.type === 0 ? 'buy' : t.type === 1 ? 'sell' : 'balance',
-                lots: t.volume,
+                lots: t.volume / 100, // Normalize raw MT5 integer volume (e.g. 4000 -> 40)
                 open_price: t.price,
                 close_price: t.close_price || null,
                 profit_loss: t.profit,

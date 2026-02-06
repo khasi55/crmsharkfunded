@@ -9,7 +9,7 @@ import { fetchFromBackend } from "@/lib/backend-api";
 const supabase = createClient();
 
 const MT5_GROUPS = {
-    "Lite Instant Funding": "demo\\SF\\0-Pro",
+    "Lite Instant Funding": "demo\\SF\\0-SF",
     "Lite 1-Step Challenge": "demo\\SF\\1-SF",
     "Lite 2-Step Challenge": "demo\\SF\\2-SF",
     "Prime Instant Funding": "demo\\S\\0-SF",

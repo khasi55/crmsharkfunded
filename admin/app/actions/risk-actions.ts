@@ -2,7 +2,7 @@
 
 import { getAdminUser } from "@/utils/get-admin-user";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:3001';
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'secure_admin_key_123';
 
 // Helper to check authentication
@@ -18,7 +18,7 @@ async function checkAuth() {
 export async function getRiskGroups() {
     await checkAuth();
     try {
-        const res = await fetch(`${API_URL}/api/admin/risk/groups`, {
+        const res = await fetch(`${BACKEND_URL}/api/admin/risk/groups`, {
             headers: { 'x-admin-api-key': ADMIN_API_KEY },
             cache: 'no-store'
         });
@@ -33,7 +33,7 @@ export async function getRiskGroups() {
 export async function saveRiskGroup(group: any) {
     await checkAuth();
     try {
-        const res = await fetch(`${API_URL}/api/admin/risk/groups`, {
+        const res = await fetch(`${BACKEND_URL}/api/admin/risk/groups`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -52,7 +52,7 @@ export async function saveRiskGroup(group: any) {
 export async function deleteRiskGroup(id: string) {
     await checkAuth();
     try {
-        const res = await fetch(`${API_URL}/api/admin/risk/groups/${id}`, {
+        const res = await fetch(`${BACKEND_URL}/api/admin/risk/groups/${id}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
@@ -70,7 +70,7 @@ export async function deleteRiskGroup(id: string) {
 export async function getServerConfig() {
     await checkAuth();
     try {
-        const res = await fetch(`${API_URL}/api/admin/risk/server-config`, {
+        const res = await fetch(`${BACKEND_URL}/api/admin/risk/server-config`, {
             headers: { 'x-admin-api-key': ADMIN_API_KEY },
             cache: 'no-store'
         });
@@ -85,7 +85,7 @@ export async function getServerConfig() {
 export async function saveServerConfig(config: any) {
     await checkAuth();
     try {
-        const res = await fetch(`${API_URL}/api/admin/risk/server-config`, {
+        const res = await fetch(`${BACKEND_URL}/api/admin/risk/server-config`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -105,7 +105,7 @@ export async function saveServerConfig(config: any) {
 export async function getSystemLogs() {
     await checkAuth();
     try {
-        const res = await fetch(`${API_URL}/api/admin/risk/logs`, {
+        const res = await fetch(`${BACKEND_URL}/api/admin/risk/logs`, {
             headers: { 'x-admin-api-key': ADMIN_API_KEY },
             cache: 'no-store'
         });
@@ -116,3 +116,38 @@ export async function getSystemLogs() {
         return [];
     }
 }
+
+// --- CHALLENGE TYPE RULES ---
+export async function getChallengeTypeRules() {
+    await checkAuth();
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/admin/risk/challenge-type-rules`, {
+            headers: { 'x-admin-api-key': ADMIN_API_KEY },
+            cache: 'no-store'
+        });
+        if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
+        return await res.json();
+    } catch (e: any) {
+        console.error("getChallengeTypeRules error:", e);
+        return [];
+    }
+}
+
+export async function saveChallengeTypeRule(rule: any) {
+    await checkAuth();
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/admin/risk/challenge-type-rules`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-admin-api-key': ADMIN_API_KEY
+            },
+            body: JSON.stringify(rule)
+        });
+        if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
+        return await res.json();
+    } catch (e: any) {
+        throw e;
+    }
+}
+

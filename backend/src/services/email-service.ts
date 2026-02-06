@@ -111,6 +111,33 @@ export class EmailService {
     }
 
     /**
+     * Send Pass Notification
+     */
+    static async sendPassNotification(email: string, name: string, login: string, phase: string) {
+        const subject = `Congratulations! You've Passed Your ${phase} Challenge - Account ${login}`;
+
+        const html = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #d4edda; border-radius: 10px;">
+                <h2 style="color: #155724;">Congratulations, ${name}!</h2>
+                <p>We are excited to inform you that your trading account <strong>${login}</strong> has successfully reached its profit target for the <strong>${phase}</strong>.</p>
+                
+                <div style="background-color: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
+                    <p><strong>Status:</strong> PASSED ✅</p>
+                    <p><strong>Next Steps:</strong> Our team will now review your account. Once verified, we will upgrade you to the next phase or funded stage.</p>
+                </div>
+
+                <p>You will receive your new credentials shortly via email if your challenge requires a new account creation.</p>
+                <p>Thank you for trading with SharkFunded!</p>
+            </div>
+        `;
+
+        const text = `Congratulations ${name}!\\n\\nYour account ${login} has passed the ${phase}.\\n\\nOur team will review and upgrade your account shortly. Thank you for trading with SharkFunded!`;
+
+        await this.sendEmail(email, subject, html, text);
+    }
+
+
+    /**
      * Send Competition Joined Confirmation
      */
     static async sendCompetitionJoined(email: string, name: string, competitionTitle: string) {

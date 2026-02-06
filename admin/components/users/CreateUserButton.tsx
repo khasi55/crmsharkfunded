@@ -12,6 +12,7 @@ export function CreateUserButton() {
         password: '',
         full_name: '',
         country: '',
+        phone: '',
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -40,7 +41,7 @@ export function CreateUserButton() {
 
             toast.success('User created successfully');
             setIsOpen(false);
-            setFormData({ email: '', password: '', full_name: '', country: '' });
+            setFormData({ email: '', password: '', full_name: '', country: '', phone: '' });
             // Ideally trigger refresh, but simple button for now
             window.location.reload();
 
@@ -116,6 +117,17 @@ export function CreateUserButton() {
                                     name="country"
                                     className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                     value={formData.country}
+                                    onChange={handleChange}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+                                <input
+                                    type="tel"
+                                    name="phone"
+                                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                    value={formData.phone}
                                     onChange={handleChange}
                                 />
                             </div>

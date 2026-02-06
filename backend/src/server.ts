@@ -92,9 +92,11 @@ import adminPaymentRouter from './routes/admin_payments';
 import adminHealthRouter from './routes/admin_health';
 import adminUsersRouter from './routes/admin_users';
 import adminEmailRouter from './routes/admin_email';
+import adminNotificationsRouter from './routes/admin_notifications';
 import emailRouter from './routes/email';
 import eventRouter from './routes/event';
 import publicConfigRouter from './routes/public_config';
+import adminRouter from './routes/admin';
 
 app.use('/api/overview', overviewRouter);
 app.use('/api/config', publicConfigRouter);
@@ -102,6 +104,7 @@ app.use('/api/admin/users', adminUsersRouter); // Register Admin Users Route
 app.use('/api/admin/settings', adminSettingsRouter); // Register Settings Route
 app.use('/api/admin/payments', adminPaymentRouter); // Register Payments Route
 app.use('/api/admin/email', adminEmailRouter); // Register Admin Email Route
+app.use('/api/admin/notifications', adminNotificationsRouter); // Register Notifications Route
 
 app.use('/api/admin/health', adminHealthRouter); // Register Health Route
 app.use('/api/payouts', payoutsRouter);
@@ -122,6 +125,7 @@ app.use('/api/objectives', objectivesRouter);
 app.use('/api/ranking', rankingRouter);
 app.use('/api/email', emailRouter);
 app.use('/api/event', eventRouter);
+app.use('/api/admin', adminRouter); // Register Admin Upgrade Route
 
 
 app.get('/health', (req, res) => {

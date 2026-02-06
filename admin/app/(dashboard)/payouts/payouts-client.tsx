@@ -2,8 +2,9 @@
 
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Copy, Eye, EyeOff } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 interface PayoutRequest {
     id: string;
@@ -14,6 +15,12 @@ interface PayoutRequest {
     profiles: {
         full_name: string;
         email: string;
+    };
+    account_info?: {
+        login: string;
+        investor_password?: string;
+        equity?: number;
+        balance?: number;
     };
 }
 
@@ -43,6 +50,16 @@ export default function AdminPayoutsClient() {
 
         fetchPayouts();
     }, []);
+
+    const copyToClipboard = (text: string, label: string) => {
+        navigator.clipboard.writeText(text);
+        toast.success(`${label} copied to clipboard`);
+    };
+
+    const formatCurrency = (val?: number) => {
+        if (val === undefined || val === null) return '-';
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+    };
 
     if (loading) {
         return (
@@ -76,10 +93,13 @@ export default function AdminPayoutsClient() {
                         <thead className="bg-slate-50 text-slate-500">
                             <tr>
                                 <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">User</th>
+                                <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Account</th>
+                                <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Metrics</th>
+                                <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Inv. Password</th>
                                 <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Amount</th>
                                 <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Method</th>
                                 <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Status</th>
-                                <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Requested Date</th>
+                                <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Date</th>
                                 <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs text-right">Actions</th>
                             </tr>
                         </thead>
@@ -92,12 +112,67 @@ export default function AdminPayoutsClient() {
                                         </div>
                                         <div className="text-xs text-slate-500">{req.profiles?.email}</div>
                                     </td>
+
+                                    {/* Account ID */}
+                                    <td className="px-6 py-4">
+                                        {req.account_info?.login ? (
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-mono text-slate-700">{req.account_info.login}</span>
+                                                <button
+                                                    onClick={() => copyToClipboard(req.account_info!.login, 'Login ID')}
+                                                    className="text-slate-400 hover:text-slate-600"
+                                                >
+                                                    <Copy size={12} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <span className="text-slate-400 italic">N/A</span>
+                                        )}
+                                    </td>
+
+                                    {/* Metrics (Equity / Balance) */}
+                                    <td className="px-6 py-4">
+                                        {req.account_info ? (
+                                            <div className="flex flex-col text-xs">
+                                                <div className="flex justify-between gap-2">
+                                                    <span className="text-slate-500">Eq:</span>
+                                                    <span className="font-medium text-slate-900">{formatCurrency(req.account_info.equity)}</span>
+                                                </div>
+                                                <div className="flex justify-between gap-2">
+                                                    <span className="text-slate-500">Bal:</span>
+                                                    <span className="text-slate-700">{formatCurrency(req.account_info.balance)}</span>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <span className="text-slate-400">-</span>
+                                        )}
+                                    </td>
+
+                                    {/* Investor Password */}
+                                    <td className="px-6 py-4">
+                                        {req.account_info?.investor_password ? (
+                                            <div className="flex items-center gap-2 group/pass">
+                                                <code className="bg-slate-100 px-1.5 py-0.5 rounded text-xs text-slate-600 font-mono">
+                                                    {req.account_info.investor_password}
+                                                </code>
+                                                <button
+                                                    onClick={() => copyToClipboard(req.account_info!.investor_password!, 'Investor Password')}
+                                                    className="opacity-0 group-hover/pass:opacity-100 text-slate-400 hover:text-slate-600 transition-opacity"
+                                                >
+                                                    <Copy size={12} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <span className="text-slate-400 italic text-xs">Not found</span>
+                                        )}
+                                    </td>
+
                                     <td className="px-6 py-4 font-medium text-slate-900">${req.amount}</td>
                                     <td className="px-6 py-4 capitalize text-slate-600">{req.payout_method}</td>
                                     <td className="px-6 py-4">
                                         <StatusBadge status={req.status} />
                                     </td>
-                                    <td className="px-6 py-4 text-slate-500">
+                                    <td className="px-6 py-4 text-slate-500 text-xs">
                                         {new Date(req.created_at).toLocaleDateString()}
                                     </td>
                                     <td className="px-6 py-4 text-right">
@@ -113,7 +188,7 @@ export default function AdminPayoutsClient() {
                             ))}
                             {requests?.length === 0 && (
                                 <tr key="no-requests">
-                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                                    <td colSpan={9} className="px-6 py-12 text-center text-slate-500">
                                         No payout requests found
                                     </td>
                                 </tr>

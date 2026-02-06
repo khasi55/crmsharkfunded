@@ -204,35 +204,116 @@ router.post('/update-status', async (req: Request, res: Response) => {
             // Priority: id_document (direct) -> id_verifications[0] (decision) -> root
         };
 
-        const idVerification = fullData.id_verifications?.[0] || {};
-        const extractedData = fullData.id_document?.extracted_data || {};
 
-        // Identity Mapping
-        updateData.first_name = extractedData.first_name || idVerification.first_name || fullData.first_name || fullData.firstName;
-        updateData.last_name = extractedData.last_name || idVerification.last_name || fullData.last_name || fullData.lastName;
-        updateData.date_of_birth = extractedData.date_of_birth || idVerification.date_of_birth || fullData.date_of_birth || fullData.dateOfBirth;
-        updateData.nationality = fullData.nationality || extractedData.issuing_country || idVerification.nationality;
+        const idVerification = fullData.id_verifications?.[0] || fullData.decision?.id_verification || {};
+        const extractedData = fullData.id_document?.extracted_data || fullData.decision?.id_verification?.extracted_data || {};
+        const decision = fullData.decision || {};
+        const liveness = decision.liveness || fullData.liveness || {};
+        const faceMatch = decision.face_match || fullData.face_match || {};
+
+        // Identity Mapping - check decision paths first
+        updateData.first_name = extractedData.first_name ||
+            decision.first_name ||
+            idVerification.first_name ||
+            fullData.first_name ||
+            fullData.firstName;
+
+        updateData.last_name = extractedData.last_name ||
+            decision.last_name ||
+            idVerification.last_name ||
+            fullData.last_name ||
+            fullData.lastName;
+
+        updateData.date_of_birth = extractedData.date_of_birth ||
+            decision.date_of_birth ||
+            idVerification.date_of_birth ||
+            fullData.date_of_birth ||
+            fullData.dateOfBirth;
+
+        updateData.nationality = decision.nationality ||
+            fullData.nationality ||
+            extractedData.issuing_country ||
+            idVerification.nationality;
 
         // Document Mapping
-        updateData.document_type = extractedData.document_type || idVerification.document_type || fullData.document_type || fullData.documentType;
-        updateData.document_number = extractedData.document_number || idVerification.document_number || fullData.document_number || fullData.documentNumber;
-        updateData.document_country = extractedData.issuing_country || idVerification.issuing_country || idVerification.issuing_state || fullData.document_country || fullData.documentCountry;
+        updateData.document_type = extractedData.document_type ||
+            decision.document_type ||
+            idVerification.document_type ||
+            fullData.document_type ||
+            fullData.documentType;
+
+        updateData.document_number = extractedData.document_number ||
+            decision.document_number ||
+            idVerification.document_number ||
+            fullData.document_number ||
+            fullData.documentNumber;
+
+        updateData.document_country = extractedData.issuing_country ||
+            decision.issuing_country ||
+            idVerification.issuing_country ||
+            idVerification.issuing_state ||
+            fullData.document_country ||
+            fullData.documentCountry;
 
         // Address Mapping (Prefer POA -> ID Verification Address -> Parsed Address)
-        const poaData = fullData.poa?.extracted_data || {};
-        const parsedAddress = idVerification.parsed_address || {};
+        const poaData = fullData.poa?.extracted_data || decision.poa?.extracted_data || {};
+        const parsedAddress = idVerification.parsed_address || decision.address || {};
 
-        updateData.address_line1 = poaData.address_line_1 || idVerification.address || parsedAddress.street_1 || fullData.address_line1 || fullData.addressLine1 || fullData.address;
-        updateData.address_line2 = poaData.address_line_2 || parsedAddress.street_2 || fullData.address_line2 || fullData.addressLine2;
-        updateData.city = poaData.city || parsedAddress.city || fullData.city;
-        updateData.state = poaData.state || parsedAddress.region || idVerification.issuing_state || fullData.state || fullData.province;
-        updateData.postal_code = poaData.zip_code || parsedAddress.postal_code || fullData.postal_code || fullData.postalCode;
-        updateData.country = extractedData.issuing_country || idVerification.issuing_country || parsedAddress.country || updateData.document_country || fullData.country;
+        updateData.address_line1 = poaData.address_line_1 ||
+            parsedAddress.address_line_1 ||
+            idVerification.address ||
+            parsedAddress.street_1 ||
+            fullData.address_line1 ||
+            fullData.addressLine1 ||
+            fullData.address;
 
-        // Risk/Biometric Data
-        updateData.aml_status = fullData.aml_status || fullData.amlStatus || (fullData.aml_screenings?.[0]?.status);
-        updateData.face_match_score = fullData.face_match?.score || fullData.face_match_score || fullData.faceMatchScore || (fullData.face_matches?.[0]?.face_match_score);
-        updateData.liveness_score = fullData.liveness_score || fullData.livenessScore || (fullData.liveness_checks?.[0]?.liveness_score);
+        updateData.address_line2 = poaData.address_line_2 ||
+            parsedAddress.address_line_2 ||
+            parsedAddress.street_2 ||
+            fullData.address_line2 ||
+            fullData.addressLine2;
+
+        updateData.city = poaData.city ||
+            parsedAddress.city ||
+            fullData.city;
+
+        updateData.state = poaData.state ||
+            parsedAddress.region ||
+            parsedAddress.state ||
+            idVerification.issuing_state ||
+            fullData.state ||
+            fullData.province;
+
+        updateData.postal_code = poaData.zip_code ||
+            parsedAddress.postal_code ||
+            parsedAddress.zip_code ||
+            fullData.postal_code ||
+            fullData.postalCode;
+
+        updateData.country = extractedData.issuing_country ||
+            parsedAddress.country ||
+            idVerification.issuing_country ||
+            updateData.document_country ||
+            fullData.country;
+
+        // Risk/Biometric Data - check decision paths
+        updateData.aml_status = decision.aml?.status ||
+            fullData.aml_status ||
+            fullData.amlStatus ||
+            (fullData.aml_screenings?.[0]?.status);
+
+        updateData.face_match_score = faceMatch.score ||
+            faceMatch.face_match_score ||
+            fullData.face_match?.score ||
+            fullData.face_match_score ||
+            fullData.faceMatchScore ||
+            (fullData.face_matches?.[0]?.face_match_score);
+
+        updateData.liveness_score = liveness.score ||
+            liveness.liveness_score ||
+            fullData.liveness_score ||
+            fullData.livenessScore ||
+            (fullData.liveness_checks?.[0]?.liveness_score);
 
         if (status) {
             updateData.status = status;
@@ -266,6 +347,22 @@ router.post('/update-status', async (req: Request, res: Response) => {
                 message: updateError.message
             });
             return;
+        }
+
+        // Notify Admins on important status changes
+        if (status === 'approved' || status === 'requires_review') {
+            import('../services/notification-service').then(({ NotificationService }) => {
+                const notifType = status === 'approved' ? 'success' : 'warning';
+                const action = status === 'approved' ? 'verified' : 'requires review';
+
+                NotificationService.createNotification(
+                    `KYC ${status === 'approved' ? 'Verified' : 'Review Needed'}`,
+                    `KYC for session ${didit_session_id.substring(0, 8)}... is now ${status}.`,
+                    'kyc',
+                    updatedSession.user_id, // We might not have user_id in context if webhook, but updatedSession has it
+                    { session_id: didit_session_id, status }
+                );
+            });
         }
 
         if (!updatedSession) {
@@ -368,6 +465,109 @@ router.get('/admin/:id', async (req: any, res: Response) => {
         res.json({ session: { ...session, profiles: profile } });
     } catch (error: any) {
         console.error('Admin KYC details error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// POST /api/kyc/admin/:id/approve - Manually approve a KYC session
+router.post('/admin/:id/approve', async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { document_url, document_type } = req.body as { document_url?: string; document_type?: string };
+
+        const updateData: any = {
+            status: 'approved',
+            approved_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+        };
+
+        // Add manual document if provided
+        if (document_url) {
+            updateData.manual_document_url = document_url;
+            updateData.manual_document_type = document_type || 'other';
+        }
+
+        const { data, error } = await supabase
+            .from('kyc_sessions')
+            .update(updateData)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error approving KYC:', error);
+            throw error;
+        }
+
+        // Send notification
+        import('../services/notification-service').then(({ NotificationService }) => {
+            NotificationService.createNotification(
+                'KYC Approved',
+                `Your KYC verification has been manually approved by an admin.`,
+                'success',
+                data.user_id,
+                { session_id: id }
+            );
+        });
+
+        res.json({
+            success: true,
+            message: 'KYC session approved successfully',
+            session: data
+        });
+    } catch (error: any) {
+        console.error('Approve KYC error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// POST /api/kyc/admin/:id/reject - Manually reject a KYC session
+router.post('/admin/:id/reject', async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { reason } = req.body as { reason?: string };
+
+        if (!reason || !reason.trim()) {
+            res.status(400).json({ error: 'Rejection reason is required' });
+            return;
+        }
+
+        const updateData: any = {
+            status: 'rejected',
+            rejection_reason: reason,
+            updated_at: new Date().toISOString(),
+        };
+
+        const { data, error } = await supabase
+            .from('kyc_sessions')
+            .update(updateData)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error rejecting KYC:', error);
+            throw error;
+        }
+
+        // Send notification
+        import('../services/notification-service').then(({ NotificationService }) => {
+            NotificationService.createNotification(
+                'KYC Rejected',
+                `Your KYC verification has been rejected. Reason: ${reason}`,
+                'error',
+                data.user_id,
+                { session_id: id, reason }
+            );
+        });
+
+        res.json({
+            success: true,
+            message: 'KYC session rejected',
+            session: data
+        });
+    } catch (error: any) {
+        console.error('Reject KYC error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

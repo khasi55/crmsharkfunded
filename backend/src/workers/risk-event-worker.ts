@@ -123,7 +123,7 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
     const dailyLimit = startOfDayEquity * (1 - (rule.daily_drawdown_percent / 100));
     const effectiveLimit = Math.max(totalLimit, dailyLimit);
 
-    // 5. Update Challenge Status
+    // 5. Update Challenge Status & Breach Detection
     const updateData: any = {
         current_balance: newBalance,
         current_equity: newEquity
@@ -153,17 +153,72 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
                     'Max Loss Limit Exceeded',
                     `Equity (${newEquity}) dropped below Limit (${effectiveLimit})`
                 );
-            } else {
-                console.warn(`⚠️ Could not find user email for breach notification (User ID: ${challenge.user_id})`);
             }
         } catch (emailError) {
             console.error('🔥 Failed to send breach email:', emailError);
         }
-
-        // Disable MT5 Account (Async call to bridge - don't await blocking)
-        // fetch(`${process.env.BRIDGE_URL}/disable-account`, ... )
     }
 
+    // 6. Behavioral Risk Checks (Martingale, Hedging, Tick Scalping)
+    try {
+        // Fetch Rules Config
+        const { data: rulesConfig } = await supabase.from('risk_rules_config').select('*').limit(1).single();
+        const rules = {
+            allow_weekend_trading: rulesConfig?.allow_weekend_trading ?? true,
+            allow_news_trading: rulesConfig?.allow_news_trading ?? true,
+            allow_ea_trading: rulesConfig?.allow_ea_trading ?? true,
+            min_trade_duration_seconds: rulesConfig?.min_trade_duration_seconds ?? 0,
+            max_single_win_percent: rulesConfig?.max_single_win_percent ?? 50
+        };
+
+        // Get context trades (today's and open)
+        const today = new Date().toISOString().split('T')[0];
+        const { data: todaysTrades } = await supabase.from('trades')
+            .select('*')
+            .eq('challenge_id', challenge.id)
+            .gte('open_time', today);
+
+        const { data: openTrades } = await supabase.from('trades')
+            .select('*')
+            .eq('challenge_id', challenge.id)
+            .is('close_time', null);
+
+        // Analyze each incoming trade for behavioral patterns
+        for (const t of meaningfulTrades) {
+            // Map to internal Trade type for engine
+            const tradeForEngine = {
+                challenge_id: challenge.id,
+                user_id: challenge.user_id,
+                ticket_number: String(t.ticket),
+                symbol: t.symbol,
+                type: (t.type === 0 || t.type === 'buy') ? 'buy' : 'sell' as 'buy' | 'sell',
+                lots: t.volume / 10000,
+                open_price: t.price || 0,
+                profit_loss: t.profit || 0,
+                open_time: new Date(t.time * 1000),
+                close_time: t.close_time ? new Date(t.close_time * 1000) : undefined
+            };
+
+            const behavioralViolations = await advancedEngine.checkBehavioralRisk(
+                tradeForEngine as any,
+                rules,
+                (todaysTrades || []) as any,
+                (openTrades || []) as any
+            );
+
+            if (behavioralViolations.length > 0) {
+                for (const v of behavioralViolations) {
+                    console.log(`🚩 Behavioral Flag: Account ${login}, Type: ${v.violation_type}, Ticket: ${v.trade_ticket}`);
+                    await advancedEngine.logFlag(challenge.id, challenge.user_id, v);
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Failed advanced risk checks:', err);
+    }
+
+    // 7. Commit Updates
     await supabase.from('challenges').update(updateData).eq('id', challenge.id);
+
     // console.log(`✅ Processed event for ${login} in ${Date.now() - startTime}ms`);
 }

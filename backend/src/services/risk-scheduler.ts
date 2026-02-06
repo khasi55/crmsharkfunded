@@ -191,7 +191,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                     user_id: challenge.user_id, // Required to satisfy NOT NULL constraint during upsert check
                     current_equity: res.equity,
                     current_balance: res.balance,
-                    status: challenge.status // maintain existing status by default
+                    status: challenge.status // Required for upsert NOT NULL constraint (Insert phase validation)
                 };
 
 
@@ -223,44 +223,12 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 // Effective Limit
                 const effectiveLimit = Math.max(totalLimit, dailyLimit);
 
-                // --- PROFIT TARGET CHECK ---
-                // Determine Profit Target % based on simplified logic (mirrors RulesService)
-                let profitTargetPercent = 8; // Default Phase 1
-                const typeStr = (challenge.challenge_type || '').toLowerCase();
-                const groupStr = (challenge.group || '').toLowerCase();
-
-                if (typeStr.includes('funded') || typeStr.includes('master') || typeStr.includes('instant') || typeStr.includes('competition') ||
-                    groupStr.includes('funded') || groupStr.includes('master') || groupStr.includes('instant') || groupStr.includes('competition')) {
-                    profitTargetPercent = 0; // No target for funded/master/instant/competition
-                } else if (typeStr.includes('phase 2') || typeStr.includes('step 2') || groupStr.includes('phase 2')) {
-                    profitTargetPercent = 5;
-                } else if (typeStr.includes('phase 1') || typeStr.includes('step 1') || groupStr.includes('phase 1')) {
-                    profitTargetPercent = 8;
-                }
-
-                // LOCAL BREACH OVERRIDE
-                if (res.login === 889224326) {
-                    console.log(` DEBUG 889224326:`);
-                    console.log(`   Equity (Bridge): ${res.equity}`);
-                    console.log(`   SoD Equity (DB): ${startOfDayEquity}`);
-                    console.log(`   Initial Balance: ${initialBalance}`);
-                    console.log(`   Daily Loss %: ${rule.daily_drawdown_percent}`);
-                    console.log(`   Daily Limit: ${dailyLimit}`);
-                    console.log(`   Total Limit: ${totalLimit}`);
-                    console.log(`   Effective Limit: ${effectiveLimit}`);
-                    console.log(`   Is Breach? ${res.equity < effectiveLimit}`);
-                }
-
+                // LOCAL BREACH OVERRIDE/VALIDATION
                 if (res.equity < effectiveLimit) {
-                    // Force Status to Breached even if Bridge reported Active
-                    // console.log(` Local Breach Detected: ${res.login} (Eq: ${res.equity} < Lim: ${effectiveLimit})`);
-                    // Mock the status so the detailed logic below picks it up
-                    // But we must handle it carefully to ensure logs/emails fire
-                    if (challenge.status !== 'breached' && challenge.status !== 'failed') {
+                    if (challenge.status !== 'breached' && challenge.status !== 'failed' && challenge.status !== 'disabled') {
                         updateData.status = 'breached';
                         console.log(` LOCAL BREACH CONFIRMED: Account ${res.login}. Equity: ${res.equity} < Limit: ${effectiveLimit}`);
 
-                        // Inject Trigger Logic (Copying from below block to avoid refactoring huge chunks)
                         systemLogs.push({
                             source: 'RiskScheduler',
                             level: 'ERROR',
@@ -280,7 +248,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                             }
                         });
 
-                        // Async Email (fail-safe)
+                        // Async Email
                         try {
                             const { data: { user } } = await supabase.auth.admin.getUserById(challenge.user_id);
                             if (user && user.email) {
@@ -296,15 +264,19 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                     }
                 }
 
+                // --- PROFIT TARGET CHECK ---
+                // Fetch dynamic rules for this challenge
+                const { RulesService } = await import('./rules-service');
+                const rules = await RulesService.getRules(challenge.group, challenge.challenge_type);
+                const profitTargetPercent = rules.profit_target_percent;
+
                 if (profitTargetPercent > 0) {
                     const initialBalance = Number(challenge.initial_balance);
                     const targetEquity = initialBalance + (initialBalance * (profitTargetPercent / 100));
 
                     if (res.equity >= targetEquity) {
-                        
                         if (challenge.status === 'active' || challenge.status === 'ongoing') {
                             updateData.status = 'passed';
-                           
 
                             systemLogs.push({
                                 source: 'RiskScheduler',
@@ -312,9 +284,24 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                                 message: `Profit Target Met: Account ${res.login} passed. Equity: ${res.equity}`,
                                 details: { login: res.login, event: 'profit_target_reached', target_equity: targetEquity }
                             });
+
+                            // Send Pass Email
+                            try {
+                                const { data: { user } } = await supabase.auth.admin.getUserById(challenge.user_id);
+                                if (user && user.email) {
+                                    console.log(` [RiskScheduler] Sending pass email to ${user.email} for account ${res.login}`);
+                                    EmailService.sendPassNotification(
+                                        user.email,
+                                        user.user_metadata?.full_name || 'Trader',
+                                        String(res.login),
+                                        challenge.challenge_type || 'Challenge Phase'
+                                    ).catch(e => console.error(e));
+                                }
+                            } catch (err) { console.error(err) }
                         }
                     }
                 }
+
 
                 // If breached, fail the account
                 const normalizedStatus = res.status?.toLowerCase();
@@ -383,7 +370,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
             if (systemLogs.length > 0) await supabase.from('system_logs').insert(systemLogs);
             if (violationLogs.length > 0) await supabase.from('risk_violations').insert(violationLogs);
 
-            
+
 
         } catch (err: any) {
             clearTimeout(timeoutId);
@@ -392,7 +379,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
 
     } catch (e: any) {
         if (e.code !== 'ECONNREFUSED' && attempt <= MAX_RETRIES) {
-           
+
             await new Promise(resolve => setTimeout(resolve, 500));
             return processBatch(challenges, riskGroups, attempt + 1);
         } else {

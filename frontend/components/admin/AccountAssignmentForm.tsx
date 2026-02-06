@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { Server, Search } from "lucide-react";
 
 const MT5_GROUPS = {
-    "Lite Instant Funding": "demo\\SF\\0-Pro",
-    "Lite 1-Step Challenge": "demo\\SF\\1-SF",
-    "Lite 2-Step Challenge": "demo\\SF\\2-SF",
+    "Lite Instant Funding": "demo\\SF\\0",
+    "Lite 1-Step Challenge": "demo\\SF\\1",
+    "Lite 2-Step Challenge": "demo\\SF\\2",
     "Prime Instant Funding": "demo\\S\\0-SF",
     "Prime 1-Step Challenge": "demo\\S\\1-SF",
     "Prime 2-Step Challenge": "demo\\S\\2-SF",

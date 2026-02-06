@@ -20,7 +20,8 @@ import {
     Settings,
     Activity,
     Scan,
-    Send
+    Send,
+    AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logoutAdmin } from "@/app/actions/admin-auth";
@@ -33,6 +34,7 @@ const navigation = [
     { name: "Accounts List", href: "/accounts", icon: List, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'] },
     { name: "MT5 Accounts", href: "/mt5", icon: Server, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'] },
     { name: "Risk Settings", href: "/mt5-risk", icon: Gauge, roles: ['super_admin', 'admin', 'risk_admin'] },
+    { name: "Risk Violations", href: "/risk-violations", icon: AlertTriangle, roles: ['super_admin', 'admin', 'risk_admin'] },
     { name: "Payments", href: "/payments", icon: CreditCard, roles: ['super_admin', 'admin', 'sub_admin'] }, // Changed from settings/payment to /payments for report
     { name: "Settings", href: "/settings/payment", icon: Settings, roles: ['super_admin', 'admin'] },
     { name: "Assign Account", href: "/mt5/assign", icon: UserPlus, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'] },
@@ -94,7 +96,7 @@ export function AdminSidebar({ user, onClose }: AdminSidebarProps & { onClose?: 
             </div>
 
             {/* Navigation */}
-            <div className="flex flex-1 flex-col gap-1 p-4">
+            <div className="flex flex-1 flex-col gap-1 p-4 overflow-y-auto scrollbar-none">
                 <div className="px-3 mb-2">
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Navigation</p>
                 </div>

@@ -11,9 +11,11 @@ interface AccountActionsProps {
     currentStatus: string;
     userId?: string;
     currentEmail?: string;
+    challengeType?: string; // Add challenge type to determine upgrade eligibility
+    upgradedTo?: string; // Add upgradedTo to hide button
 }
 
-export function AccountActions({ accountId, login, currentStatus, userId, currentEmail }: AccountActionsProps) {
+export function AccountActions({ accountId, login, currentStatus, userId, currentEmail, challengeType, upgradedTo }: AccountActionsProps) {
     const [loading, setLoading] = useState(false);
     const [showTrades, setShowTrades] = useState(false);
     const [trades, setTrades] = useState<any[]>([]);
@@ -58,7 +60,7 @@ export function AccountActions({ accountId, login, currentStatus, userId, curren
         if (!confirm(`Are you sure you want to UPGRADE account ${login} to the Next Phase?`)) return;
         setLoading(true);
         try {
-            const response = await fetch('/api/admin/risk/upgrade-account', {
+            const response = await fetch('/api/admin/upgrade-account', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ accountId })
@@ -161,16 +163,29 @@ export function AccountActions({ accountId, login, currentStatus, userId, curren
                     {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
                 </button>
 
-                {currentStatus === 'passed' && (
-                    <button
-                        onClick={handleUpgrade}
-                        disabled={loading}
-                        className="px-2 py-1 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors"
-                        title="Upgrade to Next Phase"
-                    >
-                        {loading ? <Loader2 size={12} className="animate-spin" /> : "UPGRADE"}
-                    </button>
-                )}
+                {/* Only show upgrade for Phase 1 and Phase 2 accounts if status is active or passed */}
+                {(currentStatus === 'passed' || currentStatus === 'active') && (() => {
+                    const type = (challengeType || '').toLowerCase();
+                    const isFunded = type.includes('funded') || type.includes('live') || type.includes('master');
+                    const canUpgrade = !isFunded && !upgradedTo && (
+                        type.includes('phase 1') || type.includes('phase_1') ||
+                        type.includes('step 1') || type.includes('step_1') ||
+                        type.includes('1_step') || type.includes('2_step') ||
+                        type.includes('phase 2') || type.includes('phase_2') ||
+                        type.includes('step 2') || type.includes('step_2')
+                    );
+
+                    return canUpgrade && (
+                        <button
+                            onClick={handleUpgrade}
+                            disabled={loading}
+                            className="px-2 py-1 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors"
+                            title="Upgrade to Next Phase"
+                        >
+                            {loading ? <Loader2 size={12} className="animate-spin" /> : "UPGRADE"}
+                        </button>
+                    );
+                })()}
             </div>
 
             {/* Trades Modal */}

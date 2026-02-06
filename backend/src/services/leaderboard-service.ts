@@ -116,7 +116,7 @@ export async function getLeaderboard(competitionId: string, limit: number = 100)
 
 
         // CUSTOM RULE: user says "breached accounts are out of race" -> Filter them out completely
-        const activeLeaderboard = leaderboard.filter((p: any) => p.status !== 'breached' && p.status !== 'failed');
+        const activeLeaderboard = leaderboard.filter((p: any) => p.status !== 'breached' && p.status !== 'failed' && p.status !== 'disabled');
 
         // Sort by Score (Desc)
         activeLeaderboard.sort((a: any, b: any) => (b.score || 0) - (a.score || 0));
@@ -207,8 +207,8 @@ export async function updateLeaderboardScores(competitionId: string) {
 
         // 4. Sort by Score (Desc) to determine Rank (Breached at bottom)
         updates.sort((a, b) => {
-            const isBadA = a.status === 'breached' || a.status === 'failed';
-            const isBadB = b.status === 'breached' || b.status === 'failed';
+            const isBadA = a.status === 'breached' || a.status === 'failed' || a.status === 'disabled';
+            const isBadB = b.status === 'breached' || b.status === 'failed' || b.status === 'disabled';
 
             if (isBadA && !isBadB) return 1;
             if (!isBadA && isBadB) return -1;

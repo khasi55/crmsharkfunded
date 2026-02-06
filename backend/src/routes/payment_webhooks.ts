@@ -181,10 +181,35 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         }
         // ---------------------------------------------------------
 
-        // Determine challenge type
-        let challengeType = 'Phase 1';
-        if (accountTypeName.includes('instant')) challengeType = 'Instant';
-        else if (accountTypeName.includes('1 step')) challengeType = 'Evaluation';
+        // Determine challenge type based on MT5 group
+        let challengeType = 'unknown';
+
+        // Lite accounts (groups with \SF\)
+        if (mt5Group.includes('\\SF\\0-SF') || mt5Group.includes('\\SF\\0')) {
+            challengeType = 'lite_instant';
+        } else if (mt5Group.includes('\\SF\\1-SF') || mt5Group.includes('\\SF\\1')) {
+            challengeType = 'lite_1_step';
+        } else if (mt5Group.includes('\\SF\\2-SF') || mt5Group.includes('\\SF\\2')) {
+            challengeType = 'lite_2_step_phase_1';
+        }
+        // Prime accounts (groups with \S\ but not \SF\)
+        else if (mt5Group.includes('\\S\\0-SF')) {
+            challengeType = 'prime_instant';
+        } else if (mt5Group.includes('\\S\\1-SF')) {
+            challengeType = 'prime_1_step';
+        } else if (mt5Group.includes('\\S\\2-SF')) {
+            challengeType = 'prime_2_step_phase_1';
+        }
+        // Fallback to old logic if group doesn't match
+        else if (accountTypeName.includes('instant')) {
+            challengeType = 'instant';
+        } else if (accountTypeName.includes('1 step')) {
+            challengeType = 'evaluation';
+        } else {
+            challengeType = 'phase_1';
+        }
+
+        console.log(`✅ Creating challenge: ${challengeType} in group ${mt5Group}`);
 
         // Create challenge record
         const { data: challenge } = await supabase
@@ -195,8 +220,8 @@ async function handlePaymentWebhook(req: Request, res: Response) {
                 initial_balance: order.account_size,
                 current_balance: order.account_size,
                 current_equity: order.account_size,
-                start_of_day_equity: order.account_size, // Initialize with full balance
-                group: mt5Group, // Store the MT5 group for Risk Rules
+                start_of_day_equity: order.account_size,
+                group: mt5Group,
                 status: 'active',
                 login: mt5Data.login,
                 master_password: mt5Data.password,

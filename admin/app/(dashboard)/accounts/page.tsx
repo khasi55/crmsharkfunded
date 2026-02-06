@@ -9,11 +9,12 @@ import { AccountsTable } from "@/components/admin/AccountsTable";
 export default async function AccountsListPage({
     searchParams,
 }: {
-    searchParams: { query?: string; page?: string; group?: string };
+    searchParams: { query?: string; page?: string; group?: string; status?: string };
 }) {
     const query = (await searchParams)?.query || "";
     const page = parseInt((await searchParams)?.page || "1");
     const groupFilter = (await searchParams)?.group || "";
+    const statusFilter = (await searchParams)?.status || ""; // Add status filter extraction
     const PAGE_SIZE = 50;
 
     const supabase = createAdminClient();
@@ -41,6 +42,20 @@ export default async function AccountsListPage({
         challengeQuery = challengeQuery.eq('group', groupFilter);
     }
 
+    // Unified status filtering logic (matches MT5 Dashboard)
+    if (statusFilter === 'breached') {
+        // Group all "terminating" statuses together
+        challengeQuery = challengeQuery.or('status.in.("breached","failed","disabled","upgraded"),upgraded_to.not.is.null');
+    } else if (statusFilter === 'disabled') {
+        challengeQuery = challengeQuery.or('status.in.("disabled","upgraded"),upgraded_to.not.is.null');
+    } else if (statusFilter) {
+        challengeQuery = challengeQuery.eq('status', statusFilter);
+    } else {
+        // Exclude all terminal accounts by default
+        challengeQuery = challengeQuery.not('status', 'in', '("breached","failed","disabled","upgraded")');
+        challengeQuery = challengeQuery.is('upgraded_to', null);
+    }
+
     // Note: Search logic is harder with manual join. 
     // If query is present, we might ideally search profiles first then get challenges, 
     // or search challenges (login, id).
@@ -61,6 +76,20 @@ export default async function AccountsListPage({
 
         // Always search text fields
         filters.push(`challenge_type.ilike.%${query}%`);
+
+        // Mapping common terms like "Live" to "Funded" or search by status
+        if (query.toLowerCase() === 'live') {
+            filters.push(`challenge_type.ilike.%funded%`);
+            filters.push(`status.eq.active`);
+        }
+
+        // If query has spaces, also search with underscores (common in DB)
+        if (query.includes(' ')) {
+            filters.push(`challenge_type.ilike.%${query.replace(/ /g, '_')}%`);
+        }
+
+        // Search in Group name too
+        filters.push(`group.ilike.%${query}%`);
 
         // NEW: Search by Email (via Profiles)
         if (query.includes('@') || query.length > 3) {

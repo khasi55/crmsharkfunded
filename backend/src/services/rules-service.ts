@@ -9,37 +9,29 @@ export interface RiskProfile {
 }
 
 export class RulesService {
-    private static GROUP_CACHE: Map<string, any> = new Map();
-    private static CACHE_TTL = 30000; // 30 seconds (Reduced for more responsiveness)
+    private static RULES_CACHE: Map<string, any> = new Map();
+    private static CACHE_TTL = 30000; // 30 seconds
     private static lastCacheUpdate = 0;
 
     /**
-     * Get risk rules for a specific group and challenge type
+     * Get risk rules for a specific challenge type
      */
     static async getRules(groupName: string, challengeType: string = 'Phase 1'): Promise<RiskProfile> {
         // Refresh cache if needed
-        if (Date.now() - this.lastCacheUpdate > this.CACHE_TTL || this.GROUP_CACHE.size === 0) {
+        if (Date.now() - this.lastCacheUpdate > this.CACHE_TTL || this.RULES_CACHE.size === 0) {
             await this.refreshCache();
         }
 
-        // Normalize group name
-        const normalizedGroup = (groupName || '').replace(/\\\\/g, '\\').toLowerCase();
+        // 1. Normalize and Map Legacy Types
+        const normalizedType = this.normalizeType(groupName, challengeType);
 
-        let dbRule = this.GROUP_CACHE.get(normalizedGroup);
-
-        // Fallback to searching without special characters if exact match failed
-        if (!dbRule) {
-            for (const [key, value] of this.GROUP_CACHE.entries()) {
-                if (normalizedGroup.includes(key) || key.includes(normalizedGroup)) {
-                    dbRule = value;
-                    break;
-                }
-            }
-        }
+        // Try to get rule from cache
+        let dbRule = this.RULES_CACHE.get(normalizedType);
 
         // Defaults
         let maxDailyLossPercent = 5;
         let maxTotalLossPercent = 10;
+        let profitTargetPercent = 0;
 
         if (dbRule) {
             maxDailyLossPercent = (dbRule.daily_drawdown_percent !== undefined && dbRule.daily_drawdown_percent !== null)
@@ -49,59 +41,68 @@ export class RulesService {
             maxTotalLossPercent = (dbRule.max_drawdown_percent !== undefined && dbRule.max_drawdown_percent !== null)
                 ? Number(dbRule.max_drawdown_percent)
                 : 10;
+
+            profitTargetPercent = (dbRule.profit_target_percent !== undefined && dbRule.profit_target_percent !== null)
+                ? Number(dbRule.profit_target_percent)
+                : 0;
+        } else {
+            console.warn(`[RulesService] No DB rule found for mapped type '${normalizedType}' (Original: ${challengeType}), using defaults`);
         }
 
-        // Determine Profit Target based on Challenge Type / Group Name
-        // Logic: Phase 1 = varies by group, Phase 2 = varies by group, Funded/Instant = 0%
-        let profitTargetPercent = 8;
-
-        const typeStr = (challengeType || '').toLowerCase();
-        const groupStr = normalizedGroup;
-
-        // CRITICAL FIX: Instant/Funded/Competition accounts should NEVER have a profit target for "passing".
-        if (typeStr.includes('funded') || typeStr.includes('master') || typeStr.includes('instant') || typeStr.includes('competition') ||
-            groupStr.includes('funded') || groupStr.includes('master') || groupStr.includes('instant') || groupStr.includes('competition')) {
-            profitTargetPercent = 0;
+        /* 
+        if (dbRule) {
+            console.log(`[RulesService] Resolved Rules for '${normalizedType}': Max=${maxTotalLossPercent}%, Daily=${maxDailyLossPercent}%, Profit=${profitTargetPercent}% (Source: DB)`);
         }
-        // Handle Phase 2 for 2-step challenges with specific targets
-        else if (typeStr.includes('phase 2') || typeStr.includes('step 2')) {
-            // For 2-step Standard (demo\S\2-SF): Phase 2 = 6%
-            if (groupStr.includes('demo\\s\\2') || groupStr.includes('2-sf')) {
-                profitTargetPercent = 6;
-            }
-            // For 2-step Pro (demo\SF\2-Pro): Phase 2 = 6%
-            else if (groupStr.includes('demo\\sf\\2') || groupStr.includes('2-pro')) {
-                profitTargetPercent = 6;
-            }
-            else {
-                profitTargetPercent = 5; // Default Phase 2
-            }
-        }
-        // Handle Phase 1 and other challenges - use DB value
-        else if (dbRule && dbRule.profit_target_percent !== undefined && dbRule.profit_target_percent !== null) {
-            profitTargetPercent = Number(dbRule.profit_target_percent);
-        }
-        // Fallback defaults based on challenge type
-        else if (typeStr.includes('phase 1') || typeStr.includes('step 1')) {
-            profitTargetPercent = 8;
-        }
+        */
 
-        // --- FUNDED ACCOUNT OVERRIDE REMOVED ---
-        // We now rely purely on the DB configuration (dbRule) or the defaults (5/10) set above.
-        // If the user wants specific rules for Funded accounts, they must configure the risk group in Admin.
-
-        console.log(`[RulesService] Resolved Rules for '${normalizedGroup}': Max=${maxTotalLossPercent}%, Daily=${maxDailyLossPercent}%, Profit=${profitTargetPercent}% (Source: ${dbRule ? 'DB' : 'DEFAULTS'})`);
-
-        const rules = {
+        return {
             max_daily_loss_percent: maxDailyLossPercent,
             max_total_loss_percent: maxTotalLossPercent,
             profit_target_percent: profitTargetPercent,
-            challenge_type: challengeType
+            challenge_type: normalizedType
         };
+    }
 
-        console.log(`[RulesService] Resolved Rules for '${normalizedGroup}': Max=${maxTotalLossPercent}%, Daily=${maxDailyLossPercent}%, Profit=${profitTargetPercent}% (Source: \${dbRule ? 'DB' : 'DEFAULTS'})`);
+    /**
+     * Maps messy/legacy challenge types to standard database keys
+     */
+    private static normalizeType(groupName: string, type: string): string {
+        const t = (type || '').toLowerCase().trim();
+        const g = (groupName || '').toUpperCase();
 
-        return rules;
+        // Already standard types
+        if (this.RULES_CACHE.has(t)) return t;
+
+        // Determine Category (Prime vs Lite)
+        const isPrime = g.includes('\\S\\') || g.includes('DEMO\\S\\') || g.includes('PRIME');
+        const prefix = isPrime ? 'prime' : 'lite';
+
+        // 1. Phase 1 Mapping
+        if (t === 'phase 1' || t === 'evaluation') {
+            return `${prefix}_2_step_phase_1`;
+        }
+
+        // 2. Phase 2 Mapping
+        if (t === 'phase 2') {
+            return `${prefix}_2_step_phase_2`;
+        }
+
+        // 3. Funded / Live Mapping
+        if (t === 'funded' || t === 'master' || t === 'live') {
+            return `${prefix}_funded`;
+        }
+
+        // 4. Competition Mapping
+        if (t === 'competition') {
+            return 'lite_1_step'; // Default competition to lite 1-step rules or specific 'competition' if exists
+        }
+
+        // 5. Evaluation (If not caught by phase 1)
+        if (t.includes('1-step') || t.includes('1 step')) {
+            return `${prefix}_1_step`;
+        }
+
+        return t;
     }
 
     /**
@@ -110,22 +111,23 @@ export class RulesService {
     private static async refreshCache() {
         try {
             const { data, error } = await supabase
-                .from('mt5_risk_groups')
+                .from('challenge_type_rules')
                 .select('*');
 
             if (error) {
-                console.error('Error fetching risk groups:', error);
+                console.error('Error fetching challenge type rules:', error);
                 return;
             }
 
-            this.GROUP_CACHE.clear();
-            (data || []).forEach(group => {
-                const key = (group.group_name || '').replace(/\\\\/g, '\\').toLowerCase();
-                this.GROUP_CACHE.set(key, group);
-                console.log(`[RulesService] Cached Group Key: '${key}' (Raw: \${group.group_name})`);
+            this.RULES_CACHE.clear();
+            (data || []).forEach(rule => {
+                // Store by lowercase challenge_type
+                const normalizedType = (rule.challenge_type || '').toLowerCase();
+                this.RULES_CACHE.set(normalizedType, rule);
+                // console.log(`[RulesService] Cached: '${normalizedType}' (Profit: ${rule.profit_target_percent}%, Daily DD: ${rule.daily_drawdown_percent}%, Max DD: ${rule.max_drawdown_percent}%)`);
             });
             this.lastCacheUpdate = Date.now();
-            console.log(`RulesService: Cached ${this.GROUP_CACHE.size} risk groups.`);
+            console.log(`✅ RulesService: Cached ${this.RULES_CACHE.size} challenge type rule configurations.`);
         } catch (e) {
             console.error('RulesService cache refresh failed:', e);
         }

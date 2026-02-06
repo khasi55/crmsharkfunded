@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { CreateUserButton } from "@/components/users/CreateUserButton";
+import { Pagination } from "@/components/ui/Pagination";
 
 export default async function AdminUsersPage({
     searchParams,
@@ -97,7 +98,7 @@ export default async function AdminUsersPage({
                                         {user.country || '-'}
                                     </td>
                                     <td className="px-6 py-4 text-gray-600 text-xs">
-                                        {user.phone_number || '-'}
+                                        {user.phone || user.phone_number || '-'}
                                     </td>
                                     <td className="px-6 py-4 text-gray-600">{user.total_referrals || 0}</td>
                                     <td className="px-6 py-4 text-gray-600">
@@ -125,6 +126,8 @@ export default async function AdminUsersPage({
                     </table>
                 </div>
             </div>
+
+            <Pagination totalPages={Math.ceil((count || 0) / pageSize)} currentPage={page} />
         </div>
     );
 }

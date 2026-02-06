@@ -59,7 +59,7 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
 
         try {
             const result = await bulkDisableAccounts(loginsToDisable);
-            if (result.success) {
+            if ('success' in result && result.success) {
                 toast.success(result.message);
                 setSelectedIds(new Set()); // Clear selection
                 // The server action doesn't automatically revalidate client cache perfectly in all cases, 
@@ -115,7 +115,7 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
         setIsBulkActing(true);
         try {
             const result = await disableAccountsByGroup(currentGroupFilter);
-            if (result.success) {
+            if ('success' in result && result.success) {
                 toast.success(result.message);
                 window.location.reload();
             } else {
@@ -129,9 +129,40 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
         }
     };
 
+    const getPlanDisplay = (account: any) => {
+        const groupStr = (account.mt5_group || account.group || '').toLowerCase();
+        const typeStr = (account.challenge_type || '').toLowerCase();
+
+        // 1. Type-First Detection: Trust the database challenge_type IF explicit
+        let plan = '';
+        if (typeStr.includes('prime')) plan = 'Prime';
+        else if (typeStr.includes('lite')) plan = 'Lite';
+        else if (typeStr.includes('instant')) plan = 'Instant';
+
+        // 2. Fallback to MT5 Group path for legacy/generic types
+        if (!plan) {
+            if (groupStr.includes('\\sf\\') || groupStr.includes('pro')) plan = 'Prime';
+            else if (groupStr.includes('-sf') || (groupStr.includes('\\s\\') && !groupStr.includes('\\sf\\'))) plan = 'Lite';
+            else if (groupStr.includes('instant')) plan = 'Instant';
+            else plan = account.plan_type || 'Standard';
+        }
+
+        // 3. Step detection
+        let steps = '';
+        if (typeStr.includes('1-step') || typeStr.includes('one step') || typeStr.includes('step_1') || typeStr.includes('1_step')) steps = '1 Step';
+        else if (typeStr.includes('2-step') || typeStr.includes('two step') || typeStr.includes('step_2') || typeStr.includes('2_step')) steps = '2 Step';
+
+        // Combined output
+        if (plan && steps) return `${plan} - ${steps}`;
+        if (plan && plan !== 'Standard') return plan;
+        if (steps) return `Standard - ${steps}`;
+
+        return plan || 'Standard';
+    };
+
     return (
         <div className="space-y-4">
-            {/* Filters & Actions */}
+            {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-gray-50 p-3 rounded-lg border border-gray-200">
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                     <Filter size={16} className="text-gray-500" />
@@ -146,68 +177,12 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
                         ))}
                     </select>
                 </div>
-
-                {/* Group Disable Action - Only visible if filtered by group and no specific selection active */}
-                {currentGroupFilter && selectedIds.size === 0 && (
-                    <button
-                        onClick={handleDisableEntireGroup}
-                        disabled={isBulkActing}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded text-xs font-bold transition-colors border border-red-200 flex items-center gap-2"
-                    >
-                        {isBulkActing ? <Loader2 size={12} className="animate-spin" /> : <Ban size={12} />}
-                        DISABLE ENTIRE GROUP "{currentGroupFilter}"
-                    </button>
-                )}
             </div>
-            {/* Bulk Action Bar */}
-            {selectedIds.size > 0 && (
-                <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-lg flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="flex items-center gap-2">
-                        <span className="bg-indigo-600 text-white text-xs font-bold px-2 py-1 rounded-full">
-                            {selectedIds.size} Selected
-                        </span>
-                        <span className="text-sm text-indigo-900 font-medium">
-                            accounts ready for action
-                        </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setSelectedIds(new Set())}
-                            className="text-xs text-gray-500 hover:text-gray-700 px-3 py-1.5"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleBulkDisable}
-                            disabled={isBulkActing}
-                            className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-md transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isBulkActing ? (
-                                <Loader2 size={14} className="animate-spin" />
-                            ) : (
-                                <Ban size={14} />
-                            )}
-                            DISABLE SELECTED
-                        </button>
-                    </div>
-                </div>
-            )}
 
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                     <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th className="px-6 py-3 w-4">
-                                <div className="flex items-center">
-                                    <input
-                                        type="checkbox"
-                                        className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                                        checked={isAllSelected}
-                                        ref={input => { if (input) input.indeterminate = isIndeterminate; }}
-                                        onChange={toggleSelectAll}
-                                    />
-                                </div>
-                            </th>
                             <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Account ID</th>
                             <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">User</th>
                             <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Login</th>
@@ -217,7 +192,6 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
                             <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Balance</th>
                             <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Equity</th>
                             <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Status</th>
-                            <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Actions</th>
                             <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Created</th>
                         </tr>
                     </thead>
@@ -229,17 +203,6 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
                                     key={account.id}
                                     className={`transition-colors ${isSelected ? 'bg-indigo-50/50 hover:bg-indigo-50' : 'hover:bg-gray-50'}`}
                                 >
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center">
-                                            <input
-                                                type="checkbox"
-                                                className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                                                checked={isSelected}
-                                                onChange={() => account.login && toggleSelection(account.login)}
-                                                disabled={!account.login}
-                                            />
-                                        </div>
-                                    </td>
                                     <td className="px-6 py-4 font-mono text-xs text-gray-600">
                                         <div className="text-indigo-600 font-medium">
                                             {account.challenge_number || `SF-${account.id.slice(0, 8)}`}
@@ -270,10 +233,30 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="text-gray-900 font-medium text-xs break-words max-w-[150px]">
-                                            {account.plan_type || "Standard"}
+                                            {getPlanDisplay(account)}
                                         </div>
-                                        <div className="text-[10px] text-gray-500 font-mono truncate max-w-[150px]" title={account.server}>
-                                            {account.mt5_group}
+                                        <div className="flex items-center gap-1.5 text-[10px] text-gray-500 font-mono truncate max-w-[150px]">
+                                            <span title={account.server}>{account.group || account.mt5_group || "-"}</span>
+                                            {(() => {
+                                                const typeStr = (account.challenge_type || '').toLowerCase();
+                                                const groupStr = (account.mt5_group || account.group || '').toLowerCase();
+
+                                                const isTypePrime = typeStr.includes('prime');
+                                                const isTypeLite = typeStr.includes('lite');
+                                                const isGroupPrime = groupStr.includes('\\sf\\') || groupStr.includes('pro');
+                                                const isGroupLite = (groupStr.includes('\\s\\') && !groupStr.includes('\\sf\\')) || groupStr.includes('-sf');
+
+                                                if ((isTypePrime && isGroupLite) || (isTypeLite && isGroupPrime)) {
+                                                    return (
+                                                        <span title="Type/Group Mismatch: This account may have incorrect risk rules applied." className="text-amber-500">
+                                                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                                            </svg>
+                                                        </span>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 font-medium text-gray-900">
@@ -283,16 +266,7 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
                                         ${account.current_equity?.toLocaleString() ?? '-'}
                                     </td>
                                     <td className="px-6 py-4">
-                                        <StatusBadge status={account.status} />
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <AccountActions
-                                            accountId={account.id}
-                                            login={account.login}
-                                            currentStatus={account.status}
-                                            userId={account.profile?.id}
-                                            currentEmail={account.profile?.email}
-                                        />
+                                        <StatusBadge status={account.status} upgradedTo={account.upgraded_to} />
                                     </td>
                                     <td className="px-6 py-4 text-gray-600 text-xs">
                                         {new Date(account.created_at).toLocaleDateString()}

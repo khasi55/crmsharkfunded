@@ -2,6 +2,7 @@
 import { createAdminClient } from "@/utils/supabase/admin";
 import { SearchInput } from "@/components/admin/SearchInput";
 import { CheckCircle, Trophy } from "lucide-react";
+import UpgradeButton from "@/components/admin/UpgradeButton";
 
 export default async function PassedAccountsPage({
     searchParams,
@@ -11,14 +12,12 @@ export default async function PassedAccountsPage({
     const supabase = createAdminClient();
     const query = (await searchParams)?.query || "";
 
-    // Build Query
+    // Build Query - Show active passed challenges (waiting for upgrade)
     let dbQuery = supabase
-        .from("passed_challenges")
-        .select(`
-            *,
-            profile:user_id ( full_name, email )
-        `)
-        .order("passed_at", { ascending: false })
+        .from("challenges")
+        .select("*")
+        .eq("status", "passed") // Only show passed accounts waiting for upgrade
+        .order("updated_at", { ascending: false })
         .limit(100);
 
     // Apply Search
@@ -32,24 +31,47 @@ export default async function PassedAccountsPage({
         }
     }
 
-    const { data: accounts, error, count } = await dbQuery;
+    const { data: accounts, error } = await dbQuery;
 
     if (error) {
         console.error("Error fetching passed accounts:", error);
     }
+
+    // Fetch profiles separately
+    const userIds = [...new Set(accounts?.map(a => a.user_id).filter(Boolean))];
+    const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', userIds);
+
+    const profilesMap = new Map(profiles?.map(p => [p.id, p]));
+
+    // Enrich accounts with profile data
+    const enrichedAccounts = accounts?.map(account => ({
+        ...account,
+        profiles: profilesMap.get(account.user_id)
+    }));
+
+    // Filter to only show Phase 1 and Phase 2 (accounts eligible for upgrade)
+    const eligibleAccounts = enrichedAccounts?.filter(account => {
+        const type = (account.challenge_type || '').toLowerCase();
+        return type.includes('phase 1') || type.includes('phase 2') ||
+            type.includes('step 1') || type.includes('step 2') ||
+            type.includes('1_step') || type.includes('2_step');
+    }) || [];
 
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
-                        <Trophy className="text-yellow-500" /> Passed Accounts
+                        <Trophy className="text-yellow-500" /> Pending Upgrades
                     </h1>
-                    <p className="text-sm text-gray-600 mt-1">Archive of all successful challenge accounts</p>
+                    <p className="text-sm text-gray-600 mt-1">Passed accounts waiting to be upgraded to next phase</p>
                 </div>
                 <div className="bg-white border border-gray-200 rounded-lg px-4 py-2 shadow-sm">
-                    <p className="text-xs text-gray-500 uppercase font-semibold">Total Passed</p>
-                    <p className="text-2xl font-bold text-green-600">{accounts?.length || 0}</p>
+                    <p className="text-xs text-gray-500 uppercase font-semibold">Pending Upgrades</p>
+                    <p className="text-2xl font-bold text-green-600">{eligibleAccounts?.length || 0}</p>
                 </div>
             </div>
 
@@ -73,10 +95,11 @@ export default async function PassedAccountsPage({
                                 <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase text-right">Final Equity</th>
                                 <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Status</th>
                                 <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Passed Date</th>
+                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                            {accounts?.map((account: any) => (
+                            {eligibleAccounts?.map((account: any) => (
                                 <tr key={account.id} className="hover:bg-gray-50 transition-colors">
                                     <td className="px-6 py-4 font-mono text-indigo-600 font-medium">
                                         {account.login}
@@ -84,10 +107,10 @@ export default async function PassedAccountsPage({
                                     <td className="px-6 py-4">
                                         <div>
                                             <div className="font-medium text-gray-900">
-                                                {account.profile?.full_name || "Unknown"}
+                                                {account.profiles?.full_name || "Unknown"}
                                             </div>
                                             <div className="text-xs text-gray-500 font-mono">
-                                                {account.profile?.email}
+                                                {account.profiles?.email}
                                             </div>
                                         </div>
                                     </td>
@@ -103,29 +126,36 @@ export default async function PassedAccountsPage({
                                         ${Number(account.initial_balance).toLocaleString()}
                                     </td>
                                     <td className="px-6 py-4 text-right font-bold text-gray-900">
-                                        ${Number(account.final_balance).toLocaleString()}
+                                        ${Number(account.current_balance || account.initial_balance).toLocaleString()}
                                     </td>
                                     <td className="px-6 py-4 text-right text-gray-600">
-                                        ${Number(account.final_equity).toLocaleString()}
+                                        ${Number(account.current_equity || account.initial_balance).toLocaleString()}
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                                             <CheckCircle size={12} />
-                                            PASSED
+                                            PENDING UPGRADE
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-gray-500 text-xs">
-                                        {new Date(account.passed_at).toLocaleDateString()}
+                                        {new Date(account.updated_at).toLocaleDateString()}
                                         <div className="text-[10px] opacity-70">
-                                            {new Date(account.passed_at).toLocaleTimeString()}
+                                            {new Date(account.updated_at).toLocaleTimeString()}
                                         </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <UpgradeButton
+                                            accountId={account.id}
+                                            accountLogin={account.login}
+                                            upgradedTo={account.upgraded_to}
+                                        />
                                     </td>
                                 </tr>
                             ))}
-                            {accounts?.length === 0 && (
+                            {eligibleAccounts?.length === 0 && (
                                 <tr>
                                     <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
-                                        No passed accounts found in archive.
+                                        No accounts pending upgrade.
                                     </td>
                                 </tr>
                             )}

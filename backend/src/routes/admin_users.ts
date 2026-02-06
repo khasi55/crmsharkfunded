@@ -75,7 +75,7 @@ router.post('/update-email', checkAdminAuth, async (req, res) => {
 // POST /api/admin/users/create - Create a new user manually
 router.post('/create', checkAdminAuth, async (req, res) => {
     try {
-        const { email, password, full_name, country } = req.body;
+        const { email, password, full_name, country, phone } = req.body;
 
         if (!email || !password || !full_name) {
             return res.status(400).json({ error: 'Missing required fields: email, password, full_name' });
@@ -88,7 +88,7 @@ router.post('/create', checkAdminAuth, async (req, res) => {
             email,
             password,
             email_confirm: true, // Auto-confirm email since admin created it
-            user_metadata: { full_name, country }
+            user_metadata: { full_name, country, phone }
         });
 
         if (authError) {
@@ -106,6 +106,8 @@ router.post('/create', checkAdminAuth, async (req, res) => {
             email,
             full_name,
             country,
+            phone,
+            phone_number: phone, // Backward compatibility
             role: 'user' // Default role
         };
 
@@ -155,6 +157,46 @@ router.get('/search', checkAdminAuth, async (req, res) => {
 
     } catch (error: any) {
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// POST /api/admin/users/update - Update user details
+router.post('/update', checkAdminAuth, async (req, res) => {
+    try {
+        const { userId, full_name, country, phone } = req.body;
+
+        if (!userId) {
+            return res.status(400).json({ error: 'Missing required field: userId' });
+        }
+
+        console.log(`📝 Admin Update User Request: ${userId}`);
+
+        // 1. Update Profile in Public Table
+        const { error: dbError } = await supabaseAdmin
+            .from('profiles')
+            .update({ full_name, country, phone, phone_number: phone })
+            .eq('id', userId);
+
+        if (dbError) {
+            console.error('Update Profile Failed:', dbError);
+            return res.status(500).json({ error: 'Profile Update Failed: ' + dbError.message });
+        }
+
+        // 2. Update Supabase Auth Metadata (Best effort)
+        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+            userId,
+            { user_metadata: { full_name, country, phone } }
+        );
+
+        if (authError) {
+            console.warn('Auth Metadata Update Failed (Non-critical):', authError);
+        }
+
+        res.json({ success: true, message: 'User updated successfully' });
+
+    } catch (error: any) {
+        console.error('Admin Update User Error:', error);
+        res.status(500).json({ error: 'Internal server error: ' + error.message });
     }
 });
 
