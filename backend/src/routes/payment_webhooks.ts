@@ -239,6 +239,32 @@ async function handlePaymentWebhook(req: Request, res: Response) {
                 challenge_id: challenge.id,
                 is_account_created: true,
             }).eq('order_id', internalOrderId);
+
+            // ---------------------------------------------------------
+            // RECORD COUPON USAGE
+            // ---------------------------------------------------------
+            if (order.coupon_code) {
+                try {
+                    // Fetch coupon ID
+                    const { data: couponData } = await supabase
+                        .from('discount_coupons')
+                        .select('id')
+                        .ilike('code', order.coupon_code.trim())
+                        .single();
+
+                    if (couponData) {
+                        await supabase.from('coupon_usage').insert({
+                            coupon_id: couponData.id,
+                            user_id: order.user_id,
+                            order_id: order.order_id,
+                            discount_amount: order.discount_amount || 0
+                        });
+                        console.log(`✅ Recorded usage for coupon: ${order.coupon_code}`);
+                    }
+                } catch (couponUsageError) {
+                    console.error('⚠️ Failed to record coupon usage:', couponUsageError);
+                }
+            }
         }
 
         console.log('✅ Account created successfully for order:', internalOrderId);

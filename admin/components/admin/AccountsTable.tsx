@@ -183,16 +183,16 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
                 <table className="w-full text-left text-sm">
                     <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Account ID</th>
-                            <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">User</th>
-                            <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Login</th>
-                            <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Password</th>
-                            <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Type</th>
-                            <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Plan / Group</th>
-                            <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Balance</th>
-                            <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Equity</th>
-                            <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Status</th>
-                            <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Created</th>
+                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Account ID</th>
+                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">User</th>
+                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Login</th>
+                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Password</th>
+                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Type</th>
+                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Plan / Group</th>
+                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Balance</th>
+                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Equity</th>
+                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Status</th>
+                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Created</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
@@ -204,13 +204,13 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
                                     className={`transition-colors ${isSelected ? 'bg-indigo-50/50 hover:bg-indigo-50' : 'hover:bg-gray-50'}`}
                                 >
                                     <td className="px-6 py-4 font-mono text-xs text-gray-600">
-                                        <div className="text-indigo-600 font-medium">
+                                        <div className="text-indigo-600 font-bold">
                                             {account.challenge_number || `SF-${account.id.slice(0, 8)}`}
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div>
-                                            <div className="font-medium text-gray-900">
+                                            <div className="font-bold text-gray-900">
                                                 {account.profile?.full_name || "Unknown"}
                                             </div>
                                             <div className="text-xs text-gray-500 font-mono">
@@ -218,7 +218,7 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 font-mono text-gray-900">
+                                    <td className="px-6 py-4 font-bold font-mono text-gray-900">
                                         {account.login || "-"}
                                     </td>
                                     <td className="px-6 py-4 font-mono text-gray-900">
@@ -259,10 +259,10 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
                                             })()}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 font-medium text-gray-900">
+                                    <td className="px-6 py-4 font-bold text-gray-900">
                                         ${account.initial_balance?.toLocaleString()}
                                     </td>
-                                    <td className="px-6 py-4 font-medium text-blue-600">
+                                    <td className="px-6 py-4 font-bold text-blue-600">
                                         ${account.current_equity?.toLocaleString() ?? '-'}
                                     </td>
                                     <td className="px-6 py-4">

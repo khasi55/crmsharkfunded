@@ -6,21 +6,45 @@ const router = Router();
 // GET / - List all coupons
 router.get('/', async (req: Request, res: Response) => {
     try {
-        // Build query
-        let query = supabase
+        // Fetch coupons
+        const { data: coupons, error: couponsError } = await supabase
             .from('discount_coupons')
             .select('*')
             .order('created_at', { ascending: false });
 
-        const { data, error } = await query;
-
-        if (error) {
-            console.error('Error fetching coupons:', error);
+        if (couponsError) {
+            console.error('Error fetching coupons:', couponsError);
             res.status(500).json({ error: 'Failed to fetch coupons' });
             return;
         }
 
-        res.json({ coupons: data });
+        // Collect unique affiliate IDs
+        const affiliateIds = [...new Set(
+            coupons
+                ?.filter(c => c.affiliate_id)
+                .map(c => c.affiliate_id) || []
+        )];
+
+        // Fetch affiliate profiles
+        let affiliateMap = new Map();
+        if (affiliateIds.length > 0) {
+            const { data: profiles } = await supabase
+                .from('profiles')
+                .select('id, email')
+                .in('id', affiliateIds);
+
+            profiles?.forEach(p => {
+                affiliateMap.set(p.id, { id: p.id, email: p.email });
+            });
+        }
+
+        // Merge affiliate data into coupons
+        const couponsWithAffiliates = coupons?.map(coupon => ({
+            ...coupon,
+            affiliate: coupon.affiliate_id ? affiliateMap.get(coupon.affiliate_id) || null : null
+        }));
+
+        res.json({ coupons: couponsWithAffiliates });
     } catch (error) {
         console.error('Error in GET /coupons:', error);
         res.status(500).json({ error: 'Internal server error' });

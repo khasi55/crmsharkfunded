@@ -20,119 +20,68 @@ router.post('/validate', authenticate, async (req: AuthRequest, res: Response) =
             return;
         }
 
-        // Fetch coupon
-        const { data: coupon, error: couponError } = await supabase
+        // Use RPC for validation (handles usage tracking, correct table, and case-insensitivity)
+        const { data: result, error: rpcError } = await supabase.rpc('validate_coupon', {
+            p_code: code.trim(),
+            p_user_id: user.id,
+            p_amount: amount,
+            p_account_type: account_type_id || 'all'
+        });
+
+        if (rpcError) {
+            console.error('RPC Error:', rpcError);
+            // Fallback to manual check if RPC fails (unexpected)
+            const { data: coupon, error: couponError } = await supabase
+                .from('discount_coupons')
+                .select('*')
+                .ilike('code', code.trim())
+                .eq('is_active', true)
+                .single();
+
+            if (couponError || !coupon) {
+                res.json({ valid: false, error: 'Invalid or expired coupon code' });
+                return;
+            }
+            // ... simple validation fallback ...
+            res.json({ valid: false, error: 'Internal validation error' });
+            return;
+        }
+
+        const validation = result && result[0];
+
+        if (!validation || !validation.is_valid) {
+            res.json({
+                valid: false,
+                error: validation?.message || 'Invalid or expired coupon code'
+            });
+            return;
+        }
+
+        // Calculate final amounts for response
+        const discountAmount = validation.discount_amount;
+        const finalAmount = amount - discountAmount;
+
+        // Fetch coupon details for metadata (since RPC returns summary)
+        const { data: fullCoupon } = await supabase
             .from('discount_coupons')
             .select('*')
-            .eq('code', code.toUpperCase())
-            .eq('is_active', true)
+            .ilike('code', code.trim())
             .single();
-
-        if (couponError || !coupon) {
-            res.json({
-                valid: false,
-                error: 'Invalid or expired coupon code'
-            });
-            return;
-        }
-
-        // Check validity period
-        const now = new Date();
-        const validFrom = new Date(coupon.valid_from);
-        const validUntil = coupon.valid_until ? new Date(coupon.valid_until) : null;
-
-        if (now < validFrom) {
-            res.json({
-                valid: false,
-                error: 'Coupon is not yet valid'
-            });
-            return;
-        }
-
-        if (validUntil && now > validUntil) {
-            res.json({
-                valid: false,
-                error: 'Coupon has expired'
-            });
-            return;
-        }
-
-        // Check usage limit
-        // TODO: distinct usage count table needed for accurate tracking
-        // For now, we assume max_uses is checked against a separate query if needed
-        // Since we don't have 'used_count' column on 'discount_coupons' in new schema, we skip this check or need to add it.
-        // if (coupon.max_uses && coupon.used_count >= coupon.max_uses) { ... }
-
-        // Check minimum purchase amount
-        if (amount < (coupon.min_purchase_amount || 0)) {
-            res.json({
-                valid: false,
-                error: `Minimum purchase amount is $${coupon.min_purchase_amount}`
-            });
-            return;
-        }
-
-        // Check if applicable to selected account type
-        const applicableTo = coupon.account_types || [];
-        // If empty or null, assume valid for all? Or check if explicit 'all'.
-        // Let's assume if null, it's valid for all.
-        if (applicableTo && applicableTo.length > 0 && !applicableTo.includes('all') && account_type_id && !applicableTo.includes(account_type_id)) {
-            res.json({
-                valid: false,
-                error: 'Coupon not applicable to selected account type'
-            });
-            return;
-        }
-
-        // Check if user already used this coupon
-        // We need to make sure 'coupon_usages' table exists and uses 'discount_coupons' ID.
-        // Assuming 'coupon_usage' table exists.
-        /*
-        const { data: previousUsage } = await supabase
-            .from('coupon_usage')
-            .select('id')
-            .eq('coupon_id', coupon.id)
-            .eq('user_id', user.id)
-            .single();
-
-        if (previousUsage) {
-            res.json({
-                valid: false,
-                error: 'You have already used this coupon'
-            });
-            return;
-        }
-        */
-
-        // Calculate discount
-        let discountAmount = 0;
-        if (coupon.discount_type === 'percentage') {
-            discountAmount = (amount * coupon.discount_value) / 100;
-            if (coupon.max_discount_amount) {
-                discountAmount = Math.min(discountAmount, coupon.max_discount_amount);
-            }
-        } else {
-            discountAmount = coupon.discount_value;
-        }
-
-        // Ensure discount doesn't exceed amount
-        discountAmount = Math.min(discountAmount, amount);
-        const finalAmount = amount - discountAmount;
 
         res.json({
             valid: true,
             coupon: {
-                id: coupon.id,
-                code: coupon.code,
-                description: coupon.description
+                id: fullCoupon?.id,
+                code: fullCoupon?.code || code,
+                description: fullCoupon?.description
             },
             discount: {
-                type: coupon.discount_type,
-                value: coupon.discount_value,
+                type: fullCoupon?.discount_type,
+                value: fullCoupon?.discount_value,
                 amount: discountAmount
             },
-            affiliate_id: coupon.affiliate_id,
-            commission_rate: coupon.commission_rate,
+            affiliate_id: validation.affiliate_id,
+            commission_rate: validation.commission_rate,
             finalAmount: finalAmount
         });
 

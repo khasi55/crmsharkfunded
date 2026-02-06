@@ -7,9 +7,10 @@ interface CreateCouponModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
+    initialData?: any; // Coupon object
 }
 
-export default function CreateCouponModal({ isOpen, onClose, onSuccess }: CreateCouponModalProps) {
+export default function CreateCouponModal({ isOpen, onClose, onSuccess, initialData }: CreateCouponModalProps) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [affiliates, setAffiliates] = useState<any[]>([]);
@@ -26,7 +27,7 @@ export default function CreateCouponModal({ isOpen, onClose, onSuccess }: Create
         max_discount_amount: "",
         min_purchase_amount: "0",
         max_uses: "",
-        max_uses_per_user: "1",
+        max_uses_per_user: "",
         valid_until: "",
         affiliate_id: "",
         commission_rate: "",
@@ -35,6 +36,57 @@ export default function CreateCouponModal({ isOpen, onClose, onSuccess }: Create
 
     useEffect(() => {
         if (isOpen) {
+            if (initialData) {
+                // Edit Mode: Populate Form
+                setFormData({
+                    code: initialData.code,
+                    description: initialData.description || "",
+                    discount_type: initialData.discount_type,
+                    discount_value: initialData.discount_value.toString(),
+                    max_discount_amount: initialData.max_discount_amount?.toString() || "",
+                    min_purchase_amount: initialData.min_purchase_amount?.toString() || "0",
+                    max_uses: initialData.max_uses?.toString() || "",
+                    max_uses_per_user: initialData.max_uses_per_user?.toString() || "",
+                    valid_until: initialData.valid_until ? new Date(initialData.valid_until).toISOString().slice(0, 16) : "",
+                    affiliate_id: initialData.affiliate_id || "",
+                    commission_rate: initialData.commission_rate?.toString() || "",
+                    is_active: initialData.is_active
+                });
+
+                if (initialData.affiliate) {
+                    setSelectedAffiliate({
+                        id: initialData.affiliate.id,
+                        email: initialData.affiliate.email,
+                        full_name: initialData.affiliate.email.split('@')[0] // Fallback
+                    });
+                } else if (initialData.affiliate_id) {
+                    // If we have ID but no object (shouldn't happen with updated query), fetch?
+                    // For now trust query.
+                }
+
+            } else {
+                // Create Mode: Reset
+                setFormData({
+                    code: "",
+                    description: "",
+                    discount_type: "percentage",
+                    discount_value: "",
+                    max_discount_amount: "",
+                    min_purchase_amount: "0",
+                    max_uses: "",
+                    max_uses_per_user: "1",
+                    valid_until: "",
+                    affiliate_id: "",
+                    commission_rate: "",
+                    is_active: true
+                });
+                setSelectedAffiliate(null);
+            }
+        }
+    }, [isOpen, initialData]);
+
+    useEffect(() => {
+        if (isOpen && searchQuery) {
             const timer = setTimeout(() => {
                 if (searchQuery.length >= 2) {
                     fetchAffiliates(searchQuery);
@@ -95,15 +147,18 @@ export default function CreateCouponModal({ isOpen, onClose, onSuccess }: Create
                 max_discount_amount: formData.max_discount_amount ? parseFloat(formData.max_discount_amount) : null,
                 min_purchase_amount: parseFloat(formData.min_purchase_amount),
                 max_uses: formData.max_uses ? parseInt(formData.max_uses) : null,
-                max_uses_per_user: parseInt(formData.max_uses_per_user),
+                max_uses_per_user: formData.max_uses_per_user ? parseInt(formData.max_uses_per_user) : null,
                 affiliate_id: formData.affiliate_id || null,
                 commission_rate: formData.commission_rate ? parseFloat(formData.commission_rate) : null,
                 // transform empty string valid_until to null
                 valid_until: formData.valid_until || null
             };
 
-            const response = await fetch('/api/admin/coupons', {
-                method: 'POST',
+            const url = initialData ? `/api/admin/coupons/${initialData.id}` : '/api/admin/coupons';
+            const method = initialData ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -127,7 +182,7 @@ export default function CreateCouponModal({ isOpen, onClose, onSuccess }: Create
                 max_discount_amount: "",
                 min_purchase_amount: "0",
                 max_uses: "",
-                max_uses_per_user: "1",
+                max_uses_per_user: "",
                 valid_until: "",
                 affiliate_id: "",
                 commission_rate: "",
@@ -155,7 +210,9 @@ export default function CreateCouponModal({ isOpen, onClose, onSuccess }: Create
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 sticky top-0 bg-white">
-                    <h3 className="text-lg font-semibold text-gray-900">Create New Coupon</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                        {initialData ? "Edit Coupon" : "Create New Coupon"}
+                    </h3>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
                         <X className="h-5 w-5" />
                     </button>
@@ -277,6 +334,7 @@ export default function CreateCouponModal({ isOpen, onClose, onSuccess }: Create
                                     min="1"
                                     value={formData.max_uses_per_user}
                                     onChange={handleChange}
+                                    placeholder="Unlimited if empty"
                                     className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
                                 />
                             </div>
@@ -434,7 +492,7 @@ export default function CreateCouponModal({ isOpen, onClose, onSuccess }: Create
                             className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                         >
                             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                            {loading ? "Creating..." : "Create Coupon"}
+                            {loading ? (initialData ? "Updating..." : "Creating...") : (initialData ? "Update Coupon" : "Create Coupon")}
                         </button>
                     </div>
                 </form>

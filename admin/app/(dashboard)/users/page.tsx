@@ -60,14 +60,14 @@ export default async function AdminUsersPage({
                     <table className="w-full text-left text-sm">
                         <thead className="bg-gray-50 border-b border-gray-200">
                             <tr>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">User Details</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Status</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Commission</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Country</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Phone</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Referrals</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Joined Date</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase text-right">Actions</th>
+                                <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">User Details</th>
+                                <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Status</th>
+                                <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Commission</th>
+                                <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Country</th>
+                                <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Phone</th>
+                                <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Referrals</th>
+                                <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Joined Date</th>
+                                <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
@@ -79,7 +79,7 @@ export default async function AdminUsersPage({
                                                 {user.full_name?.charAt(0) || "U"}
                                             </div>
                                             <div>
-                                                <div className="font-medium text-gray-900">
+                                                <div className="font-bold text-gray-900">
                                                     {user.full_name || "Unknown"}
                                                 </div>
                                                 <div className="text-xs text-gray-500 font-mono">
@@ -91,7 +91,7 @@ export default async function AdminUsersPage({
                                     <td className="px-6 py-4">
                                         <StatusBadge status="Active" />
                                     </td>
-                                    <td className="px-6 py-4 font-medium text-gray-900">
+                                    <td className="px-6 py-4 font-bold text-gray-900">
                                         ${user.total_commission || 0}
                                     </td>
                                     <td className="px-6 py-4 text-gray-600">
