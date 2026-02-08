@@ -51,8 +51,11 @@ router.post('/upgrade-account', async (req: Request, res: Response) => {
         const isOneStep = currentType.includes('1-step') || currentType.includes('1_step') ||
             currentType.includes('1 step') || currentType.includes('instant');
 
-        console.log(`[Upgrade] ID: ${accountId}, Group: ${currentGroup}, Type: ${currentType}`);
-        console.log(`[Upgrade] Detection: isPrime=${isPrime}, isLite=${isLite}, isPhase1=${isPhase1}, isPhase2=${isPhase2}, isOneStep=${isOneStep}`);
+        const DEBUG = process.env.DEBUG === 'true';
+        // if (DEBUG) {
+        //     console.log(`[Upgrade] ID: ${accountId}, Group: ${currentGroup}, Type: ${currentType}`);
+        //     console.log(`[Upgrade] Detection: isPrime=${isPrime}, isLite=${isLite}, isPhase1=${isPhase1}, isPhase2=${isPhase2}, isOneStep=${isOneStep}`);
+        // }
 
         // Define exact upgrade transitions
         if (isLite) {
@@ -83,7 +86,7 @@ router.post('/upgrade-account', async (req: Request, res: Response) => {
             });
         }
 
-        console.log(`Upgrading ${account.challenge_type} → ${nextType} | ${needsNewMT5 ? 'NEW MT5' : 'KEEP MT5'} (${mt5Group})`);
+        if (DEBUG) console.log(`Upgrading ${account.challenge_type} → ${nextType} | ${needsNewMT5 ? 'NEW MT5' : 'KEEP MT5'} (${mt5Group})`);
 
         // Get user profile
         const { data: profile } = await supabase
@@ -160,7 +163,7 @@ router.post('/upgrade-account', async (req: Request, res: Response) => {
                         challenge_id: newChallenge.id,
                         status: 'active'
                     }, { onConflict: 'competition_id, user_id' });
-                console.log(`✅ Competition link updated to new account ${newChallenge.login}`);
+                if (DEBUG) console.log(`✅ Competition link updated to new account ${newChallenge.login}`);
             }
 
             // Mark old account as disabled (with link to new account)
@@ -178,12 +181,12 @@ router.post('/upgrade-account', async (req: Request, res: Response) => {
                 // We don't fail the whole request since the new account WAS created, 
                 // but we log it for admin review.
             } else {
-                console.log(`✅ Old account ${account.login} marked as DISABLED in database.`);
+                if (DEBUG) console.log(`✅ Old account ${account.login} marked as DISABLED in database.`);
             }
 
             // Disable old MT5 account via bridge
             if (account.login) {
-                console.log(`🔌 Requesting MT5 bridge to disable old account ${account.login}...`);
+                if (DEBUG) console.log(`🔌 Requesting MT5 bridge to disable old account ${account.login}...`);
                 disableMT5Account(account.login).catch(err => {
                     console.error(`❌ Bridge failed to disable account ${account.login}:`, err.message);
                 });
@@ -226,7 +229,7 @@ router.post('/upgrade-account', async (req: Request, res: Response) => {
             ).catch(err => console.error("Async Email Error in Upgrade:", err));
         }
 
-        console.log(`Account ${account.login} upgraded → ${nextType} (Login: ${mt5Login})`);
+        if (DEBUG) console.log(`Account ${account.login} upgraded → ${nextType} (Login: ${mt5Login})`);
 
         res.json({
             success: true,

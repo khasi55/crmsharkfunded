@@ -133,17 +133,11 @@ router.post('/update-status', async (req: Request, res: Response) => {
         // NOTE: Webhooks from Didit do NOT provide user auth headers.
         // We trust the didit_session_id (which is a UUID known only to the provider and us)
         const kycData = req.body;
+        const DEBUG = process.env.DEBUG === 'true';
 
-        console.log('Received KYC update data:', JSON.stringify(kycData, null, 2));
+        if (DEBUG) console.log('Received KYC update data:', JSON.stringify(kycData, null, 2));
 
-        // Log to file for persistent debugging
-        const fs = require('fs');
-        const path = require('path');
-        const logFile = path.resolve(process.cwd(), 'kyc_webhook_debug.log');
-        const logEntry = `[${new Date().toISOString()}] METHAD: ${req.method} DATA: ${JSON.stringify(kycData)}\n\n`;
-        fs.appendFileSync(logFile, logEntry);
-
-        // Extract the session ID and status (Handle various Didit formats)
+        // extract the session ID and status (Handle various Didit formats)
         let didit_session_id = kycData.didit_session_id || kycData.session_id || kycData.sessionId || kycData.verificationSessionId;
         let status = kycData.status || kycData.decision;
         const { raw_response, ...otherData } = kycData;
@@ -174,11 +168,11 @@ router.post('/update-status', async (req: Request, res: Response) => {
 
         let fullData = kycData;
         if (isMinimalPayload && didit_session_id) {
-            console.log(`ℹ️ Received minimal KYC payload for ${didit_session_id}. Fetching full details from DiDit...`);
+            if (DEBUG) console.log(`ℹ️ Received minimal KYC payload for ${didit_session_id}. Fetching full details from DiDit...`);
             try {
                 const fetchedData = await getDiditSession(didit_session_id);
                 if (fetchedData) {
-                    console.log('✅ Successfully fetched full KYC data from API.');
+                    if (DEBUG) console.log('✅ Successfully fetched full KYC data from API.');
                     // Merge: existing kycData might have some useful headers/meta, but fetched has the real data.
                     // We treat fetchedData as the source of truth for identity fields.
                     fullData = { ...kycData, ...fetchedData };

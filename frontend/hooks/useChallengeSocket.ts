@@ -8,11 +8,11 @@ export function useChallengeSubscription(challengeId: string | undefined | null)
     useEffect(() => {
         if (!socket || !isConnected || !isAuthenticated || !challengeId) return;
 
-        console.log(`📡 Subscribing to challenge: ${challengeId}`);
+        // console.log(`📡 Subscribing to challenge: ${challengeId}`);
         socket.emit('subscribe_challenge', challengeId);
 
         return () => {
-            console.log(`📴 Unsubscribing from challenge: ${challengeId}`);
+            // console.log(`📴 Unsubscribing from challenge: ${challengeId}`);
             socket.emit('unsubscribe_challenge', challengeId);
         };
     }, [socket, isConnected, isAuthenticated, challengeId]);

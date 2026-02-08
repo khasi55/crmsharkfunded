@@ -31,7 +31,7 @@ export interface Trade {
 
 export interface RiskViolation {
     violation_type: string;
-    severity: 'warning' | 'critical' | 'breach';
+    severity: 'warning' | 'critical' | 'breach' | 'monitor';
     description: string;
     trade_ticket?: string;
     symbol?: string;

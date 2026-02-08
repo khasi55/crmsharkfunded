@@ -10,14 +10,14 @@ export async function getEquityCurveData(challengeId: string, initialBalance: nu
     try {
         const cached = await redis.get(CACHE_KEY);
         if (cached) {
-            console.log('⚡ Redis Cache Hit for Equity Curve');
+            // console.log('⚡ Redis Cache Hit for Equity Curve');
             return JSON.parse(cached);
         }
     } catch (e) {
         console.warn('Redis error (get):', e);
     }
 
-    console.log('🐢 Cache Miss - Fetching from DB');
+    // console.log('🐢 Cache Miss - Fetching from DB');
 
     // Calculate start date
     const startDate = new Date();

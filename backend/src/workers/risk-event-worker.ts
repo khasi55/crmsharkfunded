@@ -1,4 +1,5 @@
-import { getRedisSub } from '../lib/redis';
+import { Worker, Job } from 'bullmq';
+import { getRedis } from '../lib/redis';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { CoreRiskEngine } from '../engine/risk-engine-core';
@@ -14,36 +15,43 @@ const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 const coreEngine = new CoreRiskEngine(supabase);
 const advancedEngine = new AdvancedRiskEngine(supabase);
+const DEBUG = process.env.DEBUG === 'true'; // STRICT: Silence risk worker logs in dev
 
 // Main Worker Function
 export async function startRiskEventWorker() {
-    console.log('⚡ Risk Event Worker Started (Listening for Redis events)...');
+    if (DEBUG) console.log('⚡ Risk Event Worker Started (Queue: risk-queue)...');
 
-    // Use the dedicated subscriber singleton
-    const subRedis = getRedisSub();
-
-    await subRedis.subscribe('events:trade_update', (err) => {
-        if (err) console.error('Failed to subscribe to trade updates:', err);
-    });
-
-    subRedis.on('message', async (channel, message) => {
-        if (channel === 'events:trade_update') {
-            try {
-                const eventData = JSON.parse(message);
-                await processTradeEvent(eventData);
-            } catch (e) {
-                console.error('Error processing event:', e);
-            }
+    const worker = new Worker('risk-queue', async (job: Job) => {
+        // Parallel Processing (Concurrency: 50)!!
+        try {
+            await processTradeEvent(job.data);
+        } catch (e) {
+            console.error(`❌ Risk Job ${job.id} failed for account ${job.data.login}:`, e);
+            throw e; // Retry logic handled by queue
         }
+    }, {
+        connection: getRedis() as any, // Reuse singleton
+        concurrency: 50, // SCALABILITY FIX: Process 50 events in parallel
+        limiter: {
+            max: 1000,
+            duration: 1000 // Rate limit: max 1000 jobs per second
+        },
+        removeOnComplete: { count: 100 },
+        removeOnFail: { count: 500 }
     });
 
-    return subRedis;
+    worker.on('failed', (job, err) => {
+        console.error(`❌ Risk Job ${job?.id} failed: ${err.message}`);
+    });
+
+    if (DEBUG) console.log('✅ Risk Worker Initialized with concurrency: 50');
+    return worker;
 }
 
 async function processTradeEvent(data: { login: number, trades: any[], timestamp: number }) {
     const { login, trades } = data;
-    // const startTime = Date.now();
-    // console.log(`🔄 Processing event for login ${login} (${trades.length} trades)`);
+
+    let meaningfulTrades: any[] = [];
 
     // 1. Fetch Challenge
     const { data: challenge } = await supabase
@@ -52,17 +60,23 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
         .eq('login', login)
         .single();
 
-    if (!challenge || challenge.status !== 'active') return;
+    if (!challenge || challenge.status !== 'active') {
+        // if (DEBUG) console.warn(`⚠️ [RiskEvent] Early Exit for ${login}: Challenge found? ${!!challenge}, Status: ${challenge?.status}`);
+        return;
+    }
 
     // 2. Filter Trades for behavioral checks (Ghost Trade Protection)
     const validIncomingTrades = trades.filter((t: any) => t.volume > 0 && ['0', '1', 'buy', 'sell'].includes(String(t.type).toLowerCase()));
     const challengeStartTime = new Date(challenge.created_at).getTime() / 1000;
-    const meaningfulTrades = validIncomingTrades.filter((t: any) => t.time >= (challengeStartTime - 30));
+    meaningfulTrades = validIncomingTrades.filter((t: any) => t.time >= (challengeStartTime - 30));
 
+    // console.log(`[RiskEvent] Login ${login}: ${meaningfulTrades.length} meaningful trades / ${trades.length} total.`);
+
+    // 3. Recalculate Equity (In-Memory if possible, or simple query)
     // 3. Recalculate Equity (In-Memory if possible, or simple query)
     // Query DB for verified calculation, but strictly filter out 0-lot trades (deposits)
     const { data: dbTrades } = await supabase.from('trades')
-        .select('profit_loss, close_time')
+        .select('profit_loss, commission, swap, close_time')
         .eq('challenge_id', challenge.id)
         .gt('lots', 0); // Strict filter: Real trades must have lots > 0
 
@@ -72,8 +86,10 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
 
     if (dbTrades) {
         for (const t of dbTrades) {
-            if (t.close_time) closedProfit += Number(t.profit_loss);
-            else floatingProfit += Number(t.profit_loss);
+            // Fix: Commission is reported per-side (or half), so we deduct it twice to match Net P&L (User Expectation: 1.98 vs 2.58)
+            const netProfit = Number(t.profit_loss) + (Number(t.commission || 0) * 2) + Number(t.swap || 0);
+            if (t.close_time) closedProfit += netProfit;
+            else floatingProfit += netProfit;
         }
     }
 
@@ -114,7 +130,7 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
 
         // 🚨 CRITICAL: Immediately Disable Account on Bridge
         try {
-            console.log(`🔌 [RiskEvent] Disabling account ${login} on MT5 Bridge...`);
+            if (DEBUG) console.log(`🔌 [RiskEvent] Disabling account ${login} on MT5 Bridge...`);
             await disableMT5Account(login);
         } catch (bridgeErr) {
             console.error(`❌ [RiskEvent] Failed to disable account ${login} on Bridge:`, bridgeErr);
@@ -124,7 +140,7 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
         try {
             const { data: { user } } = await supabase.auth.admin.getUserById(challenge.user_id);
             if (user && user.email) {
-                console.log(`📧 Sending breach email to ${user.email} for account ${login}`);
+                if (DEBUG) console.log(`📧 Sending breach email to ${user.email} for account ${login}`);
                 await EmailService.sendBreachNotification(
                     user.email,
                     user.user_metadata?.full_name || 'Trader',
@@ -176,56 +192,102 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
 
         // Get context trades (today's and open)
         const today = new Date().toISOString().split('T')[0];
+        const yesterday = new Date(Date.now() - 86400000).toISOString();
+
+        // Fetch Today's Trades (for daily stats)
         const { data: todaysTrades } = await supabase.from('trades')
             .select('*')
             .eq('challenge_id', challenge.id)
             .gte('open_time', today);
 
-        const { data: openTrades } = await supabase.from('trades')
+        // Fetch ALL Closed Trades (As requested: Full history for Martingale)
+        // Optimization: Select only necessary columns to reduce payload
+        const { data: recentHistory } = await supabase.from('trades')
+            .select('ticket, close_time, profit_loss, lots, type, symbol, open_time')
+            .eq('challenge_id', challenge.id)
+            .not('close_time', 'is', null)
+            .order('close_time', { ascending: false });
+
+        // Merge for holistic analysis
+        const analysisHistory = [
+            ...(todaysTrades || []),
+            ...(recentHistory || [])
+        ].filter((t, index, self) =>
+            index === self.findIndex((x) => x.ticket === t.ticket) // Deduplicate
+        );
+
+        // Fetch "Concurrent" trades for Hedging check
+        // Must include currently OPEN trades AND recently CLOSED trades (to catch historical overlaps during sync)
+        const { data: concurrentTrades } = await supabase.from('trades')
             .select('*')
             .eq('challenge_id', challenge.id)
-            .is('close_time', null);
+            .or(`close_time.is.null,close_time.gte.${yesterday}`);
+
+
+        // Fix: Map concurrentTrades to Ensure Date objects (Supabase returns strings)
+        // AND prioritize incoming raw types if available (to fix DB mismatches)
+        const incomingTypeMap = new Map<string, string>();
+        trades.forEach((t: any) => {
+            const normalizedType = (String(t.type) === '0' || String(t.type).toLowerCase() === 'buy') ? 'buy' : 'sell';
+            incomingTypeMap.set(String(t.ticket), normalizedType);
+        });
+
+        const concurrentTradesForEngine = (concurrentTrades || []).map((t: any) => {
+            const ticket = String(t.ticket);
+            // Use incoming raw type if available, otherwise fallback to DB type
+            const finalType = incomingTypeMap.get(ticket) || ((String(t.type) === '0' || String(t.type).toLowerCase() === 'buy') ? 'buy' : 'sell');
+
+            return {
+                ...t,
+                ticket_number: ticket,
+                type: finalType,
+                open_time: new Date(t.open_time),
+                close_time: t.close_time ? new Date(t.close_time) : undefined
+            };
+        });
+
+        if (concurrentTradesForEngine.length > 0) {
+            // const sample = concurrentTradesForEngine[0];
+            // console.log(`🔎 [DEBUG-TYPE] open_time type: ${typeof sample.open_time}, val: ${sample.open_time}`);
+            // console.log(`🔎 [DEBUG-TYPE] DB Trade #0 ticket: ${sample.ticket_number}, RAW type: ${concurrentTrades[0].type}, Mapped type: ${sample.type}`);
+        }
 
         // Analyze each incoming trade for behavioral patterns
-        for (const t of meaningfulTrades) {
-            // Debug: Check if close_time exists for closed trades
-            if (t.close_time) {
-                // console.log(`🕵️ Risk Check: Ticket ${t.ticket}, Close Time: ${t.close_time}`);
-                // console.log(`   Rules: Min Duration ${rules.min_trade_duration_seconds}s`);
-            }
-
-            // Map to internal Trade type for engine
-            const tradeForEngine = {
-                challenge_id: challenge.id,
-                user_id: challenge.user_id,
-                ticket_number: String(t.ticket),
-                symbol: t.symbol,
-                type: (t.type === 0 || t.type === 'buy') ? 'buy' : 'sell' as 'buy' | 'sell',
-                lots: t.volume / 10000,
-                open_price: t.price || 0,
-                profit_loss: t.profit || 0,
-                open_time: new Date(t.time * 1000),
-                close_time: t.close_time ? new Date(t.close_time * 1000) : undefined // Ensure this is definitely a Date if closed
-            };
-
-            const behavioralViolations = await advancedEngine.checkBehavioralRisk(
-                tradeForEngine as any,
-                rules,
-                (todaysTrades || []) as any,
-                (openTrades || []) as any
-            );
-
-            if (behavioralViolations.length > 0) {
-                // console.log(`🚨 VIOLATIONS FOUND for Ticket ${t.ticket}:`, behavioralViolations);
-                for (const v of behavioralViolations) {
-                    // console.log(`🚩 Behavioral Flag: Account ${login}, Type: ${v.violation_type}, Ticket: ${v.trade_ticket}`);
-                    await advancedEngine.logFlag(challenge.id, challenge.user_id, v);
+        // FIX: Ensure meaningfulTrades is defined/accessible
+        if (meaningfulTrades && meaningfulTrades.length > 0) {
+            // console.log(`🔎 [DEBUG-TYPE] Incoming Trade #0 ticket: ${meaningfulTrades[0].ticket}, RAW type: ${meaningfulTrades[0].type}`);
+            for (const t of meaningfulTrades) {
+                // Debug: Check if close_time exists for closed trades
+                if (t.close_time) {
+                    // console.log(`🕵️ Risk Check: Ticket ${t.ticket}, Close Time: ${t.close_time}`);
+                    // console.log(`   Rules: Min Duration ${rules.min_trade_duration_seconds}s`);
                 }
-            } else if (t.close_time) {
-                // Debug why no violation if closed
-                const duration = (tradeForEngine.close_time!.getTime() - tradeForEngine.open_time.getTime()) / 1000;
-                if (duration < rules.min_trade_duration_seconds) {
-                    console.log(`⚠️ MISSED SCALPING? Duration ${duration}s < Min ${rules.min_trade_duration_seconds}s`);
+
+                // Map to internal Trade type for engine
+                const tradeForEngine = {
+                    challenge_id: challenge.id,
+                    user_id: challenge.user_id,
+                    ticket_number: String(t.ticket),
+                    symbol: t.symbol,
+                    type: (String(t.type) === '0' || String(t.type).toLowerCase() === 'buy') ? 'buy' : 'sell' as 'buy' | 'sell',
+                    lots: t.volume / 10000,
+                    open_price: t.price || 0,
+                    profit_loss: t.profit || 0,
+                    open_time: new Date(t.time * 1000),
+                    close_time: t.close_time ? new Date(t.close_time * 1000) : undefined // Ensure this is definitely a Date if closed
+                };
+
+                const behavioralViolations = await advancedEngine.checkBehavioralRisk(
+                    tradeForEngine as any,
+                    rules,
+                    (analysisHistory || []) as any,
+                    concurrentTradesForEngine as any // Pass correctly formatted trades
+                );
+
+                if (behavioralViolations.length > 0) {
+                    for (const v of behavioralViolations) {
+                        await advancedEngine.logFlag(challenge.id, challenge.user_id, v);
+                    }
                 }
             }
         }

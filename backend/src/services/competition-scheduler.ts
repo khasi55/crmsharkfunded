@@ -15,7 +15,8 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 export function startCompetitionScheduler() {
-    console.log(" Competition Scheduler initialized. Schedule: '*/10 * * * *' (Every 10 Minutes)");
+    const DEBUG = process.env.DEBUG === 'true';
+    if (DEBUG) console.log(" Competition Scheduler initialized. Schedule: '*/10 * * * *' (Every 10 Minutes)");
 
     cron.schedule('*/10 * * * *', async () => {
         await checkCompetitionStatus();
@@ -23,11 +24,11 @@ export function startCompetitionScheduler() {
 }
 
 async function checkCompetitionStatus() {
-    
+
     const now = new Date().toISOString();
 
     try {
-        
+
         const { data: starting, error: startError } = await supabase
             .from('competitions')
             .update({ status: 'active' })
@@ -37,10 +38,11 @@ async function checkCompetitionStatus() {
 
         if (startError) console.error("Error starting competitions:", startError);
         if (starting && starting.length > 0) {
-            console.log(` Started ${starting.length} competitions: ${starting.map(c => c.title).join(', ')}`);
+            const DEBUG = process.env.DEBUG === 'true';
+            if (DEBUG) console.log(` Started ${starting.length} competitions: ${starting.map(c => c.title).join(', ')}`);
         }
 
-        
+
         const { data: ending, error: endError } = await supabase
             .from('competitions')
             .update({ status: 'ended' })
@@ -50,9 +52,10 @@ async function checkCompetitionStatus() {
 
         if (endError) console.error("Error ending competitions:", endError);
         if (ending && ending.length > 0) {
-            console.log(` Ended ${ending.length} competitions: ${ending.map(c => c.title).join(', ')}`);
+            const DEBUG = process.env.DEBUG === 'true';
+            if (DEBUG) console.log(` Ended ${ending.length} competitions: ${ending.map(c => c.title).join(', ')}`);
 
-            
+
         }
 
     } catch (e) {

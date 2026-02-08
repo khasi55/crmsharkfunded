@@ -25,7 +25,7 @@ export default function ZenvesttPage() {
 
             const trades = response.trades;
 
-            console.log(`Fetched ${trades.length} trades for account ${accountId}`);
+            // console.log(`Fetched ${trades.length} trades for account ${accountId}`);
 
             // 2. Prepare Payload (The "Parameters")
             const payload = {
@@ -47,7 +47,7 @@ export default function ZenvesttPage() {
                 }))
             };
 
-            console.log("Preparing to send payload to Zenvestt:", payload);
+            // console.log("Preparing to send payload to Zenvestt:", payload);
 
             // Placeholder for the URL the user will provide
             // const ZENVESTT_URL = "https://api.zenvestt.com/import"; 

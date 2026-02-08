@@ -8,12 +8,14 @@ dotenv.config();
 // Ensure we have a robust client (using existing module or creating new)
 // Using imported 'supabase' from lib to share config
 
+const DEBUG = process.env.DEBUG === 'true'; // STRICT: Silence daily reset logs in dev
+
 export function startDailyEquityReset() {
-    console.log(" Daily Equity Reset Scheduler initialized. Schedule: '0 17 * * *' (5 PM EST / New York Close)");
+    if (DEBUG) console.log(" Daily Equity Reset Scheduler initialized. Schedule: '0 17 * * *' (5 PM EST / New York Close)");
 
     // Schedule task to run at 17:00 (5 PM) New York Time every day
     cron.schedule('0 17 * * *', async () => {
-        console.log(" [Daily Reset] Starting Daily Equity Reset (5 PM EST)...");
+        if (DEBUG) console.log(" [Daily Reset] Starting Daily Equity Reset (5 PM EST)...");
         await performDailyReset();
     }, {
         timezone: "America/New_York"
@@ -25,7 +27,8 @@ const BRIDGE_URL = process.env.BRIDGE_URL || 'https://bridge.sharkfunded.co';
 
 async function performDailyReset() {
     try {
-        console.log(" [Daily Reset] Starting Daily Equity Reset...");
+        const DEBUG = process.env.DEBUG === 'true';
+        if (DEBUG) console.log(" [Daily Reset] Starting Daily Equity Reset...");
 
         // 1. Fetch active challenges
         const { data: challenges, error } = await supabase
@@ -34,11 +37,12 @@ async function performDailyReset() {
             .eq('status', 'active');
 
         if (error || !challenges || challenges.length === 0) {
-            console.log("ℹ[Daily Reset] No active challenges found or error:", error);
+            const DEBUG = process.env.DEBUG === 'true';
+            if (DEBUG) console.log("ℹ[Daily Reset] No active challenges found or error:", error);
             return;
         }
 
-        console.log(` [Daily Reset] Fetching LIVE data for ${challenges.length} accounts...`);
+        if (DEBUG) console.log(` [Daily Reset] Fetching LIVE data for ${challenges.length} accounts...`);
 
         // 2. Prepare Bulk Request (Safe Mode: Limit = -Infinity to just get data)
         const payload = challenges.map(c => ({
@@ -91,7 +95,7 @@ async function performDailyReset() {
         });
 
         await Promise.all(updates);
-        console.log(`[Daily Reset] Successfully reset ${results.length} accounts using LIVE data.`);
+        if (DEBUG) console.log(`[Daily Reset] Successfully reset ${results.length} accounts using LIVE data.`);
 
     } catch (e) {
         console.error(" [Daily Reset] Critical Error:", e);
@@ -101,7 +105,8 @@ async function performDailyReset() {
 
 // Add strict retry for failed resets (e.g. 10 mins later)
 cron.schedule('10 17 * * *', async () => {
-    console.log("[Daily Reset Backup] Running backup verification...");
+    const DEBUG = process.env.DEBUG === 'true';
+    if (DEBUG) console.log("[Daily Reset Backup] Running backup verification...");
     // We could re-run or check specifically for non-updated accounts
     // For now, simpler to just rely on initial run, but logging is key.
 }, {

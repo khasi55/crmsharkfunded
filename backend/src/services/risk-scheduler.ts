@@ -17,11 +17,13 @@ const BRIDGE_URL = process.env.BRIDGE_URL || 'https://bridge.sharkfunded.co';
 // console.log("🔍 [Risk Scheduler] Using BRIDGE_URL:", BRIDGE_URL);
 
 // --- CONFIGURATION ---
-// Dynamic Risk Rules are fetched from 'mt5_risk_groups' table.
+const DEBUG = process.env.DEBUG === 'true'; // STRICT: Silence risk monitor logs in dev
 
 export function startRiskMonitor(intervalSeconds: number = 20) {
-    console.log(`⏰ Risk Monitor Scheduler started. Interval: ${intervalSeconds}s`);
-    console.log(`🛡️ Limits: Dynamic based on MT5 Groups`);
+    if (DEBUG) {
+        console.log(`⏰ Risk Monitor Scheduler started. Interval: ${intervalSeconds}s`);
+        console.log(`🛡️ Limits: Dynamic based on MT5 Groups`);
+    }
 
     runRiskCheck();
     setInterval(runRiskCheck, intervalSeconds * 1000);
@@ -182,7 +184,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 const isZeroEquityGlitch = (res.equity <= 0.01) && (res.balance > (Number(challenge.initial_balance) * 0.01));
 
                 if (isZeroEquityGlitch) {
-                    console.warn(` IGNORED Zero Equity Glitch for ${res.login}. Equity: ${res.equity}, Balance: ${res.balance}`);
+                    if (DEBUG) console.warn(` IGNORED Zero Equity Glitch for ${res.login}. Equity: ${res.equity}, Balance: ${res.balance}`);
                     continue;
                 }
 
@@ -227,7 +229,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 if (res.equity < effectiveLimit) {
                     if (challenge.status !== 'breached' && challenge.status !== 'failed' && challenge.status !== 'disabled') {
                         updateData.status = 'breached';
-                        console.log(` LOCAL BREACH CONFIRMED: Account ${res.login}. Equity: ${res.equity} < Limit: ${effectiveLimit}`);
+                        if (DEBUG) console.log(` LOCAL BREACH CONFIRMED: Account ${res.login}. Equity: ${res.equity} < Limit: ${effectiveLimit}`);
 
                         systemLogs.push({
                             source: 'RiskScheduler',
@@ -268,7 +270,11 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 // Fetch dynamic rules for this challenge
                 const { RulesService } = await import('./rules-service');
                 const rules = await RulesService.getRules(challenge.group, challenge.challenge_type);
+                const normalizedType = (challenge.challenge_type || '').toLowerCase();
+                const maxTotalLossPercent = rules.max_total_loss_percent;
+                const maxDailyLossPercent = rules.max_daily_loss_percent;
                 const profitTargetPercent = rules.profit_target_percent;
+                if (DEBUG) console.log(`[RulesService] Resolved Rules for '${normalizedType}': Max=${maxTotalLossPercent}%, Daily=${maxDailyLossPercent}%, Profit=${profitTargetPercent}% (Source: DB)`);
 
                 if (profitTargetPercent > 0) {
                     const initialBalance = Number(challenge.initial_balance);
@@ -289,7 +295,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                             try {
                                 const { data: { user } } = await supabase.auth.admin.getUserById(challenge.user_id);
                                 if (user && user.email) {
-                                    console.log(` [RiskScheduler] Sending pass email to ${user.email} for account ${res.login}`);
+                                    if (DEBUG) console.log(` [RiskScheduler] Sending pass email to ${user.email} for account ${res.login}`);
                                     EmailService.sendPassNotification(
                                         user.email,
                                         user.user_metadata?.full_name || 'Trader',
@@ -302,7 +308,6 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                     }
                 }
 
-
                 // If breached, fail the account
                 const normalizedStatus = res.status?.toLowerCase();
                 if (normalizedStatus === 'breached' || normalizedStatus === 'failed') {
@@ -310,7 +315,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
 
                     // Only log if it wasn't already failed/breached
                     if (challenge.status !== 'breached' && challenge.status !== 'failed') {
-                        console.log(` BREACH CONFIRMED: Account ${res.login}. Equity: ${res.equity}`);
+                        if (DEBUG) console.log(` BREACH CONFIRMED: Account ${res.login}. Equity: ${res.equity}`);
 
                         systemLogs.push({
                             source: 'RiskScheduler',
@@ -334,7 +339,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                         try {
                             const { data: { user } } = await supabase.auth.admin.getUserById(challenge.user_id);
                             if (user && user.email) {
-                                console.log(` [RiskScheduler] Sending breach email to ${user.email} for account ${res.login}`);
+                                if (DEBUG) console.log(` [RiskScheduler] Sending breach email to ${user.email} for account ${res.login}`);
                                 await EmailService.sendBreachNotification(
                                     user.email,
                                     user.user_metadata?.full_name || 'Trader',
@@ -356,7 +361,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
             if (updatesToUpsert.length > 0) {
                 const breachedUpdate = updatesToUpsert.find(u => u.status === 'breached');
                 if (breachedUpdate) {
-                    console.log(` Committing BREACH to DB:`, JSON.stringify(breachedUpdate, null, 2));
+                    if (DEBUG) console.log(` Committing BREACH to DB:`, JSON.stringify(breachedUpdate, null, 2));
                 }
 
                 const { error } = await supabase

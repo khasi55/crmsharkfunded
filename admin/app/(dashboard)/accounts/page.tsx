@@ -9,7 +9,7 @@ import { AccountsTable } from "@/components/admin/AccountsTable";
 export default async function AccountsListPage({
     searchParams,
 }: {
-    searchParams: { query?: string; page?: string; group?: string; status?: string };
+    searchParams: { query?: string; page?: string; group?: string; status?: string; tab?: string };
 }) {
     const query = (await searchParams)?.query || "";
     const page = parseInt((await searchParams)?.page || "1");
@@ -42,6 +42,8 @@ export default async function AccountsListPage({
         challengeQuery = challengeQuery.eq('group', groupFilter);
     }
 
+    const tab = (await searchParams)?.tab || ""; // Add tab extraction
+
     // Unified status filtering logic (matches MT5 Dashboard)
     if (statusFilter === 'breached') {
         // Group all "terminating" statuses together
@@ -54,6 +56,17 @@ export default async function AccountsListPage({
         // Exclude all terminal accounts by default
         challengeQuery = challengeQuery.not('status', 'in', '("breached","failed","disabled","upgraded")');
         challengeQuery = challengeQuery.is('upgraded_to', null);
+    }
+
+    // Tab Filtering Logic
+    if (tab === 'first') {
+        challengeQuery = challengeQuery.or('challenge_type.ilike.%phase 1%,challenge_type.ilike.%phase_1%,challenge_type.ilike.%step 1%,challenge_type.ilike.%step_1%,challenge_type.ilike.%evaluation%');
+    } else if (tab === 'second') {
+        challengeQuery = challengeQuery.or('challenge_type.ilike.%phase 2%,challenge_type.ilike.%phase_2%,challenge_type.ilike.%step 2%,challenge_type.ilike.%step_2%');
+    } else if (tab === 'funded') {
+        challengeQuery = challengeQuery.or('challenge_type.ilike.%funded%,challenge_type.ilike.%master%,challenge_type.ilike.%live%');
+    } else if (tab === 'instant') {
+        challengeQuery = challengeQuery.ilike('challenge_type', '%instant%');
     }
 
     // Note: Search logic is harder with manual join. 

@@ -58,6 +58,7 @@ export class AdvancedRiskEngine {
 
     /**
      * Run all advanced behavioral checks
+     * MODIFIED: Now checks EVERYTHING regardless of rules, but marks allowed patterns as 'monitor' severity.
      */
     async checkBehavioralRisk(
         trade: Trade,
@@ -68,17 +69,23 @@ export class AdvancedRiskEngine {
         const violations: RiskViolation[] = [];
 
         // 1. Martingale (Revenge Trading)
-        // Check ONLY if Martingale is BANNED (allow_martingale = false)
-        if (rules.allow_martingale === false) {
-            const martingale = await this.checkMartingale(trade, todaysTrades);
-            if (martingale) violations.push(martingale);
+        const martingale = await this.checkMartingale(trade, todaysTrades);
+        if (martingale) {
+            if (rules.allow_martingale) {
+                martingale.severity = 'monitor';
+                martingale.description += ' (Allowed)';
+            }
+            violations.push(martingale);
         }
 
         // 2. Hedging
-        // Check ONLY if Hedging is BANNED (allow_hedging = false)
-        if (rules.allow_hedging === false) {
-            const hedging = await this.checkHedging(trade, openTrades);
-            if (hedging) violations.push(hedging);
+        const hedging = await this.checkHedging(trade, openTrades);
+        if (hedging) {
+            if (rules.allow_hedging) {
+                hedging.severity = 'monitor';
+                hedging.description += ' (Allowed)';
+            }
+            violations.push(hedging);
         }
 
         // 3. Arbitrage (Latency/HFT)
@@ -101,7 +108,7 @@ export class AdvancedRiskEngine {
     // Rule: Martingale / Revenge Trading
     public checkMartingale(trade: Trade, recentTrades: Trade[]): RiskViolation | null {
         if (recentTrades.length === 0) return null;
-        console.log(`🔍 Checking Martingale for Ticket #${trade.ticket_number} (Recent Trades: ${recentTrades.length})`);
+        // console.log(`🔍 Checking Martingale for Ticket #${trade.ticket_number} (Recent Trades: ${recentTrades.length})`);
 
         // Find last closed trade
         const lastTrade = recentTrades.filter(t => t.close_time)
@@ -131,25 +138,36 @@ export class AdvancedRiskEngine {
         // Robust Hedging Check:
         // 1. Must be same symbol
         // 2. Must be opposite type
-        // 3. Must ACTUALY OVERLAP in time (taking into account close times)
-        // 4. Ignore tiny overlaps (< 2 seconds) to allow for latency/slippage during close/open switches
+        // 3. Must ACTUALY OVERLAP in time
 
-        const tradeOpen = new Date(trade.open_time).getTime();
+        const tradeOpen = trade.open_time.getTime();
+        const tradeClose = trade.close_time ? trade.close_time.getTime() : Date.now() + 31536000000; // Future if open
 
         const opposing = openTrades.find(t => {
-            if (t.symbol !== trade.symbol) return false;
-            if (t.type === trade.type) return false;
+            if (t.symbol !== trade.symbol) {
+                // console.log(`   -> Rejecting #${t.ticket_number}: Symbol mismatch (${t.symbol} vs ${trade.symbol})`);
+                return false;
+            }
+            // Check opposite type (buy vs sell)
+            if (t.type === trade.type) {
+                // console.log(`   -> Rejecting #${t.ticket_number}: Type mismatch (${t.type} vs ${trade.type})`);
+                return false;
+            }
+            // Ignore self
+            if (t.ticket_number === trade.ticket_number) {
+                // console.log(`   -> Rejecting #${t.ticket_number}: Self-comparison`);
+                return false;
+            }
 
             // Check Time Overlap
-            // Existing Trade Open
-            const tOpen = new Date(t.open_time).getTime();
-            // Existing Trade Close (or Future if still open)
-            const tClose = t.close_time ? new Date(t.close_time).getTime() : Date.now() + 31536000000;
+            const tOpen = t.open_time.getTime();
+            const tClose = t.close_time ? t.close_time.getTime() : Date.now() + 31536000000;
 
-            // Allow 2-second buffer for latency (e.g. closing one and opening another immediately)
             const overlapStart = Math.max(tradeOpen, tOpen);
-            const overlapEnd = Math.min(Date.now(), tClose); // Assumes 'trade' is currently open/just opened
+            const overlapEnd = Math.min(tradeClose, tClose);
             const overlapDuration = overlapEnd - overlapStart;
+
+            // console.log(`   -> Comparing with #${t.ticket_number} (${t.symbol}, ${t.type}): Overlap ${overlapDuration}ms`);
 
             // If overlap is negative or very small (< 2000ms), ignore it
             if (overlapDuration < 2000) return false;
@@ -158,11 +176,17 @@ export class AdvancedRiskEngine {
         });
 
         if (opposing) {
+            // console.log(`🚨 [HedgingCheck] HEDGING DETECTED: #${trade.ticket_number} vs #${opposing.ticket_number}`);
             return {
                 violation_type: 'hedging',
                 severity: 'breach',
                 description: `Hedging Detected: Opposing trade on ${trade.symbol} (Ticket #${opposing.ticket_number})`,
-                trade_ticket: trade.ticket_number
+                trade_ticket: trade.ticket_number,
+                symbol: trade.symbol,
+                metadata: {
+                    opposing_ticket: opposing.ticket_number,
+                    symbol: trade.symbol
+                }
             };
         }
         return null;
@@ -192,7 +216,8 @@ export class AdvancedRiskEngine {
                 violation_type: 'tick_scalping',
                 severity: 'breach',
                 description: `Scalping Detected: Duration ${duration}s < Minimum ${minDuration}s`,
-                trade_ticket: trade.ticket_number
+                trade_ticket: trade.ticket_number,
+                symbol: trade.symbol
             };
         }
         return null;

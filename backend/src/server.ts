@@ -8,6 +8,15 @@ import fs from 'fs';
 
 dotenv.config();
 
+const DEBUG = process.env.DEBUG === 'true'; // STRICT: No logs even in dev unless DEBUG=true
+
+// SILENCE BULLMQ EVICTION WARNING (As requested)
+const originalWarn = console.warn;
+console.warn = (...args) => {
+    if (typeof args[0] === 'string' && args[0].includes('Eviction policy')) return;
+    originalWarn(...args);
+};
+
 const app = express();
 app.set('trust proxy', true); // Trust reverse proxy (Nginx) to get real client IP
 const PORT = process.env.PORT || 3001;
@@ -47,13 +56,14 @@ app.use((req, res, next) => {
     const log = `[${new Date().toISOString()}] ${req.method} ${req.path}\n`;
     fs.appendFileSync('backend_request_debug.log', log);
     // Only log in development
-    if (process.env.NODE_ENV === 'development') {
+    const DEBUG = process.env.DEBUG === 'true';
+    if (process.env.NODE_ENV === 'development' && DEBUG) {
         console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
     }
     next();
 });
 
-console.log("🔄 Force Restart for Consistency Route - Updated 6 - Debugging Equity");
+if (DEBUG) console.log("🔄 Force Restart for Consistency Route - Updated 6 - Debugging Equity");
 
 // Supabase Setup
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -146,7 +156,8 @@ app.post('/api/risk/validate', async (req, res) => {
             return;
         }
 
-        console.log(`Analyzing trade ${trade.ticket_number} for challenge ${trade.challenge_id}`);
+        const DEBUG = process.env.DEBUG === 'true';
+        if (DEBUG) console.log(`Analyzing trade ${trade.ticket_number} for challenge ${trade.challenge_id}`);
 
         const { data: todaysTrades } = await supabase.from('trades')
             .select('*')
@@ -242,15 +253,15 @@ import { closeRedisConnections } from './lib/redis';
 
 
 
-console.log('🔄 [Risk Monitor] Polling Enabled (Fast Mode) - 5s Interval');
+if (DEBUG) console.log('🔄 [Risk Monitor] Polling Enabled (Fast Mode) - 5s Interval');
 startRiskMonitor(5); // Increased frequency for faster breach detection
 startAdvancedRiskMonitor(); // 5m Martingale Checks
 startDailyEquityReset(); // Schedule midnight reset
-// startTradeSyncScheduler(); // Dispatch jobs every 10s
+startTradeSyncScheduler(); // Dispatch jobs every 5m (Immediate on Restart)
 // startCompetitionScheduler(); // Schedule competition status checks
 // startLeaderboardBroadcaster(); // Broadcasts every 30s
-// const tradeSyncWorker = startTradeSyncWorker(); // DISABLED: Redundant, handled by scheduler
-const riskEventSub = startRiskEventWorker(); // LISTENS for 'events:trade_update' (Critical for Scalping Checks)
+const tradeSyncWorker = startTradeSyncWorker(); // SCALABILITY FIX: Process 6,000+ accounts in parallel
+const riskWorker = startRiskEventWorker(); // LISTENS for 'events:trade_update' (Critical for Scalping Checks)
 
 
 // Initialize Socket.IO
@@ -261,8 +272,10 @@ const httpServer = createServer(app);
 initializeSocket(httpServer);
 
 const server = httpServer.listen(PORT, () => {
-    console.log(`Risk Engine Backend running on port ${PORT}`);
-    console.log(` WebSocket server ready`);
+    if (DEBUG) console.log(`✅ Sharkfunded CRM Backend running on port ${PORT}`);
+    if (DEBUG) {
+        console.log(` WebSocket server ready`);
+    }
 });
 
 // GLOBAL ERROR HANDLERS (Prevent Crashes)
@@ -275,22 +288,22 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 async function gracefulShutdown(signal: string) {
-    console.log(`${signal} signal received: closing HTTP server`);
+    if (DEBUG) console.log(`${signal} signal received: closing HTTP server`);
 
     server.close(async () => {
-        console.log('HTTP server closed');
+        if (DEBUG) console.log('HTTP server closed');
 
         try {
-            // console.log('Closing Trade Sync Worker...');
-            // const worker = await tradeSyncWorker;
-            // if (worker) await worker.close();
+            if (DEBUG) console.log('Closing Trade Sync Worker...');
+            const syncWk = await tradeSyncWorker;
+            if (syncWk) await syncWk.close();
 
-            console.log('Closing Risk Event Subscriber...');
-            const sub = await riskEventSub;
-            if (sub) await sub.quit();
+            if (DEBUG) console.log('Closing Risk Worker...');
+            const worker = await riskWorker;
+            if (worker) await worker.close();
 
             await closeRedisConnections();
-            console.log('✅ Graceful shutdown completed');
+            if (DEBUG) console.log('✅ Graceful shutdown completed');
             process.exit(0);
         } catch (err) {
             console.error('Error during graceful shutdown:', err);

@@ -52,12 +52,14 @@ export class RulesService {
                 ? Number(dbRule.profit_target_percent)
                 : 0;
         } else {
-            // console.warn(`[RulesService] No DB rule found for mapped type '${normalizedType}' (Original: ${challengeType}), using defaults`);
+            const DEBUG = process.env.DEBUG === 'true';
+            if (DEBUG) console.warn(`[RulesService] No DB rule found for mapped type '${normalizedType}' (Original: ${challengeType}), using defaults`);
         }
 
         /* 
         if (dbRule) {
-            console.log(`[RulesService] Resolved Rules for '${normalizedType}': Max=${maxTotalLossPercent}%, Daily=${maxDailyLossPercent}%, Profit=${profitTargetPercent}% (Source: DB)`);
+            const DEBUG = process.env.DEBUG === 'true';
+            if (DEBUG) console.log(`[RulesService] Resolved Rules for '${normalizedType}': Max=${maxTotalLossPercent}%, Daily=${maxDailyLossPercent}%, Profit=${profitTargetPercent}% (Source: DB)`);
         }
         */
 
@@ -132,7 +134,8 @@ export class RulesService {
                 // console.log(`[RulesService] Cached: '${normalizedType}' (Profit: ${rule.profit_target_percent}%, Daily DD: ${rule.daily_drawdown_percent}%, Max DD: ${rule.max_drawdown_percent}%)`);
             });
             this.lastCacheUpdate = Date.now();
-            // console.log(`✅ RulesService: Cached ${this.RULES_CACHE.size} challenge type rule configurations.`);
+            const DEBUG = process.env.DEBUG === 'true';
+            if (DEBUG) console.log(`✅ RulesService: Cached ${this.RULES_CACHE.size} challenge type rule configurations.`);
         } catch (e) {
             console.error('RulesService cache refresh failed:', e);
         }

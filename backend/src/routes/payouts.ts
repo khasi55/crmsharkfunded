@@ -28,7 +28,7 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
             .select('*')
             .eq('user_id', user.id);
 
-        // Check KYC status (using same admin client)
+        // Check KYC status
         const { data: kycSession } = await supabase
             .from('kyc_sessions')
             .select('status')
@@ -49,7 +49,8 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
         const isKycVerified = !!kycSession;
         const hasFundedAccount = fundedAccounts.length > 0;
 
-        console.log(`[Payouts] User ${user.id} - Active Accounts: ${accountsRaw?.length || 0}. Eligible (Funded/Instant): ${fundedAccounts.length}.`);
+        const DEBUG = process.env.DEBUG === 'true';
+        // if (DEBUG) console.log(`[Payouts] User ${user.id} - Active Accounts: ${accountsRaw?.length || 0}. Eligible (Funded/Instant): ${fundedAccounts.length}.`);
 
         // Fetch payout history (Active requests: pending, approved, processed)
         const { data: allPayouts } = await supabase
@@ -135,11 +136,11 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
             }
         };
 
-        console.log("Payouts Response Payload:", JSON.stringify(responsePayload, null, 2));
+        // if (DEBUG) console.log("Payouts Response Payload:", JSON.stringify(responsePayload, null, 2));
         res.json(responsePayload);
 
     } catch (error: any) {
-        console.error('Payout balance error:', error);
+        // console.error('Payout balance error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -172,7 +173,7 @@ router.get('/history', authenticate, async (req: AuthRequest, res: Response) => 
                     const parsed = JSON.parse(p.metadata);
                     challengeId = parsed.challenge_id;
                 } catch (e) {
-                    console.error('Error parsing metadata JSON:', e);
+                    // console.error('Error parsing metadata JSON:', e);
                 }
             }
 
@@ -192,10 +193,12 @@ router.get('/history', authenticate, async (req: AuthRequest, res: Response) => 
                         type: challenge.challenge_type
                     };
                 } else {
-                    console.log(`[Payout History] Challenge not found for ID: ${challengeId}`);
+                    const DEBUG = process.env.DEBUG === 'true';
+                    // if (DEBUG) console.log(`[Payout History] Challenge not found for ID: ${challengeId}`);
                 }
             } else {
-                console.log(`[Payout History] No challenge_id in metadata for payout ${p.id}`, p.metadata);
+                const DEBUG = process.env.DEBUG === 'true';
+                // if (DEBUG) console.log(`[Payout History] No challenge_id in metadata for payout ${p.id}`, p.metadata);
             }
 
             return {
@@ -206,7 +209,7 @@ router.get('/history', authenticate, async (req: AuthRequest, res: Response) => 
 
         res.json({ payouts: payoutsWithAccount });
     } catch (error: any) {
-        console.error('Payout history error:', error);
+        // console.error('Payout history error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -216,7 +219,8 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
     try {
         const user = req.user;
         const { amount, method, challenge_id } = req.body;
-        console.log(`[Payout Request] User: ${user?.id}, Amount: ${amount}, ChallengeID: ${challenge_id}`);
+        const DEBUG = process.env.DEBUG === 'true';
+        // if (DEBUG) console.log(`[Payout Request] User: ${user?.id}, Amount: ${amount}, ChallengeID: ${challenge_id}`);
 
         if (!user) {
             res.status(401).json({ error: 'Not authenticated' });
@@ -248,7 +252,7 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
             return res.status(400).json({ error: 'No active/locked wallet address found. Please update your settings.' });
         }
 
-        console.log(`[Payout Request] Using Wallet: ${wallet.wallet_address}`);
+        // if (DEBUG) console.log(`[Payout Request] Using Wallet: ${wallet.wallet_address}`);
 
         // 2. Validate Available Balance (SECURITY FIX)
         // Re-calculate total profit across ALL funded accounts to be safe
@@ -258,7 +262,7 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
             .eq('user_id', user.id);
 
         if (accountsError) {
-            console.error('[Payout Request] Error fetching accounts:', accountsError);
+            // console.error('[Payout Request] Error fetching accounts:', accountsError);
             throw accountsError;
         }
 
@@ -271,16 +275,18 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
             return type.includes('instant') || type.includes('funded') || type.includes('master');
         });
 
-        console.log(`[Payout Request] Eligible Accounts: ${fundedAccounts.length}`);
+        // if (DEBUG) console.log(`[Payout Request] Eligible Accounts: ${fundedAccounts.length}`);
 
         // Ensure target account exists in funded list if provided
         let targetAccount = null;
         if (challenge_id) {
             targetAccount = fundedAccounts.find((acc: any) => acc.id === challenge_id);
             if (!targetAccount) {
-                console.warn(`[Payout Request] Target account ${challenge_id} not found in eligible list.`);
-                // Log what WAS found for debugging
-                console.log(`[Payout Request] Available IDs: ${fundedAccounts.map((a: any) => a.id).join(', ')}`);
+                // if (DEBUG) {
+                //     console.warn(`[Payout Request] Target account ${challenge_id} not found in eligible list.`);
+                //     // Log what WAS found for debugging
+                //     console.log(`[Payout Request] Available IDs: ${fundedAccounts.map((a: any) => a.id).join(', ')}`);
+                // }
                 return res.status(400).json({ error: 'Invalid or ineligible account selected.' });
             }
         }
@@ -302,7 +308,7 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
             maxPayout = totalProfit * 0.8;
         }
 
-        console.log(`[Payout Request] Max Payout: ${maxPayout}`);
+        // if (DEBUG) console.log(`[Payout Request] Max Payout: ${maxPayout}`);
 
         // Check already requested amounts (Pending + Processed)
         const { data: previousPayouts, error: prevPayoutsError } = await supabase
@@ -312,7 +318,7 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
             .neq('status', 'rejected'); // Count all except rejected
 
         if (prevPayoutsError) {
-            console.error('[Payout Request] Error fetching previous payouts:', prevPayoutsError);
+            // console.error('[Payout Request] Error fetching previous payouts:', prevPayoutsError);
             throw prevPayoutsError;
         }
 
@@ -326,7 +332,7 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
             alreadyRequested = previousPayouts?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
         }
 
-        console.log(`[Payout Request] Already Requested: ${alreadyRequested}`);
+        // if (DEBUG) console.log(`[Payout Request] Already Requested: ${alreadyRequested}`);
 
         const remainingPayout = maxPayout - alreadyRequested;
 
@@ -344,7 +350,7 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
             res.status(400).json({ error: 'No eligible funded account found.' });
         }
 
-        console.log(`[Payout Request] Proceeding with account: ${account.id}, Account Type: ${account.account_type_id}`);
+        // if (DEBUG) console.log(`[Payout Request] Proceeding with account: ${account.id}, Account Type: ${account.account_type_id}`);
 
         // 2. Validate Consistency (INSTANT ACCOUNTS ONLY)
         let mt5Group = '';
@@ -358,15 +364,15 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
                 .maybeSingle();
 
             if (acTypeError) {
-                console.error('[Payout Request] Account type fetch error:', acTypeError);
+                // console.error('[Payout Request] Account type fetch error:', acTypeError);
             } else if (accountType) {
                 mt5Group = accountType.mt5_group_name || '';
             }
         } else {
-            console.warn(`[Payout Request] Account ${account.id} has NO account_type_id. Skipping strict group check.`);
+            // if (DEBUG) console.warn(`[Payout Request] Account ${account.id} has NO account_type_id. Skipping strict group check.`);
         }
 
-        console.log(`[Payout Request] Resolved MT5 Group: ${mt5Group} (from ID: ${account.account_type_id})`);
+        // if (DEBUG) console.log(`[Payout Request] Resolved MT5 Group: ${mt5Group} (from ID: ${account.account_type_id})`);
 
         // Fallback: Check challenge_type if mt5Group logic didn't catch it
         if (mt5Group) {
@@ -375,14 +381,14 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
             // Fallback to checking challenge_type string directly if we couldn't resolve group
             const typeStr = (account.challenge_type || '').toLowerCase();
             isInstant = typeStr.includes('instant');
-            console.log(`[Payout Request] Fallback Instant Check (from type '${typeStr}'): ${isInstant}`);
+            // if (DEBUG) console.log(`[Payout Request] Fallback Instant Check (from type '${typeStr}'): ${isInstant}`);
         }
 
         if (isInstant) {
-            console.log(`[Payout Request] Instant account detected. Checking consistency...`);
+            // if (DEBUG) console.log(`[Payout Request] Instant account detected. Checking consistency...`);
 
             if (!mt5Group) {
-                console.warn('[Payout Request] Cannot check consistency rules - No MT5 Group resolved. Allowing request.');
+                // if (DEBUG) console.warn('[Payout Request] Cannot check consistency rules - No MT5 Group resolved. Allowing request.');
             } else {
                 // Fetch risk rules for this MT5 group
                 const { data: config, error: configError } = await supabase
@@ -392,13 +398,13 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
                     .maybeSingle();
 
                 if (configError) {
-                    console.warn('[Payout Request] Risk config fetch error (using defaults):', configError.message);
+                    // if (DEBUG) console.warn('[Payout Request] Risk config fetch error (using defaults):', configError.message);
                 }
 
                 const maxWinPercent = config?.max_single_win_percent || 50;
                 const checkConsistency = config?.consistency_enabled !== false;
 
-                console.log(`[Payout Request] Max Win %: ${maxWinPercent}, Consistency Enabled: ${checkConsistency}`);
+                // if (DEBUG) console.log(`[Payout Request] Max Win %: ${maxWinPercent}, Consistency Enabled: ${checkConsistency}`);
 
                 if (checkConsistency) {
                     // Fetch ALL winning trades for this account
@@ -410,13 +416,13 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
                         .gt('lots', 0); // Exclude deposits
 
                     if (tradesError) {
-                        console.error('[Payout Request] Trades fetch error:', tradesError);
+                        // console.error('[Payout Request] Trades fetch error:', tradesError);
                         throw tradesError;
                     }
 
                     if (trades && trades.length > 0) {
                         const totalProfit = trades.reduce((sum, t) => sum + Number(t.profit_loss), 0);
-                        console.log(`[Payout Request] Total Profit from trades: ${totalProfit}`);
+                        // if (DEBUG) console.log(`[Payout Request] Total Profit from trades: ${totalProfit}`);
 
                         // Check each trade
                         for (const trade of trades) {
@@ -424,7 +430,7 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
                             const percent = (profit / totalProfit) * 100;
 
                             if (percent > maxWinPercent) {
-                                console.warn(`[Payout Request] Consistency violation. Trade ${trade.ticket_number}: ${percent}%`);
+                                // if (DEBUG) console.warn(`[Payout Request] Consistency violation. Trade ${trade.ticket_number}: ${percent}%`);
                                 res.status(400).json({
                                     error: `Consistency rule violation: Trade #${trade.ticket_number} represents ${percent.toFixed(1)}% of total profit (Max: ${maxWinPercent}%). Payout denied.`
                                 });
@@ -437,7 +443,7 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
         }
 
         // 3. Create Payout Request
-        console.log(`[Payout Request] Creating payout request record...`);
+        // if (DEBUG) console.log(`[Payout Request] Creating payout request record...`);
         const { error: insertError } = await supabase
             .from('payout_requests')
             .insert({
@@ -452,7 +458,7 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
                 }
             });
         if (insertError) {
-            console.error('[Payout Request] Insert Error:', insertError);
+            // console.error('[Payout Request] Insert Error:', insertError);
             throw insertError;
         }
 
@@ -472,15 +478,15 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
                 { payout_request_id: 'pending', amount, challenge_id: account.id }
             );
         } catch (notifError) {
-            console.error('Failed to send notification (non-blocking):', notifError);
+            // console.error('Failed to send notification (non-blocking):', notifError);
         }
 
         res.json({ success: true, message: 'Payout request submitted successfully' });
 
     } catch (error: any) {
-        console.error('Payout request error FULL OBJECT:', error); // Log full error object
-        console.error('Payout request error MESSAGE:', error.message);
-        console.error('Payout request error STACK:', error.stack);
+        // console.error('Payout request error FULL OBJECT:', error); // Log full error object
+        // console.error('Payout request error MESSAGE:', error.message);
+        // console.error('Payout request error STACK:', error.stack);
         res.status(500).json({ error: error.message || 'Internal server error' });
     }
 });
@@ -499,7 +505,7 @@ router.get('/admin', async (req: Request, res: Response) => {
             .order('created_at', { ascending: false });
 
         if (error) {
-            console.error('Error fetching admin payouts:', error);
+            // console.error('Error fetching admin payouts:', error);
             throw error;
         }
 
@@ -514,7 +520,7 @@ router.get('/admin', async (req: Request, res: Response) => {
                     const parsed = JSON.parse(req.metadata);
                     challengeId = parsed.challenge_id;
                 } catch (e) {
-                    console.log(`[Admin Payouts] Failed to parse metadata for ${req.id}:`, req.metadata);
+                    // console.log(`[Admin Payouts] Failed to parse metadata for ${req.id}:`, req.metadata);
                 }
             }
 
@@ -543,7 +549,7 @@ router.get('/admin', async (req: Request, res: Response) => {
 
         res.json({ payouts: requestsWithAccount });
     } catch (error: any) {
-        console.error('Admin payouts error:', error);
+        // console.error('Admin payouts error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -560,7 +566,7 @@ router.get('/admin/:id', async (req: Request, res: Response) => {
             .single();
 
         if (error) {
-            console.error('Error fetching payout details:', error);
+            // console.error('Error fetching payout details:', error);
             throw error;
         }
 
@@ -594,7 +600,7 @@ router.get('/admin/:id', async (req: Request, res: Response) => {
 
         res.json({ payout: { ...request, account_info: accountInfo } });
     } catch (error: any) {
-        console.error('Admin payout details error:', error);
+        // console.error('Admin payout details error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -624,7 +630,7 @@ router.put('/admin/:id/approve', async (req: Request, res: Response) => {
             .eq('id', id);
 
         if (error) {
-            console.error('Error approving payout:', error);
+            // console.error('Error approving payout:', error);
             throw error;
         }
 
@@ -634,7 +640,7 @@ router.put('/admin/:id/approve', async (req: Request, res: Response) => {
             transaction_id: finalTransactionId
         });
     } catch (error: any) {
-        console.error('Approve payout error:', error);
+        // console.error('Approve payout error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -660,13 +666,13 @@ router.put('/admin/:id/reject', async (req: Request, res: Response) => {
             .eq('id', id);
 
         if (error) {
-            console.error('Error rejecting payout:', error);
+            // console.error('Error rejecting payout:', error);
             throw error;
         }
 
         res.json({ success: true, message: 'Payout rejected successfully' });
     } catch (error: any) {
-        console.error('Reject payout error:', error);
+        // console.error('Reject payout error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

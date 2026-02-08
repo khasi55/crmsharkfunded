@@ -84,7 +84,7 @@ export default function TradeHistory({ trades: initialTrades, isPublic }: TradeH
 
         // Listen for real-time updates
         const handleTradeUpdate = (data: any) => {
-            console.log("⚡ New trade received via socket:", data);
+            // console.log("⚡ New trade received via socket:", data);
             // Verify trade belongs to this account
             if (data.login === selectedAccount.login || data.challenge_id === selectedAccount.id) {
                 fetchTrades(true); // Silent refresh

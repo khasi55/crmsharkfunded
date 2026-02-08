@@ -241,7 +241,8 @@ export async function updateLeaderboardScores(competitionId: string) {
 export function startLeaderboardBroadcaster(intervalMs = 30000) {
     if (interval) return;
 
-    console.log(` Leaderboard Broadcaster started (Interval: ${intervalMs}ms)`);
+    const DEBUG = process.env.DEBUG === 'true';
+    if (DEBUG) console.log(` Leaderboard Broadcaster started (Interval: ${intervalMs}ms)`);
 
     interval = setInterval(async () => {
         try {

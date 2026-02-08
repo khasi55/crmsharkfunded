@@ -141,7 +141,7 @@ export default function TradingObjectives() {
                 const result = await response.json();
 
                 if (!result.objectives) {
-                    console.log('No specific rules found, using defaults for:', accountType, accountSize);
+                    // console.log('No specific rules found, using defaults for:', accountType, accountSize);
                     // Use default percentages if no rules found
                     setRules({
                         max_daily_loss_percent: 5,

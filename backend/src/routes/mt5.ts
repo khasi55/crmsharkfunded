@@ -170,19 +170,16 @@ router.post('/assign', async (req, res: Response) => {
         let challengeType = 'Phase 1';
         let finalGroup = mt5Group;
 
-        // Logic matched with payment webhook (frontend/app/api/webhooks/payment/route.ts)
+        // Logic matched with payment webhook
         const lowerPlan = planType.toLowerCase();
 
-
-
-        if (lowerPlan.includes('pro')) {
+        if (lowerPlan.includes('pro') || lowerPlan.includes('prime')) {
             if (lowerPlan.includes('instant')) challengeType = 'prime_instant';
             else if (lowerPlan.includes('1 step') || lowerPlan.includes('1-step')) challengeType = 'prime_1_step';
             else if (lowerPlan.includes('2 step') || lowerPlan.includes('2-step')) challengeType = 'prime_2_step';
             else challengeType = 'prime_2_step';
-        } else if (lowerPlan.includes('instant funding')) {
+        } else if (lowerPlan.includes('instant funding') || lowerPlan.includes('instant')) {
             challengeType = 'lite_instant';
-            // Note: route.ts might default group here but we trust the input mt5Group
         } else if (lowerPlan.includes('1 step') || lowerPlan.includes('1-step')) {
             challengeType = 'lite_1_step';
         } else if (lowerPlan.includes('2 step') || lowerPlan.includes('2-step')) {
@@ -194,13 +191,15 @@ router.post('/assign', async (req, res: Response) => {
         } else {
             // Fallbacks
             if (lowerPlan.includes('evaluation')) challengeType = 'Evaluation';
-            else if (lowerPlan.includes('instant')) challengeType = 'Instant';
+            else {
+                // Secondary check for Prime if not caught above
+                challengeType = lowerPlan.includes('prime') ? 'prime_2_step' : 'Phase 1';
+            }
         }
-
         // 3. Call Python MT5 Bridge to create account
         const callbackUrl = `${process.env.BACKEND_URL || process.env.FRONTEND_URL}/api/mt5/trades/webhook`;
 
-        console.log(`🔌 [MT5 Assign] Attempting to create account in group: '${finalGroup}' for ${email}`);
+        console.log(`🔌 [MT5 Assign] Attempting to real create account in group: '${finalGroup}' for ${email}`);
 
         const mt5Data = await createMT5Account({
             name: profile.full_name || 'Trader',

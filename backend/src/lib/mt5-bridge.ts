@@ -45,6 +45,9 @@ export async function fetchMT5Trades(login: number) {
     try {
         const url = `${mt5ApiUrl}/fetch-trades`;
         // console.log(`🔌 [Bridge Debug] Fetching from: ${url}`); // Spam reduction
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s Timeout (Increased for Heavy Accounts)
+
         const response = await fetch(url, {
             method: 'POST',
             headers: {
@@ -52,19 +55,27 @@ export async function fetchMT5Trades(login: number) {
                 'ngrok-skip-browser-warning': 'true',
                 'X-API-Key': process.env.MT5_API_KEY || ''
             },
-            body: JSON.stringify({ login })
+            body: JSON.stringify({ login }),
+            signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
-            console.error(`Bridge fetch failed: ${response.status} ${response.statusText}`);
+            const DEBUG = process.env.DEBUG === 'true';
+            if (DEBUG) console.error(`Bridge fetch failed: ${response.status} ${response.statusText}`);
             return [];
         }
 
         const data = await response.json() as { trades: any[] };
         if (!data) return [];
         return data.trades || [];
-    } catch (error) {
-        console.error("Error fetching trades from bridge:", error);
+    } catch (error: any) {
+        if (error.name === 'AbortError') {
+            const DEBUG = process.env.DEBUG === 'true';
+            if (DEBUG) console.warn(`⏳ [Bridge Timeout] Request for ${login} aborted (60s limit exceeded)`);
+        } else {
+            console.error(`❌ Error fetching trades for ${login}:`, error.message);
+        }
         return [];
     }
 }
@@ -88,14 +99,16 @@ export async function fetchMT5History(login: number, fromTimestamp?: number) {
         });
 
         if (!response.ok) {
-            console.error(`Bridge history fetch failed: ${response.status} ${response.statusText}`);
+            const DEBUG = process.env.DEBUG === 'true';
+            if (DEBUG) console.error(`Bridge history fetch failed: ${response.status} ${response.statusText}`);
             return [];
         }
 
         const data = await response.json() as { trades: any[] };
         return data.trades || [];
     } catch (error) {
-        console.error("Error fetching history from bridge:", error);
+        const DEBUG = process.env.DEBUG === 'true';
+        if (DEBUG) console.error("Error fetching history from bridge:", error);
         return [];
     }
 }

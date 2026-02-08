@@ -50,7 +50,6 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 // POST /api/competitions - Admin create competition
 router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     try {
-        console.log("Creating competition, body:", req.body);
         const { title, description, start_date, end_date, entry_fee, prize_pool, max_participants, platform, image_url, initial_balance } = req.body;
 
         const input: any = {
@@ -70,8 +69,6 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
             // image_url is an array type (text[]) in DB, so wrap it
             input.image_url = [image_url];
         }
-
-        console.log("Sanitized input:", input);
 
         const { data, error } = await supabase
             .from('competitions')
@@ -240,7 +237,8 @@ router.post('/:id/join', authenticate, async (req: AuthRequest, res: Response) =
 router.post('/admin/assign-account', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const { competitionId, login } = req.body;
-        console.log(`Manual Assignment: Linking account ${login} to competition ${competitionId}`);
+        const DEBUG = process.env.DEBUG === 'true';
+        if (DEBUG) console.log(`Manual Assignment: Linking account ${login} to competition ${competitionId}`);
 
         if (!competitionId || !login) {
             return res.status(400).json({ error: 'Competition ID and Login are required' });
@@ -303,7 +301,7 @@ router.post('/admin/assign-account', authenticate, async (req: AuthRequest, res:
             return res.status(500).json({ error: 'Failed to add participant record' });
         }
 
-        console.log(`✅ Successfully assigned ${login} to competition ${competitionId}`);
+        if (DEBUG) console.log(`✅ Successfully assigned ${login} to competition ${competitionId}`);
         res.json({ message: 'Account assigned successfully', challenge_id: challenge.id });
 
     } catch (error: any) {

@@ -3,7 +3,7 @@ import { Server as HTTPServer } from 'http';
 import { supabase } from '../lib/supabase';
 
 let io: SocketIOServer | null = null;
-const DEBUG = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
+const DEBUG = process.env.DEBUG === 'true'; // STRICT: Silence socket logs in dev
 
 
 export function initializeSocket(httpServer: HTTPServer) {
@@ -56,9 +56,6 @@ export function initializeSocket(httpServer: HTTPServer) {
                     challenges: [] // No longer auto-subscribing
                 });
 
-                console.log(` Socket authenticated for user: ${userId}`); // Auth is important, but maybe debug only? Let's keep it visible for now or debug?
-                // User asked to wrap high volume logs. Auth is 1 per session. 
-                // Let's wrap it to be consistent with "logs in terminal" request.
                 if (DEBUG) console.log(` Socket authenticated for user: ${userId}`);
             } catch (error) {
                 console.error('Authentication error:', error);
@@ -102,7 +99,6 @@ export function initializeSocket(httpServer: HTTPServer) {
         });
     });
 
-    console.log(' Socket.IO initialized');
     return io;
 }
 

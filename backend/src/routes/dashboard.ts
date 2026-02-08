@@ -20,7 +20,7 @@ router.get('/calendar', authenticate, async (req: AuthRequest, res: Response) =>
 
         let query = supabase
             .from('trades')
-            .select('close_time, profit_loss')
+            .select('close_time, profit_loss, commission, swap')
             .eq('user_id', user.id)
             .order('close_time', { ascending: true, nullsFirst: false });
 
@@ -72,7 +72,8 @@ router.get('/calendar', authenticate, async (req: AuthRequest, res: Response) =>
         });
 
         const dailyStats = Object.entries(tradesByDay).map(([date, dayTrades]) => {
-            const totalPnL = dayTrades.reduce((sum, t) => sum + (t.profit_loss || 0), 0);
+            // Fix: Commission is reported per-side (or half), so we deduct it twice to match Net P&L (User Expectation: 1.98 vs 2.58)
+            const totalPnL = dayTrades.reduce((sum, t) => sum + (Number(t.profit_loss) || 0) + (Number(t.commission || 0) * 2) + (Number(t.swap) || 0), 0);
             return {
                 date,
                 trades: dayTrades.length,
@@ -172,7 +173,7 @@ router.get('/trades', authenticate, async (req: AuthRequest, res: Response) => {
             totalTrades = statsData.length;
             openTrades = statsData.filter((t: any) => !t.close_time).length;
             closedTrades = statsData.filter((t: any) => t.close_time).length;
-            totalPnL = statsData.reduce((sum: number, t: any) => sum + (Number(t.profit_loss) || 0) + (Number(t.commission) || 0) + (Number(t.swap) || 0), 0);
+            totalPnL = statsData.reduce((sum: number, t: any) => sum + (Number(t.profit_loss) || 0) + ((Number(t.commission) || 0) * 2) + (Number(t.swap) || 0), 0);
         }
 
         // 2. Fetch Paginated Rows
@@ -217,7 +218,7 @@ router.get('/trades', authenticate, async (req: AuthRequest, res: Response) => {
                 open_time: t.open_time,
                 close_time: t.close_time,
                 profit_loss: t.profit_loss,
-                commission: t.commission,
+                commission: (Number(t.commission) || 0) * 2, // Return full commission cost
                 swap: t.swap
             }));
 
@@ -289,8 +290,6 @@ router.get('/trades/analysis', authenticate, async (req: AuthRequest, res: Respo
             profit_loss: t.profit_loss,
         }));
 
-        console.log(`[DEBUG] /trades/analysis returning ${formattedTrades.length} formatted trades.`);
-
         res.json({ trades: formattedTrades });
 
     } catch (error) {
@@ -328,7 +327,7 @@ router.get('/accounts', authenticate, async (req: AuthRequest, res: Response) =>
     }
 });
 
-console.log('✅ Dashboard routes loaded, registering /objectives endpoint...');
+// router.get('/objectives', ...);
 
 // GET /api/dashboard/objectives
 // Calculates risk metrics (daily loss, total loss, profit target) from trades
@@ -342,16 +341,12 @@ router.get('/objectives', authenticate, async (req: AuthRequest, res: Response) 
         // console.log(`📊 Objectives endpoint called - User: ${user?.id}, Challenge: ${challenge_id}`);
 
         if (!user) {
-            console.log('❌ No user - returning 401');
             return res.status(401).json({ error: 'Not authenticated' });
         }
 
         if (!challenge_id) {
-            console.log('❌ No challenge_id - returning 400');
             return res.status(400).json({ error: 'Missing challenge_id' });
         }
-
-        // console.log(`✅ Auth passed, fetching trades...`);
 
         // Fetch all trades for this challenge
         const { data: trades, error } = await supabase
@@ -367,7 +362,7 @@ router.get('/objectives', authenticate, async (req: AuthRequest, res: Response) 
 
         // console.log(`📊 Fetched ${trades?.length || 0} trades for challenge ${challenge_id}`);
         if (trades && trades.length > 0) {
-            // console.log(`   Sample trade:`, trades[0]);
+            // if (DEBUG) console.log(`   Sample trade:`, trades[0]);
         }
 
         // Fetch challenge limits and DATA
@@ -458,7 +453,6 @@ router.get('/objectives', authenticate, async (req: AuthRequest, res: Response) 
             }
         };
 
-        // console.log(`📤 Sending response:`, JSON.stringify(responseData, null, 2));
         return res.json(responseData);
 
     } catch (error) {

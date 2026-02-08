@@ -16,9 +16,10 @@ const supabase = createClient(supabaseUrl!, supabaseKey!);
 const advancedEngine = new AdvancedRiskEngine(supabase);
 
 const SCAN_INTERVAL_MS = 300000; // 5 minutes
+const DEBUG = process.env.DEBUG === 'true'; // STRICT: Silence advanced risk monitor logs in dev
 
 export function startAdvancedRiskMonitor() {
-    console.log(`🛡️ Advanced Risk Monitor (Martingale) Started. Interval: ${SCAN_INTERVAL_MS / 1000}s`);
+    if (DEBUG) console.log(`🛡️ Advanced Risk Monitor (Martingale) Started. Interval: ${SCAN_INTERVAL_MS / 1000}s`);
     runMartingaleScan(); // Initial Run
     setInterval(runMartingaleScan, SCAN_INTERVAL_MS);
 }
@@ -126,7 +127,8 @@ async function runMartingaleScan() {
                         const violation = advancedEngine.checkMartingale(currentTrade as any, previousTrades as any);
 
                         if (violation) {
-                            console.log(`🚨 [Advanced Risk Scan] Martingale DETECTED: Account ${challenge.login}`);
+                            const DEBUG = process.env.DEBUG === 'true';
+                            if (DEBUG) console.log(`🚨 [Advanced Risk Scan] Martingale DETECTED: Account ${challenge.login}`);
                             await advancedEngine.logFlag(challenge.id, challenge.user_id, violation);
                         }
                     }

@@ -23,7 +23,7 @@ router.get('/groups', authenticate, async (req: any, res: any) => {
 
 router.post('/groups', authenticate, async (req: any, res: any) => {
     const { id, group_name, max_drawdown_percent, daily_drawdown_percent, profit_target_percent } = req.body;
-    console.log("📝 [Admin Risk] Saving Group:", { id, group_name, profit_target_percent });
+    // console.log("📝 [Admin Risk] Saving Group:", { id, group_name, profit_target_percent });
     try {
         const { data, error } = await supabase
             .from('mt5_risk_groups')
@@ -42,7 +42,7 @@ router.post('/groups', authenticate, async (req: any, res: any) => {
             console.error("❌ [Admin Risk] Save Error:", error.message);
             throw error;
         }
-        console.log("✅ [Admin Risk] Saved Group:", data);
+        // console.log("✅ [Admin Risk] Saved Group:", data);
         res.json(data);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -51,7 +51,7 @@ router.post('/groups', authenticate, async (req: any, res: any) => {
 
 router.delete('/groups/:id', authenticate, async (req: any, res: any) => {
     const { id } = req.params;
-    console.log("🗑️ [Admin Risk] Deleting Group:", id);
+    // console.log("🗑️ [Admin Risk] Deleting Group:", id);
     try {
         const { error } = await supabase
             .from('mt5_risk_groups')
@@ -157,7 +157,7 @@ router.post('/server-config', authenticate, async (req: any, res: any) => {
             throw fetchError;
         }
 
-        console.log("Saving Server Config. Existing ID:", existing?.id);
+        // console.log("Saving Server Config. Existing ID:", existing?.id);
 
         if (manager_password === "********") {
             if (existing) passToSave = existing.manager_password;

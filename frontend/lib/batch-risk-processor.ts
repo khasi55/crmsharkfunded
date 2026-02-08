@@ -105,19 +105,19 @@ export class BatchRiskProcessor {
         let failureCount = 0;
         let skippedCount = 0;
 
-        console.log(`🚀 Starting batch processing: ${challengeIds.length} accounts`);
-        console.log(`📊 Config: ${this.config.batchSize} per batch, ${this.config.maxConcurrent} concurrent`);
+        // console.log(`🚀 Starting batch processing: ${challengeIds.length} accounts`);
+        // console.log(`📊 Config: ${this.config.batchSize} per batch, ${this.config.maxConcurrent} concurrent`);
 
         try {
             // Split into batches
             const batches = this.createBatches(challengeIds);
-            console.log(`📦 Created ${batches.length} batches`);
+            // console.log(`📦 Created ${batches.length} batches`);
 
             // Process batches with concurrency control
             for (let i = 0; i < batches.length; i += this.config.maxConcurrent) {
                 const batchGroup = batches.slice(i, i + this.config.maxConcurrent);
 
-                console.log(`⚙️  Processing batch group ${Math.floor(i / this.config.maxConcurrent) + 1}/${Math.ceil(batches.length / this.config.maxConcurrent)}`);
+                // console.log(`⚙️  Processing batch group ${Math.floor(i / this.config.maxConcurrent) + 1}/${Math.ceil(batches.length / this.config.maxConcurrent)}`);
 
                 // Process batches in parallel
                 const results = await Promise.allSettled(
@@ -161,10 +161,12 @@ export class BatchRiskProcessor {
             metrics: this.calculateMetrics(processingTimeMs, challengeIds.length),
         };
 
+        /*
         console.log(`✅ Batch processing complete:`);
         console.log(`   Success: ${successCount}, Failed: ${failureCount}, Skipped: ${skippedCount}`);
         console.log(`   Time: ${(processingTimeMs / 1000).toFixed(2)}s`);
         console.log(`   Rate: ${batchResult.metrics.accountsPerSecond.toFixed(2)} accounts/sec`);
+        */
 
         return batchResult;
     }
@@ -318,7 +320,7 @@ export class BatchRiskProcessor {
 
             // Persist Violations
             if (riskResult.violations.length > 0) {
-                console.log(`⚠️ Account ${challengeId} has ${riskResult.violations.length} violations`);
+                // console.log(`⚠️ Account ${challengeId} has ${riskResult.violations.length} violations`);
                 for (const violation of riskResult.violations) {
                     await this.riskEngine.logViolation(challengeId, latestTrade.user_id, violation);
                 }

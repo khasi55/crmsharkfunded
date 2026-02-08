@@ -18,7 +18,8 @@ export type NotificationType = 'info' | 'warning' | 'error' | 'success' | 'payou
 export class NotificationService {
     static async createNotification(title: string, message: string, type: NotificationType, userId?: string, metadata: any = {}) {
         try {
-            console.log(`[NotificationService] Creating notification: ${title}`);
+            const DEBUG = process.env.DEBUG === 'true';
+            if (DEBUG) console.log(`[NotificationService] Creating notification: ${title}`);
             const { error } = await supabase
                 .from('notifications')
                 .insert({

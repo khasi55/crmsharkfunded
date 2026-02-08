@@ -147,10 +147,15 @@ export default function AdminMT5Client() {
         if (activeTab === "first") {
             filtered = filtered.filter(a => {
                 const type = (a.challenge_type || '').toLowerCase();
-                return (type.includes('phase 1') || type.includes('phase_1') ||
-                    type.includes('step 1') || type.includes('step_1') ||
-                    type.includes('evaluation') || type.includes('competition')) &&
-                    !(a.plan_type || "").toLowerCase().includes("instant");
+                const plan = (a.plan_type || "").toLowerCase();
+
+                // Dashboard Logic: If it's not Phase 2, Funded, or Instant, it counts as Phase 1.
+                // So we exclude anything that matches the other tabs.
+                const isPhase2 = type.includes('phase 2') || type.includes('phase_2') || type.includes('step 2') || type.includes('step_2');
+                const isFunded = (type === "master account" || type === "funded" || type.includes('funded') || type.includes('master') || type.includes('live')) && !plan.includes("instant");
+                const isInstant = type === "instant" || type === "rapid" || type.includes('instant') || plan.includes("instant");
+
+                return !isPhase2 && !isFunded && !isInstant;
             });
         } else if (activeTab === "second") {
             filtered = filtered.filter(a => {

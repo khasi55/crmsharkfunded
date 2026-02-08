@@ -61,7 +61,7 @@ export class SharkPayGateway implements PaymentGateway {
             const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
 
             // SharkPay API payload (exact format from docs)
-            console.log("🦈 [SharkPay Debug] Backend URL:", backendUrl);
+            // console.log("🦈 [SharkPay Debug] Backend URL:", backendUrl);
             const payload = {
                 amount: amountINR, // Amount in INR
                 name: params.customerName,
@@ -71,7 +71,7 @@ export class SharkPayGateway implements PaymentGateway {
                 failed_url: `${frontendUrl}/payment/failed`,
                 callback_url: `${backendUrl}/api/webhooks/payment`,
             };
-            console.log("🦈 [SharkPay Debug] Payload:", JSON.stringify(payload, null, 2));
+            // console.log("🦈 [SharkPay Debug] Payload:", JSON.stringify(payload, null, 2));
 
             // Add timeout to prevent hanging
             const controller = new AbortController();
