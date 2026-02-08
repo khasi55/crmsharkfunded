@@ -53,66 +53,17 @@ router.post('/mt5', async (req: Request, res: Response) => {
 
 // Secure verify function
 const verifyPaymentSecret = (req: Request): boolean => {
-    // Check generic header for secret
+    // ⚠️ EMERGENCY BYPASS: Always return true as requested by USER
+    // We still log diagnostics to help fix the secret mismatch later
+    console.log(`🔓 [EMERGENCY BYPASS] Allowing webhook from IP: ${req.ip}`);
+
     const secret = process.env.PAYMENT_WEBHOOK_SECRET;
-
-    // 1. Check EPay MID Verification (New)
-    const epayMid = req.body.mid || req.body.merchantId;
-    if (epayMid && epayMid === (process.env.EPAY_MID || '976697204360081')) {
-        console.log('✅ EPay MID verification successful');
-        return true;
-    }
-
-    if (!secret || secret.includes('your_')) {
-        console.warn('⚠️ PAYMENT_WEBHOOK_SECRET not configured. Skipping verification (Dev Mode).');
-        return true;
-    }
-
-    // 2. Check SharkPay Signature (Forwarded by Proxy or Standard)
-    if (req.headers['x-sharkpay-signature']) return true;
-
-    // 3. New: Check Forwarded Header for 'sig' parameter (Vercel Proxy style)
     const forwarded = req.headers['forwarded'] as string;
-    if (forwarded) {
-        const sigMatch = forwarded.match(/sig=([^;]+)/);
-        if (sigMatch) {
-            let extractedSig = sigMatch[1];
-            // Decode if base64 (starts with 0QmV for "Bearer " or similar common patterns)
-            if (extractedSig.startsWith('0')) extractedSig = extractedSig.substring(1);
-            try {
-                const decoded = Buffer.from(extractedSig, 'base64').toString();
-                if (decoded.includes(secret)) return true;
-                if (decoded.split(' ').pop() === secret) return true;
-                // Also check raw match just in case
-                if (extractedSig === secret) return true;
-            } catch (e) {
-                if (extractedSig === secret) return true;
-            }
-        }
-    }
+    const sigMatch = forwarded?.match(/sig=([^;]+)/);
 
-    // 4. New: Check Authorization Header
-    const authHeader = req.headers['authorization'];
-    if (authHeader) {
-        if (authHeader === secret || authHeader === `Bearer ${secret}`) return true;
-    }
+    console.warn(`[Webhook Diagnostic] Bypass active. Forwarded Sig: ${sigMatch ? 'YES' : 'NO'}, Secret Configured: ${secret ? 'YES' : 'NO'}`);
 
-    // 5. Check Header (Standard)
-    const headerSignature = req.headers['x-webhook-secret'] || req.headers['x-api-secret'];
-    if (headerSignature === secret) return true;
-
-    // 6. Check Query Param
-    const querySecret = req.query.secret as string;
-    if (querySecret === secret) return true;
-
-    // DIAGNOSTIC LOGGING FOR PRODUCTION BLOCKS
-    console.warn(`[Webhook Diagnostic] Verification failed for IP: ${req.ip}`);
-    const { authorization, ...safeHeaders } = req.headers; // Don't log full auth
-    console.warn(`[Webhook Diagnostic] Safe Headers: ${JSON.stringify(safeHeaders)}`);
-    console.warn(`[Webhook Diagnostic] Has Auth: ${!!authorization}, Has Sig in Forwarded: ${!!forwarded?.includes('sig=')}`);
-    console.warn(`[Webhook Diagnostic] Secret Configured: ${secret ? 'YES (Length: ' + secret.length + ')' : 'NO'}`);
-
-    return false;
+    return true;
 };
 
 /**
