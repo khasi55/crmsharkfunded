@@ -301,3 +301,10 @@ async function gracefulShutdown(signal: string) {
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle PM2 graceful reload
+process.on('message', (msg) => {
+    if (msg === 'shutdown') {
+        gracefulShutdown('PM2_SHUTDOWN');
+    }
+});

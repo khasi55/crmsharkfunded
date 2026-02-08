@@ -117,27 +117,8 @@ export async function closeRedisConnections(): Promise<void> {
     console.log('✅ All Redis connections closed');
 }
 
-// Graceful shutdown handlers
-process.on('SIGTERM', async () => {
-    console.log('🛑 SIGTERM received, closing Redis connections...');
-    await closeRedisConnections();
-    process.exit(0);
-});
-
-process.on('SIGINT', async () => {
-    console.log('🛑 SIGINT received, closing Redis connections...');
-    await closeRedisConnections();
-    process.exit(0);
-});
-
-// Handle PM2 graceful reload
-process.on('message', async (msg) => {
-    if (msg === 'shutdown') {
-        console.log('🛑 PM2 shutdown received, closing Redis connections...');
-        await closeRedisConnections();
-        process.exit(0);
-    }
-});
+// Graceful shutdown handlers moved to server.ts to ensure correct ordering
+// (Workers must close before Redis connections)
 
 // ⚠️ REMOVED: The proxy pattern was causing issues
 // Instead, export the getter functions directly
