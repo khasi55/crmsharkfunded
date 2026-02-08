@@ -68,22 +68,49 @@ const verifyPaymentSecret = (req: Request): boolean => {
         return true;
     }
 
-    // 2. Check SharkPay Signature (Forwarded by Proxy)
+    // 2. Check SharkPay Signature (Forwarded by Proxy or Standard)
     if (req.headers['x-sharkpay-signature']) return true;
 
-    // 3. Check Header (Standard)
+    // 3. New: Check Forwarded Header for 'sig' parameter (Vercel Proxy style)
+    const forwarded = req.headers['forwarded'] as string;
+    if (forwarded) {
+        const sigMatch = forwarded.match(/sig=([^;]+)/);
+        if (sigMatch) {
+            let extractedSig = sigMatch[1];
+            // Decode if base64 (starts with 0QmV for "Bearer " or similar common patterns)
+            if (extractedSig.startsWith('0')) extractedSig = extractedSig.substring(1);
+            try {
+                const decoded = Buffer.from(extractedSig, 'base64').toString();
+                if (decoded.includes(secret)) return true;
+                if (decoded.split(' ').pop() === secret) return true;
+                // Also check raw match just in case
+                if (extractedSig === secret) return true;
+            } catch (e) {
+                if (extractedSig === secret) return true;
+            }
+        }
+    }
+
+    // 4. New: Check Authorization Header
+    const authHeader = req.headers['authorization'];
+    if (authHeader) {
+        if (authHeader === secret || authHeader === `Bearer ${secret}`) return true;
+    }
+
+    // 5. Check Header (Standard)
     const headerSignature = req.headers['x-webhook-secret'] || req.headers['x-api-secret'];
     if (headerSignature === secret) return true;
 
-    // 4. Check Query Param
+    // 6. Check Query Param
     const querySecret = req.query.secret as string;
     if (querySecret === secret) return true;
 
     // DIAGNOSTIC LOGGING FOR PRODUCTION BLOCKS
     console.warn(`[Webhook Diagnostic] Verification failed for IP: ${req.ip}`);
-    console.warn(`[Webhook Diagnostic] Headers: ${JSON.stringify(req.headers)}`);
-    console.warn(`[Webhook Diagnostic] Query Params: ${JSON.stringify(req.query)}`);
-    console.warn(`[Webhook Diagnostic] EPay MID in Body: ${epayMid}`);
+    const { authorization, ...safeHeaders } = req.headers; // Don't log full auth
+    console.warn(`[Webhook Diagnostic] Safe Headers: ${JSON.stringify(safeHeaders)}`);
+    console.warn(`[Webhook Diagnostic] Has Auth: ${!!authorization}, Has Sig in Forwarded: ${!!forwarded?.includes('sig=')}`);
+    console.warn(`[Webhook Diagnostic] Secret Configured: ${secret ? 'YES (Length: ' + secret.length + ')' : 'NO'}`);
 
     return false;
 };
