@@ -15,6 +15,7 @@ if (!REDIS_URL) {
 export const redis = new Redis(REDIS_URL || '', {
     maxRetriesPerRequest: null, // Required for BullMQ
     enableReadyCheck: false,
+    connectionName: 'RE_MAIN', // Debugging: Identify this connection
     retryStrategy(times) {
         const delay = Math.min(times * 500, 5000); // Slower retry (500ms -> 5s) to reduce spam
         return delay;

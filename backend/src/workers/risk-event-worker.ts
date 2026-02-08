@@ -20,7 +20,7 @@ export async function startRiskEventWorker() {
     console.log('⚡ Risk Event Worker Started (Listening for Redis events)...');
 
     // Create a dedicated subscriber client (Redis requires dedicated connection for sub)
-    const subRedis = redis.duplicate();
+    const subRedis = redis.duplicate({ connectionName: 'RE_SUB', maxRetriesPerRequest: null });
 
     await subRedis.subscribe('events:trade_update', (err) => {
         if (err) console.error('Failed to subscribe to trade updates:', err);
