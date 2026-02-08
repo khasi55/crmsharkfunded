@@ -19,7 +19,7 @@ export async function startTradeSyncWorker() {
         // console.log(`🔨 Processing sync job: ${job.data.login}`);
         await syncAccountTrades(job.data);
     }, {
-        connection: new Redis(process.env.REDIS_URL || '', { maxRetriesPerRequest: null }) as any, // Dedicated connection
+        connection: getRedis() as any, // Use singleton to prevent leaks
         concurrency: 10, // Process 10 accounts in parallel per server instance!
         removeOnComplete: { count: 100 }, // Keep only last 100 completed jobs
         removeOnFail: { count: 500 } // Keep last 500 failed for debugging
