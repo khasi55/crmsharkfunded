@@ -262,11 +262,32 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         });
 
         // 5. Create Challenge Record & Competition Participant
-        let challengeType = order.account_type_name || 'Evaluation';
+        // 5. Determine Valid Challenge Type (Must match database constraint)
+        let challengeType = 'evaluation'; // Default fallback
+        const model = (order.model || '').toLowerCase();
+        const type = (order.metadata?.type || '').toLowerCase();
 
         if (isCompetition) {
-            challengeType = 'Competition';
+            challengeType = 'competition';
+        } else if (model && type) {
+            // Map common patterns to snake_case (e.g. Model: 'lite', Type: '1-step' -> 'lite_1_step')
+            const normalizedType = type.replace('-', '_').replace(' ', '_');
+            challengeType = `${model}_${normalizedType}`;
+        } else {
+            // Fallback for older orders or manual creations
+            const rawName = (order.account_type_name || '').toLowerCase();
+            if (rawName.includes('lite')) {
+                if (rawName.includes('instant')) challengeType = 'lite_instant';
+                else if (rawName.includes('1 step')) challengeType = 'lite_1_step';
+                else if (rawName.includes('2 step')) challengeType = 'lite_2_step_phase_1';
+            } else if (rawName.includes('prime')) {
+                if (rawName.includes('instant')) challengeType = 'prime_instant';
+                else if (rawName.includes('1 step')) challengeType = 'prime_1_step';
+                else if (rawName.includes('2 step')) challengeType = 'prime_2_step_phase_1';
+            }
         }
+
+        console.log(`🏷️ [Payment] Mapping challenge type: "${order.account_type_name}" -> "${challengeType}"`);
 
         const { data: challenge } = await supabase
             .from('challenges')
