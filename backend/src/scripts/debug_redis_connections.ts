@@ -81,8 +81,40 @@ async function run() {
         console.log('\n🔹 Connections by Age:');
         console.table(byAge);
 
-        if (zombieCount > 0) {
+        if (process.argv.includes('cleanup')) {
+            console.log("\n🧹 CLEANUP MODE ENABLED");
+            let killedCount = 0;
+
+            for (const line of lines) {
+                const kv: Record<string, string> = {};
+                line.split(' ').forEach(part => {
+                    const [k, v] = part.split('=');
+                    if (k && v) kv[k] = v;
+                });
+
+                const id = kv['id'];
+                const age = parseInt(kv['age'] || '0', 10);
+                const name = kv['name'];
+
+                // Kill if:
+                // 1. Age > 300s (5 mins) AND Name is unknown (Zombie)
+                // 2. Age > 3600s (1 hour) AND Name is NOT the current debugger
+                const isZombie = (age > 300 && !name) || (age > 3600 && name !== 'DEBUG_SCRIPT');
+
+                if (isZombie && id) {
+                    try {
+                        console.log(`Killing client id=${id} (age=${age}s, name=${name || 'unknown'})...`);
+                        await redis.client('KILL', 'ID', id);
+                        killedCount++;
+                    } catch (e: any) {
+                        console.error(`Failed to kill ${id}: ${e.message}`);
+                    }
+                }
+            }
+            console.log(`\n✅ Killed ${killedCount} connections.`);
+        } else if (zombieCount > 0) {
             console.warn(`\n⚠️ FOUND ${zombieCount} POTENTIAL ZOMBIES (Unknown name, > 1h age)`);
+            console.warn(`   Run with 'cleanup' argument to kill them: npx ts-node src/scripts/debug_redis_connections.ts cleanup`);
         }
 
         if (lines.length > 9000) { // Assuming default 10k
