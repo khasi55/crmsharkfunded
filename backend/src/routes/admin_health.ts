@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { getSocketMetrics } from '../services/socket';
 import { supabase } from '../lib/supabase';
-import { redis } from '../lib/redis';
+import { getRedis } from '../lib/redis';
 
 const router = Router();
 
@@ -53,7 +53,7 @@ router.get('/', async (req, res: Response) => {
         // 3. Redis Health
         try {
             const start = Date.now();
-            await redis.ping();
+            await getRedis().ping();
             const latency = Date.now() - start;
 
             healthData.services.redis = {

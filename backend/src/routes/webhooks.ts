@@ -31,7 +31,7 @@ router.post('/mt5', async (req: Request, res: Response) => {
         // Instead of processing everything here (slow), we publish the event to Redis.
         // The Worker will handle DB upsert and Risk Checks.
 
-        const { redis } = await import('../lib/redis');
+        const { getRedis } = await import('../lib/redis');
 
         const eventData = {
             login,
@@ -40,7 +40,7 @@ router.post('/mt5', async (req: Request, res: Response) => {
         };
 
         // Publish to 'events:trade_update' channel
-        await redis.publish('events:trade_update', JSON.stringify(eventData));
+        await getRedis().publish('events:trade_update', JSON.stringify(eventData));
 
         // Respond immediately (High Performance)
         res.json({ success: true, queued: true });

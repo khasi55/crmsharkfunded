@@ -1,4 +1,4 @@
-import { redis } from '../lib/redis';
+import { getRedisSub } from '../lib/redis';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { CoreRiskEngine } from '../engine/risk-engine-core';
@@ -19,8 +19,8 @@ const advancedEngine = new AdvancedRiskEngine(supabase);
 export async function startRiskEventWorker() {
     console.log('⚡ Risk Event Worker Started (Listening for Redis events)...');
 
-    // Create a dedicated subscriber client (Redis requires dedicated connection for sub)
-    const subRedis = redis.duplicate({ connectionName: 'RE_SUB', maxRetriesPerRequest: null });
+    // Use the dedicated subscriber singleton
+    const subRedis = getRedisSub();
 
     await subRedis.subscribe('events:trade_update', (err) => {
         if (err) console.error('Failed to subscribe to trade updates:', err);

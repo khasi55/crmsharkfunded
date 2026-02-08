@@ -443,13 +443,13 @@ router.post('/sync-trades', async (req: Request, res: Response) => {
 
         // 6. Notify Risk Engine (FIX: Send RAW trades)
         if (allTrades.length > 0) {
-            const { redis } = await import('../lib/redis');
+            const { getRedis } = await import('../lib/redis');
             const eventPayload = {
                 login: Number(login),
                 trades: allTrades, // RAW TRADES for duration checks
                 timestamp: Date.now()
             };
-            await redis.publish('events:trade_update', JSON.stringify(eventPayload));
+            await getRedis().publish('events:trade_update', JSON.stringify(eventPayload));
             console.log(`📢 [Manual Sync] Triggered Risk Engine for ${login}`);
         }
 

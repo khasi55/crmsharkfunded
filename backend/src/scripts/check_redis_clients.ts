@@ -1,14 +1,14 @@
 
 import dotenv from 'dotenv';
 dotenv.config();
-import { redis } from '../lib/redis';
+import { getRedis } from '../lib/redis';
 
 async function checkRedisClients() {
     try {
         console.log("📊 Checking Redis Clients...");
 
         // ioredis client() returns a Promise<string>
-        const clients: string = await redis.client('LIST') as string;
+        const clients: string = await getRedis().client('LIST') as string;
 
         if (!clients || typeof clients !== 'string') {
             console.log("⚠️ No clients returned or invalid response.");

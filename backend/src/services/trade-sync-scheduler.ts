@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
-import { redis } from '../lib/redis';
+import { getRedis } from '../lib/redis';
 import { fetchMT5Trades } from '../lib/mt5-bridge';
 
 dotenv.config();
@@ -150,7 +150,7 @@ async function processBatch(challenges: any[], attempt = 1) {
                             trades: rawAccountTrades, // RAW TRADES
                             timestamp: Date.now()
                         };
-                        await redis.publish('events:trade_update', JSON.stringify(eventPayload));
+                        await getRedis().publish('events:trade_update', JSON.stringify(eventPayload));
                     }
                 }
             }

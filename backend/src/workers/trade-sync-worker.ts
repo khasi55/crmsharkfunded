@@ -1,6 +1,6 @@
 
 import { Worker, Job } from 'bullmq';
-import { redis } from '../lib/redis';
+import { getRedis } from '../lib/redis';
 import { createClient } from '@supabase/supabase-js';
 import { fetchMT5Trades } from '../lib/mt5-bridge';
 import dotenv from 'dotenv';
@@ -18,7 +18,7 @@ export async function startTradeSyncWorker() {
         // console.log(`🔨 Processing sync job: ${job.data.login}`);
         await syncAccountTrades(job.data);
     }, {
-        connection: redis as any,
+        connection: getRedis() as any, // Use singleton connection
         concurrency: 10, // Process 10 accounts in parallel per server instance!
         removeOnComplete: { count: 100 }, // Keep only last 100 completed jobs
         removeOnFail: { count: 500 } // Keep last 500 failed for debugging
@@ -73,7 +73,7 @@ async function syncAccountTrades(data: { login: number, challenge_id: string, us
             trades: allTrades, // RAW TRADES
             timestamp: Date.now()
         };
-        await redis.publish('events:trade_update', JSON.stringify(eventPayload));
+        await getRedis().publish('events:trade_update', JSON.stringify(eventPayload));
         // console.log(`📢 Published trade_update event for ${login} (${uniqueTrades.length} trades)`);
 
     } catch (e: any) {
