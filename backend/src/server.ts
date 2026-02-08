@@ -246,10 +246,10 @@ console.log('🔄 [Risk Monitor] Polling Enabled (Fast Mode) - 5s Interval');
 startRiskMonitor(5); // Increased frequency for faster breach detection
 startAdvancedRiskMonitor(); // 5m Martingale Checks
 startDailyEquityReset(); // Schedule midnight reset
-startTradeSyncScheduler(); // Dispatch jobs every 10s
-startCompetitionScheduler(); // Schedule competition status checks
-startLeaderboardBroadcaster(); // Broadcasts every 30s
-const tradeSyncWorker = startTradeSyncWorker(); // Keep Worker active for manual syncs if needed
+// startTradeSyncScheduler(); // Dispatch jobs every 10s
+// startCompetitionScheduler(); // Schedule competition status checks
+// startLeaderboardBroadcaster(); // Broadcasts every 30s
+// const tradeSyncWorker = startTradeSyncWorker(); // DISABLED: Redundant, handled by scheduler
 const riskEventSub = startRiskEventWorker(); // LISTENS for 'events:trade_update' (Critical for Scalping Checks)
 
 
@@ -281,9 +281,9 @@ async function gracefulShutdown(signal: string) {
         console.log('HTTP server closed');
 
         try {
-            console.log('Closing Trade Sync Worker...');
-            const worker = await tradeSyncWorker;
-            if (worker) await worker.close();
+            // console.log('Closing Trade Sync Worker...');
+            // const worker = await tradeSyncWorker;
+            // if (worker) await worker.close();
 
             console.log('Closing Risk Event Subscriber...');
             const sub = await riskEventSub;

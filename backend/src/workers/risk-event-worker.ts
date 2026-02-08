@@ -54,41 +54,10 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
 
     if (!challenge || challenge.status !== 'active') return;
 
-    // 2. Format & Upsert Trades (Mirroring logic from old webhook)
+    // 2. Filter Trades for behavioral checks (Ghost Trade Protection)
     const validIncomingTrades = trades.filter((t: any) => t.volume > 0 && ['0', '1', 'buy', 'sell'].includes(String(t.type).toLowerCase()));
-
-    // FIX: Filter out Ghost Trades (history from previous users of this Login ID)
-    // Only accept trades that happened AFTER the challenge was created (minus 30s buffer for clock skew)
     const challengeStartTime = new Date(challenge.created_at).getTime() / 1000;
     const meaningfulTrades = validIncomingTrades.filter((t: any) => t.time >= (challengeStartTime - 30));
-
-    if (meaningfulTrades.length > 0) {
-        const formattedTrades = meaningfulTrades.map((t: any) => ({
-            ticket: t.ticket,
-            challenge_id: challenge.id,
-            user_id: challenge.user_id,
-            symbol: t.symbol,
-            type: t.type === 0 ? 'buy' : 'sell',
-            lots: t.volume / 10000,
-            open_price: t.price,
-            profit_loss: t.profit,
-            commission: t.commission,
-            swap: t.swap,
-            open_time: new Date(t.time * 1000).toISOString(),
-            close_time: t.close_time ? new Date(t.close_time * 1000).toISOString() : null,
-        }));
-
-        // Deduplicate to prevent "ON CONFLICT DO UPDATE" errors
-        const uniqueTrades = Array.from(
-            formattedTrades.reduce((map: Map<string, any>, trade: any) => {
-                const key = `${trade.challenge_id}-${trade.ticket}`;
-                map.set(key, trade);
-                return map;
-            }, new Map()).values()
-        );
-
-        await supabase.from('trades').upsert(uniqueTrades, { onConflict: 'challenge_id, ticket' });
-    }
 
     // 3. Recalculate Equity (In-Memory if possible, or simple query)
     // Query DB for verified calculation, but strictly filter out 0-lot trades (deposits)
