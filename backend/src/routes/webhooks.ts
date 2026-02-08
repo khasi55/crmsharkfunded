@@ -79,6 +79,12 @@ const verifyPaymentSecret = (req: Request): boolean => {
     const querySecret = req.query.secret as string;
     if (querySecret === secret) return true;
 
+    // DIAGNOSTIC LOGGING FOR PRODUCTION BLOCKS
+    console.warn(`[Webhook Diagnostic] Verification failed for IP: ${req.ip}`);
+    console.warn(`[Webhook Diagnostic] Headers: ${JSON.stringify(req.headers)}`);
+    console.warn(`[Webhook Diagnostic] Query Params: ${JSON.stringify(req.query)}`);
+    console.warn(`[Webhook Diagnostic] EPay MID in Body: ${epayMid}`);
+
     return false;
 };
 

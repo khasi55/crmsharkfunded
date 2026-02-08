@@ -9,6 +9,7 @@ import fs from 'fs';
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', true); // Trust reverse proxy (Nginx) to get real client IP
 const PORT = process.env.PORT || 3001;
 
 
