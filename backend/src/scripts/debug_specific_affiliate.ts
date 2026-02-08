@@ -21,7 +21,7 @@ async function debug() {
 
     if (dError) console.error("Error fetching direct refs:", dError);
     console.log(`Direct Referrals (referred_by): ${directRefs?.length}`);
-    if (directRefs?.length > 0) console.table(directRefs);
+    if (directRefs && directRefs.length > 0) console.table(directRefs);
 
     // 2. Check coupon usage (payment_orders)
     const { data: couponRefs, error: cError } = await supabase
@@ -31,7 +31,7 @@ async function debug() {
 
     if (cError) console.error("Error fetching coupon refs:", cError);
     console.log(`Coupon Referrals (Code: ${referralCode}): ${couponRefs?.length}`);
-    if (couponRefs?.length > 0) console.table(couponRefs);
+    if (couponRefs && couponRefs.length > 0) console.table(couponRefs);
 
     // 3. Check if Affiliate exists in Profiles
     const { data: profile } = await supabase
