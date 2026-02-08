@@ -35,42 +35,49 @@ router.post('/upgrade-account', async (req: Request, res: Response) => {
         let mt5Group = '';
         let needsNewMT5 = false;
 
-        // Group detection logic (PRIME = SF, LITE = S)
-        const isPrime = currentGroup.includes('\\SF\\') || currentType.includes('prime');
-        const isLite = (currentGroup.includes('\\S\\') && !currentGroup.includes('\\SF\\')) || currentType.includes('lite');
+        // Group detection logic (PRIORITIZE LITE STRING)
+        const isLite = currentType.includes('lite') || (currentGroup.includes('\\S\\') && !currentGroup.includes('\\SF\\'));
+        const isPrime = !isLite && (currentType.includes('prime') || currentGroup.includes('\\SF\\') || currentGroup.includes('PRO'));
 
         const isPhase1 = currentType.includes('phase 1') || currentType.includes('phase_1') ||
             currentType.includes('step 1') || currentType.includes('step_1') ||
-            currentType.includes('evaluation');
+            currentType.includes('evaluation') ||
+            (currentType.includes('2 step') && !currentType.includes('phase 2') && !currentType.includes('phase_2')) ||
+            (currentType.includes('2_step') && !currentType.includes('phase 2') && !currentType.includes('phase_2'));
 
         const isPhase2 = currentType.includes('phase 2') || currentType.includes('phase_2') ||
             currentType.includes('step 2') || currentType.includes('step_2');
 
-        // LITE 1-Step → Funded (new MT5 in Instant group)
-        if (isLite && (currentType.includes('lite_1_step') || currentType.includes('1-step') || currentType.includes('1_step'))) {
-            nextType = 'lite_funded';
-            mt5Group = 'demo\\S\\0-SF';
-            needsNewMT5 = true;
+        const isOneStep = currentType.includes('1-step') || currentType.includes('1_step') ||
+            currentType.includes('1 step') || currentType.includes('instant');
+
+        console.log(`[Upgrade] ID: ${accountId}, Group: ${currentGroup}, Type: ${currentType}`);
+        console.log(`[Upgrade] Detection: isPrime=${isPrime}, isLite=${isLite}, isPhase1=${isPhase1}, isPhase2=${isPhase2}, isOneStep=${isOneStep}`);
+
+        // Define exact upgrade transitions
+        if (isLite) {
+            if (isOneStep || isPhase2) {
+                nextType = 'lite_funded';
+                mt5Group = 'demo\\S\\0-SF';
+                needsNewMT5 = true;
+            } else if (isPhase1) {
+                nextType = 'lite_2_step_phase_2';
+                mt5Group = 'demo\\S\\2-SF';
+                needsNewMT5 = true;
+            }
+        } else if (isPrime) {
+            if (isOneStep || isPhase2) {
+                nextType = 'prime_funded';
+                mt5Group = 'demo\\SF\\0-Pro';
+                needsNewMT5 = true;
+            } else if (isPhase1) {
+                nextType = 'prime_2_step_phase_2';
+                mt5Group = 'demo\\SF\\2-Pro';
+                needsNewMT5 = true;
+            }
         }
-        // PRIME Phase 1 → Phase 2 (New MT5 in Phase 2 group)
-        else if (isPrime && isPhase1) {
-            nextType = 'prime_2_step_phase_2';
-            mt5Group = 'demo\\SF\\2-Pro'; // Move to Phase 2 group
-            needsNewMT5 = true;
-        }
-        // LITE Phase 1 → Phase 2 (New MT5 in Phase 2 group)
-        else if (isLite && isPhase1) {
-            nextType = 'lite_2_step_phase_2';
-            mt5Group = 'demo\\S\\2-SF'; // Move to Phase 2 group
-            needsNewMT5 = true;
-        }
-        // Phase 2 → Funded (new MT5 in Instant group)
-        else if (isPhase2) {
-            nextType = isLite ? 'lite_funded' : 'prime_funded';
-            mt5Group = isLite ? 'demo\\S\\0-SF' : 'demo\\SF\\0-Pro';
-            needsNewMT5 = true;
-        }
-        else {
+
+        if (!nextType) {
             return res.status(400).json({
                 error: `Cannot determine upgrade path for: ${account.challenge_type} (Group: ${currentGroup})`
             });

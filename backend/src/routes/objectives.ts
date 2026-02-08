@@ -100,7 +100,7 @@ router.post('/calculate', authenticate, async (req: AuthRequest, res: Response) 
             netPnL += tradeNet;
 
             if (Number(trade.profit_loss) > 1000) {
-                console.log(`🚨 SUSPICIOUS HIGH PROFIT TRADE: Ticket=${trade.ticket}, Type=${trade.type}, Profit=${trade.profit_loss}, Comment=${trade.comment}`);
+                // console.log(`🚨 SUSPICIOUS HIGH PROFIT TRADE: Ticket=${trade.ticket}, Type=${trade.type}, Profit=${trade.profit_loss}, Comment=${trade.comment}`);
             }
 
             // Daily P&L (only trades closed today)

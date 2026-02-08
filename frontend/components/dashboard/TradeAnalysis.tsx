@@ -156,16 +156,27 @@ const GaugeCard = ({ title, centerLabel, centerValue, centerSubValue, centerValu
 import { useAccount } from "@/contexts/AccountContext";
 import { fetchFromBackend } from "@/lib/backend-api";
 
-export default function TradeAnalysis() {
-    const { selectedAccount } = useAccount();
-    const [trades, setTrades] = useState<Trade[]>([]);
-    const [loading, setLoading] = useState(true);
+interface TradeAnalysisProps {
+    trades?: any[];
+    isPublic?: boolean;
+}
+
+export default function TradeAnalysis({ trades: initialTrades, isPublic }: TradeAnalysisProps = {}) {
+    const accountContext = isPublic ? null : useAccount();
+    const selectedAccount = accountContext?.selectedAccount;
+    const [trades, setTrades] = useState<Trade[]>(initialTrades || []);
+    const [loading, setLoading] = useState(!initialTrades);
 
     useEffect(() => {
+        if (isPublic && initialTrades) {
+            setTrades(initialTrades);
+            setLoading(false);
+            return;
+        }
         if (selectedAccount) {
             fetchTrades();
         }
-    }, [selectedAccount]);
+    }, [selectedAccount, initialTrades, isPublic]);
 
     const fetchTrades = async () => {
         try {

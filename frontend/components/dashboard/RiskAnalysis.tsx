@@ -119,20 +119,57 @@ interface ViolationData {
     [key: string]: BreachDetail[];
 }
 
-export default function RiskAnalysis() {
-    const { selectedAccount, loading: accountLoading } = useAccount();
+interface RiskAnalysisProps {
+    account?: any;
+    data?: { violations: any[] };
+    isPublic?: boolean;
+}
+
+export default function RiskAnalysis({ account: initialAccount, data: initialData, isPublic }: RiskAnalysisProps = {}) {
+    const accountContext = isPublic ? null : useAccount();
+    const selectedAccount = initialAccount || accountContext?.selectedAccount;
+    const accountLoading = accountContext?.loading;
     const [violations, setViolations] = useState<ViolationData>({});
-    const [loading, setLoading] = useState(true);
-    const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+    const [loading, setLoading] = useState(!initialData);
+    const [lastUpdate, setLastUpdate] = useState<Date | null>(initialData ? new Date() : null);
 
     useEffect(() => {
+        if (isPublic && initialData) {
+            processViolations(initialData.violations);
+            return;
+        }
         if (selectedAccount) {
             fetchViolations();
         } else {
             setViolations({});
             setLoading(false);
         }
-    }, [selectedAccount]);
+    }, [selectedAccount, initialData, isPublic]);
+
+    const processViolations = (violationList: any[]) => {
+        const grouped: ViolationData = {};
+        RISK_RULES.forEach(rule => {
+            grouped[rule.key] = [];
+        });
+
+        violationList.forEach((violation: any) => {
+            const rule = RISK_RULES.find(r =>
+                r.violationTypes.includes(violation.violation_type)
+            );
+
+            if (rule) {
+                grouped[rule.key].push({
+                    ticket: violation.trade_ticket || 'N/A',
+                    symbol: violation.symbol || 'Unknown',
+                    time: new Date(violation.created_at).toLocaleString(),
+                    reason: violation.description || violation.violation_type,
+                });
+            }
+        });
+
+        setViolations(grouped);
+        setLoading(false);
+    };
 
     const fetchViolations = async () => {
         if (!selectedAccount) return;

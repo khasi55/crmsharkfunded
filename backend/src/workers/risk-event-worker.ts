@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { CoreRiskEngine } from '../engine/risk-engine-core';
 import { AdvancedRiskEngine } from '../engine/risk-engine-advanced';
 import { EmailService } from '../services/email-service';
+import { disableMT5Account } from '../lib/mt5-bridge';
 
 dotenv.config();
 
@@ -45,9 +46,8 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
     // 1. Fetch Challenge
     const { data: challenge } = await supabase
         .from('challenges')
-        .select('id, user_id, initial_balance, start_of_day_equity, status, created_at')
+        .select('id, user_id, initial_balance, start_of_day_equity, status, created_at, group')
         .eq('login', login)
-
         .single();
 
     if (!challenge || challenge.status !== 'active') return;
@@ -141,6 +141,14 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
             details: { equity: newEquity, balance: newBalance, timestamp: new Date() }
         });
 
+        // 🚨 CRITICAL: Immediately Disable Account on Bridge
+        try {
+            console.log(`🔌 [RiskEvent] Disabling account ${login} on MT5 Bridge...`);
+            await disableMT5Account(login);
+        } catch (bridgeErr) {
+            console.error(`❌ [RiskEvent] Failed to disable account ${login} on Bridge:`, bridgeErr);
+        }
+
         // Send Breach Email
         try {
             const { data: { user } } = await supabase.auth.admin.getUserById(challenge.user_id);
@@ -161,14 +169,38 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
 
     // 6. Behavioral Risk Checks (Martingale, Hedging, Tick Scalping)
     try {
-        // Fetch Rules Config
-        const { data: rulesConfig } = await supabase.from('risk_rules_config').select('*').limit(1).single();
+        // Fetch Rules Config based on Group
+        let rulesConfig;
+
+        if (challenge.group) {
+            const { data: groupConfig } = await supabase
+                .from('risk_rules_config')
+                .select('*')
+                .eq('mt5_group_name', challenge.group)
+                .maybeSingle(); // Use maybeSingle to avoid error if not found
+
+            rulesConfig = groupConfig;
+        }
+
+        // Fallback if no specific group config found
+        if (!rulesConfig) {
+            const { data: defaultConfig } = await supabase
+                .from('risk_rules_config')
+                .select('*')
+                .limit(1)
+                .maybeSingle();
+            rulesConfig = defaultConfig;
+        }
+
         const rules = {
             allow_weekend_trading: rulesConfig?.allow_weekend_trading ?? true,
             allow_news_trading: rulesConfig?.allow_news_trading ?? true,
             allow_ea_trading: rulesConfig?.allow_ea_trading ?? true,
             min_trade_duration_seconds: rulesConfig?.min_trade_duration_seconds ?? 0,
-            max_single_win_percent: rulesConfig?.max_single_win_percent ?? 50
+            max_single_win_percent: rulesConfig?.max_single_win_percent ?? 50,
+            // New Flags (Default to TRUE/Allowed if missing to avoid mass breaches)
+            allow_hedging: rulesConfig?.allow_hedging ?? true,
+            allow_martingale: rulesConfig?.allow_martingale ?? true
         };
 
         // Get context trades (today's and open)
@@ -185,6 +217,12 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
 
         // Analyze each incoming trade for behavioral patterns
         for (const t of meaningfulTrades) {
+            // Debug: Check if close_time exists for closed trades
+            if (t.close_time) {
+                // console.log(`🕵️ Risk Check: Ticket ${t.ticket}, Close Time: ${t.close_time}`);
+                // console.log(`   Rules: Min Duration ${rules.min_trade_duration_seconds}s`);
+            }
+
             // Map to internal Trade type for engine
             const tradeForEngine = {
                 challenge_id: challenge.id,
@@ -196,7 +234,7 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
                 open_price: t.price || 0,
                 profit_loss: t.profit || 0,
                 open_time: new Date(t.time * 1000),
-                close_time: t.close_time ? new Date(t.close_time * 1000) : undefined
+                close_time: t.close_time ? new Date(t.close_time * 1000) : undefined // Ensure this is definitely a Date if closed
             };
 
             const behavioralViolations = await advancedEngine.checkBehavioralRisk(
@@ -207,9 +245,16 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
             );
 
             if (behavioralViolations.length > 0) {
+                // console.log(`🚨 VIOLATIONS FOUND for Ticket ${t.ticket}:`, behavioralViolations);
                 for (const v of behavioralViolations) {
-                    console.log(`🚩 Behavioral Flag: Account ${login}, Type: ${v.violation_type}, Ticket: ${v.trade_ticket}`);
+                    // console.log(`🚩 Behavioral Flag: Account ${login}, Type: ${v.violation_type}, Ticket: ${v.trade_ticket}`);
                     await advancedEngine.logFlag(challenge.id, challenge.user_id, v);
+                }
+            } else if (t.close_time) {
+                // Debug why no violation if closed
+                const duration = (tradeForEngine.close_time!.getTime() - tradeForEngine.open_time.getTime()) / 1000;
+                if (duration < rules.min_trade_duration_seconds) {
+                    console.log(`⚠️ MISSED SCALPING? Duration ${duration}s < Min ${rules.min_trade_duration_seconds}s`);
                 }
             }
         }

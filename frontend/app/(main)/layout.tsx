@@ -30,7 +30,7 @@ export default function MainLayout({
                         {/* Mobile Menu Trigger */}
                         <button
                             onClick={() => setIsSidebarOpen(true)}
-                            className="md:hidden absolute top-4 left-4 z-50 p-2 text-gray-400 hover:text-white bg-black/50 rounded-lg backdrop-blur-sm"
+                            className="md:hidden absolute top-4 left-4 z-[101] p-2 text-gray-400 hover:text-white bg-black/50 rounded-lg backdrop-blur-sm shadow-lg border border-white/10"
                         >
                             <Menu size={24} />
                         </button>

@@ -99,8 +99,16 @@ function ObjectiveRow({ title, timer, max, current, threshold, status, isLossLim
     );
 }
 
-export default function TradingObjectives() {
-    const { selectedAccount, loading: accountLoading } = useAccount();
+interface TradingObjectivesProps {
+    objectives?: any;
+    account?: any;
+    isPublic?: boolean;
+}
+
+export default function TradingObjectives({ objectives: initialObjectives, account, isPublic }: TradingObjectivesProps = {}) {
+    const accountContext = isPublic ? null : useAccount();
+    const selectedAccount = account || accountContext?.selectedAccount;
+    const accountLoading = accountContext?.loading;
     const [resetTimer, setResetTimer] = useState("--:--:--");
     const [rules, setRules] = useState<ChallengeRules | null>(null);
     const [loadingRules, setLoadingRules] = useState(false);
@@ -127,6 +135,26 @@ export default function TradingObjectives() {
 
     // Fetch rules from database when account changes
     useEffect(() => {
+        if (initialObjectives) {
+            setRules({
+                max_daily_loss_percent: initialObjectives.daily_loss?.max_allowed_percent ?? 5,
+                max_total_loss_percent: initialObjectives.total_loss?.max_allowed_percent ?? 10,
+                profit_target_percent: initialObjectives.profit_target?.target_percent ?? 8,
+                min_trading_days: 0,
+                max_daily_loss_amount: initialObjectives.daily_loss?.max_allowed ?? 0,
+                max_total_loss_amount: initialObjectives.total_loss?.max_allowed ?? 0,
+                profit_target_amount: initialObjectives.profit_target?.target ?? 0,
+                current_daily_loss: initialObjectives.daily_loss?.current ?? 0,
+                current_total_loss: initialObjectives.total_loss?.current ?? 0,
+                current_profit: initialObjectives.profit_target?.current ?? 0,
+                start_of_day_equity: initialObjectives.daily_loss?.threshold + initialObjectives.daily_loss?.max_allowed,
+                daily_remaining: initialObjectives.daily_loss?.remaining,
+                total_remaining: initialObjectives.total_loss?.remaining,
+            });
+            setLoadingRules(false);
+            return;
+        }
+
         if (!selectedAccount) {
             setRules(null);
             return;

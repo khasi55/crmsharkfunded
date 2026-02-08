@@ -12,8 +12,28 @@ const nextConfig: NextConfig = {
         destination: `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:3001'}/api/dashboard/:path*`,
       },
       {
+        source: '/api/kyc/:path*',
+        destination: `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:3001'}/api/kyc/:path*`,
+      },
+      {
+        source: '/api/payouts/:path*',
+        destination: `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:3001'}/api/payouts/:path*`,
+      },
+      {
+        source: '/api/affiliates/:path*',
+        destination: `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:3001'}/api/affiliates/:path*`,
+      },
+      {
+        source: '/api/admins/:path*',
+        destination: `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:3001'}/api/admins/:path*`,
+      },
+      {
         source: '/api/admin/:path*',
         destination: `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:3001'}/api/admin/:path*`,
+      },
+      {
+        source: '/api/upload',
+        destination: `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:3001'}/api/upload`,
       },
     ];
   },

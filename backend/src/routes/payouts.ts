@@ -223,6 +223,19 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
             return;
         }
 
+        // 0. CHECK KYC STATUS (CRITICAL)
+        const { data: kycSession } = await supabase
+            .from('kyc_sessions')
+            .select('status')
+            .eq('user_id', user.id)
+            .eq('status', 'approved')
+            .limit(1)
+            .maybeSingle();
+
+        if (!kycSession) {
+            return res.status(400).json({ error: 'KYC Verification Required. Please complete your identity verification before requesting a payout.' });
+        }
+
         // 1. Fetch & Validate Wallet Address
         const { data: wallet } = await supabase
             .from('wallet_addresses')
@@ -590,17 +603,22 @@ router.get('/admin/:id', async (req: Request, res: Response) => {
 router.put('/admin/:id/approve', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
+        const { transaction_id } = req.body;
 
-        // Generate transaction ID automatically (using timestamp + random string)
-        const timestamp = Date.now().toString(36);
-        const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
-        const autoTransactionId = `TXN-${timestamp}-${randomStr}`;
+        let finalTransactionId = transaction_id;
+
+        // Generate transaction ID automatically if not provided
+        if (!finalTransactionId) {
+            const timestamp = Date.now().toString(36);
+            const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
+            finalTransactionId = `TXN-${timestamp}-${randomStr}`;
+        }
 
         const { error } = await supabase
             .from('payout_requests')
             .update({
                 status: 'approved',
-                transaction_id: autoTransactionId,
+                transaction_id: finalTransactionId,
                 processed_at: new Date().toISOString(),
             })
             .eq('id', id);
@@ -613,7 +631,7 @@ router.put('/admin/:id/approve', async (req: Request, res: Response) => {
         res.json({
             success: true,
             message: 'Payout approved successfully',
-            transaction_id: autoTransactionId
+            transaction_id: finalTransactionId
         });
     } catch (error: any) {
         console.error('Approve payout error:', error);

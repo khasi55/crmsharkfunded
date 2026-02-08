@@ -150,20 +150,22 @@ export default function AccountSwitcher({ isOpen, onClose, className }: AccountS
             <>
                 {/* Overlay */}
                 <motion.div
+                    key="account-switcher-overlay"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     onClick={onClose}
-                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]"
                 />
 
                 {/* Modal */}
                 <motion.div
+                    key="account-switcher-modal"
                     initial={{ y: "100%" }}
                     animate={{ y: 0 }}
                     exit={{ y: "100%" }}
                     transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                    className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] bg-[#050923] rounded-t-3xl border-t border-white/5 overflow-hidden flex flex-col"
+                    className="fixed inset-x-0 bottom-0 z-[9999] h-[85vh] bg-[#050923] rounded-t-3xl border-t border-white/5 overflow-hidden flex flex-col shadow-2xl"
                 >
                     {/* Drag Handle */}
                     <div className="flex justify-center pt-2 pb-1">
@@ -312,7 +314,7 @@ function AccountSwitcherContent({
             </div>
 
             {/* Account List */}
-            <div className="flex-1 overflow-y-auto px-4 pb-4 sm:pb-6 space-y-3 custom-scrollbar overscroll-contain">
+            <div className="flex-1 overflow-y-auto min-h-0 px-4 pb-20 sm:pb-6 space-y-3 custom-scrollbar touch-pan-y">
                 {filteredAccounts.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                         No accounts found
@@ -348,9 +350,6 @@ function AccountSwitcherContent({
                                             <p className="font-bold text-white text-sm truncate pr-2">
                                                 {acc.account_number}
                                                 <span className="text-gray-500 text-xs font-normal ml-2">#{acc.login}</span>
-                                            </p>
-                                            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider truncate">
-                                                {acc.account_type?.replace(/_/g, ' ') || 'PHASE 1'}
                                             </p>
                                         </div>
                                     </div>

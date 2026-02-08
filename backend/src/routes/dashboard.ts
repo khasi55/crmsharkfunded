@@ -181,7 +181,7 @@ router.get('/trades', authenticate, async (req: AuthRequest, res: Response) => {
         const from = (pageNum - 1) * limitNum;
         const to = from + limitNum - 1;
 
-        console.time('stats_fetch'); // START TIMER
+        // console.time('stats_fetch'); // START TIMER
 
         let paginatedQuery = supabase
             .from('trades')
@@ -196,7 +196,7 @@ router.get('/trades', authenticate, async (req: AuthRequest, res: Response) => {
 
         const { data: trades, error } = await paginatedQuery;
 
-        console.timeEnd('stats_fetch'); // END TIMER - prints to console
+        // console.timeEnd('stats_fetch'); // END TIMER - prints to console
 
         if (error) {
             console.error('Error fetching trades:', error);
@@ -501,22 +501,41 @@ router.get('/risk', authenticate, async (req: AuthRequest, res: Response) => {
             return;
         }
 
-        // Fetch risk violations
-        const { data: violations, error } = await supabase
+        // Fetch risk violations (Hard Breaches)
+        const { data: hardViolations, error: hardError } = await supabase
             .from('risk_violations')
             .select('*')
             .eq('challenge_id', challenge_id)
             .order('created_at', { ascending: false });
 
-        if (error) {
-            console.error('Error fetching risk violations:', error);
-            res.status(500).json({ error: 'Database error' });
-            return;
+        if (hardError) {
+            console.error('Error fetching hard risk violations:', hardError);
         }
+
+        // Fetch advanced risk flags (Soft Breaches / behavioral)
+        const { data: softViolations, error: softError } = await supabase
+            .from('advanced_risk_flags')
+            .select('*')
+            .eq('challenge_id', challenge_id)
+            .order('created_at', { ascending: false });
+
+        if (softError) {
+            console.error('Error fetching advanced risk flags:', softError);
+        }
+
+        // Normalize and merge
+        const combinedViolations = [
+            ...(hardViolations || []),
+            ...(softViolations || []).map((v: any) => ({
+                ...v,
+                violation_type: v.flag_type, // Map flag_type to expected format
+                is_soft_breach: true // Marker for frontend if needed
+            }))
+        ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
         res.json({
             risk: {
-                violations: violations || []
+                violations: combinedViolations
             }
         });
 
@@ -598,6 +617,53 @@ router.get('/consistency', authenticate, async (req: AuthRequest, res: Response)
 
     } catch (error) {
         console.error('Consistency API error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// POST /api/dashboard/sharing/toggle
+router.post('/sharing/toggle', authenticate, async (req: AuthRequest, res: Response) => {
+    try {
+        const user = req.user;
+        const { challengeId, enabled } = req.body;
+
+        if (!user) return res.status(401).json({ error: 'Not authenticated' });
+        if (!challengeId) return res.status(400).json({ error: 'Missing challengeId' });
+
+        // Verify ownership
+        const { data: challenge, error: fetchError } = await supabase
+            .from('challenges')
+            .select('user_id, share_token')
+            .eq('id', challengeId)
+            .single();
+
+        if (fetchError || !challenge) return res.status(404).json({ error: 'Challenge not found' });
+        if (challenge.user_id !== user.id) return res.status(403).json({ error: 'Unauthorized' });
+
+        let shareToken = challenge.share_token;
+        if (enabled && !shareToken) {
+            // Generate a random unique token if none exists
+            const crypto = require('crypto');
+            shareToken = crypto.randomBytes(16).toString('hex');
+        }
+
+        const { error: updateError } = await supabase
+            .from('challenges')
+            .update({
+                is_public: !!enabled,
+                share_token: enabled ? shareToken : shareToken // Keep the token even if disabled, or null it? Let's keep it.
+            })
+            .eq('id', challengeId);
+
+        if (updateError) throw updateError;
+
+        res.json({
+            success: true,
+            is_public: !!enabled,
+            share_token: enabled ? shareToken : null
+        });
+    } catch (error) {
+        console.error('Sharing toggle error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

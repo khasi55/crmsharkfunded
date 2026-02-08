@@ -10,6 +10,9 @@ export interface AdvancedRiskRules {
     min_trade_duration_seconds: number;
     max_trades_per_day?: number;
     max_single_win_percent: number; // Consistency
+    // Extended Rules
+    allow_hedging?: boolean;
+    allow_martingale?: boolean;
 }
 
 export class AdvancedRiskEngine {
@@ -24,6 +27,20 @@ export class AdvancedRiskEngine {
      */
     async logFlag(challengeId: string, userId: string, violation: RiskViolation): Promise<void> {
         try {
+            // Deduplication: Check if this specific violation was already logged for this trade
+            const { data: existing } = await this.supabase
+                .from('advanced_risk_flags')
+                .select('id')
+                .eq('challenge_id', challengeId)
+                .eq('trade_ticket', violation.trade_ticket)
+                .eq('flag_type', violation.violation_type)
+                .maybeSingle();
+
+            if (existing) {
+                // console.log(`ℹ️ Skipping duplicate risk flag: ${violation.violation_type} for ${violation.trade_ticket}`);
+                return;
+            }
+
             await this.supabase.from('advanced_risk_flags').insert({
                 challenge_id: challengeId,
                 user_id: userId,
@@ -51,12 +68,18 @@ export class AdvancedRiskEngine {
         const violations: RiskViolation[] = [];
 
         // 1. Martingale (Revenge Trading)
-        const martingale = await this.checkMartingale(trade, todaysTrades);
-        if (martingale) violations.push(martingale);
+        // Check ONLY if Martingale is BANNED (allow_martingale = false)
+        if (rules.allow_martingale === false) {
+            const martingale = await this.checkMartingale(trade, todaysTrades);
+            if (martingale) violations.push(martingale);
+        }
 
         // 2. Hedging
-        const hedging = await this.checkHedging(trade, openTrades);
-        if (hedging) violations.push(hedging);
+        // Check ONLY if Hedging is BANNED (allow_hedging = false)
+        if (rules.allow_hedging === false) {
+            const hedging = await this.checkHedging(trade, openTrades);
+            if (hedging) violations.push(hedging);
+        }
 
         // 3. Arbitrage (Latency/HFT)
         const arbitrage = await this.checkLatencyArbitrage(trade, todaysTrades);
@@ -67,15 +90,18 @@ export class AdvancedRiskEngine {
         if (triArbitrage) violations.push(triArbitrage);
 
         // 5. Tick Scalping
-        const scalping = this.checkTickScalping(trade, rules.min_trade_duration_seconds);
-        if (scalping) violations.push(scalping);
+        if (rules.min_trade_duration_seconds > 0) {
+            const scalping = this.checkTickScalping(trade, rules.min_trade_duration_seconds);
+            if (scalping) violations.push(scalping);
+        }
 
         return violations;
     }
 
     // Rule: Martingale / Revenge Trading
-    private checkMartingale(trade: Trade, recentTrades: Trade[]): RiskViolation | null {
+    public checkMartingale(trade: Trade, recentTrades: Trade[]): RiskViolation | null {
         if (recentTrades.length === 0) return null;
+        console.log(`🔍 Checking Martingale for Ticket #${trade.ticket_number} (Recent Trades: ${recentTrades.length})`);
 
         // Find last closed trade
         const lastTrade = recentTrades.filter(t => t.close_time)
@@ -102,11 +128,34 @@ export class AdvancedRiskEngine {
 
     // Rule: Hedging
     private checkHedging(trade: Trade, openTrades: Trade[]): RiskViolation | null {
-        const opposing = openTrades.find(t =>
-            t.symbol === trade.symbol &&
-            t.type !== trade.type &&
-            !t.close_time
-        );
+        // Robust Hedging Check:
+        // 1. Must be same symbol
+        // 2. Must be opposite type
+        // 3. Must ACTUALY OVERLAP in time (taking into account close times)
+        // 4. Ignore tiny overlaps (< 2 seconds) to allow for latency/slippage during close/open switches
+
+        const tradeOpen = new Date(trade.open_time).getTime();
+
+        const opposing = openTrades.find(t => {
+            if (t.symbol !== trade.symbol) return false;
+            if (t.type === trade.type) return false;
+
+            // Check Time Overlap
+            // Existing Trade Open
+            const tOpen = new Date(t.open_time).getTime();
+            // Existing Trade Close (or Future if still open)
+            const tClose = t.close_time ? new Date(t.close_time).getTime() : Date.now() + 31536000000;
+
+            // Allow 2-second buffer for latency (e.g. closing one and opening another immediately)
+            const overlapStart = Math.max(tradeOpen, tOpen);
+            const overlapEnd = Math.min(Date.now(), tClose); // Assumes 'trade' is currently open/just opened
+            const overlapDuration = overlapEnd - overlapStart;
+
+            // If overlap is negative or very small (< 2000ms), ignore it
+            if (overlapDuration < 2000) return false;
+
+            return true;
+        });
 
         if (opposing) {
             return {

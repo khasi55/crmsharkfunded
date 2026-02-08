@@ -144,7 +144,7 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
             if (groupStr.includes('\\sf\\') || groupStr.includes('pro')) plan = 'Prime';
             else if (groupStr.includes('-sf') || (groupStr.includes('\\s\\') && !groupStr.includes('\\sf\\'))) plan = 'Lite';
             else if (groupStr.includes('instant')) plan = 'Instant';
-            else plan = account.plan_type || 'Standard';
+            else plan = account.plan_type || 'Lite';
         }
 
         // 3. Step detection
@@ -154,10 +154,10 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
 
         // Combined output
         if (plan && steps) return `${plan} - ${steps}`;
-        if (plan && plan !== 'Standard') return plan;
-        if (steps) return `Standard - ${steps}`;
+        if (plan && plan !== 'Lite') return plan;
+        if (steps) return `Lite - ${steps}`;
 
-        return plan || 'Standard';
+        return plan || 'Lite';
     };
 
     return (

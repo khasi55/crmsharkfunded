@@ -56,8 +56,8 @@ const CHALLENGE_TYPES = [
 ];
 
 const MODELS = [
-    { id: "standard", label: "SharkFunded Lite", desc: "Classic model" },
-    { id: "pro", label: "SharkFunded Prime", desc: "Higher leverage" }
+    { id: "lite", label: "SharkFunded Lite", desc: "Classic model" },
+    { id: "prime", label: "SharkFunded Prime", desc: "Higher leverage" }
 ];
 
 const PLATFORMS = [
@@ -65,7 +65,8 @@ const PLATFORMS = [
 ];
 
 const PAYMENT_GATEWAYS = [
-    { id: "sharkpay", label: "SharkPay", currency: "INR", desc: "Pay in Indian Rupees (₹)", icon: "🇮🇳" }
+    { id: "sharkpay", label: "SharkPay", currency: "INR", desc: "Pay in Indian Rupees (₹)", icon: "🇮🇳" },
+    { id: "epay", label: "Credit/Debit Card", currency: "USD", desc: "Pay with global cards", icon: "💳" }
 ];
 
 // Helper to map size number to string key
@@ -79,12 +80,12 @@ export const getSizeKey = (size: number): string => {
 // Helper to map type/model to config key
 export const getConfigKey = (type: string, model: string): keyof typeof pricingConfig | null => {
     if (type === 'Instant') {
-        return model === 'pro' ? 'InstantPrime' : 'InstantLite';
+        return model === 'prime' ? 'InstantPrime' : 'InstantLite';
     }
-    if (model === 'pro') {
+    if (model === 'prime') {
         return 'Prime';
     }
-    // Standard model
+    // Lite model
     if (type === '1-step') return 'LiteOneStep';
     if (type === '2-step') return 'LiteTwoStep';
 
@@ -228,7 +229,7 @@ export default function ChallengeConfigurator() {
 
     // State
     const [type, setType] = useState("2-step");
-    const [model, setModel] = useState("standard");
+    const [model, setModel] = useState("lite");
     const [dynamicPricing, setDynamicPricing] = useState<any>(null);
 
     // Fetch dynamic pricing on mount
@@ -366,20 +367,20 @@ export default function ChallengeConfigurator() {
                 return;
             }
 
-            // Determine explicit MT5 group based on user request (Lite = demo\SF, Prime = demo\S)
+            // Determine explicit MT5 group based on user request
             let mt5Group = '';
 
-            // Lite (Standard) Mappings - Matches Admin AccountAssignmentForm
-            if (model === 'standard') {
-                if (type === 'Instant') mt5Group = 'demo\\SF\\0-Pro';
-                else if (type === '1-step') mt5Group = 'demo\\SF\\1-SF';
-                else if (type === '2-step') mt5Group = 'demo\\SF\\2-SF';
-            }
-            // Prime (Pro) Mappings - Matches Admin AccountAssignmentForm
-            else if (model === 'pro') {
+            // Lite Mappings
+            if (model === 'lite' || model === 'standard') {
                 if (type === 'Instant') mt5Group = 'demo\\S\\0-SF';
                 else if (type === '1-step') mt5Group = 'demo\\S\\1-SF';
                 else if (type === '2-step') mt5Group = 'demo\\S\\2-SF';
+            }
+            // Prime Mappings
+            else if (model === 'prime' || model === 'pro') {
+                if (type === 'Instant') mt5Group = 'demo\\SF\\0-Pro';
+                else if (type === '1-step') mt5Group = 'demo\\SF\\1-Pro';
+                else if (type === '2-step') mt5Group = 'demo\\SF\\2-Pro';
             }
 
             // Use new payment flow
@@ -401,9 +402,15 @@ export default function ChallengeConfigurator() {
 
             if (res.ok && data.success) {
                 // Open payment in iframe modal
+                // Open payment in iframe modal
                 if (data.paymentUrl) {
-                    setPaymentUrl(data.paymentUrl);
-                    setShowPaymentModal(true);
+                    if (gateway === 'epay') {
+                        // EPay requires top-level redirect
+                        window.location.href = data.paymentUrl;
+                    } else {
+                        setPaymentUrl(data.paymentUrl);
+                        setShowPaymentModal(true);
+                    }
                 } else {
                     alert('Payment URL not received. Please contact support.');
                 }
@@ -453,8 +460,8 @@ export default function ChallengeConfigurator() {
                                     subLabel={m.desc}
                                     onClick={() => {
                                         setModel(m.id);
-                                        // Auto-switch to 2-step if user selects Pro while on 1-step
-                                        if (m.id === 'pro' && type === '1-step') {
+                                        // Auto-switch to 2-step if user selects Prime while on 1-step
+                                        if (m.id === 'prime' && type === '1-step') {
                                             setType('2-step');
                                         }
                                     }}
@@ -468,7 +475,7 @@ export default function ChallengeConfigurator() {
                         <SectionHeader title="Challenge Type" sub="Choose the type of challenge you want to take" />
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {CHALLENGE_TYPES.map(t => {
-                                const isDisabled = model === 'pro' && t.id === '1-step';
+                                const isDisabled = model === 'prime' && t.id === '1-step';
                                 return (
                                     <RadioPill
                                         key={t.id}
@@ -612,7 +619,7 @@ export default function ChallengeConfigurator() {
 
                         <div className="p-6 space-y-6">
                             <div className="flex justify-between items-start text-sm">
-                                <span className="text-muted-foreground">${size.toLocaleString()} — {type === "1-step" ? "One Step" : type === "2-step" ? "Two Step" : "Instant"} {model === "standard" ? "Shark" : "Shark Pro"}</span>
+                                <span className="text-muted-foreground">${size.toLocaleString()} — {type === "1-step" ? "One Step" : type === "2-step" ? "Two Step" : "Instant"} {model === "lite" ? "Lite" : "Prime"}</span>
                                 <div className="text-right">
                                     <span className="font-bold font-mono">{displayCurrency === 'INR' ? '₹' : '$'}{(gateway === 'sharkpay' ? Math.round(basePriceUSD * 94) : basePriceUSD).toLocaleString()}</span>
                                 </div>
@@ -677,7 +684,7 @@ export default function ChallengeConfigurator() {
                                 ) : (
                                     <>
                                         <CreditCard size={20} />
-                                        Proceed to Payment
+                                        {gateway === 'epay' ? 'Pay/Redeem Voucher' : 'Proceed to Payment'}
                                     </>
                                 )}
                             </button>

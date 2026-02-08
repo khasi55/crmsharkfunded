@@ -315,10 +315,19 @@ router.post('/sync-trades', async (req: Request, res: Response) => {
         console.log(`🔄 Syncing trades for account ${login}...`);
 
         // 1. Fetch trades from Python Bridge (should include both open and closed)
-        const { fetchMT5Trades } = await import('../lib/mt5-bridge');
-        const allTrades = await fetchMT5Trades(login);
+        const { fetchMT5Trades, fetchMT5History } = await import('../lib/mt5-bridge');
 
-        console.log(`📦 Bridge returned ${allTrades.length} trades`);
+        // Fetch Active Trades
+        const activeTrades = await fetchMT5Trades(login);
+        console.log(`📦 Bridge returned ${activeTrades.length} active trades`);
+
+        // Fetch Recent History (Last 24h) to catch scalping violations that closed quickly
+        const oneDayAgo = Math.floor(Date.now() / 1000) - 86400;
+        const historyTrades = await fetchMT5History(login, oneDayAgo);
+        console.log(`📜 Bridge returned ${historyTrades.length} history trades (last 24h)`);
+
+        const allTrades = [...activeTrades, ...historyTrades];
+        console.log(`∑ Total merged trades: ${allTrades.length}`);
 
         // Debug: Show sample trade structure
         if (allTrades.length > 0) {
@@ -430,6 +439,18 @@ router.post('/sync-trades', async (req: Request, res: Response) => {
                     console.log(`✅ Closed ${tradesToClose.length} stale trades.`);
                 }
             }
+        }
+
+        // 6. Notify Risk Engine (FIX: Send RAW trades)
+        if (allTrades.length > 0) {
+            const { redis } = await import('../lib/redis');
+            const eventPayload = {
+                login: Number(login),
+                trades: allTrades, // RAW TRADES for duration checks
+                timestamp: Date.now()
+            };
+            await redis.publish('events:trade_update', JSON.stringify(eventPayload));
+            console.log(`📢 [Manual Sync] Triggered Risk Engine for ${login}`);
         }
 
         res.json({ success: true, count: allTrades.length, trades: formattedTrades });

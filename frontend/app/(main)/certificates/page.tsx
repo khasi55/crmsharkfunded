@@ -19,12 +19,12 @@ export default async function CertificatesPage() {
         profile = profileData;
     }
 
-    // 3. Fetch processed payouts
+    // 3. Fetch approved or processed payouts
     const { data: payouts } = await supabase
         .from("payout_requests")
         .select("*")
-        .eq("status", "processed")
-        .order("processed_at", { ascending: false });
+        .in("status", ["approved", "processed"])
+        .order("created_at", { ascending: false });
 
     return (
         <div className="space-y-12 max-w-6xl mx-auto p-6 min-h-screen font-sans">

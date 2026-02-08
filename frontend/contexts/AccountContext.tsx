@@ -19,6 +19,8 @@ interface Account {
     status: string;
     group?: string;
     metadata?: any;
+    is_public?: boolean;
+    share_token?: string;
 }
 
 interface AccountContextType {
@@ -97,6 +99,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                     status: challenge.status || 'active',
                     group: challenge.group,
                     metadata: challenge.metadata,
+                    is_public: challenge.is_public,
+                    share_token: challenge.share_token,
                 }));
 
                 // Optimize: Only update state if data actually changed
@@ -117,7 +121,9 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                         if (
                             updatedCurrent.balance !== selectedAccount.balance ||
                             updatedCurrent.equity !== selectedAccount.equity ||
-                            updatedCurrent.status !== selectedAccount.status
+                            updatedCurrent.status !== selectedAccount.status ||
+                            updatedCurrent.is_public !== selectedAccount.is_public ||
+                            updatedCurrent.share_token !== selectedAccount.share_token
                         ) {
                             setSelectedAccount(updatedCurrent);
                         }

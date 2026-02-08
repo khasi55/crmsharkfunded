@@ -39,6 +39,7 @@ export default function AdminPayoutDetailsPage() {
     const [error, setError] = useState<string | null>(null);
     const [processing, setProcessing] = useState(false);
     const [rejectionReason, setRejectionReason] = useState("");
+    const [transactionId, setTransactionId] = useState("");
 
     // ... (useEffect remains same) ...
 
@@ -66,6 +67,9 @@ export default function AdminPayoutDetailsPage() {
                 }
 
                 setRequest(data.payout);
+                if (data.payout.transaction_id) {
+                    setTransactionId(data.payout.transaction_id);
+                }
             } catch (err: any) {
                 console.error('Error fetching payout:', err);
                 setError(err.message);
@@ -89,7 +93,9 @@ export default function AdminPayoutDetailsPage() {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({}),
+                body: JSON.stringify({
+                    transaction_id: transactionId
+                }),
             });
 
             const data = await response.json();
@@ -304,6 +310,22 @@ export default function AdminPayoutDetailsPage() {
                                                 </p>
                                             </div>
                                         </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-medium text-gray-700">
+                                            Transaction Hash / ID (Optional)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={transactionId}
+                                            onChange={(e) => setTransactionId(e.target.value)}
+                                            placeholder="Enter blockchain hash or transaction ID..."
+                                            className="w-full rounded-lg border border-gray-300 p-3 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20"
+                                            disabled={processing}
+                                        />
+                                        <p className="text-xs text-gray-500">
+                                            If left blank, a unique ID will be auto-generated.
+                                        </p>
                                     </div>
                                     <button
                                         type="submit"

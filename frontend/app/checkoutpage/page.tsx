@@ -71,8 +71,8 @@ const CHALLENGE_TYPES = [
 ];
 
 const MODELS = [
-    { id: "standard", label: "SharkFunded Lite", desc: "Classic model" },
-    { id: "pro", label: "SharkFunded Prime", desc: "Higher leverage" }
+    { id: "lite", label: "SharkFunded Lite", desc: "Classic model" },
+    { id: "prime", label: "SharkFunded Prime", desc: "Higher leverage" }
 ];
 
 const PLATFORMS = [
@@ -84,7 +84,7 @@ function CheckoutContent() {
 
     // Configurator State
     const [type, setType] = useState("2-step");
-    const [model, setModel] = useState("standard");
+    const [model, setModel] = useState("lite");
     const [size, setSize] = useState(100000);
     const [platform, setPlatform] = useState("mt5");
     const [coupon, setCoupon] = useState("");
@@ -119,6 +119,8 @@ function CheckoutContent() {
     const [formData, setFormData] = useState({
         firstName: "", lastName: "", email: "", country: "", phone: "", terms: false, referralCode: ""
     });
+    const [selectedGateway, setSelectedGateway] = useState("Sharkpay");
+
 
     // Dynamic Size Logic
     const availableSizes = (() => {
@@ -200,19 +202,19 @@ function CheckoutContent() {
     const handleSubmit = async () => {
         setLoading(true);
         try {
-            // Explicit MT5 Group Logic
+            // 1. Determine MT5 Group based on Brand
             let mt5Group = '';
-            // Lite (Standard)
-            if (model === 'standard') {
-                if (type === 'Instant') mt5Group = 'demo\\SF\\0-Pro';
-                else if (type === '1-step') mt5Group = 'demo\\SF\\1-SF';
-                else if (type === '2-step') mt5Group = 'demo\\SF\\2-SF';
-            }
-            // Prime (Pro)
-            else if (model === 'pro') {
+            // Lite (S folders)
+            if (model === 'lite') {
                 if (type === 'Instant') mt5Group = 'demo\\S\\0-SF';
                 else if (type === '1-step') mt5Group = 'demo\\S\\1-SF';
                 else if (type === '2-step') mt5Group = 'demo\\S\\2-SF';
+            }
+            // Prime (SF folders)
+            else if (model === 'prime') {
+                if (type === 'Instant') mt5Group = 'demo\\SF\\0-Pro';
+                else if (type === '1-step') mt5Group = 'demo\\Pro-Platinum';
+                else if (type === '2-step') mt5Group = 'demo\\SF\\2-Pro';
             }
 
             const response = await fetch('/api/payment/create-order', {
@@ -224,7 +226,7 @@ function CheckoutContent() {
                     size,
                     mt5Group,
                     platform: 'MT5',
-                    gateway: 'Sharkpay',
+                    gateway: selectedGateway,
                     customerName: `${formData.firstName} ${formData.lastName}`,
                     customerEmail: formData.email,
                     country: formData.country,
@@ -238,8 +240,13 @@ function CheckoutContent() {
             if (!response.ok) throw new Error(data.error || 'Failed to create order');
 
             if (data.paymentUrl) {
-                setPaymentUrl(data.paymentUrl);
-                setShowPaymentModal(true);
+                if (selectedGateway.toLowerCase() === 'epay') {
+                    // EPay Docs: "Do not open the redirect URL in an iframe."
+                    window.location.href = data.paymentUrl;
+                } else {
+                    setPaymentUrl(data.paymentUrl);
+                    setShowPaymentModal(true);
+                }
             } else {
                 alert('Order created but no payment URL returned.');
             }
@@ -288,7 +295,7 @@ function CheckoutContent() {
                                 <SectionHeader title="Challenge Type" sub="Choose your evaluation path" />
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     {CHALLENGE_TYPES.map(t => {
-                                        const isDisabled = model === 'pro' && t.id === '1-step';
+                                        const isDisabled = model === 'prime' && t.id === '1-step';
                                         return (
                                             <RadioPill
                                                 key={t.id}
@@ -315,7 +322,7 @@ function CheckoutContent() {
                                             subLabel={m.desc}
                                             onClick={() => {
                                                 setModel(m.id);
-                                                if (m.id === 'pro' && type === '1-step') setType('2-step');
+                                                if (m.id === 'prime' && type === '1-step') setType('2-step');
                                             }}
                                         />
                                     ))}
@@ -519,18 +526,61 @@ function CheckoutContent() {
                         </div>
                     </div>
 
-                    {/* Step 3: Pay */}
-                    <div className={cn("space-y-6 text-center py-20", currentStep !== 3 && "hidden")}>
-                        <h2 className="text-2xl font-bold text-[#0a0d20]">Complete Payment</h2>
-                        <div className="flex flex-col items-center justify-center gap-6">
-                            <div className="p-8 bg-white border border-blue-200 rounded-2xl shadow-xl w-64">
-                                <h3 className="text-2xl font-bold text-blue-600">UPI</h3>
-                                <p className="text-slate-500 text-sm mt-2">Secure Instant Payment</p>
-                                <div className="mt-4 text-xl font-mono font-bold text-slate-800">
+                    <div className={cn("space-y-8 max-w-2xl mx-auto py-10", currentStep !== 3 && "hidden")}>
+                        <div className="text-center">
+                            <h2 className="text-2xl font-bold text-[#0a0d20]">Select Payment Method</h2>
+                            <p className="text-slate-500">Choose your preferred way to pay</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* SharkPay Option */}
+                            <button
+                                onClick={() => setSelectedGateway("Sharkpay")}
+                                className={cn(
+                                    "p-8 bg-white border rounded-2xl shadow-sm transition-all text-left",
+                                    selectedGateway === "Sharkpay" ? "border-blue-500 ring-2 ring-blue-500/20" : "border-slate-200 hover:border-slate-300"
+                                )}
+                            >
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className={cn("p-2 rounded-lg", selectedGateway === "Sharkpay" ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-400")}>
+                                        <CreditCard size={24} />
+                                    </div>
+                                    {selectedGateway === "Sharkpay" && <Check className="text-blue-500" size={20} />}
+                                </div>
+                                <h3 className="text-xl font-bold text-slate-800">UPI / Local</h3>
+                                <p className="text-slate-500 text-sm mt-1">Instant local payments via SharkPay</p>
+                                <div className="mt-4 text-lg font-bold text-blue-600">
                                     ₹{Math.round(finalPriceUSD * EXCHANGE_RATE_INR).toLocaleString()}
                                 </div>
-                            </div>
-                            <p className="text-slate-500 max-w-sm">Click "Pay with UPI" below to launch the secure payment gateway.</p>
+                            </button>
+
+                            {/* EPay Option */}
+                            <button
+                                onClick={() => setSelectedGateway("epay")}
+                                className={cn(
+                                    "p-8 bg-white border rounded-2xl shadow-sm transition-all text-left",
+                                    selectedGateway === "epay" ? "border-blue-500 ring-2 ring-blue-500/20" : "border-slate-200 hover:border-slate-300"
+                                )}
+                            >
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className={cn("p-2 rounded-lg", selectedGateway === "epay" ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-400")}>
+                                        <Globe size={24} />
+                                    </div>
+                                    {selectedGateway === "epay" && <Check className="text-blue-500" size={20} />}
+                                </div>
+                                <h3 className="text-xl font-bold text-slate-800">Global Card</h3>
+                                <p className="text-slate-500 text-sm mt-1">International Credit/Debit via Paymentservice</p>
+                                <div className="mt-4 text-lg font-bold text-blue-600">
+                                    ${finalPriceUSD.toFixed(2)}
+                                </div>
+                            </button>
+                        </div>
+
+                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500 mt-6">
+                            <Info size={14} className="inline mr-2 mb-0.5" />
+                            {selectedGateway === "Sharkpay"
+                                ? "SharkPay provides instant UPI and local bank transfer options."
+                                : "Paymentservice.me supports international Visa, Mastercard, and AMEX cards (Redirects to secure page)."}
                         </div>
                     </div>
 
@@ -560,7 +610,11 @@ function CheckoutContent() {
                             disabled={loading || (currentStep === 1 && !finalPriceUSD) || (currentStep === 2 && (!formData.email || !formData.terms))}
                             className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-blue-900/20 active:scale-[0.95] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100"
                         >
-                            {loading ? <Loader2 className="animate-spin" /> : (currentStep === 3 ? "Pay with UPI" : "Continue")} <ArrowRight size={18} />
+                            {loading ? <Loader2 className="animate-spin" /> : (
+                                currentStep === 3
+                                    ? (selectedGateway.toLowerCase() === 'epay' ? "Pay/Redeem Voucher" : `Pay with ${selectedGateway === 'Sharkpay' ? 'UPI' : selectedGateway}`)
+                                    : "Continue"
+                            )} <ArrowRight size={18} />
                         </button>
                     </div>
                 </div>

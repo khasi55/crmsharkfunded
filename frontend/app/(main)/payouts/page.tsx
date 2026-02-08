@@ -153,6 +153,7 @@ export default function PayoutsPage() {
                         isLoading={requesting}
                         onRequestPayout={handleRequestPayout}
                         accounts={eligibleAccounts}
+                        isKycVerified={eligibility.kycVerified}
                     />
 
                     {/* Eligibility / Rules Card */}

@@ -20,8 +20,25 @@ export async function POST(request: NextRequest) {
 
         // Normalize inputs
         if (type) type = type.toLowerCase();
-        if (model) model = model.toLowerCase();
+        if (model) {
+            model = model.toLowerCase();
+            if (model === 'standard') model = 'lite';
+            if (model === 'pro') model = 'prime';
+        }
         if (platform) platform = platform.toLowerCase();
+
+        // Safety Group Calculation (Lite = \S\, Prime = \SF\)
+        if (!mt5Group) {
+            if (model === 'lite') {
+                if (type === 'instant') mt5Group = 'demo\\S\\0-SF';
+                else if (type === '1-step') mt5Group = 'demo\\S\\1-SF';
+                else if (type === '2-step') mt5Group = 'demo\\S\\2-SF';
+            } else if (model === 'prime') {
+                if (type === 'instant') mt5Group = 'demo\\SF\\0-Pro';
+                else if (type === '1-step') mt5Group = 'demo\\SF\\1-Pro';
+                else if (type === '2-step') mt5Group = 'demo\\SF\\2-Pro';
+            }
+        }
 
         // Initialize Admin Client for privileged operations
         // We do this lazily or here to ensure we have it for referral updates
@@ -174,7 +191,8 @@ export async function POST(request: NextRequest) {
             }
 
             const amount = 9; // Hardcoded as per user request
-            const orderId = `SF-COMP-${Date.now()}-${require('crypto').randomBytes(4).toString('hex')}`;
+            const orderId = `SFCOM${Date.now()}${require('crypto').randomBytes(4).toString('hex')}`;
+
 
             const { data: order, error: orderError } = await dbClient
                 .from('payment_orders')
@@ -226,19 +244,19 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // 2. Handle Challenge Types (Existing Logic)
-        // Determine account type name
+        // 2. Handle Challenge Types (Simplified Lite/Prime Mapping)
         let accountTypeName = '';
-        if (model === 'pro') {
-            // Prime (Pro) Model -> Maps to 'Standard' names in DB (which have Prime groups \S\)
-            if (type === 'instant') accountTypeName = 'Instant Funding';
-            else if (type === '1-step') accountTypeName = '1 Step';
-            else if (type === '2-step') accountTypeName = '2 Step';
+        const modelSuffix = model === 'lite' ? 'Lite' : 'Prime';
+
+        if (type === 'instant') {
+            accountTypeName = `Instant Funding ${modelSuffix}`;
+        } else if (type === '1-step') {
+            accountTypeName = `1 Step ${modelSuffix}`;
+        } else if (type === '2-step') {
+            accountTypeName = `2 Step ${modelSuffix}`;
         } else {
-            // Lite (Standard) Model -> Maps to 'Pro' names in DB (which have Lite groups \SF\) ("Pro means Lite")
-            if (type === 'instant') accountTypeName = 'Instant Funding Pro';
-            else if (type === '1-step') accountTypeName = '1 Step Pro';
-            else if (type === '2-step') accountTypeName = '2 Step Pro';
+            // Default fallback
+            accountTypeName = `${type || 'Challenge'} ${modelSuffix}`;
         }
 
         // OPTIMIZATION: Fetch Profile and Account Type in Parallel to reduce cross-region latency
@@ -316,7 +334,9 @@ export async function POST(request: NextRequest) {
         const finalAmount = basePrice - discountAmount;
 
         // Generate ID Locally to save 1 Round Trip (US -> AUS)
-        const orderId = `SF-ORDER-${Date.now()}-${require('crypto').randomBytes(4).toString('hex')}`;
+        // EPay Docs: "orderID must be alphanumeric"
+        const orderId = `SFORD${Date.now()}${require('crypto').randomBytes(4).toString('hex')}`;
+
 
         // Create payment order (store everything in USD)
         const { data: order, error: orderError } = await dbClient
@@ -415,9 +435,11 @@ async function calculatePrice(type: string, model: string, size: string, supabas
 
     // Determine Config Key matches frontend logic
     let configKey = '';
+    const normalizedModel = (model === 'standard' || model === 'lite') ? 'lite' : 'prime';
+
     if (type === 'instant') {
-        configKey = model === 'pro' ? 'InstantPrime' : 'InstantLite';
-    } else if (model === 'pro') {
+        configKey = normalizedModel === 'prime' ? 'InstantPrime' : 'InstantLite';
+    } else if (normalizedModel === 'prime') {
         configKey = 'Prime';
     } else {
         if (type === '1-step') configKey = 'LiteOneStep';
@@ -443,7 +465,7 @@ async function calculatePrice(type: string, model: string, size: string, supabas
     }
 
     // FALLBACK (Hardcoded defaults if DB fails)
-    if (model === 'pro') {
+    if (model === 'prime') {
         if (type === 'instant') {
             switch (sizeKey) {
                 case '5K': return p('$49');

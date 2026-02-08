@@ -50,43 +50,59 @@ const PayoutCertificate = forwardRef<PayoutCertificateRef, PayoutCertificateProp
             img.src = "/certificate-template.png";
 
             img.onload = async () => {
-                // Set canvas size to match image high-res
-                canvas.width = img.width;
-                canvas.height = img.height;
+                // Set high-resolution canvas size (3x for absolute crispness)
+                const scaleFactor = 3;
+                canvas.width = img.width * scaleFactor;
+                canvas.height = img.height * scaleFactor;
+
+                // Scale context to match
+                ctx.scale(scaleFactor, scaleFactor);
 
                 // Draw Background
-                ctx.drawImage(img, 0, 0);
+                ctx.drawImage(img, 0, 0, img.width, img.height);
 
                 // Configure Text Styles
-                const centerX = canvas.width / 2;
+                const centerX = img.width / 2;
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
 
-                // Name Style
-                ctx.font = "500 60px Serif";
+                // Helper for Rounded Rect
+                const drawRoundedRect = (x: number, y: number, width: number, height: number, radius: number) => {
+                    ctx.beginPath();
+                    ctx.moveTo(x + radius, y);
+                    ctx.lineTo(x + width - radius, y);
+                    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+                    ctx.lineTo(x + width, y + height - radius);
+                    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+                    ctx.lineTo(x + radius, y + height);
+                    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+                    ctx.lineTo(x, y + radius);
+                    ctx.quadraticCurveTo(x, y, x + radius, y);
+                    ctx.closePath();
+                    ctx.fill();
+                };
+
+                // Name Style - Using Serif for a premium look, matching template
+                ctx.font = "500 68px Serif";
                 ctx.fillStyle = "#FFFFFF";
-                ctx.shadowColor = "rgba(0,0,0,0.5)";
-                ctx.shadowBlur = 10;
-                // Position: roughly 48% down
-                ctx.fillText(name, centerX, canvas.height * 0.48);
+                ctx.shadowColor = "rgba(0,0,0,0.4)";
+                ctx.shadowBlur = 15;
+                // Position: moved up to 46.5% to clear "PROFIT SHARE"
+                ctx.fillText(name, centerX, img.height * 0.465);
 
                 // Amount Style
-                ctx.font = "600 60px Sans-Serif";
+                ctx.font = "bold 72px Sans-Serif";
 
                 // Gradient Fill: #9CF0FF -> #44A1FA
-                // Text is at roughly 61% height. Font is 60px. Gradient from top of text to bottom.
-                const amountY = canvas.height * 0.61;
-                const gradient = ctx.createLinearGradient(0, amountY - 60, 0, amountY);
+                const amountY = img.height * 0.61;
+                const gradient = ctx.createLinearGradient(0, amountY - 40, 0, amountY + 40);
                 gradient.addColorStop(0, "#9CF0FF");
                 gradient.addColorStop(1, "#44A1FA");
 
                 ctx.fillStyle = gradient;
+                ctx.shadowColor = "rgba(68, 161, 250, 0.4)";
+                ctx.shadowBlur = 25;
 
-                // Add a matching blue glow
-                ctx.shadowColor = "rgba(68, 161, 250, 0.5)"; // #44A1FA with opacity
-                ctx.shadowBlur = 20;
-
-                // Position: roughly 61% down
                 ctx.fillText(
                     `$${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                     centerX,
@@ -94,22 +110,32 @@ const PayoutCertificate = forwardRef<PayoutCertificateRef, PayoutCertificateProp
                 );
 
                 // Date Style
-                ctx.font = "20px Sans-Serif";
-                ctx.fillStyle = "#D1D5DB"; // Gray-300
+                ctx.font = "300 24px Sans-Serif";
+                ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
                 ctx.shadowBlur = 0;
                 // Position: roughly 66% down
-                ctx.fillText(format(new Date(date), "MMMM dd, yyyy"), centerX, canvas.height * 0.66);
+                ctx.fillText(format(new Date(date), "MMMM dd, yyyy"), centerX, img.height * 0.665);
 
                 // QR Code Generation
                 try {
-                    // QR Data: Verification URL
-                    const qrUrl = `https://sharkfunded.com/verify/${transactionId}`; // Using Transaction ID for lookup
-                    const qrDataUrl = await QRCode.toDataURL(qrUrl, {
-                        width: 150,
+                    // QR Data uses the Transaction Hash/ID - Link to Tronscan for TX hashes
+                    // If it's a standard hash (hex string), we link it. If it's a URL or contains SF-, we use as is.
+                    let qrContent = transactionId;
+                    const isHash = /^[a-fA-F0-9]{64}$/.test(transactionId);
+
+                    if (isHash) {
+                        qrContent = `https://tronscan.org/#/transaction/${transactionId}`;
+                    } else if (transactionId.length > 30 && !transactionId.includes('http')) {
+                        // Fallback for long strings that might be hashes on other networks
+                        qrContent = `https://tronscan.org/#/transaction/${transactionId}`;
+                    }
+
+                    const qrDataUrl = await QRCode.toDataURL(qrContent, {
+                        width: 400, // Even higher res QR
                         margin: 1,
                         color: {
                             dark: "#000000",
-                            light: "#FFFFFF"
+                            light: "#00000000" // Transparent light part so it fits on our box
                         }
                     });
 
@@ -117,22 +143,34 @@ const PayoutCertificate = forwardRef<PayoutCertificateRef, PayoutCertificateProp
                     qrImg.src = qrDataUrl;
                     qrImg.onload = () => {
                         // Position QR Code (Bottom Left)
-                        const qrSize = 120; // Slightly smaller to look refined
-                        const qrX = canvas.width * 0.08;
-                        const qrY = canvas.height * 0.85 - qrSize;
+                        // Adjusted coordinates: moved even further left from 0.068 to 0.055 to hide background artifact
+                        const qrSize = 135;
+                        const qrPadding = 10;
+                        const qrX = img.width * 0.055;
+                        const qrY = img.height * 0.88 - qrSize;
 
-                        // Draw white background for QR
+                        // Draw white background for QR with rounded corners
                         ctx.fillStyle = "#FFFFFF";
-                        ctx.fillRect(qrX - 10, qrY - 10, qrSize + 20, qrSize + 20);
+                        ctx.shadowColor = "none"; // Removed shadow to fix ghosting/white edge issues
+                        ctx.shadowBlur = 0;
+                        drawRoundedRect(
+                            qrX - qrPadding,
+                            qrY - qrPadding,
+                            qrSize + (qrPadding * 2),
+                            qrSize + (qrPadding * 2),
+                            14
+                        );
 
                         // Draw QR
+                        ctx.shadowColor = "none";
+                        ctx.shadowBlur = 0;
                         ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
 
                         setIsGenerated(true);
                     };
                 } catch (err) {
                     console.error("QR Generation Error", err);
-                    setIsGenerated(true); // Show anyway
+                    setIsGenerated(true);
                 }
             };
         };

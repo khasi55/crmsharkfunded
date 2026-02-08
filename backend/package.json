@@ -12,6 +12,7 @@
     "dependencies": {
         "@supabase/supabase-js": "^2.47.10",
         "@types/cookie-parser": "^1.4.8",
+        "@types/multer": "^2.0.0",
         "@types/pg": "^8.16.0",
         "axios": "^1.13.2",
         "bullmq": "^5.66.4",
@@ -20,6 +21,7 @@
         "dotenv": "^16.4.7",
         "express": "^4.21.2",
         "ioredis": "^5.9.1",
+        "multer": "^2.0.2",
         "node-cron": "^4.2.1",
         "nodemailer": "^7.0.12",
         "pg": "^8.16.3",

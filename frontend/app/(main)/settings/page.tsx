@@ -105,6 +105,8 @@ export default function SettingsPage() {
         isLocked: false
     });
 
+    const [isKycVerified, setIsKycVerified] = useState(false);
+
     // Fetch User Data on Mount
     useEffect(() => {
         const fetchUserData = async () => {
@@ -134,6 +136,10 @@ export default function SettingsPage() {
                         isLocked: walletData.wallet.is_locked || false
                     });
                 }
+
+                // Fetch KYC status
+                const kycData = await fetchFromBackend('/api/kyc/status');
+                setIsKycVerified(kycData.status === 'approved');
             } catch (err) {
                 console.error("Unexpected error in Settings:", err);
             } finally {
@@ -354,23 +360,26 @@ export default function SettingsPage() {
                                 </div>
 
                                 {/* Locked Fields Info */}
-                                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-sm text-blue-400">
-                                    <Shield className="inline w-4 h-4 mr-2" />
-                                    Name and email are locked after KYC verification for security reasons.
-                                </div>
+                                {isKycVerified && (
+                                    <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-sm text-blue-400">
+                                        <Shield className="inline w-4 h-4 mr-2" />
+                                        Name and email are locked after KYC verification for security reasons.
+                                    </div>
+                                )}
 
                                 {/* Form Grid */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <TerminalInput
                                         label="Full Name (KYC Verified)"
                                         value={profile.fullName}
-                                        readOnly
+                                        onChange={(e: any) => setProfile({ ...profile, fullName: e.target.value })}
+                                        readOnly={isKycVerified}
                                         icon={User}
                                     />
                                     <TerminalInput
                                         label="Email Address"
                                         value={profile.email}
-                                        readOnly
+                                        readOnly={true} // Keep email locked as it's the primary account ID
                                         icon={Mail}
                                     />
                                     <TerminalInput
@@ -559,7 +568,7 @@ export default function SettingsPage() {
                                                     setSaveMessage(null);
 
                                                     try {
-                                                        const response = await fetch('/api/user/wallet', {
+                                                        const data = await fetchFromBackend('/api/user/wallet', {
                                                             method: 'POST',
                                                             headers: {
                                                                 'Content-Type': 'application/json',
@@ -567,11 +576,8 @@ export default function SettingsPage() {
                                                             body: JSON.stringify({ walletAddress: wallet.address }),
                                                         });
 
-                                                        const data = await response.json();
-
-                                                        if (!response.ok) {
-                                                            throw new Error(data.error || 'Failed to save wallet');
-                                                        }
+                                                        // fetchFromBackend throws on error, so we don't need manual ok check
+                                                        // if (!response.ok) ... is handled inside fetchFromBackend
 
                                                         setWallet({ ...wallet, isLocked: true });
                                                         setSaveMessage({ type: 'success', text: 'Wallet saved and locked successfully!' });

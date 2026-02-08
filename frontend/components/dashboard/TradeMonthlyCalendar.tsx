@@ -14,8 +14,14 @@ interface DayData {
     isToday: boolean;
 }
 
-export default function TradeMonthlyCalendar() {
-    const { selectedAccount } = useAccount();
+interface TradeMonthlyCalendarProps {
+    trades?: any[];
+    isPublic?: boolean;
+}
+
+export default function TradeMonthlyCalendar({ trades: initialTrades, isPublic }: TradeMonthlyCalendarProps = {}) {
+    const accountContext = isPublic ? null : useAccount();
+    const selectedAccount = accountContext?.selectedAccount;
     const [currentDate, setCurrentDate] = useState(new Date());
     const [calendarData, setCalendarData] = useState<DayData[]>([]);
     const [loading, setLoading] = useState(true);
@@ -31,10 +37,80 @@ export default function TradeMonthlyCalendar() {
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
     useEffect(() => {
+        if (isPublic && initialTrades) {
+            processTrades(initialTrades);
+            return;
+        }
         if (selectedAccount) {
             fetchTradeData();
         }
-    }, [currentDate, selectedAccount]);
+    }, [currentDate, selectedAccount, initialTrades, isPublic]);
+
+    const processTrades = (tradeList: any[]) => {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const daysInMonth = lastDay.getDate();
+        const startingDayOfWeek = firstDay.getDay();
+
+        const days: DayData[] = [];
+        const today = new Date();
+        const isCurrentMonth = today.getMonth() === month && today.getFullYear() === year;
+
+        for (let i = 0; i < startingDayOfWeek; i++) {
+            days.push({ date: 0, pnl: 0, trades: 0, isProfit: false, isToday: false });
+        }
+
+        let tradesByDay: { [key: number]: { pnl: number; count: number } } = {};
+
+        tradeList.forEach((trade: any) => {
+            const tradeDate = new Date(trade.close_time || trade.open_time);
+            const day = tradeDate.getDate();
+            if (tradeDate.getMonth() === month && tradeDate.getFullYear() === year) {
+                if (!tradesByDay[day]) {
+                    tradesByDay[day] = { pnl: 0, count: 0 };
+                }
+                const grossPnl = trade.profit_loss || 0;
+                const commission = trade.commission || 0;
+                const swap = trade.swap || 0;
+                const netPnl = grossPnl + commission + swap;
+
+                tradesByDay[day].pnl += netPnl;
+                tradesByDay[day].count += 1;
+            }
+        });
+
+        let totalPnL = 0;
+        let totalTrades = 0;
+        let winningDays = 0;
+        let losingDays = 0;
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dayData = tradesByDay[day] || { pnl: 0, count: 0 };
+            const isToday = isCurrentMonth && today.getDate() === day;
+
+            if (dayData.pnl > 0) winningDays++;
+            if (dayData.pnl < 0) losingDays++;
+
+            if (dayData.count > 0) {
+                totalPnL += dayData.pnl;
+                totalTrades += dayData.count;
+            }
+
+            days.push({
+                date: day,
+                pnl: dayData.pnl,
+                trades: dayData.count,
+                isProfit: dayData.pnl > 0,
+                isToday,
+            });
+        }
+
+        setMonthStats({ totalPnL, totalTrades, winningDays, losingDays });
+        setCalendarData(days);
+        setLoading(false);
+    };
 
     const fetchTradeData = async () => {
         setLoading(true);

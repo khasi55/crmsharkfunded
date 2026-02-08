@@ -67,7 +67,7 @@ export default function PayoutHistoryTable({ requests = [] }: { requests?: Payou
                                     <td className="py-4 px-4 text-gray-400 text-sm">{tx.payout_method}</td>
                                     <td className="py-4 px-4">
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium capitalize
-                                            ${tx.status === 'processed' ? 'bg-green-500/20 text-white' : ''}
+                                            ${tx.status === 'processed' || tx.status === 'approved' ? 'bg-green-500/20 text-white' : ''}
                                             ${tx.status === 'pending' ? 'bg-amber-500/20 text-amber-400' : ''}
                                             ${tx.status === 'rejected' ? 'bg-red-500/20 text-red-400' : ''}
                                         `}>
@@ -75,10 +75,10 @@ export default function PayoutHistoryTable({ requests = [] }: { requests?: Payou
                                         </span>
                                     </td>
                                     <td className="py-4 px-4 text-right">
-                                        {tx.status === 'processed' ? (
+                                        {['approved', 'processed'].includes(tx.status) ? (
                                             <Link
                                                 href={`/certificates/${tx.id}`}
-                                                className="inline-flex items-center gap-1 text-shark-blue hover:text-blue-400 text-xs font-medium transition-colors"
+                                                className="inline-flex items-center gap-1 text-white hover:text-blue-400 text-xs font-medium transition-colors"
                                             >
                                                 <Award size={14} /> View
                                             </Link>

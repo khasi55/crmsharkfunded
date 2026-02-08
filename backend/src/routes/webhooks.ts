@@ -56,23 +56,22 @@ const verifyPaymentSecret = (req: Request): boolean => {
     // Check generic header for secret
     const secret = process.env.PAYMENT_WEBHOOK_SECRET;
 
-    // 1. Debug: Log all headers to see what Proxy is sending
-
-    return true;
-
-    /*
-    if (!secret || secret.includes('your_')) {
-        console.warn('⚠️ PAYMENT_WEBHOOK_SECRET not configured active. Skipping verification (Dev Mode).');
+    // 1. Check EPay MID Verification (New)
+    const epayMid = req.body.mid || req.body.merchantId;
+    if (epayMid && epayMid === (process.env.EPAY_MID || '976697204360081')) {
+        console.log('✅ EPay MID verification successful');
         return true;
     }
-    */
+
+    if (!secret || secret.includes('your_')) {
+        console.warn('⚠️ PAYMENT_WEBHOOK_SECRET not configured. Skipping verification (Dev Mode).');
+        return true;
+    }
 
     // 2. Check SharkPay Signature (Forwarded by Proxy)
-    if (req.headers['x-sharkpay-signature']) {
-        return true;
-    }
+    if (req.headers['x-sharkpay-signature']) return true;
 
-    // 3. Check Header (Standard for Webhooks)
+    // 3. Check Header (Standard)
     const headerSignature = req.headers['x-webhook-secret'] || req.headers['x-api-secret'];
     if (headerSignature === secret) return true;
 
@@ -111,11 +110,19 @@ router.get('/payment', async (req: Request, res: Response) => {
         // Safe Fallback: Redirect to Frontend "Processing" or "Success" page
         // The Frontend will poll for the "is_account_created" status from the API
 
-        const internalOrderId = req.query.reference_id as string || req.query.reference as string || req.query.orderId as string;
+        const internalOrderId = req.query.reference_id as string ||
+            req.query.reference as string ||
+            req.query.orderId as string ||
+            req.query.orderID as string ||
+            req.query.orderid as string;
+        const statusParam = req.query.status as string;
         // Use consistent Frontend URL logic
         const frontendUrl = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.sharkfunded.com';
 
         if (internalOrderId) {
+            if (statusParam === 'failed') {
+                return res.redirect(`${frontendUrl}/payment/failed?orderId=${internalOrderId}`);
+            }
             return res.redirect(`${frontendUrl}/payment/success?orderId=${internalOrderId}&check_status=true`);
         }
         return res.redirect(`${frontendUrl}/dashboard`);
@@ -125,15 +132,32 @@ router.get('/payment', async (req: Request, res: Response) => {
 async function handlePaymentWebhook(req: Request, res: Response) {
     try {
         const body = req.method === 'GET' ? req.query : req.body;
-        // console.log('💰 [Payment] Webhook received');
 
-        const internalOrderId = body.reference_id || body.reference || body.orderId || body.internalOrderId;
-        const status = body.status || body.event?.split('.')[1];
+        // Helper to find value in object (case-insensitive and deep scan for EPay)
+        const getPayloadValue = (obj: any, keys: string[]) => {
+            if (!obj || typeof obj !== 'object') return null;
+            for (const key of keys) {
+                // 1. Direct match
+                if (obj[key] !== undefined && obj[key] !== null) return obj[key];
+                // 2. Case-insensitive match
+                for (const k in obj) {
+                    if (k.toLowerCase() === key.toLowerCase() && obj[k] !== undefined && obj[k] !== null) return obj[k];
+                }
+            }
+            return null;
+        };
+
+        const internalOrderId = getPayloadValue(body, ['reference_id', 'reference', 'orderid', 'orderId', 'internalOrderId']);
+        const status = getPayloadValue(body, ['status', 'transt', 'transactionStatus']);
+        const amount = getPayloadValue(body, ['amount', 'tranmt', 'receive_amount', 'orderAmount']);
+
+        console.log(`💰 [Payment Webhook] Parsed: ID=${internalOrderId}, Status=${status}, Amount=${amount}, Method=${req.method}`);
+
         // Use consistent Frontend URL logic
         const frontendUrl = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.sharkfunded.com';
 
         if (!internalOrderId) {
-            console.error('❌ Missing order ID in webhook:', body);
+            console.error('❌ Missing order ID in webhook. BodyKeys:', Object.keys(body), 'Body:', body);
             if (req.method === 'GET') return res.redirect(`${frontendUrl}/dashboard`);
             return res.status(400).json({ error: 'Missing order ID' });
         }
@@ -141,17 +165,24 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         // 1. Log webhook for audit
         await supabase.from('webhook_logs').insert({
             event_type: body.event || 'unknown',
-            gateway: body.gateway || 'unknown',
+            gateway: body.gateway || (body.mid ? 'epay' : 'unknown'),
             order_id: internalOrderId,
-            gateway_order_id: body.orderId || body.transaction_id,
-            amount: body.amount,
+            gateway_order_id: body.transactionid || body.transaction_id || body.orderId || body.orderid,
+            amount: amount,
             status: status || 'unknown',
             utr: body.utr,
             request_body: body,
         });
 
         // 2. Determine Success
-        const isSuccess = status === 'success' || status === 'paid' || status === 'verified' || body.event === 'payment.success';
+        const statusLower = String(status || '').toLowerCase();
+        const isSuccess =
+            statusLower === 'success' ||
+            statusLower === 'paid' ||
+            statusLower === 'verified' ||
+            statusLower === 'purchased' ||
+            statusLower === 'payment accepted' ||
+            body.event === 'payment.success';
 
         if (!isSuccess) {
             console.log('⚠️ Payment not successful:', status);
@@ -231,7 +262,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         }
 
         // Double check via Order ID pattern
-        if (String(internalOrderId).startsWith('SF-COMP')) {
+        if (String(internalOrderId).startsWith('SF-COMP') || String(internalOrderId).startsWith('SFCOM')) {
             mt5Group = 'demo\\SF\\0-Demo\\comp';
         }
 
@@ -247,13 +278,10 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         });
 
         // 5. Create Challenge Record & Competition Participant
-        let challengeType = 'Phase 1';
+        let challengeType = order.account_type_name || 'Evaluation';
+
         if (isCompetition) {
             challengeType = 'Competition';
-        } else if (accountTypeName.includes('instant')) {
-            challengeType = 'Instant';
-        } else if (accountTypeName.includes('1 step')) {
-            challengeType = 'Evaluation';
         }
 
         const { data: challenge } = await supabase
@@ -422,8 +450,8 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
     }).select().single();
 
     if (error) {
-        log(`❌ Insert Error: ${error.message}`);
-        console.error('❌ Failed to insert affiliate earnings:', error);
+        log(`Insert Error: ${error.message}`);
+        console.error(' Failed to insert affiliate earnings:', error);
         return;
     }
     log(`✅ Commission inserted: ${newRec?.id}`);
@@ -435,10 +463,10 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
     });
 
     if (rpcError) {
-        log(`⚠️ RPC Error: ${rpcError.message}`);
-        console.error(`❌ [Affiliate] RPC Error updating profile:`, rpcError.message);
+        log(`RPC Error: ${rpcError.message}`);
+        console.error(`[Affiliate] RPC Error updating profile:`, rpcError.message);
     } else {
-        log(`✅ RPC Success`);
-        console.log(`✅ [Affiliate] Successfully updated profile totals.`);
+        log(`RPC Success`);
+        console.log(`[Affiliate] Successfully updated profile totals.`);
     }
 }

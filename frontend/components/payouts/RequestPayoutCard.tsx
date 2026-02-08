@@ -24,9 +24,10 @@ interface RequestPayoutCardProps {
     isLoading: boolean;
     onRequestPayout: (amount: number, method: string, accountId?: string) => Promise<boolean>;
     accounts?: AccountOption[];
+    isKycVerified: boolean;
 }
 
-export default function RequestPayoutCard({ availablePayout: globalAvailable, walletAddress, isLoading, onRequestPayout, accounts = [] }: RequestPayoutCardProps) {
+export default function RequestPayoutCard({ availablePayout: globalAvailable, walletAddress, isLoading, onRequestPayout, accounts = [], isKycVerified }: RequestPayoutCardProps) {
     console.log("RequestPayoutCard received accounts:", accounts);
     const [amount, setAmount] = useState("");
     const [method, setMethod] = useState<"crypto">("crypto");
@@ -319,13 +320,28 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                                 </div>
                             )}
 
+                            {/* KYC Warning */}
+                            {!isKycVerified && (
+                                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-3">
+                                    <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={16} />
+                                    <div>
+                                        <p className="text-xs text-red-500 font-medium">KYC Verification Required</p>
+                                        <Link href="/kyc" className="text-xs text-white underline hover:text-red-400 mt-1 block">
+                                            Complete verification here
+                                        </Link>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Submit Button */}
                             <button
                                 onClick={handleInitialSubmit}
-                                disabled={currentAvailable <= 0 || !walletAddress || isLoading || !amount}
+                                disabled={currentAvailable <= 0 || !walletAddress || isLoading || !amount || !isKycVerified}
                                 className="relative w-full py-4 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all group disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden shadow-[0_0_20px_rgba(34,197,94,0.0)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] active:scale-[0.98]"
                                 style={{
-                                    background: "linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)",
+                                    background: isKycVerified
+                                        ? "linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)"
+                                        : "linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)", // Red for blocked
                                 }}
                             >
                                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
@@ -334,6 +350,11 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                                     <>
                                         <Loader2 size={20} className="animate-spin relative z-10" />
                                         <span className="relative z-10">Processing...</span>
+                                    </>
+                                ) : !isKycVerified ? (
+                                    <>
+                                        <span className="relative z-10">Complete KYC First</span>
+                                        <AlertTriangle size={20} className="relative z-10" />
                                     </>
                                 ) : (
                                     <>

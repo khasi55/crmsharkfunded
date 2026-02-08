@@ -33,8 +33,8 @@ export default async function CertificatePage({ params }: PageProps) {
 
 
 
-    // Only allow processed payouts to show a certificate
-    if (payout.status !== "processed") {
+    // Only allow approved or processed payouts to show a certificate
+    if (!["approved", "processed"].includes(payout.status)) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center text-white bg-[#000814] p-4 text-center">
                 <h1 className="text-2xl font-bold mb-2">Certificate Not Available</h1>

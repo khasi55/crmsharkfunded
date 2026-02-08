@@ -9,7 +9,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 
-const SYNC_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes (backup polling - webhook is primary)
+const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes (Increased frequency for Advanced Risk checks)
 
 export function startTradeSyncScheduler() {
     console.log(`⏳ Trade Sync Scheduler started (Bulk Mode). Interval: ${SYNC_INTERVAL_MS / 1000}s`);
@@ -141,15 +141,13 @@ async function processBatch(challenges: any[], attempt = 1) {
             } else {
                 const uniqueLogins = new Set(trades.map((t: any) => t.login));
                 for (const login of Array.from(uniqueLogins)) {
-                    const accountTrades = uniqueTrades.filter((ft: any) => {
-                        const c = challengeMap.get(Number(login));
-                        return c && ft.challenge_id === c.id;
-                    });
+                    // Filter RAW TRADES for this login
+                    const rawAccountTrades = trades.filter((t: any) => t.login == login);
 
-                    if (accountTrades.length > 0) {
+                    if (rawAccountTrades.length > 0) {
                         const eventPayload = {
                             login: Number(login),
-                            trades: accountTrades,
+                            trades: rawAccountTrades, // RAW TRADES
                             timestamp: Date.now()
                         };
                         await redis.publish('events:trade_update', JSON.stringify(eventPayload));

@@ -51,13 +51,13 @@ export const pricingConfig = {
 // --- Data ---
 const CHALLENGE_TYPES = [
     { id: "1-step", label: "One Step", desc: "Single phase evaluation" },
-    { id: "2-step", label: "Two Step", desc: "Standard verification", recommended: true },
+    { id: "2-step", label: "Two Step", desc: "Lite/Prime verification", recommended: true },
     { id: "Instant", label: "Instant", desc: "Lower risk, lower cost" }
 ];
 
 const MODELS = [
-    { id: "standard", label: "SharkFunded Lite", desc: "Classic model" },
-    { id: "pro", label: "SharkFunded Prime", desc: "Higher leverage" }
+    { id: "lite", label: "SharkFunded Lite", desc: "Classic model" },
+    { id: "prime", label: "SharkFunded Prime", desc: "Higher leverage" }
 ];
 
 const PLATFORMS = [
@@ -79,12 +79,12 @@ const getSizeKey = (size: number): string => {
 // Helper to map type/model to config key
 const getConfigKey = (type: string, model: string): keyof typeof pricingConfig | null => {
     if (type === 'Instant') {
-        return model === 'pro' ? 'InstantPrime' : 'InstantLite';
+        return model === 'prime' ? 'InstantPrime' : 'InstantLite';
     }
-    if (model === 'pro') {
+    if (model === 'prime') {
         return 'Prime';
     }
-    // Standard model
+    // Lite model
     if (type === '1-step') return 'LiteOneStep';
     if (type === '2-step') return 'LiteTwoStep';
 
@@ -228,7 +228,7 @@ export default function ChallengeConfigurator() {
 
     // State
     const [type, setType] = useState("2-step");
-    const [model, setModel] = useState("standard");
+    const [model, setModel] = useState("lite");
 
     // Dynamic available sizes based on current selection
     const availableSizes = (() => {
@@ -406,7 +406,7 @@ export default function ChallengeConfigurator() {
                         <SectionHeader title="Challenge Type" sub="Choose the type of challenge you want to take" />
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {CHALLENGE_TYPES.map(t => {
-                                const isDisabled = model === 'pro' && t.id === '1-step';
+                                const isDisabled = model === 'prime' && t.id === '1-step';
                                 return (
                                     <RadioPill
                                         key={t.id}
@@ -436,8 +436,8 @@ export default function ChallengeConfigurator() {
                                     subLabel={m.desc}
                                     onClick={() => {
                                         setModel(m.id);
-                                        // Auto-switch to 2-step if user selects Pro while on 1-step
-                                        if (m.id === 'pro' && type === '1-step') {
+                                        // Auto-switch to 2-step if user selects Prime while on 1-step
+                                        if (m.id === 'prime' && type === '1-step') {
                                             setType('2-step');
                                         }
                                     }}
@@ -569,7 +569,7 @@ export default function ChallengeConfigurator() {
 
                         <div className="p-6 space-y-6">
                             <div className="flex justify-between items-start text-sm">
-                                <span className="text-muted-foreground">${size.toLocaleString()} — {type === "1-step" ? "One Step" : type === "2-step" ? "Two Step" : "Instant"} {model === "standard" ? "Shark" : "Shark Pro"}</span>
+                                <span className="text-muted-foreground">${size.toLocaleString()} — {type === "1-step" ? "One Step" : type === "2-step" ? "Two Step" : "Instant"} {model === "lite" ? "Lite" : "Prime"}</span>
                                 <div className="text-right">
                                     <span className="font-bold font-mono">{displayCurrency === 'INR' ? '₹' : '$'}{(gateway === 'sharkpay' ? Math.round(basePriceUSD * 84) : basePriceUSD).toLocaleString()}</span>
                                 </div>

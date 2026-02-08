@@ -2,20 +2,25 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { Check, Loader2, ArrowRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Check, Loader2, ArrowRight, Wallet, ShieldCheck, Zap } from 'lucide-react';
 import Link from 'next/link';
 
 function PaymentSuccessContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const [count, setCount] = useState(5);
+    const [count, setCount] = useState(10);
+    const [isChecking, setIsChecking] = useState(true);
 
-    // Get order details from params if available
     const orderId = searchParams.get('orderId') || searchParams.get('reference_id');
     const amount = searchParams.get('amount');
 
     useEffect(() => {
+        // Simulate a brief verification delay for "WOW" factor
+        const checkTimer = setTimeout(() => {
+            setIsChecking(false);
+        }, 2000);
+
         const timer = setInterval(() => {
             setCount((prev) => {
                 if (prev <= 1) {
@@ -27,80 +32,132 @@ function PaymentSuccessContent() {
             });
         }, 1000);
 
-        return () => clearInterval(timer);
+        return () => {
+            clearTimeout(checkTimer);
+            clearInterval(timer);
+        };
     }, [router]);
 
     return (
-        <div className="flex-1 flex flex-col h-full md:h-[calc(100vh-2rem)] relative w-full bg-[#EDF6FE] md:rounded-3xl md:my-4 md:mr-4 overflow-hidden border border-slate-200/50 shadow-2xl items-center justify-center p-4">
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="max-w-md w-full bg-white/80 backdrop-blur-xl border border-white/50 rounded-3xl p-8 md:p-12 text-center shadow-xl"
-            >
-                <div className="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-8 relative">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-[#050505] text-white p-6 overflow-hidden relative">
+            {/* Background Glows */}
+            <div className="absolute top-1/4 -left-20 w-80 h-80 bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-purple-600/10 rounded-full blur-[120px] pointer-events-none" />
+
+            <AnimatePresence mode="wait">
+                {isChecking ? (
                     <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ delay: 0.2, type: "spring" }}
-                        className="absolute inset-0 bg-green-500/10 rounded-full animate-ping opacity-20"
-                    />
-                    <Check className="w-10 h-10 text-green-500" strokeWidth={4} />
-                </div>
-
-                <h1 className="text-3xl font-black text-[#0a0d20] mb-3 tracking-tight">Payment Successful!</h1>
-                <p className="text-slate-500 mb-8 leading-relaxed font-medium">
-                    Your challenge account has been created successfully. <br />
-                    Welcome to the team.
-                </p>
-
-                {orderId && (
-                    <div className="bg-slate-50 rounded-2xl p-6 mb-8 text-left border border-slate-100">
-                        <div className="flex justify-between items-center mb-3">
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Order Reference</span>
-                            <span className="text-sm font-mono font-bold text-slate-700 bg-white px-2 py-1 rounded border border-slate-100">{orderId}</span>
-                        </div>
-                        {amount && (
-                            <div className="flex justify-between items-center">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Amount Paid</span>
-                                <span className="text-lg font-black text-[#0a0d20]">₹{Number(amount).toLocaleString()}</span>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                <div className="space-y-4">
-                    <Link
-                        href="/dashboard"
-                        className="w-full bg-[#3b82f6] hover:bg-blue-600 active:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 group"
+                        key="verifying"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 1.1 }}
+                        className="flex flex-col items-center text-center space-y-6"
                     >
-                        <span>Go to Dashboard</span>
-                        <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                    </Link>
+                        <div className="relative">
+                            <div className="w-24 h-24 border-2 border-blue-500/20 rounded-full" />
+                            <motion.div
+                                className="absolute inset-0 border-t-2 border-blue-500 rounded-full"
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                            />
+                            <ShieldCheck className="absolute inset-0 m-auto w-10 h-10 text-blue-500" />
+                        </div>
+                        <div className="space-y-2">
+                            <h2 className="text-2xl font-bold tracking-tight">Verifying Payment</h2>
+                            <p className="text-gray-400 text-sm">Securing your trading credentials...</p>
+                        </div>
+                    </motion.div>
+                ) : (
+                    <motion.div
+                        key="success"
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="max-w-xl w-full"
+                    >
+                        {/* Glass Card */}
+                        <div className="relative group">
+                            <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl blur opacity-25 group-hover:opacity-40 transition duration-1000"></div>
+                            <div className="relative bg-[#0a0a0a] border border-white/10 rounded-3xl p-8 md:p-12 text-center shadow-2xl backdrop-blur-xl">
 
-                    <p className="text-sm font-medium text-slate-400">
-                        Redirecting automatically in <span className="text-blue-500">{count}s</span>...
-                    </p>
-                </div>
-            </motion.div>
+                                <motion.div
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    transition={{ type: "spring", damping: 12, stiffness: 200 }}
+                                    className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-8 rotate-3 shadow-lg shadow-green-500/20"
+                                >
+                                    <Check className="w-10 h-10 text-white" strokeWidth={3} />
+                                </motion.div>
+
+                                <h1 className="text-4xl font-extrabold mb-3 bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-400">
+                                    Payment Successful!
+                                </h1>
+                                <p className="text-gray-400 mb-8 max-w-sm mx-auto">
+                                    Your challenge account is being provisioned. Credentials will be sent to your email shortly.
+                                </p>
+
+                                {/* Order Info Grid */}
+                                <div className="grid grid-cols-2 gap-4 mb-8">
+                                    <div className="bg-white/5 border border-white/5 rounded-2xl p-4 text-left">
+                                        <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1">Order ID</p>
+                                        <p className="text-sm font-mono text-blue-400 truncate">{orderId || 'SF-GEN-001'}</p>
+                                    </div>
+                                    <div className="bg-white/5 border border-white/5 rounded-2xl p-4 text-left">
+                                        <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1">Status</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <Zap className="w-3 h-3 text-green-500 fill-green-500" />
+                                            <p className="text-sm font-bold text-green-500 uppercase">Settled</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <Link
+                                        href="/dashboard"
+                                        className="flex items-center justify-center gap-2 w-full bg-white text-black font-bold py-4 rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all transform shadow-xl shadow-white/10 group"
+                                    >
+                                        <span>Enter Trading Dashboard</span>
+                                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                    </Link>
+
+                                    <p className="text-xs text-gray-500 font-medium tracking-wide first-letter:uppercase">
+                                        Redirecting to your dashboard in <span className="text-white tabular-nums font-bold">{count}s</span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer Tips */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.5 }}
+                            className="mt-12 flex flex-col md:flex-row items-center justify-center gap-8 text-gray-500"
+                        >
+                            <div className="flex items-center gap-2">
+                                <Wallet className="w-4 h-4" />
+                                <span className="text-xs">Secure Checkout</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <ShieldCheck className="w-4 h-4" />
+                                <span className="text-xs">Instant Provisioning</span>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
 
 export default function PaymentSuccessPage() {
     return (
-        // Wrapper matching Layout structure if needed, or simplified full screen
-        <div className="min-h-screen bg-[#F8FAFC] flex p-4 md:p-0">
-            {/* Note: In main layout, Sidebar handles the left part. Here we just ensure it looks good if standalone or properly wrapped */}
-            <div className="flex-1 flex justify-center items-center">
-                <Suspense fallback={
-                    <div className="text-center text-slate-500 font-bold flex flex-col items-center gap-4">
-                        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-                        <span className="text-sm tracking-widest uppercase">Verifying Payment...</span>
-                    </div>
-                }>
-                    <PaymentSuccessContent />
-                </Suspense>
+        <Suspense fallback={
+            <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
             </div>
-        </div>
+        }>
+            <PaymentSuccessContent />
+        </Suspense>
     );
 }
+

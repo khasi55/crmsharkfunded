@@ -96,7 +96,9 @@ import adminNotificationsRouter from './routes/admin_notifications';
 import emailRouter from './routes/email';
 import eventRouter from './routes/event';
 import publicConfigRouter from './routes/public_config';
+import publicRouter from './routes/public';
 import adminRouter from './routes/admin';
+import uploadRouter from './routes/upload';
 
 app.use('/api/overview', overviewRouter);
 app.use('/api/config', publicConfigRouter);
@@ -126,6 +128,8 @@ app.use('/api/ranking', rankingRouter);
 app.use('/api/email', emailRouter);
 app.use('/api/event', eventRouter);
 app.use('/api/admin', adminRouter); // Register Admin Upgrade Route
+app.use('/api/public-performance', publicRouter); // Register Public Performance Route
+app.use('/api/upload', uploadRouter);
 
 
 app.get('/health', (req, res) => {
@@ -225,6 +229,7 @@ app.use((err: any, req: any, res: any, next: any) => {
 
 // Start Scheduler
 import { startRiskMonitor } from './services/risk-scheduler';
+import { startAdvancedRiskMonitor } from './services/advanced-risk-scheduler';
 import { startDailyEquityReset } from './services/daily-equity-reset';
 import { startTradeSyncScheduler } from './services/trade-sync-scheduler';
 import { startRiskEventWorker } from './workers/risk-event-worker';
@@ -235,13 +240,15 @@ import { startLeaderboardBroadcaster } from './services/leaderboard-service';
 
 
 
-console.log('🔄 [Risk Monitor] Polling Enabled (Fallback Mode) - 10s Interval');
-startRiskMonitor(10); // Re-enabled to ensure DB equity is fresh
+console.log('🔄 [Risk Monitor] Polling Enabled (Fast Mode) - 5s Interval');
+startRiskMonitor(5); // Increased frequency for faster breach detection
+startAdvancedRiskMonitor(); // 5m Martingale Checks
 startDailyEquityReset(); // Schedule midnight reset
 startTradeSyncScheduler(); // Dispatch jobs every 10s
 startCompetitionScheduler(); // Schedule competition status checks
 startLeaderboardBroadcaster(); // Broadcasts every 30s
 startTradeSyncWorker(); // Keep Worker active for manual syncs if needed
+startRiskEventWorker(); // LISTENS for 'events:trade_update' (Critical for Scalping Checks)
 
 
 // Initialize Socket.IO

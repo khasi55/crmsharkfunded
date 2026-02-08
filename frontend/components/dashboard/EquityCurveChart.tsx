@@ -6,6 +6,7 @@ import { Activity, TrendingUp, TrendingDown } from "lucide-react";
 import { LineChart, Line, Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { cn } from "@/lib/utils";
 import { getEquityCurveData } from "@/app/actions/dashboard";
+import { useAccount } from "@/contexts/AccountContext";
 
 interface EquityPoint {
     date: string;
@@ -16,33 +17,42 @@ interface EquityPoint {
 
 type TimePeriod = '1D' | '1W' | '1M' | '3M' | 'ALL';
 
-import { useAccount } from "@/contexts/AccountContext";
+interface EquityCurveChartProps {
+    account?: any;
+    trades?: any[];
+    initialBalance?: number;
+    initialData?: EquityPoint[];
+    isPublic?: boolean;
+}
 
-export default function EquityCurveChart() {
-    const { selectedAccount } = useAccount();
-    const [data, setData] = useState<EquityPoint[]>([]);
-    const [loading, setLoading] = useState(true);
+export default function EquityCurveChart({ account, trades: initialTrades, initialBalance, initialData, isPublic }: EquityCurveChartProps = {}) {
+    const accountContext = isPublic ? null : useAccount();
+    const selectedAccount = account || accountContext?.selectedAccount;
+    const [data, setData] = useState<EquityPoint[]>(initialData || []);
+    const [loading, setLoading] = useState(!initialData);
     const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('1M');
     const [stats, setStats] = useState({
-        currentEquity: selectedAccount?.initial_balance || 100000,
-        totalProfit: 0,
+        currentEquity: initialData?.[initialData.length - 1]?.equity || selectedAccount?.initial_balance || 100000,
+        totalProfit: initialData?.[initialData.length - 1]?.profit || 0,
         percentChange: 0,
-        highestEquity: selectedAccount?.initial_balance || 100000,
+        highestEquity: initialData ? Math.max(...initialData.map(d => d.equity)) : (selectedAccount?.initial_balance || 100000),
     });
 
     useEffect(() => {
+        if (isPublic && initialData) return;
         fetchEquityData();
-    }, [selectedPeriod, selectedAccount]);
+    }, [selectedPeriod, selectedAccount, initialData, isPublic]);
 
     const fetchEquityData = async () => {
         try {
-            if (!selectedAccount) {
+            if (isPublic && initialData) return;
+            if (!selectedAccount && !initialTrades) {
                 setLoading(false);
                 return;
             }
 
-            const startingBalance = selectedAccount.initial_balance || 100000;
-            const data = await getEquityCurveData(selectedAccount.id, startingBalance, selectedPeriod);
+            const startingBalance = initialBalance || selectedAccount?.initial_balance || 100000;
+            const data = await getEquityCurveData(selectedAccount?.id || 'public', startingBalance, selectedPeriod);
 
             if (data && data.length > 0) {
                 // Process server data
@@ -98,10 +108,10 @@ export default function EquityCurveChart() {
         if (active && payload && payload.length) {
             const data = payload[0].payload;
             return (
-                <div className="bg-[#050923] border border-white/20 rounded-lg p-3 shadow-xl backdrop-blur-md">
-                    <p className="text-xs text-gray-400 mb-1">{data.displayDate}</p>
-                    <p className="text-lg font-bold text-white">${data.equity.toLocaleString()}</p>
-                    <p className={`text-xs font-medium ${data.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                <div className="bg-[#050923]/90 border border-white/10 rounded-lg p-3 shadow-2xl backdrop-blur-xl">
+                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">{data.displayDate}</p>
+                    <p className="text-xl font-bold text-white tracking-tight">${data.equity.toLocaleString()}</p>
+                    <p className={`text-xs font-bold ${data.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                         {data.profit >= 0 ? '+' : ''}${data.profit.toLocaleString()}
                     </p>
                 </div>
@@ -130,56 +140,56 @@ export default function EquityCurveChart() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-[#050923] border border-white/10 rounded-2xl overflow-hidden relative"
+            className="bg-[#050923] border border-white/10 rounded-2xl overflow-hidden relative shadow-2xl shadow-blue-900/20"
         >
             {/* Background Glow */}
-            <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/5 blur-[100px] rounded-full translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
+            <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 blur-[120px] rounded-full translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
 
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start gap-4 p-4 sm:p-6 md:p-8 pb-2 relative z-10">
                 <div>
                     <div className="flex items-center gap-2 mb-3 sm:mb-4">
                         <Activity size={16} className="text-blue-400 sm:w-[18px] sm:h-[18px]" />
-                        <h3 className="font-bold text-base sm:text-lg text-white">Equity Curve</h3>
+                        <h3 className="font-bold text-base sm:text-lg text-white font-sans uppercase tracking-wider">Equity Curve</h3>
                     </div>
                     <div className="flex flex-col">
-                        <p className="text-xs sm:text-sm text-gray-500 font-medium mb-1">Current Equity</p>
+                        <p className="text-xs sm:text-sm text-gray-500 font-bold uppercase tracking-widest mb-1 font-sans">Current Equity</p>
                         <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-1">
-                            <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight">
+                            <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tighter font-sans">
                                 ${currentEquityVal.toLocaleString()}
                             </p>
                             <div className={cn(
-                                "flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full border text-xs sm:text-sm font-bold whitespace-nowrap",
+                                "flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md border text-xs sm:text-sm font-bold whitespace-nowrap",
                                 currentPnL >= 0
                                     ? "bg-green-500/10 text-green-400 border-green-500/20"
                                     : "bg-red-500/10 text-red-400 border-red-500/20"
                             )}>
                                 {currentPnL >= 0 ? <TrendingUp size={12} className="sm:w-[14px] sm:h-[14px]" /> : <TrendingDown size={12} className="sm:w-[14px] sm:h-[14px]" />}
-                                <span className="text-xs sm:text-sm">{currentPnL >= 0 ? '+' : ''}${Math.abs(currentPnL).toLocaleString()}</span>
+                                <span className="">{currentPnL >= 0 ? '+' : ''}${Math.abs(currentPnL).toLocaleString()}</span>
                                 <span className={cn(
-                                    "text-[10px] sm:text-xs ml-0.5",
-                                    currentPnL >= 0 ? "text-green-400/80" : "text-red-400/80"
+                                    "text-[10px] ml-1 opacity-70",
+                                    currentPnL >= 0 ? "text-green-400" : "text-red-400"
                                 )}>
                                     ({currentPercent.toFixed(2)}%)
                                 </span>
                             </div>
                         </div>
-                        <p className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider">TOTAL P&L</p>
+                        <p className="text-[10px] sm:text-xs text-gray-600 font-bold uppercase tracking-widest font-sans">TOTAL PERFORMANCE DATA</p>
                     </div>
                 </div>
 
                 {/* Time Period Selector - Scrollable on mobile */}
                 <div className="overflow-x-auto -mx-2 sm:mx-0 px-2 sm:px-0">
-                    <div className="flex bg-[#13161C] p-1 rounded-lg border border-white/5 min-w-fit">
+                    <div className="flex bg-black/40 p-1 rounded-lg border border-white/5 min-w-fit">
                         {(['1D', '1W', '1M', '3M', 'ALL'] as TimePeriod[]).map((period) => (
                             <button
                                 key={period}
                                 onClick={() => setSelectedPeriod(period)}
                                 className={cn(
-                                    "px-3 sm:px-4 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap touch-manipulation",
+                                    "px-3 sm:px-4 py-1.5 rounded-md text-[10px] font-black tracking-widest uppercase transition-all whitespace-nowrap touch-manipulation font-sans",
                                     selectedPeriod === period
-                                        ? "bg-blue-600 text-white shadow-lg shadow-blue-500/25"
-                                        : "text-gray-500 active:text-white active:bg-white/5"
+                                        ? "bg-blue-600 text-white shadow-lg shadow-blue-500/40"
+                                        : "text-gray-500 hover:text-gray-300"
                                 )}
                             >
                                 {period}
@@ -199,11 +209,11 @@ export default function EquityCurveChart() {
                                 <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                             </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
                         <XAxis
                             dataKey="displayDate"
                             stroke="#374151"
-                            tick={{ fill: '#6b7280', fontSize: 11, fontWeight: 500 }}
+                            tick={{ fill: '#4b5563', fontSize: 10, fontWeight: 700 }}
                             tickLine={false}
                             axisLine={false}
                             dy={10}
@@ -211,13 +221,13 @@ export default function EquityCurveChart() {
                         <YAxis
                             domain={['auto', 'auto']}
                             stroke="#374151"
-                            tick={{ fill: '#6b7280', fontSize: 11, fontWeight: 500 }}
+                            tick={{ fill: '#4b5563', fontSize: 10, fontWeight: 700 }}
                             tickLine={false}
                             axisLine={false}
                             tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`}
                             dx={-10}
                         />
-                        <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#ffffff20', strokeWidth: 1 }} />
+                        <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#ffffff10', strokeWidth: 1 }} />
                         <Area
                             type="monotone"
                             dataKey="equity"

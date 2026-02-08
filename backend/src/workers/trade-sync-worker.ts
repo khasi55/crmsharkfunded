@@ -1,3 +1,4 @@
+
 import { Worker, Job } from 'bullmq';
 import { redis } from '../lib/redis';
 import { createClient } from '@supabase/supabase-js';
@@ -46,8 +47,9 @@ async function syncAccountTrades(data: { login: number, challenge_id: string, us
             open_price: t.price,
             close_price: t.close_price || null,
             profit_loss: t.profit,
-            open_time: new Date(t.time * 1000).toISOString(),
-            close_time: t.close_time ? new Date(t.close_time * 1000).toISOString() : null,
+            // Validate timestamps to prevent 1970 dates
+            open_time: (t.time && t.time > 0) ? new Date(t.time * 1000).toISOString() : new Date().toISOString(),
+            close_time: (t.close_time && t.close_time > 0) ? new Date(t.close_time * 1000).toISOString() : null,
             commission: t.commission,
             swap: t.swap,
         }));
@@ -63,9 +65,12 @@ async function syncAccountTrades(data: { login: number, challenge_id: string, us
         await supabase.from('trades').upsert(uniqueTrades, { onConflict: 'challenge_id, ticket' });
 
         // Notify Risk Engine of updates
+        // Notify Risk Engine of updates
+        // IMPORTANT: Risk Worker expects RAW MT5 trades (unix time, volume, etc.)
+        // Do not send uniqueTrades (formatted). Send allTrades (raw).
         const eventPayload = {
             login: Number(login),
-            trades: uniqueTrades,
+            trades: allTrades, // RAW TRADES
             timestamp: Date.now()
         };
         await redis.publish('events:trade_update', JSON.stringify(eventPayload));

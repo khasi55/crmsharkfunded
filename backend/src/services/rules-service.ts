@@ -12,6 +12,7 @@ export class RulesService {
     private static RULES_CACHE: Map<string, any> = new Map();
     private static CACHE_TTL = 30000; // 30 seconds
     private static lastCacheUpdate = 0;
+    private static refreshingPromise: Promise<void> | null = null;
 
     /**
      * Get risk rules for a specific challenge type
@@ -19,7 +20,12 @@ export class RulesService {
     static async getRules(groupName: string, challengeType: string = 'Phase 1'): Promise<RiskProfile> {
         // Refresh cache if needed
         if (Date.now() - this.lastCacheUpdate > this.CACHE_TTL || this.RULES_CACHE.size === 0) {
-            await this.refreshCache();
+            if (!this.refreshingPromise) {
+                this.refreshingPromise = this.refreshCache().finally(() => {
+                    this.refreshingPromise = null;
+                });
+            }
+            await this.refreshingPromise;
         }
 
         // 1. Normalize and Map Legacy Types
@@ -46,7 +52,7 @@ export class RulesService {
                 ? Number(dbRule.profit_target_percent)
                 : 0;
         } else {
-            console.warn(`[RulesService] No DB rule found for mapped type '${normalizedType}' (Original: ${challengeType}), using defaults`);
+            // console.warn(`[RulesService] No DB rule found for mapped type '${normalizedType}' (Original: ${challengeType}), using defaults`);
         }
 
         /* 
@@ -74,31 +80,30 @@ export class RulesService {
         if (this.RULES_CACHE.has(t)) return t;
 
         // Determine Category (Prime vs Lite)
-        const isPrime = g.includes('\\S\\') || g.includes('DEMO\\S\\') || g.includes('PRIME');
+        // \S\ = Lite, \SF\ = Prime
+        const isPrime = g.includes('\\SF\\') || g.includes('PRO') || t.includes('prime');
         const prefix = isPrime ? 'prime' : 'lite';
 
-        // 1. Phase 1 Mapping
-        if (t === 'phase 1' || t === 'evaluation') {
-            return `${prefix}_2_step_phase_1`;
+        // 1. Phase 1 / Evaluation Mapping
+        if (t === 'phase 1' || t === 'evaluation' || t.includes('2 step') || t.includes('2_step')) {
+            // If already contains phase 2, it will be caught below
+            if (!t.includes('phase 2') && !t.includes('phase_2')) {
+                return `${prefix}_2_step_phase_1`;
+            }
         }
 
         // 2. Phase 2 Mapping
-        if (t === 'phase 2') {
+        if (t === 'phase 2' || t.includes('phase 2') || t.includes('phase_2')) {
             return `${prefix}_2_step_phase_2`;
         }
 
         // 3. Funded / Live Mapping
-        if (t === 'funded' || t === 'master' || t === 'live') {
+        if (t === 'funded' || t === 'master' || t === 'live' || t.includes('funded')) {
             return `${prefix}_funded`;
         }
 
-        // 4. Competition Mapping
-        if (t === 'competition') {
-            return 'lite_1_step'; // Default competition to lite 1-step rules or specific 'competition' if exists
-        }
-
-        // 5. Evaluation (If not caught by phase 1)
-        if (t.includes('1-step') || t.includes('1 step')) {
+        // 4. One Step Mapping
+        if (t.includes('1-step') || t.includes('1 step') || t.includes('1_step') || t.includes('instant')) {
             return `${prefix}_1_step`;
         }
 
@@ -127,7 +132,7 @@ export class RulesService {
                 // console.log(`[RulesService] Cached: '${normalizedType}' (Profit: ${rule.profit_target_percent}%, Daily DD: ${rule.daily_drawdown_percent}%, Max DD: ${rule.max_drawdown_percent}%)`);
             });
             this.lastCacheUpdate = Date.now();
-            console.log(`✅ RulesService: Cached ${this.RULES_CACHE.size} challenge type rule configurations.`);
+            // console.log(`✅ RulesService: Cached ${this.RULES_CACHE.size} challenge type rule configurations.`);
         } catch (e) {
             console.error('RulesService cache refresh failed:', e);
         }
