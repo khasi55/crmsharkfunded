@@ -28,6 +28,8 @@ export async function startTradeSyncWorker() {
     worker.on('failed', (job, err) => {
         console.error(`❌ Job ${job?.id} failed: ${err.message}`);
     });
+
+    return worker;
 }
 
 // Logic moved from Scheduler

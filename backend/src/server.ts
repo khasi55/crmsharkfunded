@@ -237,6 +237,7 @@ import { startTradeSyncWorker } from './workers/trade-sync-worker';
 
 import { startCompetitionScheduler } from './services/competition-scheduler';
 import { startLeaderboardBroadcaster } from './services/leaderboard-service';
+import { closeRedisConnections } from './lib/redis';
 
 
 
@@ -247,8 +248,8 @@ startDailyEquityReset(); // Schedule midnight reset
 startTradeSyncScheduler(); // Dispatch jobs every 10s
 startCompetitionScheduler(); // Schedule competition status checks
 startLeaderboardBroadcaster(); // Broadcasts every 30s
-startTradeSyncWorker(); // Keep Worker active for manual syncs if needed
-startRiskEventWorker(); // LISTENS for 'events:trade_update' (Critical for Scalping Checks)
+const tradeSyncWorker = startTradeSyncWorker(); // Keep Worker active for manual syncs if needed
+const riskEventSub = startRiskEventWorker(); // LISTENS for 'events:trade_update' (Critical for Scalping Checks)
 
 
 // Initialize Socket.IO
@@ -272,10 +273,30 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('CRITICAL: Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-process.on('SIGTERM', () => {
-    console.log('SIGTERM signal received: closing HTTP server');
-    server.close(() => {
+async function gracefulShutdown(signal: string) {
+    console.log(`${signal} signal received: closing HTTP server`);
+
+    server.close(async () => {
         console.log('HTTP server closed');
-        process.exit(0);
+
+        try {
+            console.log('Closing Trade Sync Worker...');
+            const worker = await tradeSyncWorker;
+            if (worker) await worker.close();
+
+            console.log('Closing Risk Event Subscriber...');
+            const sub = await riskEventSub;
+            if (sub) await sub.quit();
+
+            await closeRedisConnections();
+            console.log('✅ Graceful shutdown completed');
+            process.exit(0);
+        } catch (err) {
+            console.error('Error during graceful shutdown:', err);
+            process.exit(1);
+        }
     });
-});
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

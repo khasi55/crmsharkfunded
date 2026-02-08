@@ -36,6 +36,8 @@ export async function startRiskEventWorker() {
             }
         }
     });
+
+    return subRedis;
 }
 
 async function processTradeEvent(data: { login: number, trades: any[], timestamp: number }) {
