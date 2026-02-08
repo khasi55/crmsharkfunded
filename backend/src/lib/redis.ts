@@ -25,14 +25,22 @@ export function getRedis(): Redis {
             maxRetriesPerRequest: null, // Required for BullMQ
             enableReadyCheck: false,
             connectionName: 'RE_MAIN_SINGLETON',
+            lazyConnect: false,
+            enableOfflineQueue: true,
+            // Add connection limits
+            maxLoadingRetryTime: 10000,
             retryStrategy(times) {
+                if (times > 10) {
+                    console.error('🔴 Redis connection failed after 10 retries');
+                    return null; // Stop retrying
+                }
                 return Math.min(times * 100, 3000);
             },
         });
 
         client.on('connect', () => {
             if (DEBUG) console.log('🟢 Redis Singleton Connected');
-            // Try to set eviction police if possible, but don't crash
+            // Try to set eviction policy if possible, but don't crash
             try {
                 client?.config('SET', 'maxmemory-policy', 'noeviction').catch(() => { });
             } catch (e) { }
@@ -40,6 +48,10 @@ export function getRedis(): Redis {
 
         client.on('error', (e) => {
             console.error('🔴 Redis Singleton Error:', e.message);
+        });
+
+        client.on('close', () => {
+            if (DEBUG) console.log('🔴 Redis Singleton Closed');
         });
     }
     return client;
@@ -56,7 +68,14 @@ export function getRedisSub(): Redis {
             maxRetriesPerRequest: null,
             enableReadyCheck: false,
             connectionName: 'RE_SUB_SINGLETON',
+            lazyConnect: false,
+            enableOfflineQueue: true,
+            maxLoadingRetryTime: 10000,
             retryStrategy(times) {
+                if (times > 10) {
+                    console.error('🔴 Redis subscriber connection failed after 10 retries');
+                    return null;
+                }
                 return Math.min(times * 100, 3000);
             },
         });
@@ -68,17 +87,61 @@ export function getRedisSub(): Redis {
         subscriber.on('error', (e) => {
             console.error('🔴 Redis Subscriber Error:', e.message);
         });
+
+        subscriber.on('close', () => {
+            if (DEBUG) console.log('🔴 Redis Subscriber Closed');
+        });
     }
     return subscriber;
 }
 
-// ⚠️ DEPRECATED: Do not use this directly in new code. 
-// Kept temporarily for backward compatibility while refactoring, 
-// using a getter to ensure it calls getRedis() on access.
-// Ideally, we remove this to force compilation errors in files we missed.
-export const redis = new Proxy({}, {
-    get: function (target, prop) {
-        // If they try to access properties of 'redis', we redirect to the singleton
-        return (getRedis() as any)[prop];
+/**
+ * Gracefully close all Redis connections
+ */
+export async function closeRedisConnections(): Promise<void> {
+    const promises: Promise<string>[] = [];
+
+    if (client) {
+        console.log('📴 Closing Redis client...');
+        promises.push(client.quit());
+        client = null;
     }
-}) as Redis;
+
+    if (subscriber) {
+        console.log('📴 Closing Redis subscriber...');
+        promises.push(subscriber.quit());
+        subscriber = null;
+    }
+
+    await Promise.all(promises);
+    console.log('✅ All Redis connections closed');
+}
+
+// Graceful shutdown handlers
+process.on('SIGTERM', async () => {
+    console.log('🛑 SIGTERM received, closing Redis connections...');
+    await closeRedisConnections();
+    process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+    console.log('🛑 SIGINT received, closing Redis connections...');
+    await closeRedisConnections();
+    process.exit(0);
+});
+
+// Handle PM2 graceful reload
+process.on('message', async (msg) => {
+    if (msg === 'shutdown') {
+        console.log('🛑 PM2 shutdown received, closing Redis connections...');
+        await closeRedisConnections();
+        process.exit(0);
+    }
+});
+
+// ⚠️ REMOVED: The proxy pattern was causing issues
+// Instead, export the getter functions directly
+// If you need backward compatibility, do a global find/replace:
+// - Replace "redis." with "getRedis()."
+// - Or add: export const redis = getRedis();
+// But be aware that won't be a true singleton if destructured
