@@ -98,9 +98,41 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         }
 
         // console.log(`[Auth] Authenticated User: ${user.id} (Cache Miss)`);
-        req.user = user;
+
+        // Fetch role from profile if not in metadata
+        // For now, assume user role is 'user' unless specified
+        const { data: profile } = await getSupabase()
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+
+        req.user = {
+            id: user.id,
+            email: user.email,
+            role: profile?.role || 'user'
+        };
+
         next();
     } catch (error) {
-        res.status(500).json({ error: 'Auth server error' });
+        console.error('Auth error:', error);
+        res.status(401).json({ error: 'Authentication failed' });
     }
+};
+
+export const requireRole = (roles: string[]) => {
+    return (req: AuthRequest, res: Response, next: NextFunction) => {
+        const user = req.user;
+        if (!user) {
+            res.status(401).json({ error: 'Not authenticated' });
+            return;
+        }
+
+        if (!roles.includes(user.role)) {
+            res.status(403).json({ error: 'Access denied: Insufficient permissions' });
+            return;
+        }
+
+        next();
+    };
 };

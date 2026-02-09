@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, X, Filter, Loader2, Wallet, Calendar, User, CreditCard, ChevronDown, ChevronRight, Users, LayoutList, Network } from "lucide-react";
+import { Check, X, Filter, Loader2, Wallet, Calendar, User, CreditCard, ChevronDown, ChevronRight, Users, LayoutList, Network, Search, Mail, ChevronUp, DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Withdrawal {
@@ -33,6 +33,7 @@ interface ReferredUser {
     id: string;
     email: string;
     full_name: string;
+    sales_volume: number;
     created_at: string;
     accounts: Account[];
 }
@@ -43,6 +44,8 @@ interface AffiliateNode {
     full_name: string;
     referral_code: string;
     referred_count: number;
+    sales_volume?: number;
+    sales_count?: number;
     referred_users: ReferredUser[];
 }
 
@@ -60,7 +63,12 @@ export default function AdminAffiliatesClient() {
     const [filteredTree, setFilteredTree] = useState<AffiliateNode[]>([]);
     const [loadingTree, setLoadingTree] = useState(false);
     const [expandedAffiliates, setExpandedAffiliates] = useState<Set<string>>(new Set());
+
+    // Pagination & Search State for Tree
     const [searchQuery, setSearchQuery] = useState("");
+    const [showPaidOnly, setShowPaidOnly] = useState(true); // Default to true as per user request
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 50;
 
     // Action State
     const [processingId, setProcessingId] = useState<string | null>(null);
@@ -85,7 +93,7 @@ export default function AdminAffiliatesClient() {
         }
     }, [withdrawals, statusFilter]);
 
-    // Search Logic
+    // Search Logic for Tree
     useEffect(() => {
         if (!searchQuery.trim()) {
             setFilteredTree(affiliateTree);
@@ -93,25 +101,14 @@ export default function AdminAffiliatesClient() {
         }
 
         const query = searchQuery.toLowerCase();
-        const filtered = affiliateTree.filter(node => {
-            // Check Affiliate match
-            const affiliateMatch =
-                node.full_name?.toLowerCase().includes(query) ||
-                node.email?.toLowerCase().includes(query) ||
-                node.referral_code?.toLowerCase().includes(query);
-
-            if (affiliateMatch) return true;
-
-            // Check Children match
-            const childrenMatch = node.referred_users.some(u =>
-                u.full_name?.toLowerCase().includes(query) ||
-                u.email?.toLowerCase().includes(query)
-            );
-
-            return childrenMatch;
-        });
+        const filtered = affiliateTree.filter(node =>
+            node.full_name?.toLowerCase().includes(query) ||
+            node.email?.toLowerCase().includes(query) ||
+            node.referral_code?.toLowerCase().includes(query)
+        );
 
         setFilteredTree(filtered);
+        setCurrentPage(1); // Reset to page 1 on search
 
         // Auto-expand if searching
         if (searchQuery.trim().length > 2) {
@@ -125,7 +122,7 @@ export default function AdminAffiliatesClient() {
     const fetchWithdrawals = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/affiliates/withdrawals');
+            const res = await fetch('/api/admin/affiliates/withdrawals');
             const data = await res.json();
             if (res.ok) {
                 setWithdrawals(data.withdrawals || []);
@@ -163,14 +160,13 @@ export default function AdminAffiliatesClient() {
     const handleAction = async (id: string, status: 'approved' | 'rejected', reason?: string) => {
         setProcessingId(id);
         try {
-            const res = await fetch(`/api/affiliates/withdrawals/${id}/status`, {
+            const res = await fetch(`/api/admin/affiliates/withdrawals/${id}/status`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status, rejection_reason: reason })
             });
 
             if (res.ok) {
-                // Update local state
                 setWithdrawals(prev => prev.map(w =>
                     w.id === id ? { ...w, status, processed_at: new Date().toISOString(), rejection_reason: reason || null } : w
                 ));
@@ -187,6 +183,107 @@ export default function AdminAffiliatesClient() {
         } finally {
             setProcessingId(null);
         }
+    };
+
+    // Calculate pagination for Tree
+    const totalPages = Math.ceil(filteredTree.length / ITEMS_PER_PAGE);
+    const paginatedAffiliates = filteredTree.slice(
+        (currentPage - 1) * ITEMS_PER_PAGE,
+        currentPage * ITEMS_PER_PAGE
+    );
+
+    const handlePageChange = (page: number) => {
+        setCurrentPage(page);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const renderReferredTable = (users: ReferredUser[]) => {
+        // Filter users based on Paid Only toggle
+        const visibleUsers = showPaidOnly
+            ? users.filter(u => (u.sales_volume || 0) > 0)
+            : users;
+
+        if (!visibleUsers || visibleUsers.length === 0) {
+            return (
+                <div className="text-sm text-slate-500 italic">
+                    {showPaidOnly && users.length > 0
+                        ? `${users.length} total referrals, but 0 paid users found.`
+                        : "No referred users found."}
+                </div>
+            );
+        }
+
+        return (
+            <div className="space-y-4">
+                {visibleUsers.map(user => (
+                    <div key={user.id} className="bg-white border border-slate-200 rounded-lg p-4">
+                        <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                                    <User size={14} />
+                                </div>
+                                <div>
+                                    <div className="font-medium text-slate-900">{user.full_name || 'Unknown User'}</div>
+                                    <div className="text-xs text-slate-500">{user.email}</div>
+                                </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                                <div className="text-sm font-medium text-slate-900 flex items-center gap-1">
+                                    <DollarSign size={14} className="text-slate-400" />
+                                    {(user.sales_volume || 0).toLocaleString()} Volume
+                                </div>
+                                <div className="text-xs text-slate-400">
+                                    Joined {new Date(user.created_at).toLocaleDateString()}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* User's Accounts */}
+                        {user.accounts && user.accounts.length > 0 ? (
+                            <div className="bg-slate-50 border border-slate-100 rounded-lg overflow-hidden">
+                                <table className="w-full text-left text-xs">
+                                    <thead className="bg-slate-100 text-slate-500">
+                                        <tr>
+                                            <th className="px-3 py-2 font-medium">Account</th>
+                                            <th className="px-3 py-2 font-medium">Plan</th>
+                                            <th className="px-3 py-2 font-medium">Status</th>
+                                            <th className="px-3 py-2 font-medium text-right">Balance</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {user.accounts.map(acc => (
+                                            <tr key={acc.id}>
+                                                <td className="px-3 py-2 font-mono text-slate-700">
+                                                    {acc.login}
+                                                </td>
+                                                <td className="px-3 py-2 capitalize text-slate-600">
+                                                    {acc.plan_type}
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    <span className={cn(
+                                                        "px-1.5 py-0.5 rounded text-[10px] font-medium uppercase",
+                                                        acc.status === 'active' ? "bg-emerald-100 text-emerald-700" :
+                                                            acc.status === 'failed' ? "bg-red-100 text-red-700" :
+                                                                "bg-slate-200 text-slate-600"
+                                                    )}>
+                                                        {acc.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-3 py-2 text-right font-mono text-slate-700">
+                                                    ${acc.current_equity?.toLocaleString()}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <div className="text-xs text-slate-400 italic">No accounts found.</div>
+                        )}
+                    </div>
+                ))}
+            </div>
+        );
     };
 
     return (
@@ -206,7 +303,7 @@ export default function AdminAffiliatesClient() {
                         "px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2",
                         activeTab === 'withdrawals'
                             ? "border-slate-900 text-slate-900"
-                            : "border-transparent text-slate-500 hover:text-slate-700"
+                            : "border-transparent text-slate-500 hover:text-slate-500"
                     )}
                 >
                     <LayoutList size={16} />
@@ -218,11 +315,11 @@ export default function AdminAffiliatesClient() {
                         "px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2",
                         activeTab === 'tree'
                             ? "border-slate-900 text-slate-900"
-                            : "border-transparent text-slate-500 hover:text-slate-700"
+                            : "border-transparent text-slate-500 hover:text-slate-500"
                     )}
                 >
                     <Network size={16} />
-                    Affiliate Tree
+                    Affiliate Network
                 </button>
             </div>
 
@@ -379,142 +476,146 @@ export default function AdminAffiliatesClient() {
             )}
 
             {activeTab === 'tree' && (
-                <div className="space-y-4">
-                    {/* Search Bar */}
-                    <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <input
-                            type="text"
-                            placeholder="Search affiliate by name, email, code or referred user..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all"
-                        />
-                    </div>
-
+                <>
                     {loadingTree ? (
-                        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-500">
-                            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-                            Loading affiliate hierarchy...
-                        </div>
-                    ) : filteredTree.length === 0 ? (
-                        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-500">
-                            No affiliates found matching your search.
+                        <div className="flex items-center justify-center p-12">
+                            <Loader2 className="animate-spin text-blue-600" size={32} />
+                            <span className="ml-3 text-slate-600">Loading affiliate data...</span>
                         </div>
                     ) : (
-                        filteredTree.map((affiliate) => (
-                            <div key={affiliate.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                                {/* Affiliate Header */}
-                                <div
-                                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors"
-                                    onClick={() => toggleAffiliate(affiliate.id)}
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div className="p-2 rounded-full bg-indigo-100 text-indigo-700">
-                                            {expandedAffiliates.has(affiliate.id) ? (
-                                                <ChevronDown size={20} />
-                                            ) : (
-                                                <ChevronRight size={20} />
-                                            )}
-                                        </div>
-                                        <div>
-                                            <div className="font-semibold text-slate-900">{affiliate.full_name || 'Unknown Affiliate'}</div>
-                                            <div className="text-sm text-slate-500">{affiliate.email}</div>
-                                        </div>
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-900">Affiliate Network</h2>
+                                    <p className="text-sm text-slate-500">
+                                        {affiliateTree.length} Total Affiliates • {filteredTree.length} matches
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-2">
+                                        <label className="text-sm text-slate-700 font-medium cursor-pointer select-none flex items-center gap-2">
+                                            <input
+                                                type="checkbox"
+                                                checked={showPaidOnly}
+                                                onChange={(e) => setShowPaidOnly(e.target.checked)}
+                                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                            />
+                                            Show Paid Only (Volume/Sales)
+                                        </label>
                                     </div>
-                                    <div className="flex items-center gap-6">
-                                        <div className="text-right">
-                                            <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Referral Code</div>
-                                            <div className="font-mono text-slate-900 bg-slate-100 px-2 py-0.5 rounded text-sm">{affiliate.referral_code}</div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Total Referred</div>
-                                            <div className="font-medium text-slate-900 flex items-center gap-1 justify-end">
-                                                <Users size={14} className="text-slate-400" />
-                                                {affiliate.referred_count}
-                                            </div>
-                                        </div>
+                                    <div className="relative w-72">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                        <input
+                                            type="text"
+                                            placeholder="Search affiliates..."
+                                            value={searchQuery}
+                                            onChange={(e) => {
+                                                setSearchQuery(e.target.value);
+                                            }}
+                                            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                        />
                                     </div>
                                 </div>
+                            </div>
 
-                                {/* Referred Users List */}
-                                {expandedAffiliates.has(affiliate.id) && (
-                                    <div className="border-t border-slate-100 bg-slate-50/50 p-4 pl-12 space-y-3">
-                                        <h4 className="text-xs font-semibold text-slate-500 uppercase flex items-center gap-2 mb-2">
-                                            Referred Users ({affiliate.referred_users.length})
-                                        </h4>
-
-                                        {affiliate.referred_users.length === 0 ? (
-                                            <div className="text-sm text-slate-400 italic">No referrals yet.</div>
-                                        ) : (
-                                            affiliate.referred_users.map(user => (
-                                                <div key={user.id} className="bg-white border border-slate-200 rounded-lg p-4">
-                                                    <div className="flex items-start justify-between mb-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
-                                                                <User size={14} />
-                                                            </div>
-                                                            <div>
-                                                                <div className="font-medium text-slate-900">{user.full_name || 'Unknown User'}</div>
-                                                                <div className="text-xs text-slate-500">{user.email}</div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="text-xs text-slate-400">
-                                                            Joined {new Date(user.created_at).toLocaleDateString()}
-                                                        </div>
+                            <div className="space-y-4">
+                                {paginatedAffiliates.map((affiliate) => (
+                                    <div key={affiliate.id} className="bg-white border border-slate-200 rounded-lg shadow-sm">
+                                        <div
+                                            className="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors"
+                                            onClick={() => toggleAffiliate(affiliate.id)}
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                                                    <User size={20} />
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-semibold text-slate-900">{affiliate.full_name || 'Unknown'}</h3>
+                                                    <div className="flex items-center gap-4 text-sm text-slate-500 mt-1">
+                                                        <span className="flex items-center gap-1">
+                                                            <Mail size={14} />
+                                                            {affiliate.email}
+                                                        </span>
                                                     </div>
+                                                </div>
+                                            </div>
 
-                                                    {/* User's Accounts */}
-                                                    {user.accounts && user.accounts.length > 0 ? (
-                                                        <div className="bg-slate-50 border border-slate-100 rounded-lg overflow-hidden">
-                                                            <table className="w-full text-left text-xs">
-                                                                <thead className="bg-slate-100 text-slate-500">
-                                                                    <tr>
-                                                                        <th className="px-3 py-2 font-medium">Account</th>
-                                                                        <th className="px-3 py-2 font-medium">Plan</th>
-                                                                        <th className="px-3 py-2 font-medium">Status</th>
-                                                                        <th className="px-3 py-2 font-medium text-right">Balance</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody className="divide-y divide-slate-100">
-                                                                    {user.accounts.map(acc => (
-                                                                        <tr key={acc.id}>
-                                                                            <td className="px-3 py-2 font-mono text-slate-700">
-                                                                                {acc.login}
-                                                                            </td>
-                                                                            <td className="px-3 py-2 capitalize text-slate-600">
-                                                                                {acc.plan_type}
-                                                                            </td>
-                                                                            <td className="px-3 py-2">
-                                                                                <span className={cn(
-                                                                                    "px-1.5 py-0.5 rounded text-[10px] font-medium uppercase",
-                                                                                    acc.status === 'active' ? "bg-emerald-100 text-emerald-700" :
-                                                                                        acc.status === 'failed' ? "bg-red-100 text-red-700" :
-                                                                                            "bg-slate-200 text-slate-600"
-                                                                                )}>
-                                                                                    {acc.status}
-                                                                                </span>
-                                                                            </td>
-                                                                            <td className="px-3 py-2 text-right font-mono text-slate-700">
-                                                                                ${acc.current_equity?.toLocaleString()}
-                                                                            </td>
-                                                                        </tr>
-                                                                    ))}
-                                                                </tbody>
-                                                            </table>
-                                                        </div>
+                                            <div className="flex items-center gap-6">
+                                                <div className="text-right">
+                                                    <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Referral Code</div>
+                                                    <div className="font-mono text-slate-900 bg-slate-100 px-2 py-0.5 rounded text-sm">{affiliate.referral_code}</div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Uses</div>
+                                                    <div className="font-medium text-slate-900 flex items-center gap-1 justify-end">
+                                                        <CreditCard size={14} className="text-slate-400" />
+                                                        {affiliate.sales_count || 0}
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Volume</div>
+                                                    <div className="font-medium text-slate-900 flex items-center gap-1 justify-end">
+                                                        <Wallet size={14} className="text-slate-400" />
+                                                        ${(affiliate.sales_volume || 0).toLocaleString()}
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Referred</div>
+                                                    <div className="font-medium text-slate-900 flex items-center gap-1 justify-end">
+                                                        <Users size={14} className="text-slate-400" />
+                                                        {affiliate.referred_count}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    {expandedAffiliates.has(affiliate.id) ? (
+                                                        <ChevronUp className="text-slate-400" />
                                                     ) : (
-                                                        <div className="text-xs text-slate-400 italic">No accounts found.</div>
+                                                        <ChevronDown className="text-slate-400" />
                                                     )}
                                                 </div>
-                                            ))
+                                            </div>
+                                        </div>
+
+                                        {expandedAffiliates.has(affiliate.id) && (
+                                            <div className="border-t border-slate-100 p-4 bg-slate-50/50">
+                                                {renderReferredTable(affiliate.referred_users)}
+                                            </div>
                                         )}
+                                    </div>
+                                ))}
+
+                                {filteredTree.length === 0 && (
+                                    <div className="text-center py-12 text-slate-500">
+                                        No affiliates found matching your search.
                                     </div>
                                 )}
                             </div>
-                        ))
+
+                            {/* Pagination Controls */}
+                            {totalPages > 1 && (
+                                <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+                                    <button
+                                        onClick={() => handlePageChange(currentPage - 1)}
+                                        disabled={currentPage === 1}
+                                        className="px-4 py-2 border border-slate-300 rounded-md text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Previous
+                                    </button>
+                                    <div className="text-sm text-slate-700">
+                                        Page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
+                                    </div>
+                                    <button
+                                        onClick={() => handlePageChange(currentPage + 1)}
+                                        disabled={currentPage === totalPages}
+                                        className="px-4 py-2 border border-slate-300 rounded-md text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     )}
-                </div>
+                </>
             )}
 
             {/* Reject Modal */}

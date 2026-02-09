@@ -1,21 +1,11 @@
 import { Router, Response } from 'express';
-// We assume authenticate is handled by middleware or verify logic
-// But since this is a new route file, we might not have 'authenticate' middleware for admin here easily
-// unless we reuse the user one or rely on the proxy security (Admin Portal is secured).
-// For backend simplicity, we'll assume the request comes from the Admin Proxy which adds an x-admin-key or similar,
-// OR we just expose it and rely on the frontend proxy to securing it (Dangerous).
-// Use existing 'authenticate' middleware for now, assuming admin is a user in 'auth.users' OR
-// Use a specific admin middleware if available.
-// Given strict RBAC, the Admin Portal Proxy ensures only authenticated admins call this.
-// But backend should verify.
-// We'll use the supabase service role client directly.
-
+import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 
 const router = Router();
 
 // GET /api/admin/affiliates/withdrawals - List requests
-router.get('/withdrawals', async (req, res) => {
+router.get('/withdrawals', authenticate, requireRole(['super_admin', 'payouts_admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { status } = req.query;
         let query = supabase
@@ -42,7 +32,7 @@ router.get('/withdrawals', async (req, res) => {
 });
 
 // POST /api/admin/affiliates/withdrawals/:id/status - Update status
-router.post('/withdrawals/:id/status', async (req, res) => {
+router.post('/withdrawals/:id/status', authenticate, requireRole(['super_admin', 'payouts_admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const { status, rejection_reason } = req.body;
@@ -78,7 +68,7 @@ router.post('/withdrawals/:id/status', async (req, res) => {
 });
 
 // GET /api/admin/affiliates/tree - Get hierarchical data
-router.get('/tree', async (req, res) => {
+router.get('/tree', authenticate, requireRole(['super_admin', 'payouts_admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         console.log("🌳 Fetching Affiliate Tree...");
 
@@ -123,9 +113,9 @@ router.get('/tree', async (req, res) => {
         // 2. Fetch Coupon Usage from Orders
         const { data: orders, error: oError } = await supabase
             .from('payment_orders')
-            .select('user_id, coupon_code')
+            .select('user_id, coupon_code, amount')
             .not('coupon_code', 'is', null)
-            .eq('status', 'paid'); // Only paid orders count? Or all? Let's say paid/active.
+            .eq('status', 'paid');
 
         if (oError) console.error("Error fetching orders:", oError);
 
@@ -133,6 +123,21 @@ router.get('/tree', async (req, res) => {
         const profileMap = new Map<string, any>(); // ID -> Profile
         const affiliateCodeMap = new Map<string, string>(); // Lowercase Code -> Affiliate ID
         const referredUsersMap = new Map<string, Set<string>>(); // Referrer ID -> Set of Referred User IDs
+        const affiliateStatsMap = new Map<string, { sales_volume: number, sales_count: number }>(); // Affiliate ID -> Stats
+
+        // Fetch System Coupons to map them to Affiliates
+        const { data: systemCoupons } = await supabase
+            .from('discount_coupons')
+            .select('code, affiliate_id')
+            .not('affiliate_id', 'is', null);
+
+        const couponAffiliateIds = new Set<string>();
+        systemCoupons?.forEach(c => {
+            if (c.code && c.affiliate_id) {
+                affiliateCodeMap.set(c.code.toLowerCase(), c.affiliate_id);
+                couponAffiliateIds.add(c.affiliate_id);
+            }
+        });
 
         // Index Profiles
         allProfiles?.forEach(p => {
@@ -142,6 +147,25 @@ router.get('/tree', async (req, res) => {
             }
         });
 
+        // Fetch Missing Profiles (Affiliates who only have system coupons)
+        const missingProfileIds = Array.from(couponAffiliateIds).filter(id => !profileMap.has(id));
+        if (missingProfileIds.length > 0) {
+            const { data: missingProfiles, error: mpError } = await supabase
+                .from('profiles')
+                .select('id, email, full_name, referral_code, referred_by, created_at')
+                .in('id', missingProfileIds);
+
+            if (mpError) console.error("Error fetching missing profiles:", mpError);
+
+            missingProfiles?.forEach(p => {
+                profileMap.set(p.id, { ...p, referred_users: [] });
+                // If they happen to have a code (but were missed?), map it too
+                if (p.referral_code) {
+                    affiliateCodeMap.set(p.referral_code.toLowerCase(), p.id);
+                }
+            });
+        }
+
         const linkUserToAffiliate = (referrerId: string, userId: string) => {
             if (referrerId === userId) return; // Prevent self-referral loop
             if (!referredUsersMap.has(referrerId)) {
@@ -149,6 +173,18 @@ router.get('/tree', async (req, res) => {
             }
             referredUsersMap.get(referrerId)?.add(userId);
         };
+
+        const addSalesStats = (affiliateId: string, amount: number) => {
+            if (!affiliateStatsMap.has(affiliateId)) {
+                affiliateStatsMap.set(affiliateId, { sales_volume: 0, sales_count: 0 });
+            }
+            const stats = affiliateStatsMap.get(affiliateId)!;
+            stats.sales_volume += amount;
+            stats.sales_count += 1;
+        };
+
+        // Track per-user sales volume for "Paid Only" filter
+        const userSalesVolume = new Map<string, number>();
 
         // Pass 1: Direct Database Links (referred_by UUID)
         allProfiles?.forEach(p => {
@@ -162,16 +198,18 @@ router.get('/tree', async (req, res) => {
             if (o.coupon_code) {
                 const code = o.coupon_code.toLowerCase();
                 const affiliateId = affiliateCodeMap.get(code);
+
+                // Track volume for the BUYER (o.user_id)
+                const amount = Number(o.amount) || 0;
+                const currentVol = userSalesVolume.get(o.user_id) || 0;
+                userSalesVolume.set(o.user_id, currentVol + amount);
+
                 if (affiliateId) {
-                    // Check if user exists in profile map (might be a user without referral columns set)
-                    // If they are not in allProfiles, we might need to fetch them? 
-                    // But 'allProfiles' only fetched those involved in referrals. 
-                    // So we should probably have fetched *all* profiles or at least ensure we have the user.
-                    // For now, only link if we have the user profile.
-                    // Ideally, we should fetch these users too.
 
-                    // Optimization: If user used a code, they ARE involved. 
+                    // Track Sales Stats
+                    addSalesStats(affiliateId, amount);
 
+                    // Link User
                     if (profileMap.has(o.user_id)) {
                         linkUserToAffiliate(affiliateId, o.user_id);
                     }
@@ -214,26 +252,51 @@ router.get('/tree', async (req, res) => {
                     const userProfile = profileMap.get(uid);
                     return {
                         ...userProfile,
+                        sales_volume: userSalesVolume.get(uid) || 0,
                         accounts: challengesMap.get(uid) || []
                     };
                 });
 
+                // Sort referred users by volume (highest first)
+                enrichedReferred.sort((a, b) => b.sales_volume - a.sales_volume);
+
+                const stats = affiliateStatsMap.get(referrerId) || { sales_volume: 0, sales_count: 0 };
+
                 tree.push({
                     ...affiliate,
                     referred_users: enrichedReferred,
-                    referred_count: enrichedReferred.length
+                    referred_count: enrichedReferred.length,
+                    sales_volume: stats.sales_volume,
+                    sales_count: stats.sales_count
                 });
                 processedAffiliates.add(referrerId);
             }
         });
 
-        // Add Inactive Affiliates
-        allProfiles?.forEach(p => {
-            if (p.referral_code && !processedAffiliates.has(p.id)) {
+        // Pre-compute affiliate IDs for fast lookup
+        const affiliateValuesSet = new Set(affiliateCodeMap.values());
+
+        // Add Inactive Affiliates (No referrals but might have code OR sales)
+        profileMap.forEach((p, id) => {
+            // Check if they are already processed
+            if (processedAffiliates.has(id)) return;
+
+            // Check if they are an affiliate (have code OR have sales stats OR are in code map)
+            // Note: We might have non-affiliate users in profileMap (the referred users). 
+            // We only want to list them as TOP LEVEL nodes if they are actual affiliates.
+
+            // Is Affiliate?
+            const isAffiliate = p.referral_code || affiliateStatsMap.has(id) || affiliateValuesSet.has(id);
+
+            if (isAffiliate) {
+                const stats = affiliateStatsMap.get(id) || { sales_volume: 0, sales_count: 0 };
+
                 tree.push({
                     ...p,
                     referred_users: [],
-                    referred_count: 0
+                    referred_count: 0,
+                    sales_volume: stats.sales_volume,
+                    sales_count: stats.sales_count
                 });
             }
         });

@@ -1,4 +1,5 @@
 import { Router, Response, Request } from 'express';
+import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { createMT5Account, disableMT5Account } from '../lib/mt5-bridge';
 import { EmailService } from '../services/email-service';
