@@ -613,6 +613,57 @@ router.put('/admin/:id/approve', async (req: Request, res: Response) => {
 
         let finalTransactionId = transaction_id;
 
+        // Fetch the payout request to get amount and challenge_id
+        const { data: request, error: fetchError } = await supabase
+            .from('payout_requests')
+            .select('amount, metadata, user_id')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !request) {
+            return res.status(404).json({ error: 'Payout request not found' });
+        }
+
+        const challengeId = request.metadata?.challenge_id;
+        const amount = Number(request.amount);
+
+        // 1. Process MT5 Withdrawal if challenge_id exists
+        if (challengeId) {
+            const { data: challenge } = await supabase
+                .from('challenges')
+                .select('login, current_balance, current_equity')
+                .eq('id', challengeId)
+                .single();
+
+            if (challenge && challenge.login) {
+                try {
+                    const { adjustMT5Balance } = await import('../lib/mt5-bridge');
+                    // Deduct NEGATIVE amount from MT5
+                    await adjustMT5Balance(Number(challenge.login), -amount, `Payout Approved: ${id.substring(0, 8)}`);
+
+                    // 2. Sync Local DB Balance immediately
+                    const newBalance = Number(challenge.current_balance) - amount;
+                    const newEquity = Number(challenge.current_equity) - amount;
+
+                    await supabase
+                        .from('challenges')
+                        .update({
+                            current_balance: newBalance,
+                            current_equity: newEquity,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', challengeId);
+
+                    console.log(`✅ MT5 Balance Adjusted for ${challenge.login}: -$${amount}`);
+                } catch (bridgeError: any) {
+                    console.error('❌ Failed to adjust MT5 balance during approval:', bridgeError.message);
+                    // We might want to stop approval if bridge fails, or just log it.
+                    // User said "how to do that", implying they want it done.
+                    return res.status(500).json({ error: `MT5 Bridge Error: ${bridgeError.message}` });
+                }
+            }
+        }
+
         // Generate transaction ID automatically if not provided
         if (!finalTransactionId) {
             const timestamp = Date.now().toString(36);
@@ -636,7 +687,7 @@ router.put('/admin/:id/approve', async (req: Request, res: Response) => {
 
         res.json({
             success: true,
-            message: 'Payout approved successfully',
+            message: 'Payout approved successfully and MT5 balance adjusted',
             transaction_id: finalTransactionId
         });
     } catch (error: any) {

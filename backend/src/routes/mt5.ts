@@ -26,21 +26,46 @@ function generatePassword(length = 10): string {
 // GET /api/mt5/accounts - List all MT5 accounts from unified table
 router.get('/accounts', async (req: Request, res: Response) => {
     try {
-        const { status, size, group, phase } = req.query;
+        const { status, size, group, phase, login, page, limit } = req.query;
+        const pageNum = parseInt(page as string) || 1;
+        const limitNum = parseInt(limit as string) || 100;
+        const offset = (pageNum - 1) * limitNum;
 
         // 1. Fetch Challenges
         let query = supabase
             .from('challenges')
-            .select('*');
+            .select('*', { count: 'exact' });
 
         // Apply filters
+        if (login) {
+            const loginNum = Number(login);
+            if (!isNaN(loginNum)) {
+                query = query.eq('login', loginNum);
+            } else {
+                // Not a number, search for matching profiles by name or email
+                const { data: matchedProfiles } = await supabase
+                    .from('profiles')
+                    .select('id')
+                    .or(`full_name.ilike.%${login}%,email.ilike.%${login}%`);
+
+                if (matchedProfiles && matchedProfiles.length > 0) {
+                    query = query.in('user_id', matchedProfiles.map(p => p.id));
+                } else {
+                    // Force no results found
+                    query = query.eq('id', '00000000-0000-0000-0000-000000000000');
+                }
+            }
+        }
+
         if (status && status !== 'all') {
             query = query.eq('status', status);
         }
 
         if (size && size !== 'all') {
             const accountSize = parseInt(size as string);
-            query = query.eq('initial_balance', accountSize);
+            if (!isNaN(accountSize)) {
+                query = query.eq('initial_balance', accountSize);
+            }
         }
 
         if (group && group !== 'all') {
@@ -52,7 +77,10 @@ router.get('/accounts', async (req: Request, res: Response) => {
             query = query.eq('challenge_type', phase === 'first' ? 'Phase 1' : phase === 'second' ? 'Phase 2' : 'Master Account');
         }
 
-        const { data: challenges, error } = await query.order('created_at', { ascending: false });
+        // Add pagination
+        const { data: challenges, error, count } = await query
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limitNum - 1);
 
         if (error) throw error;
 
@@ -129,7 +157,12 @@ router.get('/accounts', async (req: Request, res: Response) => {
             });
         }
 
-        res.json({ accounts: accountsWithProfiles, total: accountsWithProfiles.length });
+        res.json({
+            accounts: accountsWithProfiles,
+            total: count || accountsWithProfiles.length,
+            page: pageNum,
+            limit: limitNum
+        });
 
     } catch (error: any) {
         console.error('MT5 accounts fetch error:', error);
@@ -610,6 +643,67 @@ router.post('/admin/enable', authenticate, async (req: AuthRequest, res: Respons
         res.status(500).json({ error: 'Failed to enable account' });
     }
 });
+
+// POST /api/mt5/admin/change-leverage
+router.post('/admin/change-leverage', authenticate, async (req: AuthRequest, res: Response) => {
+    try {
+        const { login, leverage } = req.body;
+
+        if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+        if (!login || !leverage) return res.status(400).json({ error: 'Missing login or leverage' });
+
+        const { changeMT5Leverage } = await import('../lib/mt5-bridge');
+        const result = await changeMT5Leverage(Number(login), Number(leverage));
+
+        // Update local DB
+        await supabase
+            .from('challenges')
+            .update({ leverage: Number(leverage) })
+            .eq('login', login);
+
+        res.json(result);
+    } catch (error: any) {
+        console.error('Admin Leverage Change Error:', error);
+        res.status(500).json({ error: error.message || 'Failed to change leverage' });
+    }
+});
+
+// POST /api/mt5/admin/adjust-balance
+router.post('/admin/adjust-balance', authenticate, async (req: AuthRequest, res: Response) => {
+    try {
+        const { login, amount, comment } = req.body;
+
+        if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+        if (!login || amount === undefined) return res.status(400).json({ error: 'Missing login or amount' });
+
+        const { adjustMT5Balance } = await import('../lib/mt5-bridge');
+        const result = await adjustMT5Balance(Number(login), Number(amount), comment || 'Admin Adjustment');
+
+        // Fetch current to update
+        const { data: challenge } = await supabase
+            .from('challenges')
+            .select('current_balance, current_equity')
+            .eq('login', login)
+            .single();
+
+        if (challenge) {
+            await supabase
+                .from('challenges')
+                .update({
+                    current_balance: Number(challenge.current_balance) + Number(amount),
+                    current_equity: Number(challenge.current_equity) + Number(amount),
+                    updated_at: new Date().toISOString()
+                })
+                .eq('login', login);
+        }
+
+        res.json(result);
+    } catch (error: any) {
+        console.error('Admin Balance Adjust Error:', error);
+        res.status(500).json({ error: error.message || 'Failed to adjust balance' });
+    }
+});
+
 
 // POST /api/mt5/trades/webhook - Receive closed trades (Poller OR Event)
 router.post('/trades/webhook', async (req: Request, res: Response) => {

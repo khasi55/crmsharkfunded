@@ -201,3 +201,76 @@ export async function disableAccountsByGroup(groupName: string) {
     // Calling directly is better to reuse batching logic.
     return await bulkDisableAccounts(logins);
 }
+
+export async function changeAccountLeverage(login: number, leverage: number) {
+    const cookieStore = await cookies();
+    const adminSession = cookieStore.get("admin_session");
+
+    if (!adminSession?.value) {
+        return { error: "Unauthorized: Please log in again." };
+    }
+
+    const url = `${BACKEND_URL}/api/mt5/admin/change-leverage`;
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-admin-api-key': ADMIN_API_KEY
+            },
+            body: JSON.stringify({ login, leverage }),
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            try {
+                const errJson = JSON.parse(errText);
+                return { error: errJson.error || `Server Error: ${response.statusText}` };
+            } catch {
+                return { error: `Server Error: ${errText}` };
+            }
+        }
+
+        return { success: true, message: `Leverage changed to 1:${leverage}` };
+    } catch (error: any) {
+        return { error: error.message || "Failed to change leverage" };
+    }
+}
+
+export async function adjustAccountBalance(login: number, amount: number, comment: string) {
+    const cookieStore = await cookies();
+    const adminSession = cookieStore.get("admin_session");
+
+    if (!adminSession?.value) {
+        return { error: "Unauthorized: Please log in again." };
+    }
+
+    const url = `${BACKEND_URL}/api/mt5/admin/adjust-balance`;
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-admin-api-key': ADMIN_API_KEY
+            },
+            body: JSON.stringify({ login, amount, comment }),
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            try {
+                const errJson = JSON.parse(errText);
+                return { error: errJson.error || `Server Error: ${response.statusText}` };
+            } catch {
+                return { error: `Server Error: ${errText}` };
+            }
+        }
+
+        return { success: true, message: `Balance adjusted by $${amount}` };
+    } catch (error: any) {
+        return { error: error.message || "Failed to adjust balance" };
+    }
+}
+

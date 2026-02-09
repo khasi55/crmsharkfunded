@@ -47,7 +47,12 @@ export async function startTradeSyncWorker() {
                 const existingType = existingTypeMap.get(String(t.ticket));
 
                 // Determine Input Type (from Bridge)
-                let inputType = (t.type === 0 || String(t.type).toLowerCase() === 'buy') ? 'buy' : 'sell';
+                let inputType = 'sell';
+                const rawTypeVal = String(t.type).toLowerCase();
+
+                if (t.type === 0 || rawTypeVal === 'buy') inputType = 'buy';
+                else if (t.type === 2 || rawTypeVal === 'balance') inputType = 'balance';
+                else if (t.type === 1 || rawTypeVal === 'sell') inputType = 'sell';
 
                 // LOCKDOWN LOGIC:
                 // 1. Hardcoded Failsafe for Known Ticket
@@ -71,6 +76,8 @@ export async function startTradeSyncWorker() {
                     type: (() => {
                         // Use our locked-down input type as starting point
                         let rawType = inputType;
+
+                        if (rawType === 'balance') return 'balance';
 
                         // 2. Calculate Profit & Price Delta
                         const profit = Number(t.profit);
