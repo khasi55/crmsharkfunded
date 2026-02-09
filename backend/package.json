@@ -10,6 +10,8 @@
         "build": "tsc"
     },
     "dependencies": {
+        "@simplewebauthn/server": "^13.2.2",
+        "@simplewebauthn/types": "^12.0.0",
         "@supabase/supabase-js": "^2.47.10",
         "@types/cookie-parser": "^1.4.8",
         "@types/multer": "^2.0.0",
@@ -24,6 +26,7 @@
         "multer": "^2.0.2",
         "node-cron": "^4.2.1",
         "nodemailer": "^7.0.12",
+        "otplib": "^13.2.1",
         "pg": "^8.16.3",
         "qrcode": "^1.5.4",
         "resend": "^6.7.0",

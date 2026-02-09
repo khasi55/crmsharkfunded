@@ -193,7 +193,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                     user_id: challenge.user_id, // Required to satisfy NOT NULL constraint during upsert check
                     current_equity: res.equity,
                     current_balance: res.balance,
-                    status: challenge.status // Required for upsert NOT NULL constraint (Insert phase validation)
+                    // status: challenge.status // REMOVED: Do not send status unless changed!
                 };
 
 
@@ -228,6 +228,20 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 // LOCAL BREACH OVERRIDE/VALIDATION
                 if (res.equity < effectiveLimit) {
                     if (challenge.status !== 'breached' && challenge.status !== 'failed' && challenge.status !== 'disabled') {
+
+                        // FIX: FRESH DB CHECK to prevent duplicate emails (Race condition with Python Webhook)
+                        // If Webhook beat us to it, we should skip sending another email.
+                        const { data: freshStatus } = await supabase
+                            .from('challenges')
+                            .select('status')
+                            .eq('id', challenge.id)
+                            .single();
+
+                        if (freshStatus && (freshStatus.status === 'breached' || freshStatus.status === 'failed')) {
+                            if (DEBUG) console.log(`⏩ [RiskScheduler] Skipping breach action for ${res.login} - Already breached in DB.`);
+                            continue; // Skip processing this breach
+                        }
+
                         updateData.status = 'breached';
                         if (DEBUG) console.log(` LOCAL BREACH CONFIRMED: Account ${res.login}. Equity: ${res.equity} < Limit: ${effectiveLimit}`);
 
@@ -357,18 +371,27 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 updatesToUpsert.push(updateData);
             }
 
-            // 1. Bulk Upsert Challenges (1 DB Call)
-            if (updatesToUpsert.length > 0) {
-                const breachedUpdate = updatesToUpsert.find(u => u.status === 'breached');
-                if (breachedUpdate) {
-                    if (DEBUG) console.log(` Committing BREACH to DB:`, JSON.stringify(breachedUpdate, null, 2));
-                }
+            // 1. Bulk Upsert Challenges (Split into Status Updates vs Equity Only)
+            // Fix Race Condition: Do not overwrite status with 'active' if it was changed by Python Engine
 
-                const { error } = await supabase
-                    .from('challenges')
-                    .upsert(updatesToUpsert);
+            const equityUpdates = updatesToUpsert.filter(u => !u.status);
+            const statusUpdates = updatesToUpsert.filter(u => u.status);
 
-                if (error) console.error(" Bulk update failed:", error.message, error.details);
+            if (statusUpdates.length > 0) {
+                if (DEBUG) console.log(` Committing ${statusUpdates.length} STATUS CHANGES to DB.`);
+                const { error } = await supabase.from('challenges').upsert(statusUpdates);
+                if (error) console.error(" Bulk status update failed:", error.message);
+            }
+
+            if (equityUpdates.length > 0) {
+                // For equity updates, we MUST NOT include 'status' in the payload
+                // But upsert might require all fields depending on RLS/Constraints? 
+                // Actually, Supabase upsert only updates provided fields if ID exists.
+                // However, if we insert new (which shouldn't happen here as ID exists), we need required fields.
+
+                // Since we are updating existing, we just send ID + Equity + Balance.
+                const { error } = await supabase.from('challenges').upsert(equityUpdates);
+                if (error) console.error(" Bulk equity update failed:", error.message);
             }
 
             // 2. Bulk Insert Logs

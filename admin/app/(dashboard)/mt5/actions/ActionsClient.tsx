@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Search, Loader2, Server, User, Mail, DollarSign, Activity, Gauge, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { useState } from "react";
+import { Search, Loader2, Server, User, Mail, DollarSign, Activity, Gauge, TrendingUp, TrendingDown } from "lucide-react";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { AccountActions } from "@/components/admin/AccountActions";
 import { toast } from "sonner";
-import Link from "next/link";
 
 interface Account {
     id: string;
@@ -22,7 +21,6 @@ interface Account {
     mt5_group?: string;
     group?: string;
     leverage?: number;
-    upgraded_to?: string;
     profiles?: {
         full_name: string | null;
         email: string | null;
@@ -34,44 +32,16 @@ export default function MT5ActionsClient() {
     const [searching, setSearching] = useState(false);
     const [account, setAccount] = useState<Account | null>(null);
 
-    // List State
-    const [accounts, setAccounts] = useState<Account[]>([]);
-    const [totalAccounts, setTotalAccounts] = useState(0);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [loadingList, setLoadingList] = useState(false);
-    const itemsPerPage = 50;
-
-    const fetchAccountsList = async () => {
-        setLoadingList(true);
-        try {
-            const response = await fetch(`/api/mt5/accounts?page=${currentPage}&limit=${itemsPerPage}`);
-            if (!response.ok) throw new Error("Failed to fetch accounts");
-            const data = await response.json();
-            setAccounts(data.accounts || []);
-            setTotalAccounts(data.count || 0);
-        } catch (error) {
-            console.error("Fetch list error:", error);
-            toast.error("Failed to load accounts list");
-        } finally {
-            setLoadingList(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchAccountsList();
-    }, [currentPage]);
-
-    const handleSearch = async (e?: React.FormEvent) => {
-        if (e) e.preventDefault();
+    const handleSearch = async (e: React.FormEvent) => {
+        e.preventDefault();
         const login = searchQuery.trim().replace(/\D/g, ''); // Only numbers
         if (!login) {
             setAccount(null); // Clear previous results if query is empty
             return;
         }
 
-        if (e) setSearching(true);
-        // Don't clear account if we're just refreshing
-        if (e) setAccount(null);
+        setSearching(true);
+        setAccount(null);
 
         try {
             const response = await fetch(`/api/mt5/accounts?login=${login}`);
@@ -81,28 +51,20 @@ export default function MT5ActionsClient() {
             // Since we filter by login in backend now, the first result should be it
             if (data.accounts && data.accounts.length > 0) {
                 setAccount(data.accounts[0]);
-                if (e) toast.success(`Account ${login} found`);
+                toast.success(`Account ${login} found`);
             } else {
-                if (e) toast.error(`Account with login ${login} not found in database.`);
-                else setAccount(null);
+                toast.error(`Account with login ${login} not found in database.`);
             }
         } catch (error) {
             console.error("Search error:", error);
-            if (e) toast.error("Failed to search for account. Backend might be offline.");
+            toast.error("Failed to search for account. Backend might be offline.");
         } finally {
-            if (e) setSearching(false);
+            setSearching(false);
         }
     };
 
-    const refresh = () => {
-        handleSearch();
-        fetchAccountsList();
-    };
-
-    const totalPages = Math.ceil(totalAccounts / itemsPerPage);
-
     return (
-        <div className="max-w-6xl mx-auto space-y-8 pb-20">
+        <div className="max-w-4xl mx-auto space-y-8">
             <div className="text-center space-y-2">
                 <h1 className="text-3xl font-bold text-gray-900">MT5 Account Actions</h1>
                 <p className="text-gray-600 font-medium">Search for an MT5 account to perform administrative adjustments</p>
@@ -148,6 +110,7 @@ export default function MT5ActionsClient() {
                     </div>
 
                     <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {/* User Info */}
                         <div className="space-y-4">
                             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
                                 <User className="h-4 w-4" /> User Details
@@ -160,6 +123,7 @@ export default function MT5ActionsClient() {
                             </div>
                         </div>
 
+                        {/* Financials */}
                         <div className="space-y-4">
                             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
                                 <DollarSign className="h-4 w-4" /> Financials
@@ -176,139 +140,62 @@ export default function MT5ActionsClient() {
                             </div>
                         </div>
 
+                        {/* Configuration */}
                         <div className="space-y-4">
                             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
                                 <Gauge className="h-4 w-4" /> Account Settings
                             </h3>
-                            <div className="space-y-1">
-                                <p className="text-xs text-gray-500 font-bold">LEVERAGE</p>
-                                <p className="text-xl font-bold text-purple-600">1:{account.leverage || '?'}</p>
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <p className="text-xs text-gray-500 font-bold">LEVERAGE</p>
+                                    <p className="text-lg font-bold text-purple-600">1:{account.leverage || '?'}</p>
+                                </div>
+                                <div className="pt-2">
+                                    <AcountActions
+                                        accountId={account.id}
+                                        login={account.login || 0}
+                                        currentStatus={account.status}
+                                        currentLeverage={account.leverage}
+                                    // Simple reload to refresh the search result state isn't ideal but works
+                                    // In a real app we'd pass a refresh callback
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="p-8 border-t border-gray-100 bg-gray-50/30">
-                        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-6">
-                            <Activity className="h-4 w-4" /> Administrative Actions
-                        </h3>
-                        <AccountActions
-                            accountId={account.id}
-                            login={account.login || 0}
-                            currentStatus={account.status}
-                            currentLeverage={account.leverage}
-                            userId={account.user_id}
-                            currentEmail={account.profiles?.email || undefined}
-                            challengeType={account.challenge_type}
-                            upgradedTo={account.upgraded_to}
-                            variant="labels"
-                            onSuccess={refresh}
-                        />
+                    <div className="bg-blue-50/50 px-8 py-6 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="flex items-center gap-4">
+                            <div className="h-10 w-10 rounded-lg bg-white border border-blue-100 flex items-center justify-center text-blue-600 shadow-sm">
+                                <TrendingUp className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Trading Group</p>
+                                <p className="text-sm font-bold text-gray-900 font-mono">{account.mt5_group || account.group || "-"}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="h-10 w-10 rounded-lg bg-white border border-blue-100 flex items-center justify-center text-blue-600 shadow-sm">
+                                <Activity className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Plan Type</p>
+                                <p className="text-sm font-bold text-gray-900 uppercase">{account.plan_type || "-"}</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
 
-            {/* Full Accounts List */}
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                        <Activity className="h-5 w-5 text-blue-600" />
-                        All Accounts List
-                    </h2>
-                    <Link
-                        href="/mt5"
-                        className="text-sm font-medium text-blue-600 hover:text-blue-700"
-                    >
-                        View in Main Table →
-                    </Link>
-                </div>
-
-                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-50 border-b border-gray-200">
-                                <tr>
-                                    <th className="px-6 py-4 font-bold text-gray-400 uppercase tracking-wider text-[10px]">User / Email</th>
-                                    <th className="px-6 py-4 font-bold text-gray-400 uppercase tracking-wider text-[10px]">Login</th>
-                                    <th className="px-6 py-4 font-bold text-gray-400 uppercase tracking-wider text-[10px]">Balance</th>
-                                    <th className="px-6 py-4 font-bold text-gray-400 uppercase tracking-wider text-[10px]">Type</th>
-                                    <th className="px-6 py-4 font-bold text-gray-400 uppercase tracking-wider text-[10px]">Status</th>
-                                    <th className="px-6 py-4 font-bold text-gray-400 uppercase tracking-wider text-[10px]">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {loadingList ? (
-                                    <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-500 font-medium">Loading account list...</td></tr>
-                                ) : accounts.length === 0 ? (
-                                    <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-500">No accounts found.</td></tr>
-                                ) : (
-                                    accounts.map((acc) => (
-                                        <tr key={acc.id} className={`hover:bg-gray-50 transition-colors ${account?.id === acc.id ? 'bg-blue-50/50' : ''}`}>
-                                            <td className="px-6 py-4">
-                                                <div className="font-bold text-gray-900">{acc.profiles?.full_name || "Unknown"}</div>
-                                                <div className="text-xs text-gray-500">{acc.profiles?.email || "No email"}</div>
-                                            </td>
-                                            <td className="px-6 py-4 font-mono font-bold text-blue-600">{acc.login || "-"}</td>
-                                            <td className="px-6 py-4 font-black text-emerald-600">${acc.current_balance?.toLocaleString()}</td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-[10px] font-bold uppercase tracking-tight text-gray-400">{acc.challenge_type}</span>
-                                            </td>
-                                            <td className="px-6 py-4"><StatusBadge status={acc.status} /></td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={() => {
-                                                            setSearchQuery(acc.login?.toString() || "");
-                                                            setAccount(acc);
-                                                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                                                        }}
-                                                        className="text-xs font-bold text-blue-600 hover:text-blue-700 px-3 py-1.5 bg-blue-50 rounded-lg transition-all"
-                                                    >
-                                                        Select
-                                                    </button>
-                                                    <AccountActions
-                                                        accountId={acc.id}
-                                                        login={acc.login || 0}
-                                                        currentStatus={acc.status}
-                                                        challengeType={acc.challenge_type}
-                                                        upgradedTo={acc.upgraded_to}
-                                                        userId={acc.user_id}
-                                                        currentEmail={acc.profiles?.email || undefined}
-                                                        currentLeverage={acc.leverage}
-                                                        onSuccess={refresh}
-                                                    />
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
+            {!account && !searching && (
+                <div className="text-center py-20 px-8 bg-gray-50/50 rounded-3xl border border-dashed border-gray-200">
+                    <div className="h-16 w-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-6 text-gray-400">
+                        <Server className="h-8 w-8" />
                     </div>
-
-                    {/* Simple Pagination */}
-                    <div className="px-8 py-6 bg-gray-50/50 border-t border-gray-200 flex items-center justify-between">
-                        <p className="text-sm font-medium text-gray-500">
-                            Showing <span className="text-gray-900">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-gray-900">{Math.min(currentPage * itemsPerPage, totalAccounts)}</span> of <span className="text-gray-900">{totalAccounts}</span> accounts
-                        </p>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                                disabled={currentPage === 1 || loadingList}
-                                className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:bg-gray-50 disabled:text-gray-300 transition-all shadow-sm"
-                            >
-                                <ChevronLeft className="h-5 w-5" />
-                            </button>
-                            <button
-                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                disabled={currentPage === totalPages || loadingList}
-                                className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:bg-gray-50 disabled:text-gray-300 transition-all shadow-sm"
-                            >
-                                <ChevronRight className="h-5 w-5" />
-                            </button>
-                        </div>
-                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">Ready to Search</h3>
+                    <p className="text-gray-500 max-w-sm mx-auto font-medium">Use the search bar above to look up an account by its MT5 Login. You can then adjust leverage, balance, and more.</p>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

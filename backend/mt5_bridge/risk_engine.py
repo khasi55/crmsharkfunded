@@ -152,6 +152,18 @@ class RiskEngine:
         # We need the "Entry Capital". 
         # If unavailable, we can't efficiently check MaxDD without CRM data.
         
+        # --- ZERO EQUITY GLITCH PROTECTION ---
+        # Sometimes MT5 Bridge returns 0 equity for a split second during sync or creation.
+        # If Balance is healthy but Equity is ~0, we skip the check to avoid false breach.
+        
+        # Assumption: If equity is 0 but balance is > 1% of initial (or current if initial unknown), it's likely a glitch.
+        # A real blowout usually kills balance too, or equity is just below limit, not exactly 0.
+        
+        # FIX V2: Also ignore if BOTH Equity and Balance are ~0 (Connection failure default)
+        if equity <= 0.1:
+            print(f"⚠️ [RiskEngine] IGNORED Low/Zero Equity Glitch for {login}. Eq: {equity}, Bal: {balance}")
+            return
+
         # --- DAILY DRAWDOWN CHECK ---
         # 3. Check Daily Start Equity
         now = datetime.now(timezone.utc)

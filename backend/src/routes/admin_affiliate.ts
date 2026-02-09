@@ -183,9 +183,6 @@ router.get('/tree', authenticate, requireRole(['super_admin', 'payouts_admin', '
             stats.sales_count += 1;
         };
 
-        // Track per-user sales volume for "Paid Only" filter
-        const userSalesVolume = new Map<string, number>();
-
         // Pass 1: Direct Database Links (referred_by UUID)
         allProfiles?.forEach(p => {
             if (p.referred_by && profileMap.has(p.referred_by)) {
@@ -198,16 +195,10 @@ router.get('/tree', authenticate, requireRole(['super_admin', 'payouts_admin', '
             if (o.coupon_code) {
                 const code = o.coupon_code.toLowerCase();
                 const affiliateId = affiliateCodeMap.get(code);
-
-                // Track volume for the BUYER (o.user_id)
-                const amount = Number(o.amount) || 0;
-                const currentVol = userSalesVolume.get(o.user_id) || 0;
-                userSalesVolume.set(o.user_id, currentVol + amount);
-
                 if (affiliateId) {
 
                     // Track Sales Stats
-                    addSalesStats(affiliateId, amount);
+                    addSalesStats(affiliateId, Number(o.amount) || 0);
 
                     // Link User
                     if (profileMap.has(o.user_id)) {
@@ -252,13 +243,9 @@ router.get('/tree', authenticate, requireRole(['super_admin', 'payouts_admin', '
                     const userProfile = profileMap.get(uid);
                     return {
                         ...userProfile,
-                        sales_volume: userSalesVolume.get(uid) || 0,
                         accounts: challengesMap.get(uid) || []
                     };
                 });
-
-                // Sort referred users by volume (highest first)
-                enrichedReferred.sort((a, b) => b.sales_volume - a.sales_volume);
 
                 const stats = affiliateStatsMap.get(referrerId) || { sales_volume: 0, sales_count: 0 };
 

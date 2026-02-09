@@ -191,40 +191,6 @@ def disable_account(user):
         return False
 
 
-def change_leverage(login: int, leverage: int) -> bool:
-    print(f"ACTION: Changing leverage for user {login} to {leverage}...")
-    log_system_event("INFO", f"Changing Leverage for Account {login} to {leverage}")
-    
-    if not worker.connected:
-        worker.connect()
-        
-    try:
-        user = worker.manager.UserRequest(login)
-        if not user:
-            print(f"❌ UserRequest failed for {login}")
-            return False
-            
-        user.Leverage = leverage
-        
-        # Attempt update
-        result = worker.manager.UserUpdate(user)
-        
-        if result == 0 or result is True:
-             print(f"SUCCESS: Leverage updated for {login} to {leverage}.")
-             log_system_event("INFO", f"Account {login} Leverage updated to {leverage}")
-             return True
-        
-        print(f"ERROR: Leverage update failed for {login}. Result: {result}")
-        if hasattr(worker.manager, "GetLastError"):
-             code = worker.manager.GetLastError()
-             print(f"MT5 Error Code: {code}")
-        return False
-
-    except Exception as e:
-        print(f"EXCEPTION: Leverage update failed: {e}")
-        return False
-
-
 def force_close_positions(login: int) -> int:
     """
     Force close positions. 

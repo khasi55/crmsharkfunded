@@ -157,7 +157,7 @@ export default async function AccountsListPage({
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-semibold text-gray-900">All Challenges</h1>
+                    <h1 className="text-2xl font-semibold text-gray-900">All MT5 Accounts</h1>
                     <p className="text-sm text-gray-600 mt-1">Master list of all created trading accounts</p>
                 </div>
                 <div className="bg-white border border-gray-200 rounded-lg px-4 py-2 shadow-sm">

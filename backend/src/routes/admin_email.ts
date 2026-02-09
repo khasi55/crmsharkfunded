@@ -67,44 +67,4 @@ router.post('/preview-invite', async (req, res) => {
     }
 });
 
-router.post('/send-custom', async (req, res) => {
-    try {
-        const { recipients, subject, body } = req.body;
-
-        if (!recipients || !Array.isArray(recipients) || !subject || !body) {
-            return res.status(400).json({ error: 'Recipients, subject, and body are required' });
-        }
-
-        console.log(`Received request to send custom email to ${recipients.length} recipients.`);
-
-        const results = [];
-
-        for (const recipient of recipients) {
-            if (!recipient.email) {
-                results.push({ email: recipient.email, status: 'failed', error: 'Missing email' });
-                continue;
-            }
-
-            try {
-                // Ensure body is treated as HTML if it contains tags, or wrap in basic formatting
-                const formattedBody = body.includes('<') ? body : `<div style="font-family: sans-serif; line-height: 1.5; color: #333;">${body.replace(/\n/g, '<br>')}</div>`;
-
-                await EmailService.sendEmail(recipient.email, subject, formattedBody, body);
-                results.push({ email: recipient.email, status: 'sent' });
-
-                // Small delay to protect SMTP reputation
-                await new Promise(resolve => setTimeout(resolve, 100));
-            } catch (err: any) {
-                console.error(`Failed to send custom email to ${recipient.email}:`, err);
-                results.push({ email: recipient.email, status: 'failed', error: err.message });
-            }
-        }
-
-        res.json({ message: 'Broadcast completed', results });
-    } catch (error: any) {
-        console.error('Error in custom broadcast:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
-
 export default router;

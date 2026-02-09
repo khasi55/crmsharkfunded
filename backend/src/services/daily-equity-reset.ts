@@ -1,4 +1,3 @@
-
 import cron from 'node-cron';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
@@ -6,17 +5,20 @@ import { supabase } from '../lib/supabase'; // Reuse existing client if possible
 
 dotenv.config();
 
+// Ensure we have a robust client (using existing module or creating new)
+// Using imported 'supabase' from lib to share config
+
 const DEBUG = process.env.DEBUG === 'true'; // STRICT: Silence daily reset logs in dev
 
 export function startDailyEquityReset() {
-    if (DEBUG) console.log(" Daily Equity Reset Scheduler initialized. Schedule: '0 0 * * *' (00:00 UTC / Start of Day)");
+    if (DEBUG) console.log(" Daily Equity Reset Scheduler initialized. Schedule: '0 17 * * *' (5 PM EST / New York Close)");
 
-    // Schedule task to run at 00:00 UTC every day
-    cron.schedule('0 0 * * *', async () => {
-        if (DEBUG) console.log(" [Daily Reset] Starting Daily Equity Reset (00:00 UTC)...");
+    // Schedule task to run at 17:00 (5 PM) New York Time every day
+    cron.schedule('0 17 * * *', async () => {
+        if (DEBUG) console.log(" [Daily Reset] Starting Daily Equity Reset (5 PM EST)...");
         await performDailyReset();
     }, {
-        timezone: "UTC"
+        timezone: "America/New_York"
     });
 }
 
@@ -35,6 +37,7 @@ async function performDailyReset() {
             .eq('status', 'active');
 
         if (error || !challenges || challenges.length === 0) {
+            const DEBUG = process.env.DEBUG === 'true';
             if (DEBUG) console.log("ℹ[Daily Reset] No active challenges found or error:", error);
             return;
         }
@@ -71,10 +74,9 @@ async function performDailyReset() {
             const challenge = challenges.find(c => c.login === res.login);
             if (!challenge) return;
 
-            // Updated SOD -> Use BALANCE (Closed Trades only) as per User Request
-            // (Prevents high-water mark / floating P/L from being included in SOD)
-
+            // Update start_of_day with the LIVE equity
             // SAFETY: Do not update if bridge returns precisely 100,000.0 while initial balance is different
+            // (This prevents poisoning from the Mock Bridge)
             if (res.equity === 100000 && challenge.initial_balance !== 100000) {
                 console.warn(` [Daily Reset] Skipping SOD update for ${res.login}: Bridge returned 100k for ${challenge.initial_balance}k account (Mock mode suspected)`);
                 return;
@@ -83,10 +85,9 @@ async function performDailyReset() {
             const { error: dbError } = await supabase
                 .from('challenges')
                 .update({
-                    start_of_day_equity: res.balance, // SOD based on Balance (Closed Trades only)
-                    current_equity: res.equity,
-                    current_balance: res.balance,
-                    updated_at: new Date().toISOString()
+                    start_of_day_equity: res.equity,
+                    current_equity: res.equity, // Keep this fresh too
+                    current_balance: res.balance
                 })
                 .eq('id', challenge.id);
 
@@ -98,12 +99,16 @@ async function performDailyReset() {
 
     } catch (e) {
         console.error(" [Daily Reset] Critical Error:", e);
+        // Retry logic could be added here
     }
 }
 
 // Add strict retry for failed resets (e.g. 10 mins later)
-cron.schedule('10 0 * * *', async () => {
-    if (DEBUG) console.log("[Daily Reset Backup] Running backup verification at 00:10 UTC...");
+cron.schedule('10 17 * * *', async () => {
+    const DEBUG = process.env.DEBUG === 'true';
+    if (DEBUG) console.log("[Daily Reset Backup] Running backup verification...");
+    // We could re-run or check specifically for non-updated accounts
+    // For now, simpler to just rely on initial run, but logging is key.
 }, {
-    timezone: "UTC"
+    timezone: "America/New_York"
 });

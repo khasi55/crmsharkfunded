@@ -61,13 +61,13 @@ async function performManualDailyReset() {
 
         console.log(`[Manual Reset] Received data for ${results.length} accounts. Updating DB...`);
 
-        // 4. Update Database with LIVE Balance as SOD
+        // 4. Update Database with LIVE Equity
         let updatedCount = 0;
         const updates = results.map(async (res) => {
             const challenge = challenges.find(c => c.login === res.login);
             if (!challenge) return;
 
-            // SAFETY: Do not update if bridge returns precisely 100,000.0 while initial balance is different
+            // Update start_of_day with the LIVE equity
             if (res.equity === 100000 && challenge.initial_balance !== 100000) {
                 console.warn(` [Manual Reset] Skipping SOD update for ${res.login}: Bridge returned 100k for ${challenge.initial_balance}k account (Mock mode suspected)`);
                 return;
@@ -76,8 +76,8 @@ async function performManualDailyReset() {
             const { error: dbError } = await supabase
                 .from('challenges')
                 .update({
-                    start_of_day_equity: res.balance, // SOD based on Balance (Closed Trades only)
-                    current_equity: res.equity,
+                    start_of_day_equity: res.equity,
+                    current_equity: res.equity, // Keep this fresh too
                     current_balance: res.balance,
                     updated_at: new Date().toISOString()
                 })
@@ -86,6 +86,7 @@ async function performManualDailyReset() {
             if (dbError) {
                 console.error(` Failed update for ${res.login}:`, dbError);
             } else {
+                // console.log(`   - Updated ${res.login}: SOD -> ${res.equity}`);
                 updatedCount++;
             }
         });

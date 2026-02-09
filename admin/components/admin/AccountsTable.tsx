@@ -192,7 +192,7 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
                             <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Balance</th>
                             <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Equity</th>
                             <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Status</th>
-                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase text-right">Actions</th>
+                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Created</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
@@ -226,9 +226,9 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
                                             <span title="Master Password">{account.master_password || "-"}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-gray-900 capitalize text-center">
-                                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${account.leverage > 100 ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'}`}>
-                                            {account.challenge_type} (1:{account.leverage || 100})
+                                    <td className="px-6 py-4 text-gray-900 capitalize">
+                                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                                            {account.challenge_type}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">
@@ -260,7 +260,7 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 font-bold text-gray-900">
-                                        ${account.current_balance?.toLocaleString() ?? '-'}
+                                        ${account.initial_balance?.toLocaleString()}
                                     </td>
                                     <td className="px-6 py-4 font-bold text-blue-600">
                                         ${account.current_equity?.toLocaleString() ?? '-'}
@@ -270,18 +270,6 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
                                     </td>
                                     <td className="px-6 py-4 text-gray-600 text-xs">
                                         {new Date(account.created_at).toLocaleDateString()}
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <AccountActions
-                                            accountId={account.id}
-                                            login={account.login}
-                                            currentStatus={account.status}
-                                            userId={account.user_id}
-                                            currentEmail={account.profile?.email}
-                                            challengeType={account.challenge_type}
-                                            upgradedTo={account.upgraded_to}
-                                            currentLeverage={account.leverage}
-                                        />
                                     </td>
                                 </tr>
                             );

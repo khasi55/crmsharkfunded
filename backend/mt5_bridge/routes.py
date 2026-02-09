@@ -41,10 +41,6 @@ class StopOutRequest(BaseModel):
     disable_account: bool = True
     close_positions: bool = True
 
-class LeverageChangeRequest(BaseModel):
-    login: int
-    leverage: int
-
 # --- API ENDPOINTS ---
 
 @router.post("/create-account")
@@ -126,16 +122,11 @@ def fetch_trades(data: FetchRequest):
         deals = worker.get_deals(login, from_time, to_time) if hasattr(worker, 'get_deals') else []
         
         # Group deals by PositionID to match IN (open) and OUT (close) deals
-        balance_deals = []
         position_deals = {}
         for d in deals:
             try:
                 position_id = get_val(d, "PositionID", default=0)
-                action_type = int(get_val(d, "Action", "Type", default=0))
-
                 if position_id == 0:
-                    if action_type == 2: # DEAL_TYPE_BALANCE
-                        balance_deals.append(d)
                     continue
                 
                 if position_id not in position_deals:
@@ -150,35 +141,7 @@ def fetch_trades(data: FetchRequest):
                 # print(f"⚠️ Error grouping deal: {e}")
                 pass
         
-        # 1.5 Process Balance Deals (Deposits/Withdrawals)
-        for bd in balance_deals:
-            try:
-                ticket = get_val(bd, "Deal", "Ticket", default=0)
-                if ticket == 0: continue
-                
-                time = int(get_val(bd, "Time", default=0))
-                t = {
-                    "login": login,
-                    "ticket": ticket,
-                    "symbol": "BALANCE",
-                    "type": 2, # DEAL_TYPE_BALANCE
-                    "entry": 0,
-                    "volume": 0,
-                    "price": 0,
-                    "close_price": 0,
-                    "profit": float(get_val(bd, "Profit", default=0.0)),
-                    "commission": 0,
-                    "swap": 0,
-                    "time": time,
-                    "close_time": time,
-                    "duration": 0,
-                    "is_closed": True
-                }
-                results.append(t)
-                current_tickets.add(ticket)
-            except: pass
-
-        # 2. Process matched closed positions
+        # Now process matched closed positions
         for position_id, deals_pair in position_deals.items():
             try:
                 in_deal = deals_pair["in"]
@@ -300,22 +263,6 @@ def disable_account_endpoint(req: SingleAccountRequest):
             
     except Exception as e:
         print(f"❌ Disable failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/change-leverage")
-def change_leverage_endpoint(req: LeverageChangeRequest):
-    if not worker.connected:
-        worker.connect()
-    
-    try:
-        from mt5_service import change_leverage
-        if change_leverage(req.login, req.leverage):
-            return {"status": "success", "message": f"Account {req.login} leverage changed to {req.leverage}"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to update leverage")
-            
-    except Exception as e:
-        print(f"❌ Leverage change failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/stop-out-account")

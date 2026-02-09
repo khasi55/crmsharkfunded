@@ -29,32 +29,24 @@ import { logoutAdmin } from "@/app/actions/admin-auth";
 // ... (imports remain)
 
 const navigation = [
-    // Core Section
-    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin', 'payouts_admin'], section: 'Core', exact: true },
-    { name: "Users", href: "/users", icon: Users, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'], section: 'Core' },
-    { name: "KYC Requests", href: "/kyc", icon: FileText, roles: ['super_admin', 'admin', 'sub_admin', 'payouts_admin'], section: 'Core' },
-    { name: "Payouts", href: "/payouts", icon: CreditCard, roles: ['super_admin', 'admin', 'sub_admin', 'payouts_admin'], section: 'Core' },
-    { name: "Payments", href: "/payments", icon: CreditCard, roles: ['super_admin', 'admin', 'sub_admin'], section: 'Core' },
-
-    // MT5 Trading Section
-    { name: "Accounts List", href: "/accounts", icon: List, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'], section: 'MT5 Trading' },
-    { name: "MT5 Accounts", href: "/mt5", icon: Server, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'], section: 'MT5 Trading', exact: true },
-    { name: "MT5 Actions", href: "/mt5/actions", icon: Shield, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'], section: 'MT5 Trading' },
-    { name: "Assign Account", href: "/mt5/assign", icon: UserPlus, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'], section: 'MT5 Trading' },
-    { name: "Risk Settings", href: "/mt5-risk", icon: Gauge, roles: ['super_admin', 'admin', 'risk_admin'], section: 'MT5 Trading' },
-    { name: "Risk Violations", href: "/risk-violations", icon: AlertTriangle, roles: ['super_admin', 'admin', 'risk_admin'], section: 'MT5 Trading' },
-    { name: "Affiliate Payouts", href: "/affiliates", icon: Wallet, roles: ['super_admin', 'admin', 'payouts_admin', 'sub_admin'], section: 'MT5 Trading' },
-
-    // Management Section
-    { name: "Competitions", href: "/competitions", icon: Trophy, roles: ['super_admin', 'admin', 'sub_admin'], section: 'Management' },
-    { name: "Coupons", href: "/coupons", icon: Ticket, roles: ['super_admin', 'admin', 'sub_admin'], section: 'Management' },
-    { name: "Emails", href: "/emails", icon: Send, roles: ['super_admin', 'admin'], section: 'Management' },
-
-    // System Section
-    { name: "System Health", href: "/system-health", icon: Activity, roles: ['super_admin', 'admin'], section: 'System' },
-    { name: "Event Scanner", href: "/event-scanner", icon: Scan, roles: ['super_admin', 'admin', 'sub_admin'], section: 'System' },
-    { name: "Settings", href: "/settings/payment", icon: Settings, roles: ['super_admin', 'admin'], section: 'System' },
-    { name: "Admins", href: "/admins", icon: ShieldCheck, roles: ['super_admin', 'admin'], section: 'System' },
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin', 'payouts_admin'] },
+    { name: "Users", href: "/users", icon: Users, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'] },
+    { name: "Accounts List", href: "/accounts", icon: List, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'] },
+    { name: "MT5 Accounts", href: "/mt5", icon: Server, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'] },
+    { name: "Risk Settings", href: "/mt5-risk", icon: Gauge, roles: ['super_admin', 'admin', 'risk_admin'] },
+    { name: "Risk Violations", href: "/risk-violations", icon: AlertTriangle, roles: ['super_admin', 'admin', 'risk_admin'] },
+    { name: "Payments", href: "/payments", icon: CreditCard, roles: ['super_admin', 'admin', 'sub_admin'] }, // Changed from settings/payment to /payments for report
+    { name: "Settings", href: "/settings/payment", icon: Settings, roles: ['super_admin', 'admin'] },
+    { name: "Assign Account", href: "/mt5/assign", icon: UserPlus, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'] },
+    { name: "KYC Requests", href: "/kyc", icon: FileText, roles: ['super_admin', 'admin', 'sub_admin', 'payouts_admin'] },
+    { name: "Payouts", href: "/payouts", icon: CreditCard, roles: ['super_admin', 'admin', 'sub_admin', 'payouts_admin'] },
+    { name: "Affiliate Payouts", href: "/affiliates", icon: Wallet, roles: ['super_admin', 'admin', 'payouts_admin', 'sub_admin'] },
+    { name: "Competitions", href: "/competitions", icon: Trophy, roles: ['super_admin', 'admin', 'sub_admin'] },
+    { name: "Coupons", href: "/coupons", icon: Ticket, roles: ['super_admin', 'admin', 'sub_admin'] },
+    { name: "System Health", href: "/system-health", icon: Activity, roles: ['super_admin', 'admin'] },
+    { name: "Event Scanner", href: "/event-scanner", icon: Scan, roles: ['super_admin', 'admin', 'sub_admin'] },
+    { name: "Emails", href: "/emails", icon: Send, roles: ['super_admin', 'admin'] },
+    { name: "Admins", href: "/admins", icon: ShieldCheck, roles: ['super_admin', 'admin'] },
 ];
 
 interface AdminSidebarProps {
@@ -104,41 +96,30 @@ export function AdminSidebar({ user, onClose }: AdminSidebarProps & { onClose?: 
             </div>
 
             {/* Navigation */}
-            <div className="flex flex-1 flex-col gap-6 p-4 overflow-y-auto scrollbar-none">
-                {['Core', 'MT5 Trading', 'Management', 'System'].map((section) => {
-                    const sectionItems = filteredNavigation.filter(item => (item as any).section === section);
-                    if (sectionItems.length === 0) return null;
-
+            <div className="flex flex-1 flex-col gap-1 p-4 overflow-y-auto scrollbar-none">
+                <div className="px-3 mb-2">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Navigation</p>
+                </div>
+                {filteredNavigation.map((item) => {
+                    const isActive = pathname.startsWith(item.href);
                     return (
-                        <div key={section} className="space-y-1">
-                            <div className="px-3 mb-2">
-                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{section}</p>
-                            </div>
-                            {sectionItems.map((item) => {
-                                const isActive = (item as any).exact
-                                    ? pathname === item.href
-                                    : pathname.startsWith(item.href);
-                                return (
-                                    <Link
-                                        key={item.name}
-                                        href={item.href}
-                                        onClick={onClose}
-                                        className={cn(
-                                            "flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
-                                            isActive
-                                                ? "text-white bg-[linear-gradient(180deg,#0066FF_0%,#0066FF_50%,#96C0FF_100%)] shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.2)]"
-                                                : "text-gray-400 hover:text-white hover:bg-white/[0.03]"
-                                        )}
-                                    >
-                                        <item.icon className={cn(
-                                            "h-5 w-5",
-                                            isActive ? "text-white" : "text-gray-400"
-                                        )} />
-                                        {item.name}
-                                    </Link>
-                                );
-                            })}
-                        </div>
+                        <Link
+                            key={item.name}
+                            href={item.href}
+                            onClick={onClose}
+                            className={cn(
+                                "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200",
+                                isActive
+                                    ? "text-white bg-[linear-gradient(180deg,#0066FF_0%,#0066FF_50%,#96C0FF_100%)] shadow-[inset_0_-2px_0_0_#B7DCFF]"
+                                    : "text-gray-400 hover:text-white hover:bg-white/[0.03]"
+                            )}
+                        >
+                            <item.icon className={cn(
+                                "h-5 w-5",
+                                isActive ? "text-white" : "text-gray-400"
+                            )} />
+                            {item.name}
+                        </Link>
                     );
                 })}
             </div>
