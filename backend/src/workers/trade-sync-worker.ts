@@ -27,11 +27,40 @@ export async function startTradeSyncWorker() {
             // 2. Format & Filter (Ghost Trade Protection)
             const challengeStartTime = new Date(createdAt).getTime();
 
+            // 3. Fetch Existing Trades to Prevent Overwriting Fixes
+            // We need to know if we already fixed a trade to 'buy' manually
+            const { data: existingTrades } = await supabase
+                .from('trades')
+                .select('ticket, type')
+                .eq('challenge_id', challengeId);
+
+            const existingTypeMap = new Map<string, string>();
+            existingTrades?.forEach((t: any) => existingTypeMap.set(String(t.ticket), t.type));
+
             const formattedTrades = trades.map((t: any) => {
                 const tradeTime = (t.close_time || t.time) * 1000;
 
                 // Allow 60s buffer for clock skew
                 if (tradeTime < (challengeStartTime - 60000)) return null;
+
+                // Check if we have a manual fix in DB
+                const existingType = existingTypeMap.get(String(t.ticket));
+
+                // Determine Input Type (from Bridge)
+                let inputType = (t.type === 0 || String(t.type).toLowerCase() === 'buy') ? 'buy' : 'sell';
+
+                // LOCKDOWN LOGIC:
+                // 1. Hardcoded Failsafe for Known Ticket
+                if (String(t.ticket) === '8120684') {
+                    // console.log(`🛡️ [TradeSync] Hard-forcing Ticket 8120684 to BUY`);
+                    inputType = 'buy';
+                }
+
+                // 2. Dynamic Protection: If DB has 'buy' and Bridge has 'sell', KEEP 'buy'
+                else if (existingType === 'buy' && inputType === 'sell') {
+                    // console.log(`🔒 [TradeSync] Protected Ticket ${t.ticket} from reverting to SELL`);
+                    inputType = 'buy';
+                }
 
                 return {
                     ticket: t.ticket,
@@ -40,8 +69,8 @@ export async function startTradeSyncWorker() {
                     symbol: t.symbol,
                     // SYSTEMATIC FIX: Auto-correct trade type based on Price Action vs Profit
                     type: (() => {
-                        // 1. Get raw type from bridge
-                        let rawType = (t.type === 0 || String(t.type).toLowerCase() === 'buy') ? 'buy' : 'sell';
+                        // Use our locked-down input type as starting point
+                        let rawType = inputType;
 
                         // 2. Calculate Profit & Price Delta
                         const profit = Number(t.profit);
@@ -63,7 +92,7 @@ export async function startTradeSyncWorker() {
                             }
                         }
 
-                        // 4. Fallback to bridge type if indeterminate
+                        // 4. Fallback to locked type
                         return rawType;
                     })(),
                     lots: t.volume / 100,
@@ -79,7 +108,7 @@ export async function startTradeSyncWorker() {
 
             if (formattedTrades.length === 0) return { success: true, count: 0 };
 
-            // 3. Upsert to DB
+            // 4. Upsert to DB
             const { error } = await supabase
                 .from('trades')
                 .upsert(formattedTrades, { onConflict: 'challenge_id, ticket' });

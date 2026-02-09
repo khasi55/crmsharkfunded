@@ -199,6 +199,7 @@ async function getStats() {
         liveCount,
         instantCount,
         breachedCount,
+        totalAccounts: allChallenges?.length || 0, // Total count of ALL challenges
         financials: {
             payments: paymentStats,
             payouts: payoutStats,
@@ -271,6 +272,16 @@ export default async function AdminDashboardPage() {
             iconColor: "text-red-600",
             textColor: "text-red-600",
             href: "/mt5?status=breached"
+        },
+        {
+            title: "Total MT5 Accounts",
+            value: stats.totalAccounts,
+            icon: FileText,
+            color: "slate",
+            bgColor: "bg-slate-50",
+            iconColor: "text-slate-600",
+            textColor: "text-slate-600",
+            href: "/accounts" // Link to full accounts list
         },
         {
             title: "Total Users",

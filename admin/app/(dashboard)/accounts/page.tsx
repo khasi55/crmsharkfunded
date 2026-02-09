@@ -52,11 +52,8 @@ export default async function AccountsListPage({
         challengeQuery = challengeQuery.or('status.in.("disabled","upgraded"),upgraded_to.not.is.null');
     } else if (statusFilter) {
         challengeQuery = challengeQuery.eq('status', statusFilter);
-    } else {
-        // Exclude all terminal accounts by default
-        challengeQuery = challengeQuery.not('status', 'in', '("breached","failed","disabled","upgraded")');
-        challengeQuery = challengeQuery.is('upgraded_to', null);
     }
+    // REMOVED: Default exclusion filter to show ALL accounts (428 total)
 
     // Tab Filtering Logic
     if (tab === 'first') {
