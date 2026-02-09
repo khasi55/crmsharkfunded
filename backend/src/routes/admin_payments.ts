@@ -6,12 +6,12 @@ const router = Router();
 
 router.get('/', async (req: Request, res: Response) => {
     try {
-        // 1. Fetch payments
+        // 1. Fetch payments (Limit to 500 for stability)
         const { data: payments, error } = await supabase
             .from('payment_orders')
             .select('*')
-            // .eq('status', 'paid') // Removed filter to show all transactions
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: false })
+            .limit(500);
 
         if (error) {
             console.error('Error fetching admin payments:', error);
@@ -25,36 +25,44 @@ router.get('/', async (req: Request, res: Response) => {
         // 2. Extract unique user IDs
         const userIds = [...new Set(payments.map(p => p.user_id).filter(Boolean))];
 
-        // 3. Fetch profiles manually
-        const { data: profiles, error: profilesError } = await supabase
-            .from('profiles')
-            .select('id, full_name, email')
-            .in('id', userIds);
+        // 3. Batch profile fetching (Chunk size 50 to avoid Header Overflow)
+        const profilesMap: Record<string, any> = {};
+        const CHUNK_SIZE = 50;
 
-        if (profilesError) {
-            console.error('Error fetching profiles for payments:', profilesError);
-            // Continue without profiles, showing Unknown
+        for (let i = 0; i < userIds.length; i += CHUNK_SIZE) {
+            const chunk = userIds.slice(i, i + CHUNK_SIZE);
+            const { data: profiles, error: profilesError } = await supabase
+                .from('profiles')
+                .select('id, full_name, email')
+                .in('id', chunk);
+
+            if (profilesError) {
+                console.error(`[Admin Payments] Error fetching profiles chunk ${i}-${i + CHUNK_SIZE}:`, profilesError);
+                continue;
+            }
+
+            profiles?.forEach(p => {
+                profilesMap[p.id] = p;
+            });
         }
 
-        // 4. Map profiles to a dictionary for fast lookup
-        const profilesMap: Record<string, any> = {};
-        profiles?.forEach(p => {
-            profilesMap[p.id] = p;
-        });
-
-        // 5. Merge data
+        // 4. Merge data
         const formattedPayments = payments.map(p => {
             const profile = profilesMap[p.user_id];
+
             return {
                 id: p.id,
                 order_id: p.order_id,
                 amount: p.amount,
                 currency: p.currency,
                 status: p.status,
-                payment_method: p.payment_method,
+                payment_method: p.payment_method || 'gateway',
+                payment_gateway: p.payment_gateway || 'Unknown',
+                account_size: parseInt(String(p.account_size || 0).replace(/[^0-9]/g, '')) || 0,
+                coupon_code: p.coupon_code || '-',
                 created_at: p.created_at,
                 paid_at: p.paid_at,
-                user_name: profile?.full_name || 'Unknown',
+                user_name: profile?.full_name || profile?.email?.split('@')[0] || 'Unknown',
                 user_email: profile?.email || 'Unknown'
             };
         });

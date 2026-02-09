@@ -33,8 +33,8 @@ export class EmailService {
             // console.log(`📧 Attempting to send email via SMTP to ${to}...`);
 
             const fromHeader = `"${this.FROM_NAME}" <${this.FROM_EMAIL}>`;
-            const DEBUG = process.env.DEBUG === 'true';
-            if (DEBUG) console.log(`📧 Sender Header: ${fromHeader}`);
+            // const DEBUG = process.env.DEBUG === 'true';
+            // if (DEBUG) console.log(`📧 Sender Header: ${fromHeader}`);
 
             const info = await this.transporter.sendMail({
                 from: fromHeader,

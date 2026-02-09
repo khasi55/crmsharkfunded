@@ -34,9 +34,9 @@ export class AdvancedRiskEngine {
                 .eq('challenge_id', challengeId)
                 .eq('trade_ticket', violation.trade_ticket)
                 .eq('flag_type', violation.violation_type)
-                .maybeSingle();
+                .limit(1);
 
-            if (existing) {
+            if (existing && existing.length > 0) {
                 // console.log(`ℹ️ Skipping duplicate risk flag: ${violation.violation_type} for ${violation.trade_ticket}`);
                 return;
             }

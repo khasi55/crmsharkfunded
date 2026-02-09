@@ -11,6 +11,9 @@ interface PaymentOrder {
     currency: string;
     status: string;
     payment_method: string;
+    payment_gateway: string;
+    account_size: number;
+    coupon_code: string;
     created_at: string;
     paid_at: string;
     user_name: string;
@@ -47,7 +50,7 @@ export function PaymentReportsClient() {
     );
 
     const handleExport = () => {
-        const headers = ["Date", "Order ID", "User Name", "User Email", "Method", "Amount", "Currency", "Status"];
+        const headers = ["Date", "Order ID", "User Name", "User Email", "Gateway", "Method", "Amount", "Account Size", "Coupon", "Currency", "Status"];
         const csvContent = [
             headers.join(","),
             ...filteredPayments.map(p => [
@@ -55,8 +58,11 @@ export function PaymentReportsClient() {
                 p.order_id,
                 `"${p.user_name}"`, // Quote to handle commas in names
                 p.user_email,
+                p.payment_gateway || 'gateway',
                 p.payment_method,
                 p.amount,
+                p.account_size || 'N/A',
+                p.coupon_code || 'None',
                 p.currency,
                 p.status
             ].join(","))
@@ -110,7 +116,9 @@ export function PaymentReportsClient() {
                                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
                                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Order ID</th>
                                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">User</th>
-                                <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Method</th>
+                                <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Gateway</th>
+                                <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Account</th>
+                                <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Coupon</th>
                                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Amount</th>
                                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
                             </tr>
@@ -118,13 +126,13 @@ export function PaymentReportsClient() {
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
+                                    <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
                                         Loading payments...
                                     </td>
                                 </tr>
                             ) : filteredPayments.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
+                                    <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
                                         No payments found
                                     </td>
                                 </tr>
@@ -143,8 +151,19 @@ export function PaymentReportsClient() {
                                                 <span className="text-xs text-gray-500">{payment.user_email}</span>
                                             </div>
                                         </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm text-gray-900 capitalize font-medium">
+                                                    {(payment.payment_gateway && payment.payment_gateway !== 'Unknown') ? payment.payment_gateway : 'Gateway'}
+                                                </span>
+                                                <span className="text-xs text-gray-500 uppercase">{payment.payment_method || 'Unknown'}</span>
+                                            </div>
+                                        </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                            <span className="capitalize">{payment.payment_method || 'Unknown'}</span>
+                                            {payment.account_size > 0 ? `$${(payment.account_size / 1000).toLocaleString()}k` : '-'}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-mono">
+                                            {payment.coupon_code && payment.coupon_code !== '-' ? payment.coupon_code : '-'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                             {payment.currency === 'INR' ? '₹' : '$'}{payment.amount}

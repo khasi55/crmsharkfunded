@@ -67,8 +67,38 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
 
     // 2. Filter Trades for behavioral checks (Ghost Trade Protection)
     const validIncomingTrades = trades.filter((t: any) => t.volume > 0 && ['0', '1', 'buy', 'sell'].includes(String(t.type).toLowerCase()));
+
+    // START FIX: Systematic Data Correction (Auto-detect Type based on PnL vs Price)
+    validIncomingTrades.forEach((t: any) => {
+        // 1. Get raw type
+        const rawType = (String(t.type) === '0' || String(t.type).toLowerCase() === 'buy') ? 'buy' : 'sell';
+
+        // 2. Calculate Profit & Price Delta
+        const profit = Number(t.profit);
+        const openPrice = Number(t.price);
+        const closePrice = t.close_price ? Number(t.close_price) : Number(t.current_price || t.price);
+        const priceDelta = closePrice - openPrice;
+
+        // 3. Inference Logic (Only if profit is significant > $1.00)
+        if (Math.abs(profit) > 1.0) {
+            if (profit > 0) {
+                // Profitable: Price UP = Buy, Price DOWN = Sell
+                if (priceDelta > 0) t.type = 'buy';
+                else if (priceDelta < 0) t.type = 'sell';
+            } else {
+                // Loss: Price UP = Sell, Price DOWN = Buy
+                if (priceDelta > 0) t.type = 'sell';
+                else if (priceDelta < 0) t.type = 'buy';
+            }
+        }
+        // Else keep original type
+    });
+    // END FIX
+
     const challengeStartTime = new Date(challenge.created_at).getTime() / 1000;
-    meaningfulTrades = validIncomingTrades.filter((t: any) => t.time >= (challengeStartTime - 30));
+    // Optimization: Only process trades that opened or closed in the last 24 hours to reduce load
+    const oneDayAgo = (Date.now() / 1000) - 86400;
+    meaningfulTrades = validIncomingTrades.filter((t: any) => t.time >= oneDayAgo);
 
     // console.log(`[RiskEvent] Login ${login}: ${meaningfulTrades.length} meaningful trades / ${trades.length} total.`);
 

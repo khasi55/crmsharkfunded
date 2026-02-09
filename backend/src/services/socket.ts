@@ -132,7 +132,7 @@ export function getSocketMetrics() {
 // Broadcast helpers
 export function broadcastTradeUpdate(challengeId: string, trade: any) {
     if (!io) {
-        console.warn(' Socket.IO not initialized, cannot broadcast trade update');
+        if (DEBUG) console.warn(' Socket.IO not initialized, cannot broadcast trade update');
         return;
     }
 
@@ -143,7 +143,7 @@ export function broadcastTradeUpdate(challengeId: string, trade: any) {
 
 export function broadcastBalanceUpdate(challengeId: string, balanceData: any) {
     if (!io) {
-        console.warn(' Socket.IO not initialized, cannot broadcast balance update');
+        if (DEBUG) console.warn(' Socket.IO not initialized, cannot broadcast balance update');
         return;
     }
 
@@ -154,7 +154,7 @@ export function broadcastBalanceUpdate(challengeId: string, balanceData: any) {
 
 export function broadcastToUser(userId: string, event: string, data: any) {
     if (!io) {
-        console.warn(' Socket.IO not initialized, cannot broadcast to user');
+        if (DEBUG) console.warn(' Socket.IO not initialized, cannot broadcast to user');
         return;
     }
 
@@ -164,7 +164,7 @@ export function broadcastToUser(userId: string, event: string, data: any) {
 
 export function broadcastLeaderboard(competitionId: string, leaderboard: any[]) {
     if (!io) {
-        console.warn(' Socket.IO not initialized, cannot broadcast leaderboard');
+        if (DEBUG) console.warn(' Socket.IO not initialized, cannot broadcast leaderboard');
         return;
     }
 

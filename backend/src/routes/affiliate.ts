@@ -163,4 +163,31 @@ router.post('/withdraw', authenticate, async (req: AuthRequest, res: Response) =
     }
 });
 
+// GET /api/affiliate/withdrawals - Get withdrawal history
+router.get('/withdrawals', authenticate, async (req: AuthRequest, res: Response) => {
+    try {
+        const user = req.user;
+        if (!user) {
+            res.status(401).json({ error: 'Not authenticated' });
+            return;
+        }
+
+        const { data: withdrawals, error } = await supabase
+            .from('affiliate_withdrawals')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching withdrawals:', error);
+            throw error;
+        }
+
+        res.json({ withdrawals: withdrawals || [] });
+    } catch (error: any) {
+        console.error('Withdrawals history error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 export default router;

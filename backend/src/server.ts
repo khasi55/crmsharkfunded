@@ -124,11 +124,13 @@ app.use('/api/payouts', payoutsRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/certificates', certificatesRouter);
 app.use('/api/affiliate', affiliateRouter);
+app.use('/api/affiliates', affiliateRouter); // ALIAS: Handle plural (frontend uses this sometimes)
 app.use('/api/user', userRouter);
 app.use('/api/coupons', couponsRouter);
 app.use('/api/mt5', mt5Router);
 app.use('/api/kyc', kycRouter);
 app.use('/api/admins', adminsRouter);
+app.use('/api/admin/affiliate', adminAffiliateRouter); // ALIAS: Singular
 app.use('/api/admin/affiliates', adminAffiliateRouter);
 app.use('/api/admin/risk', adminRiskRouter);
 app.use('/api/admin/coupons', adminCouponsRouter);

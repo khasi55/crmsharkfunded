@@ -38,7 +38,34 @@ export async function startTradeSyncWorker() {
                     challenge_id: challengeId,
                     user_id: userId,
                     symbol: t.symbol,
-                    type: t.type === 0 ? 'buy' : t.type === 1 ? 'sell' : 'balance',
+                    // SYSTEMATIC FIX: Auto-correct trade type based on Price Action vs Profit
+                    type: (() => {
+                        // 1. Get raw type from bridge
+                        let rawType = (t.type === 0 || String(t.type).toLowerCase() === 'buy') ? 'buy' : 'sell';
+
+                        // 2. Calculate Profit & Price Delta
+                        const profit = Number(t.profit);
+                        const openPrice = Number(t.price);
+                        const closePrice = t.close_price ? Number(t.close_price) : Number(t.current_price || t.price); // Use current price if open
+                        const priceDelta = closePrice - openPrice;
+
+                        // 3. Inference Logic (Only if profit is significant to avoid spread noise)
+                        // If Profit > $1.00
+                        if (Math.abs(profit) > 1.0) {
+                            if (profit > 0) {
+                                // Profitable Trade
+                                if (priceDelta > 0) return 'buy'; // Price went UP + Money made = BUY
+                                if (priceDelta < 0) return 'sell'; // Price went DOWN + Money made = SELL
+                            } else {
+                                // Losing Trade
+                                if (priceDelta > 0) return 'sell'; // Price went UP + Money Lost = SELL
+                                if (priceDelta < 0) return 'buy'; // Price went DOWN + Money Lost = BUY
+                            }
+                        }
+
+                        // 4. Fallback to bridge type if indeterminate
+                        return rawType;
+                    })(),
                     lots: t.volume / 100,
                     open_price: t.price,
                     close_price: t.close_price || null,

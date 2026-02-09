@@ -31,7 +31,8 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         const envAdminKey = process.env.ADMIN_API_KEY || 'secure_admin_key_123'; // Fallback for dev
 
         if (adminKey && adminKey === envAdminKey) {
-            console.log('[Auth] Authenticated via Admin API Key');
+            const DEBUG = process.env.DEBUG === 'true';
+            if (DEBUG) console.log('[Auth] Authenticated via Admin API Key');
             req.user = { id: 'admin-system', role: 'admin', email: 'admin@system.local' };
             next();
             return;
@@ -82,7 +83,8 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         const { data: { user }, error } = await getSupabase().auth.getUser(token);
 
         if (error || !user) {
-            console.log('[Auth] Invalid token or user not found:', error);
+            const DEBUG = process.env.DEBUG === 'true';
+            if (DEBUG) console.log('[Auth] Invalid token or user not found:', error);
             res.status(401).json({ error: 'Invalid or expired token' });
             return;
         }
