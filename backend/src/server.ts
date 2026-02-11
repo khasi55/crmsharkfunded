@@ -23,7 +23,8 @@ console.warn = (...args) => {
 };
 
 const app = express();
-app.set('trust proxy', true);
+// Trust only the first proxy (load balancer) - prevents IP spoofing
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
 
 // 🛡️ SECURITY HEADERS (HELMET)
