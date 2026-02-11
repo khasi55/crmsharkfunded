@@ -384,9 +384,13 @@ export default function ChallengeConfigurator() {
             }
 
             // Call backend payment API instead of direct gateway
-            const res = await fetch('/api/payments/create-order', {
+            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.sharkfunded.co';
+            const res = await fetch(`${backendUrl}/api/payments/create-order`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+                },
                 body: JSON.stringify({
                     gateway, // Payment gateway (sharkpay, epay, paymid)
                     orderId: `SF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
