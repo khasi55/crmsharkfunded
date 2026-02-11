@@ -41,10 +41,10 @@ export class EPayGateway implements PaymentGateway {
 
                 // Webhook/Notification URLs: Point to the backend endpoint
                 // Sending multiple variants to ensure compatibility with all EPay versions
-                webhook_url: `https://api.sharkfunded.co/api/webhooks/payment`,
-                notification_url: `https://api.sharkfunded.co/api/webhooks/payment`,
-                notificationUrl: `https://api.sharkfunded.co/api/webhooks/payment`,
-                callback_url: `https://api.sharkfunded.co/api/webhooks/payment`
+                webhook_url: `${process.env.BACKEND_URL || 'https://api.sharkfunded.co'}/api/webhooks/payment`,
+                notification_url: `${process.env.BACKEND_URL || 'https://api.sharkfunded.co'}/api/webhooks/payment`,
+                notificationUrl: `${process.env.BACKEND_URL || 'https://api.sharkfunded.co'}/api/webhooks/payment`,
+                callback_url: `${process.env.BACKEND_URL || 'https://api.sharkfunded.co'}/api/webhooks/payment`
             };
 
             const endpoint = `${this.apiUrl}/create-new-order`;
