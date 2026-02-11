@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { createClient } from '@supabase/supabase-js';
+import jwt from 'jsonwebtoken';
 
 let supabaseClient: any = null;
 
@@ -23,41 +24,52 @@ export interface AuthRequest extends Request {
 
 const CACHE_TTL = 60 * 1000; // 60 seconds
 const authCache = new Map<string, { user: any; expires: number }>();
+const JWT_SECRET = process.env.JWT_SECRET || 'sharkfunded_admin_secret_2026_secure_key';
 
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
         // 1. Check for Admin API Key (Backend-to-Backend/Admin Panel)
         const adminKey = req.headers['x-admin-api-key'];
-        const envAdminKey = process.env.ADMIN_API_KEY || 'secure_admin_key_123'; // Fallback for dev
+        const envAdminKey = process.env.ADMIN_API_KEY;
 
-        if (adminKey && adminKey === envAdminKey) {
+        if (adminKey && envAdminKey && adminKey === envAdminKey) {
+            const adminEmail = req.headers['x-admin-email'] as string;
             const DEBUG = process.env.DEBUG === 'true';
-            if (DEBUG) console.log('[Auth] Authenticated via Admin API Key');
-            req.user = { id: 'admin-system', role: 'admin', email: 'admin@system.local' };
+            if (DEBUG) console.log(`[Auth] Authenticated via Admin API Key (Email: ${adminEmail || 'system'})`);
+
+            req.user = {
+                id: 'admin-system',
+                role: 'admin',
+                email: adminEmail || 'admin@system.local'
+            };
             next();
             return;
         }
 
-        // 2. Check for Admin Cookie (from Admin Portal)
-        const adminSessionId = req.cookies?.['admin_session'];
-        if (adminSessionId) {
-            const { data: adminUser, error: adminError } = await getSupabase()
-                .from('admin_users')
-                .select('id, email, full_name, role')
-                .eq('id', adminSessionId)
-                .single();
+        // 2. Check for Admin JWT Cookie (from Admin Portal)
+        const adminSessionToken = req.cookies?.['admin_session'];
+        if (adminSessionToken) {
+            try {
+                const decoded = jwt.verify(adminSessionToken, JWT_SECRET) as any;
+                const allowedRoles = ['admin', 'super_admin', 'sub_admin', 'risk_admin', 'payouts_admin'];
 
-            if (!adminError && adminUser) {
-                // console.log(`[Auth] Authenticated Admin via Cookie: ${adminUser.email}`);
-                req.user = { id: adminUser.id, role: adminUser.role || 'admin', email: adminUser.email };
-                next();
-                return;
+                if (decoded && allowedRoles.includes(decoded.role)) {
+                    req.user = {
+                        id: decoded.id,
+                        role: decoded.role,
+                        email: decoded.email,
+                        permissions: decoded.permissions || []
+                    };
+                    next();
+                    return;
+                }
+            } catch (jwtError) {
+                const DEBUG = process.env.DEBUG === 'true';
+                if (DEBUG) console.warn('[Auth] Admin JWT verification failed');
             }
         }
 
         const authHeader = req.headers.authorization;
-        // console.log(`🔐 [AuthDebug] Header: ${authHeader ? 'Present' : 'Missing'}, Value: ${authHeader?.substring(0, 20)}...`);
-
         if (!authHeader) {
             res.status(401).json({ error: 'Missing Authorization header' });
             return;
@@ -65,7 +77,6 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
         const token = authHeader.split(' ')[1]; // Bearer <token>
         if (!token || token === 'undefined' || token === 'null') {
-            console.error('🔐 [AuthDebug] Invalid token string:', token);
             res.status(401).json({ error: 'Invalid token format' });
             return;
         }
@@ -74,7 +85,6 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         const now = Date.now();
         const cached = authCache.get(token);
         if (cached && cached.expires > now) {
-            // console.log('[Auth] Cache HIT');
             req.user = cached.user;
             next();
             return;
@@ -83,24 +93,17 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         const { data: { user }, error } = await getSupabase().auth.getUser(token);
 
         if (error || !user) {
-            const DEBUG = process.env.DEBUG === 'true';
-            if (DEBUG) console.log('[Auth] Invalid token or user not found:', error);
             res.status(401).json({ error: 'Invalid or expired token' });
             return;
         }
 
         // --- CACHE SET ---
         authCache.set(token, { user, expires: now + CACHE_TTL });
-        // Prune cache if too big (simple guard)
         if (authCache.size > 1000) {
             const firstKey = authCache.keys().next().value;
             if (firstKey) authCache.delete(firstKey);
         }
 
-        // console.log(`[Auth] Authenticated User: ${user.id} (Cache Miss)`);
-
-        // Fetch role from profile if not in metadata
-        // For now, assume user role is 'user' unless specified
         const { data: profile } = await getSupabase()
             .from('profiles')
             .select('role')
@@ -131,6 +134,34 @@ export const requireRole = (roles: string[]) => {
         if (!roles.includes(user.role)) {
             res.status(403).json({ error: 'Access denied: Insufficient permissions' });
             return;
+        }
+
+        next();
+    };
+};
+
+export const requirePermission = (permission: string) => {
+    return (req: AuthRequest, res: Response, next: NextFunction) => {
+        const user = req.user;
+        if (!user) {
+            res.status(401).json({ error: 'Not authenticated' });
+            return;
+        }
+
+        // Super Admin always allowed
+        if (user.role === 'super_admin') {
+            next();
+            return;
+        }
+
+        // If user has a specific permission whitelist, enforce it
+        if (user.permissions && user.permissions.length > 0) {
+            if (!user.permissions.includes(permission.toLowerCase())) {
+                const DEBUG = process.env.DEBUG === 'true';
+                if (DEBUG) console.warn(`[Auth] Permission denied for ${user.email}. Missing: ${permission}`);
+                res.status(403).json({ error: `Access denied: Missing requirement '${permission}'` });
+                return;
+            }
         }
 
         next();

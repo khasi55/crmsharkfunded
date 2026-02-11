@@ -71,7 +71,7 @@ export default function CompetitionsClient() {
         setParticipantsLoading(true);
         setShowParticipantsModal(competitionId);
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'}/api/competitions/${competitionId}/leaderboard`);
+            const response = await fetch(`/api/competitions/${competitionId}/leaderboard`);
             if (response.ok) {
                 const data = await response.json();
                 setParticipants(data);
@@ -93,7 +93,7 @@ export default function CompetitionsClient() {
         setSelectedUserName(username);
         setShowTradesModal(true);
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'}/api/competitions/admin/trades/${challengeId}`);
+            const response = await fetch(`/api/competitions/admin/trades/${challengeId}`);
             if (response.ok) {
                 const data = await response.json();
                 setSelectedUserTrades(data);

@@ -1,13 +1,14 @@
 import express from 'express';
 import { supabase } from '../lib/supabase';
-import { authenticate } from '../middleware/auth';
+import { authenticate, AuthRequest } from '../middleware/auth';
+import { AuditLogger } from '../lib/audit-logger';
 
 const router = express.Router();
 
 // --- MERCHANT SETTINGS ---
 
 // GET /api/admin/settings/merchant
-router.get('/merchant', authenticate, async (req, res) => {
+router.get('/merchant', authenticate, async (req: AuthRequest, res) => {
     try {
         const { data, error } = await supabase
             .from('merchant_config')
@@ -38,7 +39,7 @@ router.get('/merchant', authenticate, async (req, res) => {
 
 // POST /api/admin/settings/merchant
 // Update a specific gateway
-router.post('/merchant', authenticate, async (req, res) => {
+router.post('/merchant', authenticate, async (req: AuthRequest, res) => {
     const { id, gateway_name, is_active, api_key, api_secret, webhook_secret, environment } = req.body;
 
     try {
@@ -76,6 +77,7 @@ router.post('/merchant', authenticate, async (req, res) => {
 
         if (result.error) throw result.error;
 
+        AuditLogger.info(req.user?.email || 'admin', `Updated Merchant Config: ${gateway_name}`, { gateway_name, category: 'Settings' });
         res.json(result.data);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -85,7 +87,7 @@ router.post('/merchant', authenticate, async (req, res) => {
 // --- PRICING SETTINGS ---
 
 // GET /api/admin/settings/pricing
-router.get('/pricing', authenticate, async (req, res) => {
+router.get('/pricing', authenticate, async (req: AuthRequest, res) => {
     try {
         const { data, error } = await supabase
             .from('pricing_configurations')
@@ -111,7 +113,7 @@ router.get('/pricing', authenticate, async (req, res) => {
 });
 
 // POST /api/admin/settings/pricing
-router.post('/pricing', authenticate, async (req, res) => {
+router.post('/pricing', authenticate, async (req: AuthRequest, res) => {
     try {
         const config = req.body;
 
@@ -127,6 +129,7 @@ router.post('/pricing', authenticate, async (req, res) => {
 
         if (error) throw error;
 
+        AuditLogger.info(req.user?.email || 'admin', `Updated Global Pricing Config`, { category: 'Settings' });
         res.json(data.config);
     } catch (e: any) {
         res.status(500).json({ error: e.message });

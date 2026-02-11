@@ -1,10 +1,12 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { supabase } from '../lib/supabase';
+import { authenticate, AuthRequest } from '../middleware/auth';
+import { AuditLogger } from '../lib/audit-logger';
 
 const router = Router();
 
 // GET / - List all coupons
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         // Fetch coupons
         const { data: coupons, error: couponsError } = await supabase
@@ -52,7 +54,7 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // POST / - Create a new coupon
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const {
             code,
@@ -105,6 +107,7 @@ router.post('/', async (req: Request, res: Response) => {
             return;
         }
 
+        AuditLogger.info(req.user?.email || 'admin', `Created coupon: ${code.toUpperCase()}`, { code, category: 'Marketing' });
         res.status(201).json({ coupon: data });
     } catch (error) {
         console.error('Error in POST /coupons:', error);
@@ -113,7 +116,7 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // PUT /:id - Update a coupon
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const updates = req.body;
@@ -134,6 +137,7 @@ router.put('/:id', async (req: Request, res: Response) => {
             return;
         }
 
+        AuditLogger.info(req.user?.email || 'admin', `Updated coupon ID: ${id}`, { id, category: 'Marketing' });
         res.json({ coupon: data });
     } catch (error) {
         console.error('Error in PUT /coupons/:id:', error);
@@ -142,7 +146,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 // DELETE /:id - Delete a coupon (or deactivate)
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
 
@@ -157,6 +161,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
             return;
         }
 
+        AuditLogger.warn(req.user?.email || 'admin', `Deleted coupon ID: ${id}`, { id, category: 'Marketing' });
         res.json({ success: true });
     } catch (error) {
         console.error('Error in DELETE /coupons/:id:', error);

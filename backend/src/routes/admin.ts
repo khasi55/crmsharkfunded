@@ -3,12 +3,19 @@ import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { createMT5Account, disableMT5Account } from '../lib/mt5-bridge';
 import { EmailService } from '../services/email-service';
+import { AuditLogger } from '../lib/audit-logger';
 
 const router = Router();
 
-router.post('/upgrade-account', async (req: Request, res: Response) => {
+router.post('/upgrade-account', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const { accountId } = req.body;
+
+        if (!req.user) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        AuditLogger.info(req.user.email, `Initiated account upgrade for ID: ${accountId}`, { accountId, category: 'Account' });
 
         if (!accountId) {
             return res.status(400).json({ error: 'Account ID is required' });

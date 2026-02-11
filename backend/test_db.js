@@ -1,0 +1,47 @@
+NEXT_PUBLIC_SUPABASE_URL=https://qjshgyxbhjhpqaprfeob.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqc2hneXhiaGpocHFhcHJmZW9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1Mjg1NjIsImV4cCI6MjA4MTEwNDU2Mn0.WCQFVXAJaM9gjH4yMlE0p3nuwT7PuWATpN8FvPsVNjw
+SUPABASE_SERVICE_ROLE_KEY=sb_secret_laJUGdDTOKGr49iaTQN0CQ_CUHfuc5i
+DIDIT_CLIENT_SECRET=iCnaiG8x0QPDK_niVXKqasMmuba36yJhuCtCapr7ojo
+DIDIT_WORKFLOW_ID=0f0fe61f-b06b-48a4-a4d1-32f4b9b1d47d
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+FRONTEND_URL=http://localhost:3000
+BACKEND_URL=https://c1ba80861b41.ngrok-free.app
+DIDIT_CLIENT_ID=151689a3-8e04-49a4-997a-d3b80560d513
+REDIS_URL=redis://default:yTnu2dJkq9u2XFruUScjdW5q9TbbFg9x@redis-12164.crce263.ap-south-1-1.ec2.cloud.redislabs.com:12164
+
+# SharkPay Payment Gateway
+SHARKPAY_API_KEY=your_sharkpay_api_key_here
+SHARKPAY_API_SECRET=your_sharkpay_api_secret_here
+SHARKPAY_API_URL=https://payments.sharkfunded.com
+SHARKPAY_WEBHOOK_SECRET=your_sharkpay_webhook_secret_here
+
+# Paymid Payment Gateway
+PAYMID_MERCHANT_ID=your_paymid_merchant_id_here
+PAYMID_API_KEY=your_paymid_api_key_here
+PAYMID_API_URL=https://api.paymid.com
+PAYMID_WEBHOOK_SECRET=your_paymid_webhook_secret_here
+
+# MT5 API (Optional - only needed for live account creation)
+MT5_API_URL=https://bridge.sharkfunded.co
+BRIDGE_URL=https://bridge.sharkfunded.co
+
+# SharkPay Credentials (Updated)
+# SharkPay Credentials (Updated)
+# SharkPay Credentials (Updated)
+SHARKPAY_API_KEY=pk_ed235a21c337b45499e3
+SHARKPAY_API_SECRET=sk_34c5267f143b8660d70298d708c7dac2
+PAYMENT_WEBHOOK_SECRET=b4730b85e53e75323cca0e2ed7723bd0c474043a902422c2f7ab66192d171806
+
+# MT5 Webhook Secret (For Python Bridge)
+MT5_WEBHOOK_SECRET=d83ef240d569a97297e3ef78a1a1921d22ce454c62e5f6fe5c7b5889e705b17b
+
+# MT5 Bridge API Key (For Outgoing Requests)
+MT5_API_KEY=sk_live_mt5_bridge_2026_secure_key_v1_xK9mP4nQ7wL2sR8tY3vB6cJ1hF5gD0zA
+
+# Paymid Secret Key
+PAYMID_SECRET_KEY=your_paymid_secret_key_here
+
+# EPay (Paymentservice.me)
+EPAY_MID=976697204360081
+EPAY_API_URL=https://api.paymentservice.me/v1/stage
+const { createClient } = require('@supabase/supabase-js'); require('dotenv').config(); const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY); async function test() { const { data, error } = await supabase.from('challenges').select('challenge_type').limit(10); console.log(JSON.stringify(data, null, 2)); } test();

@@ -2,18 +2,17 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { getAdminUser } from "@/utils/get-admin-user";
 
 export async function updateKYCStatus(
     requestId: string,
     status: "approved" | "rejected",
     reason?: string
 ) {
-    const supabase = await createClient();
+    const user = await getAdminUser();
+    if (!user) throw new Error("Unauthorized");
 
-    // Check admin permission (simplified for now, ideally strictly checked)
-    // const { data: { user } } = await supabase.auth.getUser();
-    // if (!user) throw new Error("Unauthorized");
+    const supabase = await createClient();
 
     const { error } = await supabase
         .from("kyc_requests")
@@ -29,9 +28,10 @@ export async function updateKYCStatus(
         throw new Error("Failed to update status");
     }
 
+    console.log(`🛡️ [Audit] ${user.email} updated KYC ${requestId} to ${status}`);
+
     revalidatePath("/admin/kyc");
     revalidatePath(`/admin/kyc/${requestId}`);
-    // return { success: true };
 }
 
 export async function updatePayoutStatus(
@@ -40,6 +40,9 @@ export async function updatePayoutStatus(
     reason?: string,
     transactionId?: string
 ) {
+    const user = await getAdminUser();
+    if (!user) throw new Error("Unauthorized");
+
     const supabase = await createClient();
 
     const { error } = await supabase
@@ -56,6 +59,8 @@ export async function updatePayoutStatus(
         console.error("Error updating Payout status:", error);
         throw new Error("Failed to update status");
     }
+
+    console.log(`🛡️ [Audit] ${user.email} updated Payout ${requestId} to ${status}`);
 
     revalidatePath("/admin/payouts");
     revalidatePath(`/admin/payouts/${requestId}`);

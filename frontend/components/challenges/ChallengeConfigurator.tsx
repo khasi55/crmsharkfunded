@@ -383,26 +383,31 @@ export default function ChallengeConfigurator() {
                 else if (type === '2-step') mt5Group = 'demo\\SF\\2-Pro';
             }
 
-            // Use new payment flow
-            const res = await fetch('/api/payment/create-order', {
+            // Call backend payment API instead of direct gateway
+            const res = await fetch('/api/payments/create-order', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    type: type.toLowerCase(), // Normalize for backend
-                    model,
-                    size,
-                    mt5Group, // Explicitly passing the group
-                    platform,
-                    coupon,
-                    gateway // User selected gateway
+                    gateway, // Payment gateway (sharkpay, epay, paymid)
+                    orderId: `SF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    amount: finalPriceUSD,
+                    currency: 'USD',
+                    customerEmail: user.email || '',
+                    customerName: user.user_metadata?.full_name || user.email || 'Customer',
+                    metadata: {
+                        account_type: `${type}-${model}`,
+                        account_size: size,
+                        mt5_group: mt5Group,
+                        platform,
+                        coupon: appliedCoupon?.coupon?.code || null
+                    }
                 })
             });
 
             const data = await res.json();
 
             if (res.ok && data.success) {
-                // Open payment in iframe modal
-                // Open payment in iframe modal
+                // Open payment in iframe modal or redirect
                 if (data.paymentUrl) {
                     if (gateway === 'epay') {
                         // EPay requires top-level redirect

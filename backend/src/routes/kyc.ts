@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { createDiditSession } from '../lib/didit';
+import { authenticate, AuthRequest } from '../middleware/auth';
+import { AuditLogger } from '../lib/audit-logger';
 
 const router = Router();
 
@@ -382,7 +384,7 @@ router.post('/update-status', async (req: Request, res: Response) => {
 // ============================================
 
 // GET /api/kyc/admin - List all KYC sessions (admin only)
-router.get('/admin', async (req: any, res: Response) => {
+router.get('/admin', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const { data: sessions, error } = await supabase
             .from('kyc_sessions')
@@ -425,7 +427,7 @@ router.get('/admin', async (req: any, res: Response) => {
 });
 
 // GET /api/kyc/admin/:id - Get single KYC session details (admin only)
-router.get('/admin/:id', async (req: any, res: Response) => {
+router.get('/admin/:id', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
 
@@ -464,7 +466,7 @@ router.get('/admin/:id', async (req: any, res: Response) => {
 });
 
 // POST /api/kyc/admin/:id/approve - Manually approve a KYC session
-router.post('/admin/:id/approve', async (req: Request, res: Response) => {
+router.post('/admin/:id/approve', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const { document_url, document_type } = req.body as { document_url?: string; document_type?: string };
@@ -509,6 +511,13 @@ router.post('/admin/:id/approve', async (req: Request, res: Response) => {
             message: 'KYC session approved successfully',
             session: data
         });
+
+        // Fetch user email for logging
+        const { data: kycSession } = await supabase.from('kyc_sessions').select('user_id').eq('id', id).single();
+        const { data: userProfile } = kycSession?.user_id ? await supabase.from('profiles').select('email').eq('id', kycSession.user_id).single() : { data: null };
+        const kycUserEmail = userProfile?.email || id;
+
+        AuditLogger.info(req.user?.email || 'admin', `Manually approved KYC for ${kycUserEmail}`, { id, category: 'KYC' });
     } catch (error: any) {
         console.error('Approve KYC error:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -516,7 +525,7 @@ router.post('/admin/:id/approve', async (req: Request, res: Response) => {
 });
 
 // POST /api/kyc/admin/:id/reject - Manually reject a KYC session
-router.post('/admin/:id/reject', async (req: Request, res: Response) => {
+router.post('/admin/:id/reject', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const { reason } = req.body as { reason?: string };
@@ -560,6 +569,9 @@ router.post('/admin/:id/reject', async (req: Request, res: Response) => {
             message: 'KYC session rejected',
             session: data
         });
+
+        const kycUserEmail = data.user_id ? (await supabase.from('profiles').select('email').eq('id', data.user_id).single()).data?.email || id : id;
+        AuditLogger.warn(req.user?.email || 'admin', `Manually rejected KYC for ${kycUserEmail}. Reason: ${reason}`, { id, reason, category: 'KYC' });
     } catch (error: any) {
         console.error('Reject KYC error:', error);
         res.status(500).json({ error: 'Internal server error' });

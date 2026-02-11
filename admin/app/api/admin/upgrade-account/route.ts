@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/utils/supabase/admin";
+import { fetchWithAuth } from "@/utils/fetch-with-auth";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -37,12 +38,8 @@ export async function POST(request: NextRequest) {
         }
 
         // Call backend to handle the entire upgrade process
-        const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:3001';
-        const upgradeResponse = await fetch(`${BACKEND_URL}/api/admin/upgrade-account`, {
+        const upgradeResponse = await fetchWithAuth(`/api/admin/upgrade-account`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify({ accountId }), // Pass the PASSED account ID
         });
 

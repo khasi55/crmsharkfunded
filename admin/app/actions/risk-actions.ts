@@ -1,25 +1,11 @@
 "use server";
 
-import { getAdminUser } from "@/utils/get-admin-user";
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:3001';
-const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'secure_admin_key_123';
-
-// Helper to check authentication
-async function checkAuth() {
-    const user = await getAdminUser();
-    if (!user) {
-        throw new Error("Unauthorized");
-    }
-    return user;
-}
+import { fetchWithAuth } from "@/utils/fetch-with-auth";
 
 // --- GROUPS ---
 export async function getRiskGroups() {
-    await checkAuth();
     try {
-        const res = await fetch(`${BACKEND_URL}/api/admin/risk/groups`, {
-            headers: { 'x-admin-api-key': ADMIN_API_KEY },
+        const res = await fetchWithAuth(`/api/admin/risk/groups`, {
             cache: 'no-store'
         });
         if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
@@ -31,33 +17,22 @@ export async function getRiskGroups() {
 }
 
 export async function saveRiskGroup(group: any) {
-    await checkAuth();
     try {
-        const res = await fetch(`${BACKEND_URL}/api/admin/risk/groups`, {
+        const res = await fetchWithAuth(`/api/admin/risk/groups`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-admin-api-key': ADMIN_API_KEY
-            },
             body: JSON.stringify(group)
         });
         if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
         return await res.json();
     } catch (e: any) {
-        // console.error("saveRiskGroup error:", e);
         throw e;
     }
 }
 
 export async function deleteRiskGroup(id: string) {
-    await checkAuth();
     try {
-        const res = await fetch(`${BACKEND_URL}/api/admin/risk/groups/${id}`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-admin-api-key': ADMIN_API_KEY
-            }
+        const res = await fetchWithAuth(`/api/admin/risk/groups/${id}`, {
+            method: 'DELETE'
         });
         if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
         return await res.json();
@@ -68,10 +43,8 @@ export async function deleteRiskGroup(id: string) {
 
 // --- SERVER CONFIG ---
 export async function getServerConfig() {
-    await checkAuth();
     try {
-        const res = await fetch(`${BACKEND_URL}/api/admin/risk/server-config`, {
-            headers: { 'x-admin-api-key': ADMIN_API_KEY },
+        const res = await fetchWithAuth(`/api/admin/risk/server-config`, {
             cache: 'no-store'
         });
         if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
@@ -83,30 +56,22 @@ export async function getServerConfig() {
 }
 
 export async function saveServerConfig(config: any) {
-    await checkAuth();
     try {
-        const res = await fetch(`${BACKEND_URL}/api/admin/risk/server-config`, {
+        const res = await fetchWithAuth(`/api/admin/risk/server-config`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-admin-api-key': ADMIN_API_KEY
-            },
             body: JSON.stringify(config)
         });
         if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
         return await res.json();
     } catch (e: any) {
-        // console.error("saveServerConfig error:", e);
         throw e;
     }
 }
 
 // --- LOGS ---
 export async function getSystemLogs() {
-    await checkAuth();
     try {
-        const res = await fetch(`${BACKEND_URL}/api/admin/risk/logs`, {
-            headers: { 'x-admin-api-key': ADMIN_API_KEY },
+        const res = await fetchWithAuth(`/api/admin/risk/logs`, {
             cache: 'no-store'
         });
         if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
@@ -119,10 +84,8 @@ export async function getSystemLogs() {
 
 // --- CHALLENGE TYPE RULES ---
 export async function getChallengeTypeRules() {
-    await checkAuth();
     try {
-        const res = await fetch(`${BACKEND_URL}/api/admin/risk/challenge-type-rules`, {
-            headers: { 'x-admin-api-key': ADMIN_API_KEY },
+        const res = await fetchWithAuth(`/api/admin/risk/challenge-type-rules`, {
             cache: 'no-store'
         });
         if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
@@ -134,14 +97,9 @@ export async function getChallengeTypeRules() {
 }
 
 export async function saveChallengeTypeRule(rule: any) {
-    await checkAuth();
     try {
-        const res = await fetch(`${BACKEND_URL}/api/admin/risk/challenge-type-rules`, {
+        const res = await fetchWithAuth(`/api/admin/risk/challenge-type-rules`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-admin-api-key': ADMIN_API_KEY
-            },
             body: JSON.stringify(rule)
         });
         if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
@@ -150,4 +108,3 @@ export async function saveChallengeTypeRule(rule: any) {
         throw e;
     }
 }
-

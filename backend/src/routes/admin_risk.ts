@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'; // Adjust path if needed
 import { authenticate } from '../middleware/auth'; // Ensure admin auth
 import { RulesService } from '../services/rules-service'; // Import RulesService
 import { EmailService } from '../services/email-service'; // Import EmailService
+import { AuditLogger } from '../lib/audit-logger';
 
 const router = express.Router();
 
@@ -42,7 +43,8 @@ router.post('/groups', authenticate, async (req: any, res: any) => {
             console.error("❌ [Admin Risk] Save Error:", error.message);
             throw error;
         }
-        // console.log("✅ [Admin Risk] Saved Group:", data);
+
+        AuditLogger.info(req.user?.email || 'admin', `Saved Risk Group: ${group_name}`, { group_name, category: 'Risk' });
         res.json(data);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -62,7 +64,8 @@ router.delete('/groups/:id', authenticate, async (req: any, res: any) => {
             console.error("❌ [Admin Risk] Delete Error:", error.message);
             throw error;
         }
-        console.log("✅ [Admin Risk] Deleted Group:", id);
+
+        AuditLogger.warn(req.user?.email || 'admin', `Deleted Risk Group: ${id}`, { id, category: 'Risk' });
         res.json({ success: true });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -105,7 +108,8 @@ router.post('/challenge-type-rules', authenticate, async (req: any, res: any) =>
             console.error("❌ [Admin Risk] Save Error:", error.message);
             throw error;
         }
-        console.log("✅ [Admin Risk] Saved Challenge Type Rule:", data);
+
+        AuditLogger.info(req.user?.email || 'admin', `Saved Challenge Type Rule: ${challenge_type}`, { challenge_type, category: 'Risk' });
         res.json(data);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -189,6 +193,8 @@ router.post('/server-config', authenticate, async (req: any, res: any) => {
             .single();
 
         if (error) throw error;
+
+        AuditLogger.info(req.user?.email || 'admin', `Updated MT5 Server Config`, { server_ip, manager_login, category: 'Config' });
 
         // --- TRIGGER BRIDGE RELOAD ---
         const BRIDGE_URL = process.env.BRIDGE_URL || 'http://localhost:5001';

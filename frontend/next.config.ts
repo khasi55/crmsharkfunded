@@ -1,6 +1,19 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  compress: true, // Enable Gzip compression
+  poweredByHeader: false, // Remove X-Powered-By header
+
+  images: {
+    formats: ['image/webp', 'image/avif'], // Serve modern image formats
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+  },
+
+  experimental: {
+    optimizeCss: true, // Optimize CSS delivery
+  },
+
   async rewrites() {
     const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
     return [

@@ -1,21 +1,23 @@
-import { createClient } from "@/utils/supabase/server";
+import { fetchWithAuth } from "@/utils/fetch-with-auth";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
 export default async function AdminKYCPage() {
-    const supabase = await createClient();
-
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/kyc/admin`, {
-        cache: 'no-store'
-    });
-
     let requests = [];
-    if (response.ok) {
-        const data = await response.json();
-        requests = data.sessions || []; // Backend returns { sessions: [...] }
-    } else {
-        console.error('Failed to fetch KYC requests from backend');
+    try {
+        const response = await fetchWithAuth(`/api/kyc/admin`, {
+            cache: 'no-store'
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            requests = data.sessions || []; // Backend returns { sessions: [...] }
+        } else {
+            console.error('Failed to fetch KYC requests from backend:', response.statusText);
+        }
+    } catch (e) {
+        console.error('Error in AdminKYCPage fetch:', e);
     }
 
     return (

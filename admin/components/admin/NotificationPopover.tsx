@@ -6,7 +6,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/simple-
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 // Type badge configuration
 const TYPE_CONFIG = {
@@ -25,7 +24,7 @@ export function NotificationPopover() {
 
     const fetchNotifications = async () => {
         try {
-            const res = await fetch(`${API_URL}/api/admin/notifications`, {
+            const res = await fetch(`/api/admin/notifications`, {
                 headers: { 'x-admin-api-key': 'secure_admin_key_123' }
             });
             if (res.ok) {
@@ -48,7 +47,7 @@ export function NotificationPopover() {
     const markAsRead = async (id: string) => {
         setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
         try {
-            await fetch(`${API_URL}/api/admin/notifications/mark-read`, {
+            await fetch(`/api/admin/notifications/mark-read`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -64,7 +63,7 @@ export function NotificationPopover() {
     const markAllAsRead = async () => {
         setNotifications(notifications.map(n => ({ ...n, read: true })));
         try {
-            await fetch(`${API_URL}/api/admin/notifications/mark-read`, {
+            await fetch(`/api/admin/notifications/mark-read`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -80,7 +79,7 @@ export function NotificationPopover() {
     const deleteNotification = async (id: string) => {
         setNotifications(notifications.filter(n => n.id !== id));
         try {
-            await fetch(`${API_URL}/api/admin/notifications/${id}`, {
+            await fetch(`/api/admin/notifications/${id}`, {
                 method: 'DELETE',
                 headers: { 'x-admin-api-key': 'secure_admin_key_123' }
             });

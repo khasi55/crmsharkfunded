@@ -1,6 +1,19 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  compress: true,
+  poweredByHeader: false,
+
+  images: {
+    formats: ['image/webp', 'image/avif'],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+  },
+
+  experimental: {
+    optimizeCss: true,
+  },
+
   async rewrites() {
     return [
       {
@@ -34,6 +47,14 @@ const nextConfig: NextConfig = {
       {
         source: '/api/upload',
         destination: `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:3001'}/api/upload`,
+      },
+      {
+        source: '/api/event/:path*',
+        destination: `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:3001'}/api/event/:path*`,
+      },
+      {
+        source: '/api/competitions/:path*',
+        destination: `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:3001'}/api/competitions/:path*`,
       },
     ];
   },

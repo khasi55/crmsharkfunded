@@ -1,21 +1,10 @@
 "use server";
 
-import { getAdminUser } from "@/utils/get-admin-user";
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:3001';
-const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'secure_admin_key_123';
-
-async function checkAuth() {
-    const user = await getAdminUser();
-    if (!user) throw new Error("Unauthorized");
-    return user;
-}
+import { fetchWithAuth } from "@/utils/fetch-with-auth";
 
 export async function getMerchantSettings() {
-    await checkAuth();
     try {
-        const res = await fetch(`${BACKEND_URL}/api/admin/settings/merchant`, {
-            headers: { 'x-admin-api-key': ADMIN_API_KEY },
+        const res = await fetchWithAuth(`/api/admin/settings/merchant`, {
             cache: 'no-store'
         });
         if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
@@ -27,14 +16,9 @@ export async function getMerchantSettings() {
 }
 
 export async function saveMerchantSetting(setting: any) {
-    await checkAuth();
     try {
-        const res = await fetch(`${BACKEND_URL}/api/admin/settings/merchant`, {
+        const res = await fetchWithAuth(`/api/admin/settings/merchant`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-admin-api-key': ADMIN_API_KEY
-            },
             body: JSON.stringify(setting)
         });
         if (!res.ok) throw new Error(`API Error: ${res.statusText}`);

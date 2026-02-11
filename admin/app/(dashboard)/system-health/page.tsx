@@ -27,10 +27,7 @@ export default function SystemHealthPage() {
 
     const fetchHealth = async () => {
         try {
-            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
-            const response = await fetch(`${backendUrl}/api/admin/health`, {
-                credentials: 'include'
-            });
+            const response = await fetch(`/api/admin/health`);
 
             if (!response.ok) throw new Error('Health check failed');
 

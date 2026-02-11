@@ -27,7 +27,7 @@ export function PaymentReportsClient() {
 
     const fetchPayments = async () => {
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/payments`);
+            const res = await fetch(`/api/admin/payments`);
             if (res.ok) {
                 const data = await res.json();
                 setPayments(data);

@@ -35,16 +35,16 @@ export class EPayGateway implements PaymentGateway {
                 user_name: params.customerName,
                 orderCurrency: params.currency || 'USD',
                 // EPay requires valid public URLs (no localhost)
-                // Redirect URLs: These should point to the backend webhook route which then redirects to the correct frontend
-                success_url: `https://c1ba80861b41.ngrok-free.app/api/webhooks/payment?orderId=${params.orderId}&status=success`,
-                failure_url: `https://c1ba80861b41.ngrok-free.app/api/webhooks/payment?orderId=${params.orderId}&status=failed`,
+                // Redirect URLs: These should point to app.sharkfunded.com
+                success_url: `https://app.sharkfunded.com/payment/success?orderId=${params.orderId}`,
+                failure_url: `https://app.sharkfunded.com/payment/failed?orderId=${params.orderId}`,
 
-                // Webhook/Notification URLs: Point to the background backend endpoint
+                // Webhook/Notification URLs: Point to the backend endpoint
                 // Sending multiple variants to ensure compatibility with all EPay versions
-                webhook_url: `https://c1ba80861b41.ngrok-free.app/api/webhooks/payment`,
-                notification_url: `https://c1ba80861b41.ngrok-free.app/api/webhooks/payment`,
-                notificationUrl: `https://c1ba80861b41.ngrok-free.app/api/webhooks/payment`,
-                callback_url: `https://c1ba80861b41.ngrok-free.app/api/webhooks/payment`
+                webhook_url: `https://api.sharkfunded.co/api/webhooks/payment`,
+                notification_url: `https://api.sharkfunded.co/api/webhooks/payment`,
+                notificationUrl: `https://api.sharkfunded.co/api/webhooks/payment`,
+                callback_url: `https://api.sharkfunded.co/api/webhooks/payment`
             };
 
             const endpoint = `${this.apiUrl}/create-new-order`;

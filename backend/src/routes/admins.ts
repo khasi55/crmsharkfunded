@@ -1,6 +1,9 @@
-import { Router } from 'express';
+import express, { Router, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import { authenticate, AuthRequest } from '../middleware/auth';
+import { AuditLogger } from '../lib/audit-logger';
+import bcrypt from 'bcrypt';
 
 dotenv.config();
 
@@ -16,7 +19,7 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 // GET /api/admins - List all admins
-router.get('/', async (req, res) => {
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const { data: admins, error } = await supabase
             .from('admin_users')
@@ -33,7 +36,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/admins - Create new admin
-router.post('/', async (req, res) => {
+router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const { email, password, full_name, role, permissions } = req.body;
 
@@ -54,14 +57,17 @@ router.post('/', async (req, res) => {
             return;
         }
 
+        // Hash password before storage
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+
         // Insert new admin
-        // Note: Password stored in plain text as per current system design (verify_admin_credentials)
         const { data, error } = await supabase
             .from('admin_users')
             .insert([
                 {
                     email,
-                    password,
+                    password: hashedPassword,
                     full_name,
                     role: role || 'sub_admin',
                     permissions: permissions || [] // Save permissions array
@@ -72,16 +78,16 @@ router.post('/', async (req, res) => {
 
         if (error) throw error;
 
+        AuditLogger.info(req.user?.email || 'admin', `Created new admin user: ${email}`, { email, role, category: 'AdminManagement' });
         res.json({ admin: data });
     } catch (error: any) {
-
         console.error('Error creating admin:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
 // DELETE /api/admins/:id - Delete admin
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
 
@@ -97,6 +103,7 @@ router.delete('/:id', async (req, res) => {
 
         if (error) throw error;
 
+        AuditLogger.warn(req.user?.email || 'admin', `Deleted admin user ID: ${id}`, { id, category: 'AdminManagement' });
         res.json({ success: true });
     } catch (error: any) {
         console.error('Error deleting admin:', error);

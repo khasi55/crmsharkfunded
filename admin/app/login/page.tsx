@@ -26,9 +26,9 @@ export default function AdminLoginPage() {
 
             if (result?.error) {
                 setError(result.error);
-            } else {
-                // Success, middleware/action should handle redirect, but we can also push
-                // The action usually handles the redirect on success
+            } else if (result?.success) {
+                router.push("/dashboard");
+                router.refresh();
             }
         } catch (err) {
             setError("An unexpected error occurred.");

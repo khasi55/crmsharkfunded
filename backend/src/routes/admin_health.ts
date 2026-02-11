@@ -2,14 +2,15 @@ import { Router, Response } from 'express';
 import { getSocketMetrics } from '../services/socket';
 import { supabase } from '../lib/supabase';
 import { getRedis } from '../lib/redis';
+import { authenticate, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
 
 const BRIDGE_URL = process.env.BRIDGE_URL || 'https://bridge.sharkfunded.co';
 
-// GET /api/admin/health - System health monitoring (no auth - admin portal access)
-router.get('/', async (req, res: Response) => {
+// GET /api/admin/health - System health monitoring
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const healthData: any = {
             timestamp: new Date().toISOString(),

@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
+import { AuditLogger } from '../lib/audit-logger';
 
 const router = Router();
 
@@ -59,6 +60,8 @@ router.post('/withdrawals/:id/status', authenticate, requireRole(['super_admin',
             .single();
 
         if (error) throw error;
+
+        AuditLogger.info(req.user?.email || 'admin', `Updated withdrawal status for ID: ${id} to ${status}`, { id, status, category: 'Affiliate' });
 
         res.json({ message: 'Status updated', withdrawal: data });
     } catch (error: any) {

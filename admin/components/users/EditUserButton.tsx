@@ -33,7 +33,7 @@ export function EditUserButton({ user }: EditUserButtonProps) {
         setLoading(true);
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}/api/admin/users/update`, {
+            const res = await fetch(`/api/admin/users/update`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -1,6 +1,8 @@
-import { Router } from 'express';
+import { Router, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import { authenticate, AuthRequest } from '../middleware/auth';
+import { AuditLogger } from '../lib/audit-logger';
 
 dotenv.config();
 
@@ -21,19 +23,8 @@ const supabaseAdmin = createClient(supabaseUrl!, supabaseServiceKey!, {
     }
 });
 
-// Middleware to check for Admin API Key (Simple protection for now)
-const checkAdminAuth = (req: any, res: any, next: any) => {
-    const apiKey = req.headers['x-admin-api-key'];
-    const validKey = process.env.ADMIN_API_KEY || 'secure_admin_key_123';
-
-    if (apiKey !== validKey) {
-        return res.status(401).json({ error: 'Unauthorized: Invalid Admin Key' });
-    }
-    next();
-};
-
 // POST /api/admin/users/update-email
-router.post('/update-email', checkAdminAuth, async (req, res) => {
+router.post('/update-email', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const { userId, newEmail } = req.body;
 
@@ -41,7 +32,11 @@ router.post('/update-email', checkAdminAuth, async (req, res) => {
             return res.status(400).json({ error: 'Missing userId or newEmail' });
         }
 
-        console.log(`📧 Admin Request: Updating email for user ${userId} to ${newEmail}`);
+        // Fetch user email for logging
+        const { data: userToUpdate } = await supabaseAdmin.from('profiles').select('email').eq('id', userId).single();
+        const userEmail = userToUpdate?.email || userId;
+
+        AuditLogger.info(req.user?.email || 'admin', `Updated user email for ${userEmail} to ${newEmail}`, { userId, newEmail, category: 'User' });
 
         // 1. Update in Supabase Auth
         const { data: user, error: authError } = await supabaseAdmin.auth.admin.updateUserById(
@@ -69,11 +64,12 @@ router.post('/update-email', checkAdminAuth, async (req, res) => {
 
     } catch (error: any) {
         console.error('Admin Update Email Error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
 // POST /api/admin/users/create - Create a new user manually
-router.post('/create', checkAdminAuth, async (req, res) => {
+router.post('/create', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const { email, password, full_name, country, phone } = req.body;
 
@@ -81,7 +77,7 @@ router.post('/create', checkAdminAuth, async (req, res) => {
             return res.status(400).json({ error: 'Missing required fields: email, password, full_name' });
         }
 
-        console.log(`👤 Admin Create User Request: ${email}`);
+        AuditLogger.info(req.user?.email || 'admin', `Created new user: ${email}`, { email, category: 'User' });
 
         // 1. Create User in Supabase Auth
         const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -128,7 +124,7 @@ router.post('/create', checkAdminAuth, async (req, res) => {
 });
 
 // GET /api/admin/users/search - Search users for dropdown (limit 50)
-router.get('/search', checkAdminAuth, async (req, res) => {
+router.get('/search', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const query = req.query.q as string || '';
 
@@ -161,7 +157,7 @@ router.get('/search', checkAdminAuth, async (req, res) => {
 });
 
 // POST /api/admin/users/update - Update user details
-router.post('/update', checkAdminAuth, async (req, res) => {
+router.post('/update', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const { userId, full_name, country, phone } = req.body;
 
@@ -169,7 +165,11 @@ router.post('/update', checkAdminAuth, async (req, res) => {
             return res.status(400).json({ error: 'Missing required field: userId' });
         }
 
-        console.log(`📝 Admin Update User Request: ${userId}`);
+        // Fetch user email for logging
+        const { data: targetProfile } = await supabaseAdmin.from('profiles').select('email').eq('id', userId).single();
+        const targetEmail = targetProfile?.email || userId;
+
+        AuditLogger.info(req.user?.email || 'admin', `Updated details for user ${targetEmail}`, { userId, category: 'User' });
 
         // 1. Update Profile in Public Table
         const { error: dbError } = await supabaseAdmin
