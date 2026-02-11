@@ -7,11 +7,6 @@ import {
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 export class SharkPayGateway implements PaymentGateway {
     name = 'sharkpay';
     private apiUrl: string;
@@ -21,21 +16,28 @@ export class SharkPayGateway implements PaymentGateway {
     }
 
     private async getConfig() {
-        // Fetch from DB first
+        // Fetch from DB first (only if Supabase credentials are available)
         try {
-            const { data } = await supabase
-                .from('merchant_config')
-                .select('*')
-                .eq('gateway_name', 'SharkPay')
-                .single();
+            if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+                const supabase = createClient(
+                    process.env.SUPABASE_URL,
+                    process.env.SUPABASE_SERVICE_ROLE_KEY
+                );
 
-            if (data && data.is_active) {
-                return {
-                    keyId: data.api_key,
-                    keySecret: data.api_secret,
-                    webhookSecret: data.webhook_secret,
-                    environment: data.environment
-                };
+                const { data } = await supabase
+                    .from('merchant_config')
+                    .select('*')
+                    .eq('gateway_name', 'SharkPay')
+                    .single();
+
+                if (data && data.is_active) {
+                    return {
+                        keyId: data.api_key,
+                        keySecret: data.api_secret,
+                        webhookSecret: data.webhook_secret,
+                        environment: data.environment
+                    };
+                }
             }
         } catch (e) {
             console.warn("Failed to fetch SharkPay config from DB, falling back to ENV:", e);
