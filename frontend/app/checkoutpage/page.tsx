@@ -219,6 +219,8 @@ function CheckoutContent() {
 
             // Call backend payment API
             const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.sharkfunded.co';
+            // EPay requires alphanumeric orderID (no hyphens or special chars)
+            const orderId = `SF${Date.now()}${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
             const response = await fetch(`${backendUrl}/api/payments/create-order`, {
                 method: 'POST',
                 headers: {
@@ -226,7 +228,7 @@ function CheckoutContent() {
                 },
                 body: JSON.stringify({
                     gateway: selectedGateway.toLowerCase(),
-                    orderId: `SF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    orderId: orderId,
                     amount: finalPriceUSD,
                     currency: 'USD',
                     customerEmail: formData.email,
