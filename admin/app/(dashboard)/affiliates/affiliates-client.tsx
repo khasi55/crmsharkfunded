@@ -383,263 +383,138 @@ export default function AdminAffiliatesClient() {
             )}
 
             {activeTab === 'tree' && (
-               // Pagination State
-    const [currentPage, setCurrentPage] = useState(1);
-            const ITEMS_PER_PAGE = 50;
-
-    const filteredAffiliates = tree.filter(node =>
-            node.email?.toLowerCase().includes(search.toLowerCase()) ||
-            node.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-            node.referral_code?.toLowerCase().includes(search.toLowerCase())
-            );
-
-            const totalPages = Math.ceil(filteredAffiliates.length / ITEMS_PER_PAGE);
-            const paginatedAffiliates = filteredAffiliates.slice(
-            (currentPage - 1) * ITEMS_PER_PAGE,
-            currentPage * ITEMS_PER_PAGE
-            );
-
-    const handlePageChange = (page: number) => {
-                setCurrentPage(page);
-            window.scrollTo({top: 0, behavior: 'smooth' });
-    };
-
-            if (loading) {
-        return (
-            <div className="flex items-center justify-center p-12">
-                <Loader2 className="animate-spin text-blue-600" size={32} />
-                <span className="ml-3 text-slate-600">Loading affiliate data...</span>
-            </div>
-            );
-    }
-
-            return (
-            <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-xl font-bold text-slate-900">Affiliate Network</h2>
-                        <p className="text-sm text-slate-500">
-                            {tree.length} Total Affiliates • {filteredAffiliates.length} matches
-                        </p>
-                    </div>
-                    <div className="relative w-72">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Search affiliates..."
-                            value={search}
-                            onChange={(e) => {
-                                setSearch(e.target.value);
-                                setCurrentPage(1); // Reset to page 1 on search
-                            }}
-                            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                        />
-                    </div>
-                </div>
-
-                <div className="space-y-4">
-                    {paginatedAffiliates.map((affiliate) => (
-                        <div key={affiliate.id} className="bg-white border border-slate-200 rounded-lg shadow-sm">
-                            <div
-                                className="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors"
-                                onClick={() => toggleExpand(affiliate.id)}
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
-                                        <User size={20} />
-                                    </div>
-                                    <div>
-                                        <h3 className="font-semibold text-slate-900">{affiliate.full_name || 'Unknown'}</h3>
-                                        <div className="flex items-center gap-4 text-sm text-slate-500 mt-1">
-                                            <span className="flex items-center gap-1">
-                                                <Mail size={14} />
-                                                {affiliate.email}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-6">
-                                    <div className="text-right">
-                                        <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Referral Code</div>
-                                        <div className="font-mono text-slate-900 bg-slate-100 px-2 py-0.5 rounded text-sm">{affiliate.referral_code}</div>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Uses</div>
-                                        <div className="font-medium text-slate-900 flex items-center gap-1 justify-end">
-                                            <CreditCard size={14} className="text-slate-400" />
-                                            {affiliate.sales_count || 0}
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Volume</div>
-                                        <div className="font-medium text-slate-900 flex items-center gap-1 justify-end">
-                                            <Wallet size={14} className="text-slate-400" />
-                                            ${(affiliate.sales_volume || 0).toLocaleString()}
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Referred</div>
-                                        <div className="font-medium text-slate-900 flex items-center gap-1 justify-end">
-                                            <Users size={14} className="text-slate-400" />
-                                            {affiliate.referred_count}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        {expanded.has(affiliate.id) ? (
-                                            <ChevronUp className="text-slate-400" />
-                                        ) : (
-                                            <ChevronDown className="text-slate-400" />
-                                        )}
-                                    </div>
-                                </div>
+                <>
+                    {loadingTree ? (
+                        <div className="flex items-center justify-center p-12">
+                            <Loader2 className="h-6 w-6 animate-spin mr-3" />
+                            <span className="text-slate-500">Loading affiliate tree...</span>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Search Bar */}
+                            <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4">
+                                <input
+                                    type="text"
+                                    placeholder="Search by name, email, or referral code..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                                />
                             </div>
 
-                            {expanded.has(affiliate.id) && (
-                                <div className="border-t border-slate-100 p-4 bg-slate-50/50">
-                                    {renderReferredTable(affiliate.referred_users)}
-                                </div>
-                            )}
-                        </div>
-                    ))}
+                            {/* Tree Display */}
+                            <div className="space-y-4">
+                                {filteredTree.length === 0 ? (
+                                    <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-500">
+                                        No affiliates found.
+                                    </div>
+                                ) : (
+                                    filteredTree.map((node) => (
+                                        <div key={node.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                                            <div
+                                                className="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors"
+                                                onClick={() => toggleAffiliate(node.id)}
+                                            >
+                                                <div className="flex items-center gap-4">
+                                                    <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+                                                        <User size={18} />
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-semibold text-slate-900">{node.full_name || 'Unknown'}</div>
+                                                        <div className="text-sm text-slate-500">{node.email}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-6">
+                                                    <div className="text-right">
+                                                        <div className="text-xs text-slate-500 uppercase">Referral Code</div>
+                                                        <div className="font-mono text-sm text-slate-900">{node.referral_code}</div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-xs text-slate-500 uppercase">Referred</div>
+                                                        <div className="font-semibold text-slate-900">{node.referred_count}</div>
+                                                    </div>
+                                                    {expandedAffiliates.has(node.id) ? (
+                                                        <ChevronDown className="text-slate-400" />
+                                                    ) : (
+                                                        <ChevronRight className="text-slate-400" />
+                                                    )}
+                                                </div>
+                                            </div>
 
-                    {filteredAffiliates.length === 0 && (
-                        <div className="text-center py-12 text-slate-500">
-                            No affiliates found matching your search.
-                        </div>
+                                            {/* Referred Users */}
+                                            {expandedAffiliates.has(node.id) && node.referred_users.length > 0 && (
+                                                <div className="border-t border-slate-200 bg-slate-50 p-4">
+                                                    <div className="space-y-3">
+                                                        {node.referred_users.map((user) => (
+                                                            <div key={user.id} className="bg-white rounded-lg border border-slate-200 p-3">
+                                                                <div className="flex items-center justify-between mb-2">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center">
+                                                                            <User size={12} />
+                                                                        </div>
+                                                                        <div>
+                                                                            <div className="text-sm font-medium text-slate-900">{user.full_name}</div>
+                                                                            <div className="text-xs text-slate-500">{user.email}</div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="text-xs text-slate-400">
+                                                                        {new Date(user.created_at).toLocaleDateString()}
+                                                                    </div>
+                                                                </div>
+                                                                {user.accounts && user.accounts.length > 0 && (
+                                                                    <div className="text-xs text-slate-500">
+                                                                        {user.accounts.length} account(s)
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </>
                     )}
-                </div>
-
-                {/* Pagination Controls */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-between border-t border-slate-200 pt-4">
-                        <button
-                            onClick={() => handlePageChange(currentPage - 1)}
-                            disabled={currentPage === 1}
-                            className="px-4 py-2 border border-slate-300 rounded-md text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Previous
-                        </button>
-                        <div className="text-sm text-slate-700">
-                            Page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
-                        </div>
-                        <button
-                            onClick={() => handlePageChange(currentPage + 1)}
-                            disabled={currentPage === totalPages}
-                            className="px-4 py-2 border border-slate-300 rounded-md text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Next
-                        </button>
-                    </div>
-                )}
-            </div>
-            );
-}    affiliate.referred_users.map(user => (
-            <div key={user.id} className="bg-white border border-slate-200 rounded-lg p-4">
-                <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
-                            <User size={14} />
-                        </div>
-                        <div>
-                            <div className="font-medium text-slate-900">{user.full_name || 'Unknown User'}</div>
-                            <div className="text-xs text-slate-500">{user.email}</div>
-                        </div>
-                    </div>
-                    <div className="text-xs text-slate-400">
-                        Joined {new Date(user.created_at).toLocaleDateString()}
-                    </div>
-                </div>
-
-                {/* User's Accounts */}
-                {user.accounts && user.accounts.length > 0 ? (
-                    <div className="bg-slate-50 border border-slate-100 rounded-lg overflow-hidden">
-                        <table className="w-full text-left text-xs">
-                            <thead className="bg-slate-100 text-slate-500">
-                                <tr>
-                                    <th className="px-3 py-2 font-medium">Account</th>
-                                    <th className="px-3 py-2 font-medium">Plan</th>
-                                    <th className="px-3 py-2 font-medium">Status</th>
-                                    <th className="px-3 py-2 font-medium text-right">Balance</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {user.accounts.map(acc => (
-                                    <tr key={acc.id}>
-                                        <td className="px-3 py-2 font-mono text-slate-700">
-                                            {acc.login}
-                                        </td>
-                                        <td className="px-3 py-2 capitalize text-slate-600">
-                                            {acc.plan_type}
-                                        </td>
-                                        <td className="px-3 py-2">
-                                            <span className={cn(
-                                                "px-1.5 py-0.5 rounded text-[10px] font-medium uppercase",
-                                                acc.status === 'active' ? "bg-emerald-100 text-emerald-700" :
-                                                    acc.status === 'failed' ? "bg-red-100 text-red-700" :
-                                                        "bg-slate-200 text-slate-600"
-                                            )}>
-                                                {acc.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-3 py-2 text-right font-mono text-slate-700">
-                                            ${acc.current_equity?.toLocaleString()}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                ) : (
-                    <div className="text-xs text-slate-400 italic">No accounts found.</div>
-                )}
-            </div>
-            ))
-                                        )}
-        </div>
-    )
-}
-                            </div >
-                        ))
-                    )}
-                </div >
+                </>
             )}
 
-{/* Reject Modal */ }
-{
-    rejectId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Reject Withdrawal</h3>
-                <p className="text-sm text-slate-500 mb-4">
-                    Please provide a reason for rejecting this withdrawal request.
-                </p>
-                <textarea
-                    value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none mb-4 min-h-[100px]"
-                    placeholder="Reason for rejection..."
-                />
-                <div className="flex justify-end gap-3">
-                    <button
-                        onClick={() => { setRejectId(null); setRejectReason(""); }}
-                        className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={() => handleAction(rejectId, 'rejected', rejectReason)}
-                        disabled={!rejectReason.trim() || processingId === rejectId}
-                        className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50 flex items-center gap-2"
-                    >
-                        {processingId === rejectId && <Loader2 size={14} className="animate-spin" />}
-                        Confirm Rejection
-                    </button>
-                </div>
-            </div>
-        </div>
-    )
-}
+            {/* Reject Modal */}
+            {
+                rejectId && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+                            <h3 className="text-lg font-semibold text-slate-900 mb-4">Reject Withdrawal</h3>
+                            <p className="text-sm text-slate-500 mb-4">
+                                Please provide a reason for rejecting this withdrawal request.
+                            </p>
+                            <textarea
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                                className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none mb-4 min-h-[100px]"
+                                placeholder="Reason for rejection..."
+                            />
+                            <div className="flex justify-end gap-3">
+                                <button
+                                    onClick={() => { setRejectId(null); setRejectReason(""); }}
+                                    className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => handleAction(rejectId, 'rejected', rejectReason)}
+                                    disabled={!rejectReason.trim() || processingId === rejectId}
+                                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    {processingId === rejectId && <Loader2 size={14} className="animate-spin" />}
+                                    Confirm Rejection
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
         </div >
     );
 }
