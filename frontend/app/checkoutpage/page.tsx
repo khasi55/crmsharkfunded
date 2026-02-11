@@ -217,22 +217,31 @@ function CheckoutContent() {
                 else if (type === '2-step') mt5Group = 'demo\\SF\\2-Pro';
             }
 
-            const response = await fetch('/api/payment/create-order', {
+            // Call backend payment API
+            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.sharkfunded.co';
+            const response = await fetch(`${backendUrl}/api/payments/create-order`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({
-                    type: type.toLowerCase(),
-                    model,
-                    size,
-                    mt5Group,
-                    platform: 'MT5',
-                    gateway: selectedGateway,
-                    customerName: `${formData.firstName} ${formData.lastName}`,
+                    gateway: selectedGateway.toLowerCase(),
+                    orderId: `SF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    amount: finalPriceUSD,
+                    currency: 'USD',
                     customerEmail: formData.email,
-                    country: formData.country,
-                    phone: formData.phone,
-                    referralCode: formData.referralCode,
-                    coupon: appliedCoupon ? coupon : undefined
+                    customerName: `${formData.firstName} ${formData.lastName}`,
+                    metadata: {
+                        type: type.toLowerCase(),
+                        model,
+                        size,
+                        mt5_group: mt5Group,
+                        platform: 'MT5',
+                        country: formData.country,
+                        phone: formData.phone,
+                        referralCode: formData.referralCode,
+                        coupon: appliedCoupon ? coupon : undefined
+                    }
                 })
             });
 
