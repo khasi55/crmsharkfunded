@@ -151,11 +151,10 @@ export default function MT5ActionsClient() {
                                     <p className="text-lg font-bold text-purple-600">1:{account.leverage || '?'}</p>
                                 </div>
                                 <div className="pt-2">
-                                    <AcountActions
+                                    <AccountActions
                                         accountId={account.id}
                                         login={account.login || 0}
                                         currentStatus={account.status}
-                                        currentLeverage={account.leverage}
                                     // Simple reload to refresh the search result state isn't ideal but works
                                     // In a real app we'd pass a refresh callback
                                     />
