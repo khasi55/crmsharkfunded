@@ -49,6 +49,10 @@ const nextConfig: NextConfig = {
         source: '/socket.io/:path*',
         destination: `${BACKEND_URL}/socket.io/:path*`,
       },
+      {
+        source: '/admin/:path*',
+        destination: 'http://localhost:3002/admin/:path*',
+      },
     ];
   },
 };

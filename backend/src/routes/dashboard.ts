@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { RulesService } from '../services/rules-service';
+import { getRedis } from '../lib/redis';
 const fs = require('fs');
 
 const router = Router();
@@ -131,49 +132,70 @@ router.get('/trades', authenticate, async (req: AuthRequest, res: Response) => {
         // Supabase doesn't easily support "Sum" without RPC. 
         // Strategy: Fetch ALL "profit_loss" column only for the stats (lightweight), and Paginator for the rows.
 
-        // 1. Efficient Stats Gathering
+        // Efficient Stats Gathering
         let totalTrades = 0;
         let openTrades = 0;
         let closedTrades = 0;
         let totalPnL = 0;
+        let statsLoaded = false;
 
-        // Optimization: If accountId is provided, we can fetch PnL from challenge equity directly
-        // and avoid scanning the entire trades table for simple counts.
-        if (accountId) {
-            const [
-                { count: total },
-                { count: open },
-                { count: closed },
-                { data: challenge }
-            ] = await Promise.all([
-                supabase.from('trades').select('*', { count: 'exact', head: true }).eq('challenge_id', accountId),
-                supabase.from('trades').select('*', { count: 'exact', head: true }).eq('challenge_id', accountId).is('close_time', null),
-                supabase.from('trades').select('*', { count: 'exact', head: true }).eq('challenge_id', accountId).not('close_time', 'is', null),
-                supabase.from('challenges').select('initial_balance, current_equity').eq('id', accountId).single()
-            ]);
-
-            totalTrades = total || 0;
-            openTrades = open || 0;
-            closedTrades = closed || 0;
-
-            if (challenge) {
-                // Total PnL = Current Equity - Initial Balance
-                // This is much faster than summing thousands of rows
-                totalPnL = (Number(challenge.current_equity) || 0) - (Number(challenge.initial_balance) || 0);
+        // Optimization: Redis Micro-Caching (10s TTL) to protect DB
+        const cacheKey = `stats:trades:${user.id}:${accountId || 'all'}:${filter || 'none'}`;
+        const redis = getRedis();
+        if (redis) {
+            try {
+                const cached = await redis.get(cacheKey);
+                if (cached) {
+                    const stats = JSON.parse(cached);
+                    totalTrades = stats.totalTrades;
+                    openTrades = stats.openTrades;
+                    closedTrades = stats.closedTrades;
+                    totalPnL = stats.totalPnL;
+                    statsLoaded = true;
+                }
+            } catch (e) {
+                console.error('Redis cache error:', e);
             }
-        } else {
-            // Fallback for "All Accounts" view (less common, but needs support)
-            // We'll stick to the simpler query but optimize selection
-            const { data: allTradesForStats, error: statsError } = await baseQuery
-                .select('profit_loss, commission, swap, close_time'); // Minimal columns
+        }
 
-            if (statsError) throw statsError;
+        if (!statsLoaded) {
+            // Optimization: Fetch stats using targeted queries
+            const fetchStats = async () => {
+                let countQuery = supabase
+                    .from('trades')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('user_id', user.id);
 
-            const statsData = (allTradesForStats || []);
-            totalTrades = statsData.length;
-            openTrades = statsData.filter((t: any) => !t.close_time).length;
-            closedTrades = statsData.filter((t: any) => t.close_time).length;
-            totalPnL = statsData.reduce((sum: number, t: any) => sum + (Number(t.profit_loss) || 0) + ((Number(t.commission) || 0) * 2) + (Number(t.swap) || 0), 0);
+                if (accountId) countQuery = countQuery.eq('challenge_id', accountId);
+                const { count: totalCount } = await countQuery;
+
+                let pnlQuery = supabase
+                    .from('trades')
+                    .select('profit_loss, commission, swap, close_time')
+                    .eq('user_id', user.id);
+
+                if (accountId) pnlQuery = pnlQuery.eq('challenge_id', accountId);
+
+                const { data: pnlData } = await pnlQuery;
+
+                const totalTradesVal = totalCount || 0;
+                const tradesForStats: any[] = pnlData || [];
+                const openTradesVal = tradesForStats.filter((t: any) => !t.close_time).length;
+                const closedTradesVal = tradesForStats.filter((t: any) => t.close_time).length;
+                const totalPnLVal = tradesForStats.reduce((sum: number, t: any) => sum + (Number(t.profit_loss) || 0) + ((Number(t.commission) || 0) * 2) + (Number(t.swap) || 0), 0);
+
+                return { totalTrades: totalTradesVal, openTrades: openTradesVal, closedTrades: closedTradesVal, totalPnL: totalPnLVal };
+            };
+
+            const stats = await fetchStats();
+            totalTrades = stats.totalTrades;
+            openTrades = stats.openTrades;
+            closedTrades = stats.closedTrades;
+            totalPnL = stats.totalPnL;
+
+            if (redis) {
+                await redis.setex(cacheKey, 10, JSON.stringify({ totalTrades, openTrades, closedTrades, totalPnL }));
+            }
         }
 
         // 2. Fetch Paginated Rows
@@ -348,6 +370,18 @@ router.get('/objectives', authenticate, async (req: AuthRequest, res: Response) 
             return res.status(400).json({ error: 'Missing challenge_id' });
         }
 
+        // Optimization: Redis Micro-Caching (5s TTL) for Objectives
+        const cacheKey = `stats:objectives:${user.id}:${challenge_id}`;
+        const redis = getRedis();
+        if (redis) {
+            try {
+                const cached = await redis.get(cacheKey);
+                if (cached) return res.json(JSON.parse(cached));
+            } catch (e) {
+                console.error('Redis objectives cache error:', e);
+            }
+        }
+
         // Fetch all trades for this challenge
         const { data: trades, error } = await supabase
             .from('trades')
@@ -452,6 +486,10 @@ router.get('/objectives', authenticate, async (req: AuthRequest, res: Response) 
                 }
             }
         };
+
+        if (redis) {
+            await redis.setex(cacheKey, 5, JSON.stringify(responseData));
+        }
 
         return res.json(responseData);
 
