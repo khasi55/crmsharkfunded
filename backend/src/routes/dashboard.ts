@@ -694,8 +694,11 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
                 // console.log(`🚀 [Bulk API] Cache Hit for ${targetId}`);
                 return res.json(JSON.parse(cachedData));
             }
-        } catch (err) {
-            console.error('Redis cache get error:', err);
+        } catch (err: any) {
+            // Silence connection closure errors to reduce log noise
+            if (!err.message?.includes('Connection is closed')) {
+                console.error('Redis cache get error:', err);
+            }
         }
 
         // Fetch everything in parallel
@@ -703,11 +706,21 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
         // 2. Risk violations
         // 3. Consistency data
         // 4. Challenge data
-        const [tradesResponse, riskResponse, consistencyResponse, challengeResponse] = await Promise.all([
+        const [analyticsTradesResponse, recentTradesResponse, riskResponse, advancedRiskResponse, consistencyResponse, challengeResponse] = await Promise.all([
+            // 1. Analytics Trades: Fetch ALL rows but ONLY columns needed for stats (Lightweight)
+            supabase.from('trades')
+                .select('profit_loss, commission, swap, lots, type, close_time, symbol') // Minimal columns
+                .eq('challenge_id', targetId),
+
+            // 2. Recent Trades: Fetch only recent 30 rows with FULL columns for display
             supabase.from('trades')
                 .select('id, ticket, symbol, type, lots, open_price, close_price, open_time, close_time, profit_loss, commission, swap')
-                .eq('challenge_id', targetId),
+                .eq('challenge_id', targetId)
+                .order('close_time', { ascending: false })
+                .limit(30),
+
             supabase.from('risk_violations').select('*').eq('challenge_id', targetId).order('created_at', { ascending: false }),
+            supabase.from('advanced_risk_flags').select('*').eq('challenge_id', targetId).order('created_at', { ascending: false }),
             supabase.from('consistency_scores').select('*').eq('challenge_id', targetId).order('date', { ascending: false }).limit(30),
             supabase.from('challenges').select('*').eq('id', targetId).single()
         ]);
@@ -721,9 +734,21 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
             return res.status(403).json({ error: 'Access denied' });
         }
 
-        const allTrades = tradesResponse.data || [];
-        const violations = riskResponse.data || [];
+        const allAnalyticsTrades = analyticsTradesResponse.data || [];
+        const recentTrades = recentTradesResponse.data || [];
+        const hardViolations = riskResponse.data || [];
+        const softViolations = advancedRiskResponse.data || [];
         const consistencyHistory = consistencyResponse.data || [];
+
+        // Normalize and merge Risk Violations
+        const combinedViolations = [
+            ...(hardViolations || []),
+            ...(softViolations || []).map((v: any) => ({
+                ...v,
+                violation_type: v.flag_type,
+                is_soft_breach: true
+            }))
+        ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
         // CALCULATE OBJECTIVES & RULES
         const { maxDailyLoss, maxTotalLoss, profitTarget, rules } = await RulesService.calculateObjectives(targetId);
@@ -740,9 +765,9 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
         let grossLoss = 0;
         let winCount = 0;
         let loseCount = 0;
-        const totalTrades = allTrades.length;
+        const totalTrades = allAnalyticsTrades.length;
 
-        allTrades.forEach(trade => {
+        allAnalyticsTrades.forEach(trade => {
             const profit = Number(trade.profit_loss) || 0;
             const comm = (Number(trade.commission) || 0) * 2;
             const swap = Number(trade.swap) || 0;
@@ -784,7 +809,7 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
 
         // CALCULATE CALENDAR
         const tradesByDay: Record<string, any[]> = {};
-        allTrades.forEach((trade: any) => {
+        allAnalyticsTrades.forEach((trade: any) => {
             if (trade.close_time) {
                 const day = new Date(trade.close_time).toISOString().split('T')[0];
                 if (!tradesByDay[day]) tradesByDay[day] = [];
@@ -803,13 +828,13 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
             };
         });
 
-        const bullishCount = allTrades.filter(t => String(t.type).toLowerCase().includes('buy') || String(t.type) === '0').length;
-        const bearishCount = allTrades.filter(t => String(t.type).toLowerCase().includes('sell') || String(t.type) === '1').length;
+        const bullishCount = allAnalyticsTrades.filter(t => String(t.type).toLowerCase().includes('buy') || String(t.type) === '0').length;
+        const bearishCount = allAnalyticsTrades.filter(t => String(t.type).toLowerCase().includes('sell') || String(t.type) === '1').length;
 
         let longWins = 0, longLosses = 0, longProfit = 0, longLossCost = 0, longCount = 0;
         let shortWins = 0, shortLosses = 0, shortProfit = 0, shortLossCost = 0, shortCount = 0;
 
-        allTrades.forEach(trade => {
+        allAnalyticsTrades.forEach(trade => {
             const profit = Number(trade.profit_loss) || 0;
             const comm = (Number(trade.commission) || 0) * 2;
             const swap = Number(trade.swap) || 0;
@@ -878,10 +903,10 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
                 challenge: challengeResponse.data
             },
             risk: {
-                violations: violations,
+                violations: combinedViolations,
                 summary: {
-                    total: violations.length,
-                    latest: violations[0]?.created_at || null
+                    total: combinedViolations.length,
+                    latest: combinedViolations[0]?.created_at || null
                 }
             },
             consistency: {
@@ -892,7 +917,7 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
                 stats: dailyStats
             },
             trades: {
-                trades: allTrades.slice(0, 30)
+                trades: recentTrades // Use only recent trades with full columns
             },
             analysis: {
                 bullish: bullishCount,
@@ -932,8 +957,11 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
         try {
             await redis.set(cacheKey, JSON.stringify(bulkData), 'EX', 300); // 5 minutes TTL
             // console.log(`💾 [Bulk API] Cached data for ${targetId}`);
-        } catch (err) {
-            console.error('Redis cache set error:', err);
+        } catch (err: any) {
+            // Silence connection closure errors to reduce log noise
+            if (!err.message?.includes('Connection is closed')) {
+                console.error('Redis cache set error:', err);
+            }
         }
 
         res.json(bulkData);

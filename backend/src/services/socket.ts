@@ -34,69 +34,61 @@ export function initializeSocket(httpServer: HTTPServer) {
     });
 
     io.on('connection', async (socket) => {
-        if (DEBUG) console.log(`WebSocket connected: ${socket.id}`);
+        console.log(`🔌 WebSocket connected: ${socket.id}`);
 
         // Handle authentication - expect userId from client
         socket.on('authenticate', async (data: { userId: string }) => {
             try {
                 const { userId } = data;
+                console.log(`🔐 Socket authenticating for user: ${userId}`);
 
                 if (!userId) {
                     socket.emit('auth_error', { message: 'Missing userId' });
                     return;
                 }
 
-                // Store userId in socket
                 (socket as any).userId = userId;
-
-                // Join user-specific room
                 socket.join(`user_${userId}`);
 
                 socket.emit('authenticated', {
                     success: true,
-                    challenges: [] // No longer auto-subscribing
+                    challenges: []
                 });
 
-                if (DEBUG) console.log(` Socket authenticated for user: ${userId}`);
+                console.log(`✅ Socket authenticated for user: ${userId}`);
             } catch (error) {
                 console.error('Authentication error:', error);
                 socket.emit('auth_error', { message: 'Authentication failed' });
             }
         });
 
-        // Handle manual challenge subscription
         socket.on('subscribe_challenge', (challengeId: string) => {
             const roomName = `challenge_${challengeId}`;
             socket.join(roomName);
-            if (DEBUG) console.log(` Socket ${socket.id} subscribed to ${roomName}`);
         });
 
-        // Handle unsubscribe
         socket.on('unsubscribe_challenge', (challengeId: string) => {
             const roomName = `challenge_${challengeId}`;
             socket.leave(roomName);
-            if (DEBUG) console.log(` Socket ${socket.id} unsubscribed from ${roomName}`);
         });
 
-        // Handle Competition Room Join
+        // ... competition handlers ...
         socket.on('subscribe_competition', (competitionId: string) => {
             const roomName = `competition_${competitionId}`;
             socket.join(roomName);
-            if (DEBUG) console.log(` Socket ${socket.id} joined competition room: ${roomName}`);
         });
 
         socket.on('unsubscribe_competition', (competitionId: string) => {
             const roomName = `competition_${competitionId}`;
             socket.leave(roomName);
-            if (DEBUG) console.log(` Socket ${socket.id} left competition room: ${roomName}`);
         });
 
         socket.on('disconnect', () => {
-            // if (DEBUG) console.log(` WebSocket disconnected: ${socket.id}`);
+            console.log(`🔌 WebSocket disconnected: ${socket.id}`);
         });
 
         socket.on('error', (error) => {
-            console.error(` WebSocket error on ${socket.id}:`, error);
+            console.error(`❌ WebSocket error on ${socket.id}:`, error);
         });
     });
 
@@ -111,12 +103,10 @@ let bridgeStatus: 'connected' | 'disconnected' | 'connecting' | 'error' = 'disco
 let lastBridgeError: string | null = null;
 
 async function getChallengeIdByLogin(login: number): Promise<string | null> {
-    // 1. Check cache
     if (loginToChallengeMap.has(login)) {
         return loginToChallengeMap.get(login)!;
     }
 
-    // 2. Query Supabase
     try {
         const { data, error } = await supabase
             .from('challenges')
@@ -126,6 +116,7 @@ async function getChallengeIdByLogin(login: number): Promise<string | null> {
 
         if (data && !error) {
             loginToChallengeMap.set(login, data.id);
+            console.log(`🔗 Mapped Login ${login} -> Challenge ${data.id}`);
             return data.id;
         }
     } catch (err) {
@@ -155,7 +146,8 @@ export function initializeBridgeWS() {
             const message = JSON.parse(data.toString());
             const { event, login } = message;
 
-            if (DEBUG) console.log(`📥 WS Relay: Received ${event} for login ${login}`);
+            // Uncommented for active debugging of all traffic
+            console.log(`📥 WS Relay: Received ${event} for login ${login}`);
 
             const challengeId = await getChallengeIdByLogin(login);
             if (!challengeId) {
@@ -164,7 +156,7 @@ export function initializeBridgeWS() {
             }
 
             if (event === 'account_update') {
-                // Relay Balance/Equity/P&L
+                console.log(`⚡️ Relay Balance→Frontend for challenge_${challengeId} (Eq: ${message.equity}, FPL: ${message.floating_pl})`);
                 broadcastBalanceUpdate(challengeId, {
                     equity: message.equity,
                     floating_pl: message.floating_pl,
@@ -181,7 +173,6 @@ export function initializeBridgeWS() {
                     });
                 }
             } else if (event === 'trade_update' || event === 'trades_closed') {
-                // Relay each trade in the batch if it's a batch, or handle individual
                 if (Array.isArray(message.trades)) {
                     message.trades.forEach((trade: any) => {
                         broadcastTradeUpdate(challengeId, {
@@ -224,7 +215,8 @@ export function getSocketMetrics() {
         return {
             totalConnections: 0,
             authenticatedConnections: 0,
-            rooms: []
+            rooms: [],
+            bridge: { status: bridgeStatus, error: lastBridgeError }
         };
     }
 
@@ -247,45 +239,29 @@ export function getSocketMetrics() {
 
 // Broadcast helpers
 export function broadcastTradeUpdate(challengeId: string, trade: any) {
-    if (!io) {
-        if (DEBUG) console.warn(' Socket.IO not initialized, cannot broadcast trade update');
-        return;
-    }
-
+    if (!io) return;
     const roomName = `challenge_${challengeId}`;
+    const roomSize = io?.sockets?.adapter?.rooms?.get(roomName)?.size || 0;
+    console.log(`📤 trade_update → ${roomName} (${roomSize} listeners)`);
     io.to(roomName).emit('trade_update', trade);
-    if (DEBUG) console.log(` Broadcasted trade update to room: ${roomName}`);
 }
 
 export function broadcastBalanceUpdate(challengeId: string, balanceData: any) {
-    if (!io) {
-        if (DEBUG) console.warn(' Socket.IO not initialized, cannot broadcast balance update');
-        return;
-    }
-
+    if (!io) return;
     const roomName = `challenge_${challengeId}`;
+    const roomSize = io?.sockets?.adapter?.rooms?.get(roomName)?.size || 0;
+    console.log(`📤 balance_update → ${roomName} (${roomSize} listeners)`, { equity: balanceData.equity, floating_pl: balanceData.floating_pl });
     io.to(roomName).emit('balance_update', balanceData);
-    if (DEBUG) console.log(` Broadcasted balance update to room: ${roomName}`);
 }
 
 export function broadcastToUser(userId: string, event: string, data: any) {
-    if (!io) {
-        if (DEBUG) console.warn(' Socket.IO not initialized, cannot broadcast to user');
-        return;
-    }
-
+    if (!io) return;
     io.to(`user_${userId}`).emit(event, data);
     if (DEBUG) console.log(` Broadcasted ${event} to user: ${userId}`);
 }
 
 export function broadcastLeaderboard(competitionId: string, leaderboard: any[]) {
-    if (!io) {
-        if (DEBUG) console.warn(' Socket.IO not initialized, cannot broadcast leaderboard');
-        return;
-    }
-
-    // Broadcast to a specific competition room (e.g., 'competition_123')
-    // Clients viewing that competition will join this room.
+    if (!io) return;
     const roomName = `competition_${competitionId}`;
     io.to(roomName).emit('leaderboard_update', leaderboard);
     if (DEBUG) console.log(` Broadcasted leaderboard update for ${competitionId} (Rows: ${leaderboard.length})`);

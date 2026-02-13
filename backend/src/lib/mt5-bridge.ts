@@ -62,7 +62,15 @@ export async function fetchMT5History(login: number, fromTimestamp?: number) {
     try {
         const from = fromTimestamp || Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60);
         const to = Math.floor(Date.now() / 1000);
-        const data = await callBridge('/history', { login, from, to }) as any;
+
+        // Use fetch-trades instead of history as it returns both open and closed trades
+        const data = await callBridge('/fetch-trades', {
+            login,
+            from,
+            to,
+            incremental: false
+        }) as any;
+
         return data?.trades || [];
     } catch (error) {
         return [];

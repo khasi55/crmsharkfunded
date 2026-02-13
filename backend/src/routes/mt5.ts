@@ -348,17 +348,11 @@ router.post('/sync-trades', authenticate, requireRole(['super_admin', 'admin']),
         // 1. Fetch trades from Python Bridge (should include both open and closed)
         const { fetchMT5Trades, fetchMT5History } = await import('../lib/mt5-bridge');
 
-        // Parallel Fetch: Active Trades and Recent History (Last 24h)
+        // Single Fetch: Get both active and recent history trades in one call
         const oneDayAgo = Math.floor(Date.now() / 1000) - 86400;
-        const [activeTrades, historyTrades] = await Promise.all([
-            fetchMT5Trades(login),
-            fetchMT5History(login, oneDayAgo)
-        ]);
+        const allTrades = await fetchMT5History(login, oneDayAgo);
 
-        console.log(`📦 Bridge returned ${activeTrades.length} active trades and ${historyTrades.length} history trades`);
-
-        const allTrades = [...activeTrades, ...historyTrades];
-        console.log(`∑ Total merged trades: ${allTrades.length}`);
+        console.log(`📦 Bridge returned ${allTrades.length} trades (Active + History)`);
 
         // Debug: Show sample trade structure
         if (allTrades.length > 0) {

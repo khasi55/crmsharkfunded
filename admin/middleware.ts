@@ -41,8 +41,8 @@ export async function middleware(request: NextRequest) {
     const token = request.cookies.get('admin_session')?.value
 
     if (!token) {
-        console.warn(`[Middleware] No token found for ${path}. Redirecting to /admin/login`)
-        return NextResponse.redirect(new URL('/admin/login', request.url))
+        console.warn(`[Middleware] No token found for ${path}. Redirecting to /login`)
+        return NextResponse.redirect(new URL('/login', request.url))
     }
 
     try {
@@ -53,7 +53,7 @@ export async function middleware(request: NextRequest) {
         const allowedRoles = ['admin', 'super_admin', 'sub_admin', 'risk_admin', 'payouts_admin']
         if (!allowedRoles.includes(payload.role as string)) {
             console.error(`[Middleware] Unauthorized role: ${payload.role}`)
-            return NextResponse.redirect(new URL('/admin/login', request.url))
+            return NextResponse.redirect(new URL('/login', request.url))
         }
 
         // 5. Granular Permission Check
@@ -64,7 +64,7 @@ export async function middleware(request: NextRequest) {
             const getFirstAuthorizedRoute = () => {
                 const routes = Object.keys(PERMISSION_MAP);
                 for (const route of routes) {
-                    if (permissions.includes(PERMISSION_MAP[route])) return `/admin${route}`;
+                    if (permissions.includes(PERMISSION_MAP[route])) return route; // Removed /admin prefix here too if implicit? No, map keys are paths.
                 }
                 return null;
             };
@@ -74,7 +74,9 @@ export async function middleware(request: NextRequest) {
             let matchedRoute: string | null = null;
 
             // Strip /admin prefix for matching against PERMISSION_MAP
-            const relativePath = path.replace(/^\/admin/, '') || '/';
+            // const relativePath = path.replace(/^\/admin/, '') || '/'; // NO LONGER NEEDED if basePath removed?
+            // Actually, if basePath is removed, path IS relative.
+            const relativePath = path;
 
             for (const route of sortedRoutes) {
                 if (relativePath === route || relativePath.startsWith(route + '/')) {
@@ -87,7 +89,7 @@ export async function middleware(request: NextRequest) {
                 const requiredPermission = PERMISSION_MAP[matchedRoute];
                 if (!permissions.includes(requiredPermission)) {
                     console.warn(`[Middleware] Path ${path} REQUIRES ${requiredPermission}. User has: ${permissions.join(', ')}`);
-                    const fallback = getFirstAuthorizedRoute() || '/admin/login';
+                    const fallback = getFirstAuthorizedRoute() || '/login';
                     return NextResponse.redirect(new URL(fallback, request.url));
                 }
             } else if (relativePath === '/' || relativePath === '/dashboard') {
@@ -104,7 +106,7 @@ export async function middleware(request: NextRequest) {
     } catch (error) {
         console.error('[Middleware] JWT Verification Failed:', error)
         // Clear invalid cookie and redirect
-        const response = NextResponse.redirect(new URL('/admin/login', request.url))
+        const response = NextResponse.redirect(new URL('/login', request.url))
         response.cookies.delete('admin_session')
         return response
     }

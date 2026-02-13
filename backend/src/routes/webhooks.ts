@@ -7,6 +7,10 @@ import path from 'path';
 
 const router = Router();
 
+router.get('/test-path-123', (req, res) => {
+    res.json({ success: true, message: 'WEBHOOKS_FILE_IS_ACTIVE' });
+});
+
 // POST /api/webhooks/mt5
 // Receives pushed trades from Python bridge
 router.post('/mt5', async (req: Request, res: Response) => {
@@ -55,13 +59,12 @@ router.post('/mt5', async (req: Request, res: Response) => {
 const verifyPaymentSecret = (req: Request): boolean => {
     // ⚠️ EMERGENCY BYPASS: Always return true as requested by USER
     // We still log diagnostics to help fix the secret mismatch later
-    console.log(`🔓 [EMERGENCY BYPASS] Allowing webhook from IP: ${req.ip}`);
+
 
     const secret = process.env.PAYMENT_WEBHOOK_SECRET;
     const forwarded = req.headers['forwarded'] as string;
     const sigMatch = forwarded?.match(/sig=([^;]+)/);
 
-    console.warn(`[Webhook Diagnostic] Bypass active. Forwarded Sig: ${sigMatch ? 'YES' : 'NO'}, Secret Configured: ${secret ? 'YES' : 'NO'}`);
 
     return true;
 };
@@ -71,7 +74,8 @@ const verifyPaymentSecret = (req: Request): boolean => {
  * Called by gateway to notify success
  */
 router.post('/payment', async (req: Request, res: Response) => {
-    console.log(`🔐 Verifying POST Webhook from ${req.ip}`);
+    fs.appendFileSync('backend_request_debug.log', `[WEBHOOK ENTRY] Method: ${req.method}, Path: ${req.path}, Body: ${JSON.stringify(req.body)}\n`);
+
     if (!verifyPaymentSecret(req)) {
         console.warn(`🛑 Blocked unauthorized Payment Webhook POST from ${req.ip}`);
         return res.status(403).json({ error: 'Unauthorized: Invalid Secret' });
@@ -135,7 +139,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         const status = getPayloadValue(body, ['status', 'transt', 'transactionStatus']);
         const amount = getPayloadValue(body, ['amount', 'tranmt', 'receive_amount', 'orderAmount']);
 
-        console.log(`💰 [Payment Webhook] Parsed: ID=${internalOrderId}, Status=${status}, Amount=${amount}, Method=${req.method}`);
+
 
         // Use consistent Frontend URL logic
         const frontendUrl = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.sharkfunded.com';
@@ -177,7 +181,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         }
 
         // 3. Status Update (Atomic)
-        console.log(`💰 [Payment] Updating order ${internalOrderId} to paid...`);
+
         const { data: order, error: updateError } = await supabase
             .from('payment_orders')
             .update({
@@ -189,7 +193,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             .eq('order_id', internalOrderId)
             // .eq('status', 'pending') // REMOVED: Allow processing even if already paid just in case
             .select('*, account_types(*)')
-            .single();
+            .maybeSingle();
 
         if (updateError) {
             console.error(`❌ [Payment] Order update error for ${internalOrderId}:`, updateError.message);
@@ -208,13 +212,13 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             return res.status(404).json({ error: 'Order not found' });
         }
 
-        console.log(`✅ [Payment] Order ${internalOrderId} is now PAID. Triggering commission check...`);
+
 
         // ---------------------------------------------------------
         // AFFILIATE COMMISSION LOGIC
         // ---------------------------------------------------------
         try {
-            console.log(`📣 [Affiliate] Processing commission for Order: ${finalOrder.order_id}`);
+
             await processAffiliateCommission(finalOrder.user_id, finalOrder.amount, finalOrder.order_id);
         } catch (affError) {
             console.error('⚠️ [Affiliate] Failed to process affiliate commission:', affError);
@@ -222,142 +226,272 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         // ---------------------------------------------------------
 
         // 4. Create MT5 Account via Bridge
-        console.log(`🏗️ [Payment] Creating MT5 account for user ${finalOrder.user_id}...`);
-        const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', finalOrder.user_id).single();
+
+        const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', finalOrder.user_id).maybeSingle();
 
         const fullName = profile?.full_name || 'Trader';
         const email = profile?.email || 'noemail@sharkfunded.com';
 
-        const accountTypeName = (order.account_type_name || '').toLowerCase();
-        const isCompetition = order.model === 'competition' || (order.metadata && order.metadata.type === 'competition');
+        let mt5Data = { login: finalOrder.login, password: finalOrder.master_password, investor_password: finalOrder.investor_password, server: finalOrder.server };
+        let challengeType = 'evaluation'; // Declare at top level scope
 
-        // TRUST DB GROUP (User Request)
-        let mt5Group = 'demo\\forex'; // Default fallback
-        if (order.account_types?.mt5_group_name) {
-            mt5Group = order.account_types.mt5_group_name;
-        }
+        if (finalOrder.is_account_created && finalOrder.login) {
 
-        let leverage = 100;
-        if (isCompetition) {
-            leverage = 100;
-            mt5Group = 'demo\\SF\\0-Demo\\comp'; // FORCE Override for Competitions
-        } else if (order.metadata && order.metadata.is_competition) {
-            mt5Group = 'demo\\SF\\0-Demo\\comp';
-        }
-
-        // Double check via Order ID pattern
-        if (String(internalOrderId).startsWith('SF-COMP') || String(internalOrderId).startsWith('SFCOM')) {
-            mt5Group = 'demo\\SF\\0-Demo\\comp';
-        }
-
-
-
-        const mt5Data = await createMT5Account({
-            name: fullName,
-            email: email,
-            group: mt5Group,
-            leverage: leverage,
-            balance: order.account_size,
-            callback_url: `${process.env.BACKEND_URL || process.env.FRONTEND_URL}/api/webhooks/mt5`
-        }) as any;
-
-        // 5. Create Challenge Record & Competition Participant
-        // 5. Determine Valid Challenge Type (Must match database constraint)
-        let challengeType = 'evaluation'; // Default fallback
-        const model = (order.model || '').toLowerCase();
-        const type = (order.metadata?.type || '').toLowerCase();
-
-        if (isCompetition) {
-            challengeType = 'competition';
-        } else if (model && type) {
-            // Map common patterns to snake_case (e.g. Model: 'lite', Type: '1-step' -> 'lite_1_step')
-            const normalizedType = type.replace('-', '_').replace(' ', '_');
-            challengeType = `${model}_${normalizedType}`;
+            // Try to resolve challengeType from existing challenge if possible, 
+            // but for BOGO it's usually the same as main.
         } else {
-            // Fallback for older orders or manual creations
-            const rawName = (order.account_type_name || '').toLowerCase();
-            if (rawName.includes('lite')) {
-                if (rawName.includes('instant')) challengeType = 'lite_instant';
-                else if (rawName.includes('1 step')) challengeType = 'lite_1_step';
-                else if (rawName.includes('2 step')) challengeType = 'lite_2_step_phase_1';
-            } else if (rawName.includes('prime')) {
-                if (rawName.includes('instant')) challengeType = 'prime_instant';
-                else if (rawName.includes('1 step')) challengeType = 'prime_1_step';
-                else if (rawName.includes('2 step')) challengeType = 'prime_2_step_phase_1';
+            const accountTypeName = (order.account_type_name || '').toLowerCase();
+            const isCompetition = order.model === 'competition' || (order.metadata && order.metadata.type === 'competition');
+
+            // Resolve Group with Fallbacks
+            let mt5Group = 'demo\\forex';
+            let leverage = 100;
+
+            if (order.metadata?.mt5_group) {
+                mt5Group = order.metadata.mt5_group;
+            } else if (order.account_types?.mt5_group_name) {
+                mt5Group = order.account_types.mt5_group_name;
             }
-        }
 
-        console.log(`🏷️ [Payment] Mapping challenge type: "${order.account_type_name}" -> "${challengeType}"`);
+            // Handle Competition Overrides
+            if (isCompetition || order.metadata?.is_competition) {
+                leverage = 100;
+                mt5Group = 'demo\\SF\\0-Demo\\comp';
+            }
 
-        const { data: challenge } = await supabase
-            .from('challenges')
-            .insert({
-                user_id: order.user_id,
-                challenge_type: challengeType,
-                initial_balance: order.account_size,
-                current_balance: order.account_size,
-                current_equity: order.account_size,
-                start_of_day_equity: order.account_size,
-                status: 'active',
-                login: mt5Data.login,
-                master_password: mt5Data.password,
-                investor_password: mt5Data.investor_password || '',
-                server: mt5Data.server || 'ALFX Limited',
-                platform: order.platform,
+
+
+            mt5Data = await createMT5Account({
+                name: fullName,
+                email: email,
+                group: mt5Group,
                 leverage: leverage,
-                group: mt5Group, // Store actual used group
-                metadata: order.metadata || {}, // Pass through all metadata (including competition details)
-            })
-            .select()
-            .single();
-
-        // If competition, also add to participants table
-        if (isCompetition && challenge && order.metadata?.competition_id) {
-            await supabase.from('competition_participants').insert({
-                competition_id: order.metadata.competition_id,
-                user_id: order.user_id,
-                status: 'active',
-                challenge_id: challenge.id
-            });
-        }
-
-        // 6. Finalize Order
-        if (challenge) {
-            await supabase.from('payment_orders').update({
-                challenge_id: challenge.id,
-                is_account_created: true,
-            }).eq('order_id', internalOrderId);
-        }
+                balance: order.account_size,
+                callback_url: `${process.env.BACKEND_URL || process.env.FRONTEND_URL}/api/webhooks/mt5`
+            }) as any;
 
 
 
-        // 7. Send Emails (Credentials & Welcome)
-        if (email) {
+            // 5. Create Challenge Record & Competition Participant
+            // 5. Determine Valid Challenge Type (Must match database constraint)
+            challengeType = 'evaluation'; // Default fallback
+            let model = (order.model || '').toLowerCase();
+            let type = (order.metadata?.type || '').toLowerCase();
 
+            // Robust parsing of model/type if missing
+            if (!type && order.metadata?.account_type) {
+                const at = order.metadata.account_type.toLowerCase();
+                if (at.includes('instant')) type = 'instant';
+                else if (at.includes('1-step')) type = '1-step';
+                else if (at.includes('2-step')) type = '2-step';
+            }
 
-            // If Competition, send "Joined" email
             if (isCompetition) {
-                await EmailService.sendCompetitionJoined(
+                challengeType = 'competition';
+            } else if (model && type) {
+                // Map common patterns to snake_case (e.g. Model: 'lite', Type: '2-step' -> 'lite_2_step_phase_1')
+                const normalizedType = type.replace('-', '_').replace(' ', '_');
+                if (normalizedType === '2_step') {
+                    challengeType = `${model}_2_step_phase_1`;
+                } else {
+                    challengeType = `${model}_${normalizedType}`;
+                }
+            } else {
+                // Fallback for older orders or manual creations
+                const rawName = (order.account_type_name || '').toLowerCase();
+                if (rawName.includes('lite')) {
+                    if (rawName.includes('instant')) challengeType = 'lite_instant';
+                    else if (rawName.includes('1 step') || rawName.includes('1-step')) challengeType = 'lite_1_step';
+                    else if (rawName.includes('2 step') || rawName.includes('2-step')) challengeType = 'lite_2_step_phase_1';
+                } else if (rawName.includes('prime')) {
+                    if (rawName.includes('instant')) challengeType = 'prime_instant';
+                    else if (rawName.includes('1 step') || rawName.includes('1-step')) challengeType = 'prime_1_step';
+                    else if (rawName.includes('2 step') || rawName.includes('2-step')) challengeType = 'prime_2_step_phase_1';
+                }
+            }
+
+
+
+            const { data: challenge, error: challengeError } = await supabase
+                .from('challenges')
+                .insert({
+                    user_id: order.user_id,
+                    challenge_type: challengeType,
+                    initial_balance: order.account_size,
+                    current_balance: order.account_size,
+                    current_equity: order.account_size,
+                    start_of_day_equity: order.account_size,
+                    status: 'active',
+                    login: mt5Data.login,
+                    master_password: (mt5Data as any).password,
+                    investor_password: (mt5Data as any).investor_password || '',
+                    server: (mt5Data as any).server || 'ALFX Limited',
+                    platform: order.platform,
+                    leverage: leverage,
+                    group: mt5Group, // Store actual used group
+                    metadata: order.metadata || {}, // Pass through all metadata (including competition details)
+                })
+                .select()
+                .maybeSingle();
+
+            if (challengeError) {
+                console.error(`❌ [Payment] Challenge Creation Failed:`, challengeError.message);
+                throw new Error(`Challenge record could not be created: ${challengeError.message}`);
+            }
+
+
+
+            // If competition, also add to participants table
+            if (isCompetition && challenge && order.metadata?.competition_id) {
+                await supabase.from('competition_participants').insert({
+                    competition_id: order.metadata.competition_id,
+                    user_id: order.user_id,
+                    status: 'active',
+                    challenge_id: challenge.id
+                });
+            }
+
+            // 6. Finalize Order
+            if (challenge) {
+                await supabase.from('payment_orders').update({
+                    challenge_id: challenge.id,
+                    is_account_created: true,
+                }).eq('order_id', internalOrderId);
+            }
+
+            // 7. Send Emails (Credentials & Welcome)
+            if (email) {
+                // Always send Credentials
+                await EmailService.sendAccountCredentials(
                     email,
                     fullName,
-                    order.metadata?.competition_title || 'Trading Competition'
-                ).catch((e: any) => console.error('Failed to send comp joined email:', e));
+                    String(mt5Data.login),
+                    (mt5Data as any).password,
+                    (mt5Data as any).server || 'ALFX Limited',
+                    (mt5Data as any).investor_password
+                ).catch((e: any) => console.error('Failed to send credentials email:', e));
             }
-
-            // Always send Credentials
-            await EmailService.sendAccountCredentials(
-                email,
-                fullName,
-                String(mt5Data.login),
-                mt5Data.password,
-                mt5Data.server || 'ALFX Limited',
-                mt5Data.investor_password
-            ).catch((e: any) => console.error('Failed to send credentials email:', e));
         }
 
         // 7. Success Redirect
         if (req.method === 'GET') {
             return res.redirect(`${frontendUrl}/payment/success?orderId=${internalOrderId}&amount=${order.amount}`);
+        }
+
+        // 8. BOGO LOGIC: If coupon_type is 'bogo', create a second FREE account
+        let isBOGO = false;
+        if (order.metadata && (order.metadata.coupon_type === 'bogo' || (order.metadata.coupon_type === undefined && order.coupon_code && order.coupon_code.toUpperCase().includes('BOGO')))) {
+            isBOGO = true;
+        }
+
+        // Final safe check: Look up the coupon itself in the database if not already flagged
+        if (!isBOGO && order.coupon_code) {
+            const { data: couponData } = await supabase
+                .from('discount_coupons')
+                .select('discount_type')
+                .ilike('code', order.coupon_code.trim())
+                .maybeSingle();
+
+            if (couponData?.discount_type === 'bogo') {
+                isBOGO = true;
+
+            }
+        }
+
+        if (isBOGO) {
+
+
+            try {
+                // Check if BOGO account already exists for this order
+                const { data: existingBOGO } = await supabase
+                    .from('challenges')
+                    .select('id')
+                    .contains('metadata', { parent_order_id: internalOrderId, is_bogo_free: true })
+                    .maybeSingle();
+
+                if (existingBOGO) {
+
+                } else {
+                    // Generate a pseudo-order ID for the free account
+                    const freeOrderId = `SF-BOGO-${internalOrderId}-${Date.now()}`;
+
+                    // Create MT5 Account (Free)
+
+                    // Use same params as main account (which we now have reliably)
+                    const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', order.user_id).maybeSingle();
+                    const fullName = profile?.full_name || 'Trader';
+                    const email = profile?.email || 'noemail@sharkfunded.com';
+
+                    // Re-calculate group if not already in scope (though it should be)
+                    let mt5Group = order.metadata?.mt5_group || order.account_types?.mt5_group_name || 'demo\\forex';
+                    let leverage = 100;
+                    if (order.model === 'competition' || order.metadata?.is_competition) {
+                        mt5Group = 'demo\\SF\\0-Demo\\comp';
+                    }
+
+                    const mt5DataFree = await createMT5Account({
+                        name: fullName,
+                        email: email,
+                        group: mt5Group,
+                        leverage: leverage,
+                        balance: order.account_size,
+                        callback_url: `${process.env.BACKEND_URL || process.env.FRONTEND_URL}/api/webhooks/mt5`
+                    }) as any;
+
+
+
+                    // Create Challenge Record (Free)
+                    const bogoMetadata = {
+                        ...(order.metadata || {}),
+                        is_bogo_free: true,
+                        parent_order_id: internalOrderId
+                    };
+
+                    fs.appendFileSync('backend_request_debug.log', `[BOGO DEBUG] Login: ${mt5DataFree.login}, Metadata: ${JSON.stringify(bogoMetadata)}\n`);
+
+                    const { data: freeChallenge } = await supabase
+                        .from('challenges')
+                        .insert({
+                            user_id: order.user_id,
+                            challenge_type: (challengeType || 'evaluation'), // use the same mapped type as main
+                            initial_balance: order.account_size,
+                            current_balance: order.account_size,
+                            current_equity: order.account_size,
+                            start_of_day_equity: order.account_size,
+                            status: 'active',
+                            login: mt5DataFree.login,
+                            master_password: mt5DataFree.password,
+                            investor_password: mt5DataFree.investor_password || '',
+                            server: mt5DataFree.server || 'ALFX Limited',
+                            platform: order.platform,
+                            leverage: leverage,
+                            group: mt5Group,
+                            metadata: bogoMetadata,
+                        })
+                        .select()
+                        .maybeSingle();
+
+                    if (freeChallenge) {
+
+
+                        // Send Email for Free Account
+                        if (email) {
+                            await EmailService.sendAccountCredentials(
+                                email,
+                                fullName,
+                                String(mt5DataFree.login),
+                                mt5DataFree.password,
+                                mt5DataFree.server || 'ALFX Limited',
+                                mt5DataFree.investor_password
+                            ).catch((e: any) => console.error('Failed to send BOGO credentials email:', e));
+                        }
+                    }
+                }
+
+            } catch (bogoError) {
+                console.error(`❌ [BOGO] Failed to create free account:`, bogoError);
+                // Don't fail the main request, just log it.
+            }
         }
 
         res.json({ success: true, message: 'Process completed' });
@@ -383,7 +517,7 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
     };
 
     log(`🚀 START processAffiliateCommission: User ${userId}, Order ${orderId}, Amount ${amount}`);
-    console.log(`🚀 [Affiliate] START: User ${userId}, Order ${orderId}`);
+
 
     // 0. Check if commission already exists for this order to avoid duplicates
     const { data: existingComm } = await supabase
@@ -394,14 +528,14 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
 
     if (existingComm) {
         log(`ℹ️ Commission already exists for order ${orderId}. Skipping duplicate.`);
-        console.log(`ℹ️ [Affiliate] Commission already exists for order ${orderId}. Skipping.`);
+
         return;
     }
     const { data: orderData } = await supabase
         .from('payment_orders')
         .select('metadata')
         .eq('order_id', orderId)
-        .single();
+        .maybeSingle();
 
     let referrerId = orderData?.metadata?.affiliate_id;
 
@@ -411,19 +545,19 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
             .from('profiles')
             .select('referred_by')
             .eq('id', userId)
-            .single();
+            .maybeSingle();
 
         referrerId = profile?.referred_by;
     }
 
     if (!referrerId) {
         log(`ℹ️ No referrer for user ${userId}`);
-        console.log(`ℹ️ [Affiliate] No referrer found for user ${userId}.`);
+
         return;
     }
 
     log(`✅ Referrer found: ${referrerId}`);
-    console.log(`✅ [Affiliate] Referrer found: ${referrerId}`);
+
 
     // 2. Calculate Commission (Prioritize custom rate from coupon, fallback to 7% flat)
     const commissionRate = orderData?.metadata?.commission_rate !== undefined && orderData?.metadata?.commission_rate !== null
@@ -432,7 +566,7 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
 
     const commissionAmount = Number((amount * commissionRate).toFixed(2));
     log(`💰 Commission Rate: ${commissionRate * 100}%, Amount: ${commissionAmount}`);
-    console.log(`💰 [Affiliate] Rate: ${commissionRate * 100}%, Amount: $${commissionAmount}`);
+
 
     if (commissionAmount <= 0) {
         log('⚠️ Commission amount is 0 or negative. Skipping.');
@@ -452,7 +586,7 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
             rate: commissionRate,
             is_custom_rate: commissionRate !== 0.07
         }
-    }).select().single();
+    }).select().maybeSingle();
 
     if (error) {
         log(`Insert Error: ${error.message}`);
@@ -472,6 +606,6 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
         console.error(`[Affiliate] RPC Error updating profile:`, rpcError.message);
     } else {
         log(`RPC Success`);
-        console.log(`[Affiliate] Successfully updated profile totals.`);
+
     }
 }

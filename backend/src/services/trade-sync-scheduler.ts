@@ -63,8 +63,10 @@ async function runTradeSync() {
 
         if (DEBUG) console.log(`✅ [Trade Sync] Successfully dispatched ${challenges.length} jobs to Sync Worker.`);
 
-    } catch (e) {
-        console.error("❌ [Trade Sync] Dispatch Error:", e);
+    } catch (e: any) {
+        if (!e.message?.includes('Connection is closed')) {
+            console.error("❌ [Trade Sync] Dispatch Error:", e);
+        }
     } finally {
         isDispatching = false;
     }

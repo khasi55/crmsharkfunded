@@ -123,11 +123,11 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/admin',
-        destination: `${ADMIN_URL}/admin/`,
+        destination: `${ADMIN_URL}/`, // Strip /admin
       },
       {
         source: '/admin/:path*',
-        destination: `${ADMIN_URL}/admin/:path*`,
+        destination: `${ADMIN_URL}/:path*`, // Strip /admin
       },
     ];
   },

@@ -33,8 +33,6 @@ function StatBox({ label, value, icon: Icon, isNegative, isPositive }: StatProps
     );
 }
 
-import { useChallengeSubscription } from '@/hooks/useChallengeSocket';
-
 export default function AccountOverviewStats() {
     // Force HMR update
 
@@ -42,9 +40,6 @@ export default function AccountOverviewStats() {
     const { data: dashboardData } = useDashboardData();
     // Use state for Realized PnL
     const [realizedPnL, setRealizedPnL] = useState<number | null>(null);
-
-    // Subscribe to real-time updates for this challenge
-    useChallengeSubscription(selectedAccount?.id);
 
     useEffect(() => {
         if (dashboardData.objectives?.stats?.net_pnl !== undefined) {

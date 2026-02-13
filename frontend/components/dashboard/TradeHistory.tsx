@@ -26,7 +26,6 @@ import { useAccount } from "@/contexts/AccountContext";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
 import { fetchFromBackend } from "@/lib/backend-api";
 import { useSocket } from "@/contexts/SocketContext";
-import { useChallengeSubscription } from "@/hooks/useChallengeSocket";
 
 interface TradeHistoryProps {
     trades?: Trade[];
@@ -58,9 +57,6 @@ export default function TradeHistory({ trades: initialTrades, isPublic }: TradeH
 
     // WebSocket Subscription for Real-time Updates
     const { socket } = useSocket();
-
-    // Ensure we are subscribed to this challenge's room
-    useChallengeSubscription(selectedAccount?.id);
 
     // Sync with Props or Context
     useEffect(() => {

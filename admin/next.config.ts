@@ -42,7 +42,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  basePath: '/admin',
+  // basePath: '/admin', // Removed to prevent double pathing
   compress: true,
   poweredByHeader: false,
 
@@ -69,8 +69,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/',
-        destination: '/admin',
-        basePath: false,
+        destination: '/dashboard', // Redirect root to dashboard (login middleware will intercept if needed)
         permanent: false,
       },
     ];

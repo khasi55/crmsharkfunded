@@ -96,9 +96,10 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
     // END FIX
 
     const challengeStartTime = new Date(challenge.created_at).getTime() / 1000;
-    // Optimization: Only process trades that opened or closed in the last 24 hours to reduce load
-    const oneDayAgo = (Date.now() / 1000) - 86400;
-    meaningfulTrades = validIncomingTrades.filter((t: any) => t.time >= oneDayAgo);
+
+    // START FIX: Remove 24h filter to allow processing of historical trades synced in background
+    meaningfulTrades = validIncomingTrades;
+    // END FIX
 
     // console.log(`[RiskEvent] Login ${login}: ${meaningfulTrades.length} meaningful trades / ${trades.length} total.`);
 

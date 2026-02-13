@@ -1,9 +1,10 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { useAccount } from './AccountContext';
 import { useSocket } from './SocketContext';
 import { fetchFromBackend } from '@/lib/backend-api';
+import { useChallengeSubscription } from '@/hooks/useChallengeSocket';
 
 interface DashboardData {
     objectives: any | null;
@@ -26,16 +27,16 @@ interface DashboardDataContextType {
         global: boolean;
     };
     error: string | null;
-    refreshData: () => Promise<void>;
+    refreshData: (isSilent?: boolean) => Promise<void>;
 }
 
 const DashboardDataContext = createContext<DashboardDataContextType | undefined>(undefined);
 
 export function DashboardDataProvider({ children }: { children: ReactNode }) {
     const { selectedAccount } = useAccount();
-    useEffect(() => {
-        console.log("[DashboardData] DashboardDataProvider Mounted");
-    }, []);
+
+    // Subscribe to real-time updates for the selected challenge (Centralized here)
+    useChallengeSubscription(selectedAccount?.id);
 
     const [data, setData] = useState<DashboardData>({
         objectives: null,
@@ -58,26 +59,21 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
 
     const [error, setError] = useState<string | null>(null);
 
-    const fetchAllData = useCallback(async () => {
+    const fetchAllData = useCallback(async (isSilent = false) => {
         if (!selectedAccount) return;
 
-        setLoading(prev => ({ ...prev, global: true }));
+        if (!isSilent) setLoading(prev => ({ ...prev, global: true }));
         setError(null);
 
         const challengeId = selectedAccount.id;
-        console.log(`[DashboardData] Fetching all data for challenge: ${challengeId}`);
 
         try {
             // Consolidated bulk fetch
             const bulkData = await fetchFromBackend(`/api/dashboard/bulk?challenge_id=${challengeId}`, {
-                method: 'GET'
+                credentials: 'include'
             });
 
-            console.log('[DashboardData] Bulk Data Received:', {
-                objectives: !!bulkData.objectives,
-                hasDailyLoss: !!bulkData.objectives?.daily_loss,
-                hasAnalysis: !!bulkData.analysis
-            });
+            console.log(`[DashboardData] ${isSilent ? 'Silent' : 'Full'} refresh received`);
 
             setData({
                 objectives: bulkData.objectives || null,
@@ -88,44 +84,83 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
                 trades: bulkData.trades?.trades || null,
                 analysis: bulkData.analysis || null,
             });
-
         } catch (err: any) {
-            console.error('[DashboardData] Bulk fetch error:', err);
-            setError(err.message || 'Failed to fetch dashboard data');
+            console.error('[DashboardData] Fetch error:', err);
+            setError(err.message || 'Failed to load dashboard data');
         } finally {
-            setLoading(prev => ({ ...prev, global: false }));
+            if (!isSilent) setLoading(prev => ({ ...prev, global: false }));
         }
-    }, [selectedAccount?.id]);
+    }, [selectedAccount]);
 
+    // --- Real-time WebSocket event handlers ---
     const { socket } = useSocket();
+    const refreshInFlightRef = useRef(false);
 
-    // Socket listeners for live updates
     useEffect(() => {
         if (!socket || !selectedAccount?.id) return;
 
         const handleBalanceUpdate = (update: any) => {
-            console.log('[DashboardData] Live Balance Update:', update);
-            setData(prev => {
-                if (!prev.objectives) return prev;
+            console.log('📊 [DashboardData] balance_update received:', update);
+            setData((prev) => {
+                if (!prev.objectives || !prev.objectives.challenge) {
+                    // Trigger refresh if update arrives before primary data
+                    if (!refreshInFlightRef.current) {
+                        refreshInFlightRef.current = true;
+                        fetchAllData().finally(() => { refreshInFlightRef.current = false; });
+                    }
+                    return prev;
+                }
+
+                // Recalculate objectives with new equity
+                const currentEquity = update.equity;
+                const floatingPl = update.floating_pl ?? 0;
+
+                const startOfDayEquity = prev.objectives.daily_loss?.start_of_day_equity || 0;
+                const initialBalance = Number(prev.objectives.challenge.initial_balance) || 0;
+                const maxDailyLoss = prev.objectives.daily_loss?.max_allowed || 0;
+                const maxTotalLoss = prev.objectives.total_loss?.max_allowed || 0;
+
+                const dailyNet = currentEquity - startOfDayEquity;
+                const dailyLoss = dailyNet >= 0 ? 0 : Math.abs(dailyNet);
+                const dailyBreachLevel = startOfDayEquity - maxDailyLoss;
+                const dailyRemaining = Math.max(0, currentEquity - dailyBreachLevel);
+
+                const totalNet = currentEquity - initialBalance;
+                const totalLoss = totalNet >= 0 ? 0 : Math.abs(totalNet);
+                const totalBreachLevel = initialBalance - maxTotalLoss;
+                const totalRemaining = Math.max(0, currentEquity - totalBreachLevel);
+
                 return {
                     ...prev,
                     objectives: {
                         ...prev.objectives,
-                        equity: update.equity,
-                        floating_pl: update.floating_pl,
+                        daily_loss: {
+                            ...prev.objectives.daily_loss,
+                            current: dailyLoss,
+                            remaining: dailyRemaining,
+                        },
+                        total_loss: {
+                            ...prev.objectives.total_loss,
+                            current: totalLoss,
+                            remaining: totalRemaining,
+                        },
                         stats: {
                             ...prev.objectives.stats,
-                            equity: update.equity,
-                            // If net_pnl is realized, we might need a separate field for floating
-                        }
-                    }
+                            equity: currentEquity,
+                            floating_pl: floatingPl,
+                        },
+                    },
+                    stats: {
+                        ...prev.stats,
+                        equity: currentEquity,
+                        floating_pl: floatingPl,
+                    },
                 };
             });
         };
 
         const handleTradeUpdate = (update: any) => {
-            console.log('[DashboardData] Live Trade Update:', update);
-            // Refresh trades list or could selectively append
+            console.log('📊 [DashboardData] trade_update received:', update);
             fetchAllData();
         };
 
@@ -138,8 +173,24 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
         };
     }, [socket, selectedAccount?.id, fetchAllData]);
 
+    // --- Periodic Polling Fallback ---
+    useEffect(() => {
+        if (!selectedAccount?.id) return;
+
+        const pollInterval = setInterval(() => {
+            console.log('[DashboardData] Periodic polling refresh (silent)...');
+            fetchAllData(true); // Silent: No loading spinners
+        }, 30000); // Poll every 30s as fallback
+
+        return () => clearInterval(pollInterval);
+    }, [selectedAccount?.id, fetchAllData]);
+
+    // --- Initial Fetch Trigger ---
+    // Only fetch when account truly changes or is first loaded
+    // Relying on this instead of mount-time effect to avoid double calls
     useEffect(() => {
         if (selectedAccount?.id) {
+            console.log('[DashboardData] selectedAccount trigger. ID:', selectedAccount.id);
             fetchAllData();
         }
     }, [selectedAccount?.id, fetchAllData]);
