@@ -318,6 +318,9 @@ export async function POST(request: NextRequest) {
                         if (couponData.max_discount_amount) {
                             discountAmount = Math.min(discountAmount, couponData.max_discount_amount);
                         }
+                    } else if (couponData.discount_type === 'bogo') {
+                        // BOGO: No monetary discount on the first order
+                        discountAmount = 0;
                     } else {
                         discountAmount = couponData.discount_value;
                     }
@@ -360,7 +363,8 @@ export async function POST(request: NextRequest) {
                     leverage: accountType.leverage,
                     mt5_group: mt5Group || accountType.mt5_group_name,
                     affiliate_id: affiliateIdFromCoupon || null,
-                    commission_rate: coupon ? (await dbClient.from('discount_coupons').select('commission_rate').eq('code', coupon.toUpperCase()).single()).data?.commission_rate : null
+                    commission_rate: coupon ? (await dbClient.from('discount_coupons').select('commission_rate').eq('code', coupon.toUpperCase()).single()).data?.commission_rate : null,
+                    coupon_type: coupon ? (await dbClient.from('discount_coupons').select('discount_type').eq('code', coupon.toUpperCase()).single()).data?.discount_type : null
                 },
             })
             .select()

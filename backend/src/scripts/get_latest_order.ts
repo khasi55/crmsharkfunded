@@ -14,25 +14,25 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function checkCoupon(code: string) {
-    console.log(`🔍 Checking coupon: ${code}...`);
+async function getLatestOrder() {
     const { data, error } = await supabase
-        .from('coupons')
-        .select('*')
-        .eq('code', code)
+        .from('payment_orders')
+        .select('order_id, created_at')
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
     if (error) {
-        console.error('❌ Error fetching coupon:', error);
+        console.error('❌ Error fetching latest order:', error);
         return;
     }
 
     if (!data) {
-        console.log('❌ Coupon not found.');
+        console.log('❌ No orders found.');
         return;
     }
 
-    console.log('Coupon Details:', JSON.stringify(data, null, 2));
+    console.log(`Latest Order ID: ${data.order_id} (Created At: ${data.created_at})`);
 }
 
-checkCoupon('single');
+getLatestOrder();

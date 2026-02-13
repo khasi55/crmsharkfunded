@@ -14,25 +14,22 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function checkCoupon(code: string) {
-    console.log(`🔍 Checking coupon: ${code}...`);
+async function checkUserChallenges(userId: string) {
+    console.log(`🔍 Checking challenges for user: ${userId}...`);
     const { data, error } = await supabase
-        .from('coupons')
+        .from('challenges')
         .select('*')
-        .eq('code', code)
-        .maybeSingle();
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
 
     if (error) {
-        console.error('❌ Error fetching coupon:', error);
+        console.error('❌ Error fetching challenges:', error);
         return;
     }
 
-    if (!data) {
-        console.log('❌ Coupon not found.');
-        return;
-    }
-
-    console.log('Coupon Details:', JSON.stringify(data, null, 2));
+    console.log(`Found ${data?.length || 0} challenges.`);
+    console.log(JSON.stringify(data, null, 2));
 }
 
-checkCoupon('single');
+const USER_ID = '04a05ed2-1e1d-45aa-86d2-d0572501e7ed';
+checkUserChallenges(USER_ID);

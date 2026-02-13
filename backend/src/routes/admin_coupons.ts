@@ -71,7 +71,7 @@ router.post('/', authenticate, requireRole(['super_admin', 'admin']), async (req
             is_active
         } = req.body;
 
-        if (!code || !discount_type || !discount_value) {
+        if (!code || !discount_type || discount_value === undefined || discount_value === null) {
             res.status(400).json({ error: 'Missing required fields' });
             return;
         }

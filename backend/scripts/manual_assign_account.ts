@@ -22,7 +22,7 @@ async function run() {
         .from('payment_orders')
         .select('*, account_types(*)')
         .eq('order_id', TARGET_ORDER_ID)
-        .single();
+        .maybeSingle();
 
     if (orderError || !order) {
         console.error('❌ Order not found:', orderError);

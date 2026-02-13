@@ -38,7 +38,7 @@ app.use(helmet({
             imgSrc: ["'self'", "blob:", "data:", "https://*.supabase.co"],
             fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
             connectSrc: ["'self'", "https://*.supabase.co", "https://api.sharkfunded.co", "https://api.sharkfunded.com", "wss://*.supabase.co", "ws://localhost:3001", "http://localhost:3001", "ws://127.0.0.1:3001", "http://127.0.0.1:3001"],
-            frameSrc: ["'self'", "https://*.supabase.co"],
+            frameSrc: ["'self'", "https://*.supabase.co", "https://sharkpay-o9zz.vercel.app", "https://*.cregis.io"],
             objectSrc: ["'none'"],
             upgradeInsecureRequests: [],
         },

@@ -14,25 +14,31 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function checkCoupon(code: string) {
-    console.log(`🔍 Checking coupon: ${code}...`);
+async function checkOrder(orderId: string) {
+    console.log(`🔍 Checking Order: ${orderId}...`);
+
+    // Join with account_types to get group
     const { data, error } = await supabase
-        .from('coupons')
-        .select('*')
-        .eq('code', code)
+        .from('payment_orders')
+        .select(`
+            *,
+            account_types (*)
+        `)
+        .eq('order_id', orderId)
         .maybeSingle();
 
     if (error) {
-        console.error('❌ Error fetching coupon:', error);
+        console.error('❌ Error fetching order:', error);
         return;
     }
 
     if (!data) {
-        console.log('❌ Coupon not found.');
+        console.log('❌ Order not found in DB.');
         return;
     }
 
-    console.log('Coupon Details:', JSON.stringify(data, null, 2));
+    console.log('Order Details:', JSON.stringify(data, null, 2));
 }
 
-checkCoupon('single');
+const TARGET_ORDER = 'SF1771007932725PS9S5K2OW';
+checkOrder(TARGET_ORDER);

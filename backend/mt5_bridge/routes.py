@@ -118,18 +118,17 @@ def adjust_balance(data: BalanceRequest):
         
     print(f"💰 Adjust Balance Request: {data.amount} for {data.login} ({data.comment})")
     
-    try:
-        if hasattr(worker.manager, "DealerBalance"):
-            # MT5 DealerBalance typically handles positive (deposit) and negative (withdrawal)
-            worker.manager.DealerBalance(data.login, data.amount, data.comment)
-            return {"status": "success", "message": f"Adjusted balance by {data.amount}"}
-        else:
-            print("❌ DealerBalance method missing!")
-            raise HTTPException(status_code=500, detail="DealerBalance method missing")
-            
-    except Exception as e:
-        print(f"❌ Balance Adjustment Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    # Use robust method
+    result = worker.adjust_balance(data.login, data.amount, data.comment)
+    
+    if "error" in result:
+        print(f"❌ Balance Adjustment Failed: {result['error']}")
+        # Return 400 for logic/config errors instead of 500 crash
+        # But we must ensure frontend handles it. 
+        # Frontend AccountActions.tsx catches error and shows toast.
+        raise HTTPException(status_code=400, detail=result['error'])
+        
+    return result
 
 @router.post("/fetch-trades")
 def fetch_trades(data: FetchRequest):

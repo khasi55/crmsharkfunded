@@ -257,3 +257,21 @@ class MT5Worker:
             print(f"Error fetching user info for {login}: {e}")
             
         return None
+
+    def adjust_balance(self, login: int, amount: float, comment: str):
+        """Safely adjust balance using Manager API if available"""
+        if not self.connected:
+            return {"error": "Bridge not connected"}
+            
+        if not self._manager:
+            return {"error": "Manager API not initialized (Client Mode). Balance adjustment requres Manager access."}
+            
+        try:
+            if hasattr(self._manager, "DealerBalance"):
+                # DealerBalance(login, amount, comment)
+                self._manager.DealerBalance(login, amount, comment)
+                return {"status": "success", "message": f"Adjusted balance by {amount}"}
+            else:
+                 return {"error": "DealerBalance method not found on Manager"}
+        except Exception as e:
+            return {"error": f"DealerBalance failed: {str(e)}"}

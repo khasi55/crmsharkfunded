@@ -13,7 +13,7 @@ export function PaymentSettingsClient() {
         try {
             const data = await getMerchantSettings();
             // Ensure at least SharkPay and Paymid exist in UI even if DB is empty (should fail gracefully)
-            const defaultGWs = ['SharkPay', 'Paymid'];
+            const defaultGWs = ['SharkPay', 'Paymid', 'Cregis'];
             const merged = [...data];
             defaultGWs.forEach(name => {
                 if (!merged.find(g => g.gateway_name === name)) {

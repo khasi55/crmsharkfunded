@@ -14,25 +14,24 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function checkCoupon(code: string) {
-    console.log(`🔍 Checking coupon: ${code}...`);
+async function checkDiscountCoupon(code: string) {
+    console.log(`🔍 Checking discount_coupons: ${code}...`);
     const { data, error } = await supabase
-        .from('coupons')
+        .from('discount_coupons')
         .select('*')
-        .eq('code', code)
-        .maybeSingle();
+        .ilike('code', code.trim());
 
     if (error) {
         console.error('❌ Error fetching coupon:', error);
         return;
     }
 
-    if (!data) {
-        console.log('❌ Coupon not found.');
+    if (!data || data.length === 0) {
+        console.log('❌ Coupon not found in discount_coupons.');
         return;
     }
 
     console.log('Coupon Details:', JSON.stringify(data, null, 2));
 }
 
-checkCoupon('single');
+checkDiscountCoupon('single');

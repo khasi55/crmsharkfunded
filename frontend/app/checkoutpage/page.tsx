@@ -3,7 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useState, useEffect, Suspense, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Shield, Check, CreditCard, Loader2, ArrowRight, Menu, LogIn, UserPlus, Globe, ChevronDown, Copy, X, Info } from "lucide-react";
+import { Check, Loader2, ArrowRight, Wallet, ShieldCheck, Zap, Trophy, Globe, Info, CreditCard, X } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import PublicSidebar from "@/components/layout/PublicSidebar";
@@ -119,7 +119,7 @@ function CheckoutContent() {
     const [formData, setFormData] = useState({
         firstName: "", lastName: "", email: "", country: "", phone: "", terms: false, referralCode: ""
     });
-    const [selectedGateway, setSelectedGateway] = useState("Sharkpay");
+    const [selectedGateway, setSelectedGateway] = useState("sharkpay");
 
 
     // Dynamic Size Logic
@@ -251,8 +251,9 @@ function CheckoutContent() {
             if (!response.ok) throw new Error(data.error || 'Failed to create order');
 
             if (data.paymentUrl) {
-                if (selectedGateway.toLowerCase() === 'epay') {
-                    // EPay Docs: "Do not open the redirect URL in an iframe."
+                const gatewayLower = selectedGateway.toLowerCase();
+                if (gatewayLower === 'epay' || gatewayLower === 'sharkpay' || gatewayLower === 'cregis') {
+                    // Redirect directly for these gateways to avoid iframe issues
                     window.location.href = data.paymentUrl;
                 } else {
                     setPaymentUrl(data.paymentUrl);
@@ -400,8 +401,12 @@ function CheckoutContent() {
                                     </div>
                                     {couponError && <p className="text-xs text-red-500 mt-2">{couponError}</p>}
                                     {appliedCoupon && (
-                                        <div className="flex items-center gap-2 text-xs text-green-600 mt-2 font-medium">
-                                            <Check size={12} /> Coupon ({appliedCoupon.coupon.code}) Applied: -${discountAmount}
+                                        <div className={cn("flex items-center gap-2 text-xs mt-2 font-medium", appliedCoupon.discount.type === 'bogo' ? "text-purple-600" : "text-green-600")}>
+                                            {appliedCoupon.discount.type === 'bogo' ? <Zap size={12} /> : <Check size={12} />}
+                                            {appliedCoupon.discount.type === 'bogo'
+                                                ? `BOGO Active: Buy One Get One Free!`
+                                                : `Coupon (${appliedCoupon.coupon.code}) Applied: -$${discountAmount}`
+                                            }
                                             {appliedCoupon.discount.type === 'percentage' && ` (${appliedCoupon.discount.value}% OFF)`}
                                         </div>
                                     )}
@@ -431,12 +436,17 @@ function CheckoutContent() {
                                             <span className="font-mono text-slate-700">${basePriceUSD}</span>
                                         </div>
                                         {appliedCoupon && (
-                                            <div className="flex justify-between items-center text-green-600">
+                                            <div className={cn("flex justify-between items-center", appliedCoupon.discount.type === 'bogo' ? "text-purple-600" : "text-green-600")}>
                                                 <span>
-                                                    Discount ({appliedCoupon.coupon.code})
+                                                    {appliedCoupon.discount.type === 'bogo'
+                                                        ? `BOGO Active (${appliedCoupon.coupon.code})`
+                                                        : `Discount (${appliedCoupon.coupon.code})`
+                                                    }
                                                     {appliedCoupon.discount.type === 'percentage' && ` - ${appliedCoupon.discount.value}%`}
                                                 </span>
-                                                <span className="font-mono">-${discountAmount}</span>
+                                                <span className="font-mono">
+                                                    {appliedCoupon.discount.type === 'bogo' ? "FREE ACCOUNT" : `-$${discountAmount}`}
+                                                </span>
                                             </div>
                                         )}
 
@@ -585,13 +595,36 @@ function CheckoutContent() {
                                     ${finalPriceUSD.toFixed(2)}
                                 </div>
                             </button>
+
+                            {/* Cregis Crypto Option */}
+                            <button
+                                onClick={() => setSelectedGateway("Cregis")}
+                                className={cn(
+                                    "p-8 bg-white border rounded-2xl shadow-sm transition-all text-left",
+                                    selectedGateway === "Cregis" ? "border-blue-500 ring-2 ring-blue-500/20" : "border-slate-200 hover:border-slate-300"
+                                )}
+                            >
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className={cn("p-2 rounded-lg", selectedGateway === "Cregis" ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-400")}>
+                                        <Trophy size={24} />
+                                    </div>
+                                    {selectedGateway === "Cregis" && <Check className="text-blue-500" size={20} />}
+                                </div>
+                                <h3 className="text-xl font-bold text-slate-800">Crypto</h3>
+                                <p className="text-slate-500 text-sm mt-1">Pay with BTC, ETH, USDT via Cregis</p>
+                                <div className="mt-4 text-lg font-bold text-blue-600">
+                                    ${finalPriceUSD.toFixed(2)}
+                                </div>
+                            </button>
                         </div>
 
                         <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500 mt-6">
                             <Info size={14} className="inline mr-2 mb-0.5" />
                             {selectedGateway === "Sharkpay"
                                 ? "SharkPay provides instant UPI and local bank transfer options."
-                                : "Paymentservice.me supports international Visa, Mastercard, and AMEX cards (Redirects to secure page)."}
+                                : selectedGateway === "Cregis"
+                                    ? "Cregis supports multiple cryptocurrencies with instant verification."
+                                    : "Paymentservice.me supports international Visa, Mastercard, and AMEX cards (Redirects to secure page)."}
                         </div>
                     </div>
 

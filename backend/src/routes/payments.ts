@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { paymentGatewayRegistry } from '../services/payment-gateways';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { supabase } from '../lib/supabase';
 
 const router = Router();
 
@@ -66,8 +67,59 @@ router.post('/create-order', authenticate, async (req: AuthRequest, res: Respons
         console.log(`[Payment API] Order created successfully:`, {
             gateway,
             gatewayOrderId: result.gatewayOrderId,
-            hasPaymentUrl: !!result.paymentUrl
+            paymentUrl: result.paymentUrl
         });
+
+        // Resolve account_type_id based on model and type
+        let accountTypeId: number | null = null;
+        let model = (metadata?.model || '').toLowerCase();
+        let type = (metadata?.type || '').toLowerCase();
+        const size = metadata?.size || metadata?.account_size || 0;
+
+        // Fallback if metadata comes from ChallengeConfigurator format (e.g. account_type: "2-step-lite")
+        if (!model && !type && metadata?.account_type) {
+            const at = metadata.account_type.toLowerCase();
+            if (at.includes('instant')) type = 'instant';
+            else if (at.includes('1-step')) type = '1-step';
+            else if (at.includes('2-step')) type = '2-step';
+
+            if (at.includes('lite')) model = 'lite';
+            else if (at.includes('prime')) model = 'prime';
+        }
+
+        if (model === 'lite') {
+            if (type === 'instant') accountTypeId = 1;
+            else if (type === '1-step') accountTypeId = 2;
+            else if (type === '2-step') accountTypeId = 3;
+        } else if (model === 'prime') {
+            if (type === 'instant') accountTypeId = 5;
+            else if (type === '1-step') accountTypeId = 6;
+            else if (type === '2-step') accountTypeId = 7;
+        }
+
+        // Insert into database
+        const { error: dbError } = await supabase.from('payment_orders').insert({
+            user_id: (req as any).user.id,
+            order_id: orderId,
+            amount: amount,
+            currency: currency,
+            status: 'pending',
+            account_type_name: `${model || ''} ${type || ''}`.trim() || 'Challenge',
+            account_type_id: accountTypeId,
+            account_size: size,
+            platform: metadata?.platform || 'MT5',
+            model: model || 'lite',
+            payment_gateway: gateway,
+            payment_id: result.gatewayOrderId,
+            coupon_code: metadata?.coupon,
+            metadata: metadata || {}
+        });
+
+        if (dbError) {
+            console.error('[Payment API] Database insertion failed:', dbError);
+            // We don't fail the request here because the gateway order is already created,
+            // but we log it as a critical error.
+        }
 
         return res.json({
             success: true,

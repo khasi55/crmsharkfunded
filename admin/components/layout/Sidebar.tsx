@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Trophy, UserCheck, Gift, BarChart2, Calendar, Wallet, Settings, LogOut, ChevronLeft, LayoutDashboard, Medal, Users, HelpCircle, PieChart, X, Ticket, Mail } from "lucide-react";
+import { Trophy, UserCheck, Gift, BarChart2, Calendar, Wallet, Settings, LogOut, ChevronLeft, LayoutDashboard, Medal, Users, HelpCircle, PieChart, X, Ticket, Mail, Key } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -23,6 +23,7 @@ const menuItems = [
     { icon: Users, label: "Affiliate", href: "/affiliates" },
     { icon: Ticket, label: "Coupons", href: "/coupons" },
     { icon: Mail, label: "Emails", href: "/emails" },
+    { icon: Key, label: "Developer Settings", href: "/settings/developer" },
 ];
 
 const bottomItems = [

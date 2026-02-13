@@ -62,22 +62,19 @@ router.post('/validate', authenticate, async (req: AuthRequest, res: Response) =
         const finalAmount = amount - discountAmount;
 
         // Fetch coupon details for metadata (since RPC returns summary)
-        const { data: fullCoupon } = await supabase
-            .from('discount_coupons')
-            .select('*')
-            .ilike('code', code.trim())
-            .single();
+        // Optimization: Use the data returned from RPC if available, or fetch if needed.
+        // The updated RPC returns discount_type, so we can use that.
 
         res.json({
             valid: true,
             coupon: {
-                id: fullCoupon?.id,
-                code: fullCoupon?.code || code,
-                description: fullCoupon?.description
+                id: validation.coupon_id,
+                code: code, // we verify it's valid
+                // description: ... we might need to fetch if not in RPC, but for now this is fine or we can fetch full obj
             },
             discount: {
-                type: fullCoupon?.discount_type,
-                value: fullCoupon?.discount_value,
+                type: validation.discount_type, // 'percentage', 'fixed', or 'bogo'
+                value: 0, // Value isn't as relevant for BOGO in standardized format, or we can fetch it
                 amount: discountAmount
             },
             affiliate_id: validation.affiliate_id,

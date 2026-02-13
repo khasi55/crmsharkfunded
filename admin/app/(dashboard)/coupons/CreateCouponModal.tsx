@@ -143,7 +143,7 @@ export default function CreateCouponModal({ isOpen, onClose, onSuccess, initialD
         try {
             const payload = {
                 ...formData,
-                discount_value: parseFloat(formData.discount_value),
+                discount_value: formData.discount_type === 'bogo' ? 0 : parseFloat(formData.discount_value),
                 max_discount_amount: formData.max_discount_amount ? parseFloat(formData.max_discount_amount) : null,
                 min_purchase_amount: parseFloat(formData.min_purchase_amount),
                 max_uses: formData.max_uses ? parseInt(formData.max_uses) : null,
@@ -261,6 +261,7 @@ export default function CreateCouponModal({ isOpen, onClose, onSuccess, initialD
                                 >
                                     <option value="percentage">Percentage (%)</option>
                                     <option value="fixed">Fixed Amount ($)</option>
+                                    <option value="bogo">Buy One Get One (BOGO)</option>
                                 </select>
                             </div>
 
@@ -272,9 +273,10 @@ export default function CreateCouponModal({ isOpen, onClose, onSuccess, initialD
                                     required
                                     min="0"
                                     step="0.01"
-                                    value={formData.discount_value}
+                                    value={formData.discount_type === 'bogo' ? "0" : formData.discount_value}
                                     onChange={handleChange}
-                                    className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                                    disabled={formData.discount_type === 'bogo'}
+                                    className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none disabled:bg-gray-100 disabled:text-gray-500"
                                 />
                             </div>
 

@@ -136,4 +136,55 @@ router.post('/pricing', authenticate, requireRole(['super_admin', 'admin']), asy
     }
 });
 
+// --- DEVELOPER SETTINGS ---
+
+// GET /api/admin/settings/developer
+router.get('/developer', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('pricing_configurations')
+            .select('config')
+            .eq('key', 'developer_settings')
+            .single();
+
+        if (error) {
+            if (error.code === 'PGRST116') { // No rows found
+                return res.json({});
+            }
+            if (error.code === '42P01') {
+                return res.json({});
+            }
+            throw error;
+        }
+
+        res.json(data?.config || {});
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /api/admin/settings/developer
+router.post('/developer', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res) => {
+    try {
+        const config = req.body;
+
+        const { data, error } = await supabase
+            .from('pricing_configurations')
+            .upsert({
+                key: 'developer_settings',
+                config: config,
+                updated_at: new Date()
+            }, { onConflict: 'key' })
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        AuditLogger.info(req.user?.email || 'admin', `Updated Developer Settings`, { category: 'Settings' });
+        res.json(data.config);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 export default router;

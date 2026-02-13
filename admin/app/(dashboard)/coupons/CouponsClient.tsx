@@ -142,7 +142,7 @@ export default function CouponsClient() {
 
         const discountStr = coupon.discount_type === 'percentage'
             ? `${coupon.discount_value}%`
-            : `$${coupon.discount_value}`;
+            : coupon.discount_type === 'bogo' ? 'BOGO' : `$${coupon.discount_value}`;
         const matchesDiscount = discountStr.toLowerCase().includes(activeFilters.discount.toLowerCase());
 
         const commissionStr = coupon.commission_rate ? `${coupon.commission_rate}%` : "-";
@@ -369,7 +369,7 @@ export default function CouponsClient() {
                                 paginatedCoupons.map((coupon) => {
                                     const discountValue = coupon.discount_type === 'percentage'
                                         ? `${coupon.discount_value}%`
-                                        : `$${coupon.discount_value}`;
+                                        : coupon.discount_type === 'bogo' ? 'BOGO' : `$${coupon.discount_value}`;
                                     const commissionValue = coupon.commission_rate ? `${coupon.commission_rate}%` : "-";
                                     const emailValue = coupon.affiliate?.email || "No Affiliate";
 
