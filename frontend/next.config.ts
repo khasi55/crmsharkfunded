@@ -35,6 +35,7 @@ const securityHeaders = [
       font-src 'self' https://fonts.gstatic.com data:;
       connect-src 'self' https://*.supabase.co https://*.ngrok-free.app https://api.sharkfunded.co https://api.sharkfunded.com wss://*.supabase.co ws://localhost:3001 http://localhost:3001 ws://127.0.0.1:3001 http://127.0.0.1:3001 https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com;
       frame-src 'self' https://*.supabase.co;
+      frame-ancestors 'self';
       base-uri 'self';
       form-action 'self';
     `.replace(/\s{2,}/g, ' ').trim()
@@ -66,6 +67,7 @@ const nextConfig: NextConfig = {
 
   async rewrites() {
     const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+    const ADMIN_URL = process.env.ADMIN_URL || 'http://localhost:3002';
     return [
       {
         source: '/api/dashboard/:path*',
@@ -121,7 +123,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/admin/:path*',
-        destination: 'http://localhost:3002/admin/:path*',
+        destination: `${ADMIN_URL}/admin/:path*`,
       },
     ];
   },
