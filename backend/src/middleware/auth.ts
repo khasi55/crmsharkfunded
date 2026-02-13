@@ -22,11 +22,41 @@ export interface AuthRequest extends Request {
     user?: any;
 }
 
-const CACHE_TTL = 60 * 1000; // 60 seconds
+const CACHE_TTL = 30000; // 30 seconds
 const authCache = new Map<string, { user: any; expires: number }>();
-const JWT_SECRET = process.env.JWT_SECRET || 'sharkfunded_admin_secret_2026_secure_key';
+const JWT_SECRET = process.env.JWT_SECRET || 'shark_admin_session_secure_2026_k8s_prod_v1';
+
+// Helper to validate session and get profile
+async function validateSession(sessionId: string, ip: string, userAgent: string, isLocalhost: boolean) {
+    const { data: session, error: sessionError } = await getSupabase()
+        .from('api_sessions')
+        .select('user_id, is_active, ip_address, user_agent')
+        .eq('id', sessionId)
+        .single();
+
+    if (sessionError || !session || !session.is_active) return null;
+
+    // Device Binding
+    if (!isLocalhost && session.ip_address && session.ip_address !== ip) return null;
+    if (!isLocalhost && session.user_agent && session.user_agent !== userAgent) return null;
+
+    const { data: profile } = await getSupabase()
+        .from('profiles')
+        .select('email, role')
+        .eq('id', session.user_id)
+        .single();
+
+    if (!profile) return null;
+
+    return {
+        id: session.user_id,
+        email: profile.email,
+        role: profile.role || 'user'
+    };
+}
 
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    // console.log(`🔒 [Auth] Checking ${req.method} ${req.path}`);
     try {
         // 1. Check for Admin API Key (Backend-to-Backend/Admin Panel)
         const adminKey = req.headers['x-admin-api-key'];
@@ -34,14 +64,8 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
         if (adminKey && envAdminKey && adminKey === envAdminKey) {
             const adminEmail = req.headers['x-admin-email'] as string;
-            const DEBUG = process.env.DEBUG === 'true';
-            if (DEBUG) console.log(`[Auth] Authenticated via Admin API Key (Email: ${adminEmail || 'system'})`);
-
-            req.user = {
-                id: 'admin-system',
-                role: 'admin',
-                email: adminEmail || 'admin@system.local'
-            };
+            // console.log(`   🔑 [Auth] API Key valid for ${adminEmail}`);
+            req.user = { id: 'admin-system', email: adminEmail || 'admin@sharkfunded.com', role: 'super_admin' };
             next();
             return;
         }
@@ -51,74 +75,95 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         if (adminSessionToken) {
             try {
                 const decoded = jwt.verify(adminSessionToken, JWT_SECRET) as any;
-                const allowedRoles = ['admin', 'super_admin', 'sub_admin', 'risk_admin', 'payouts_admin'];
-
-                if (decoded && allowedRoles.includes(decoded.role)) {
+                if (decoded && decoded.id) {
                     req.user = {
                         id: decoded.id,
-                        role: decoded.role,
-                        email: decoded.email,
+                        email: decoded.email || 'admin@sharkfunded.com',
+                        role: decoded.role || 'admin',
                         permissions: decoded.permissions || []
                     };
                     next();
                     return;
                 }
             } catch (jwtError) {
-                const DEBUG = process.env.DEBUG === 'true';
-                if (DEBUG) console.warn('[Auth] Admin JWT verification failed');
+                console.warn(`[Auth] Admin JWT invalid: ${(jwtError as Error).message}`);
             }
         }
 
-        const authHeader = req.headers.authorization;
-        if (!authHeader) {
-            res.status(401).json({ error: 'Missing Authorization header' });
-            return;
-        }
+        // ... rest of the logic
 
-        const token = authHeader.split(' ')[1]; // Bearer <token>
-        if (!token || token === 'undefined' || token === 'null') {
-            res.status(401).json({ error: 'Invalid token format' });
-            return;
-        }
+        const authHeader = req.headers.authorization;
+        const sessionId = req.cookies?.['sf_session'];
+        const ip = (req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress) as string;
+        const userAgent = req.headers['user-agent'] || '';
+        const isLocalhost = !!(req.headers.host?.includes('localhost') || req.headers.host?.includes('127.0.0.1'));
 
         // --- CACHE CHECK ---
-        const now = Date.now();
-        const cached = authCache.get(token);
-        if (cached && cached.expires > now) {
+        const token = authHeader?.split(' ')[1];
+        const cacheKey = token ? `${token}:${sessionId || 'no-session'}` : `session:${sessionId}`;
+        const cached = authCache.get(cacheKey);
+        if (cached && cached.expires > Date.now()) {
             req.user = cached.user;
             next();
             return;
         }
 
-        const { data: { user }, error } = await getSupabase().auth.getUser(token);
+        // --- SESSION-ONLY AUTH (Critical for browser rewrites) ---
+        if (!authHeader && sessionId) {
+            const user = await validateSession(sessionId, ip, userAgent, isLocalhost);
+            if (user) {
+                req.user = user;
+                authCache.set(cacheKey, { user, expires: Date.now() + CACHE_TTL });
+                next();
+                return;
+            }
+        }
 
-        if (error || !user) {
+        // --- BEARER TOKEN AUTH ---
+        if (!token || token === 'undefined' || token === 'null') {
+            console.warn(`[Auth] No valid authentication for ${req.originalUrl} (Session: ${sessionId ? 'present but failed' : 'missing'})`);
+            res.status(401).json({ error: 'Authentication required' });
+            return;
+        }
+
+        const { data: { user: supabaseUser }, error: authError } = await getSupabase().auth.getUser(token);
+        if (authError || !supabaseUser) {
+            console.warn(`[Auth] Supabase verification failed for ${req.originalUrl}: ${authError?.message || 'No user'}`);
             res.status(401).json({ error: 'Invalid or expired token' });
             return;
         }
 
-        // --- CACHE SET ---
-        authCache.set(token, { user, expires: now + CACHE_TTL });
-        if (authCache.size > 1000) {
-            const firstKey = authCache.keys().next().value;
-            if (firstKey) authCache.delete(firstKey);
+        // --- ENRICH WITH SESSION IF AVAILABLE ---
+        if (sessionId) {
+            const userFromSession = await validateSession(sessionId, ip, userAgent, isLocalhost);
+            if (userFromSession && userFromSession.id === supabaseUser.id) {
+                req.user = userFromSession;
+                authCache.set(cacheKey, { user: userFromSession, expires: Date.now() + CACHE_TTL });
+                next();
+                return;
+            }
         }
 
+        // --- FALLBACK: JWT-ONLY (PROFILE FETCH) ---
         const { data: profile } = await getSupabase()
             .from('profiles')
             .select('role')
-            .eq('id', user.id)
+            .eq('id', supabaseUser.id)
             .single();
 
-        req.user = {
-            id: user.id,
-            email: user.email,
+        const fullUser = {
+            id: supabaseUser.id,
+            email: supabaseUser.email || '',
             role: profile?.role || 'user'
         };
 
+        req.user = fullUser;
+        authCache.set(cacheKey, { user: fullUser, expires: Date.now() + CACHE_TTL });
+
+
         next();
     } catch (error) {
-        console.error('Auth error:', error);
+        console.error('[Auth] Critical middleware error:', error);
         res.status(401).json({ error: 'Authentication failed' });
     }
 };

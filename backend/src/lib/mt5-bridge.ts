@@ -1,4 +1,4 @@
-// Native fetch is used (Node.js 18+)
+// Simplfied Bridge with Native Fetch and Logging
 
 export interface MT5AccountParams {
     name: string;
@@ -9,129 +9,95 @@ export interface MT5AccountParams {
     callback_url?: string;
 }
 
-export async function createMT5Account(params: MT5AccountParams) {
-    // Use BRIDGE_URL (Internal/Local) if set, otherwise API_URL (Public/Ngrok)
-    const mt5ApiUrl = process.env.MT5_BRIDGE_URL || process.env.MT5_API_URL || 'https://bridge.sharkfunded.co';
+const getBridgeUrl = () => process.env.MT5_BRIDGE_URL || process.env.MT5_API_URL || 'https://bridge.sharkfunded.co';
+const getApiKey = () => process.env.MT5_API_KEY || '';
 
-    const response = await fetch(`${mt5ApiUrl}/create-account`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'ngrok-skip-browser-warning': 'true',
-            'X-API-Key': process.env.MT5_API_KEY || ''
-        },
-        body: JSON.stringify(params)
-    });
+async function callBridge(endpoint: string, body: any, method = 'POST') {
+    const url = `${getBridgeUrl()}${endpoint}`;
+    const start = Date.now();
 
-    if (!response.ok) {
-        let errorMsg = 'Failed to create MT5 account via bridge';
-        try {
-            const errorData = await response.json() as any;
-            errorMsg = errorData.detail || errorMsg;
-        } catch (e) {
-            // If JSON parse fails, it's likely an HTML error page (502/504/524)
-            const text = await response.text().catch(() => 'No response body');
-            errorMsg = `Bridge Error ${response.status}: ${text.substring(0, 200)}...`;
+    // console.log(`🔌 [Bridge] Request: ${method} ${url}`);
+
+    try {
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': getApiKey(),
+                'ngrok-skip-browser-warning': 'true'
+            },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            console.error(`❌ [Bridge] HTTP Error ${response.status}: ${errText}`);
+            throw new Error(`Bridge error: ${errText}`);
         }
-        throw new Error(errorMsg);
-    }
 
-    return await response.json() as any;
+        const data = await response.json();
+        // console.log(`✅ [Bridge] Success (${Date.now() - start}ms)`);
+        return data;
+    } catch (error: any) {
+        console.error(`❌ [Bridge] ${endpoint} failed:`, error.message);
+        if (error.cause) console.error(`❌ [Bridge] Cause:`, error.cause);
+        throw error;
+    }
+}
+
+export async function createMT5Account(params: MT5AccountParams) {
+    return await callBridge('/create-account', params);
 }
 
 export async function fetchMT5Trades(login: number) {
-    const mt5ApiUrl = process.env.MT5_BRIDGE_URL || process.env.MT5_API_URL || 'https://bridge.sharkfunded.co';
-
     try {
-        const url = `${mt5ApiUrl}/fetch-trades`;
-        // console.log(`🔌 [Bridge Debug] Fetching from: ${url}`); // Spam reduction
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s Timeout (Increased for Heavy Accounts)
-
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true',
-                'X-API-Key': process.env.MT5_API_KEY || ''
-            },
-            body: JSON.stringify({ login }),
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-            const DEBUG = process.env.DEBUG === 'true';
-            if (DEBUG) console.error(`Bridge fetch failed: ${response.status} ${response.statusText}`);
-            return [];
-        }
-
-        const data = await response.json() as { trades: any[] };
-        if (!data) return [];
-        return data.trades || [];
-    } catch (error: any) {
-        if (error.name === 'AbortError') {
-            const DEBUG = process.env.DEBUG === 'true';
-            if (DEBUG) console.warn(`⏳ [Bridge Timeout] Request for ${login} aborted (60s limit exceeded)`);
-        } else {
-            console.error(`❌ Error fetching trades for ${login}:`, error.message);
-        }
+        const data = await callBridge('/fetch-trades', { login }) as any;
+        return data?.trades || [];
+    } catch (error) {
         return [];
     }
 }
 
 export async function fetchMT5History(login: number, fromTimestamp?: number) {
-    const mt5ApiUrl = process.env.MT5_BRIDGE_URL || process.env.MT5_API_URL || 'https://bridge.sharkfunded.co';
-
     try {
-        // Default to last 7 days if no timestamp provided
         const from = fromTimestamp || Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60);
         const to = Math.floor(Date.now() / 1000);
-
-        const response = await fetch(`${mt5ApiUrl}/history`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true',
-                'X-API-Key': process.env.MT5_API_KEY || ''
-            },
-            body: JSON.stringify({ login, from, to })
-        });
-
-        if (!response.ok) {
-            const DEBUG = process.env.DEBUG === 'true';
-            if (DEBUG) console.error(`Bridge history fetch failed: ${response.status} ${response.statusText}`);
-            return [];
-        }
-
-        const data = await response.json() as { trades: any[] };
-        return data.trades || [];
+        const data = await callBridge('/history', { login, from, to }) as any;
+        return data?.trades || [];
     } catch (error) {
-        const DEBUG = process.env.DEBUG === 'true';
-        if (DEBUG) console.error("Error fetching history from bridge:", error);
         return [];
     }
 }
 
 export async function disableMT5Account(login: number) {
-    const mt5ApiUrl = process.env.MT5_BRIDGE_URL || process.env.MT5_API_URL || 'https://bridge.sharkfunded.co';
-
-    const response = await fetch(`${mt5ApiUrl}/disable-account`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-API-Key': process.env.MT5_API_KEY || ''
-        },
-        body: JSON.stringify({ login: Number(login) })
-    });
-
-    if (!response.ok) {
-        const errText = await response.text();
-        // If 404, we consider it already "disabled" or missing, which is fine for our cleanup
-        if (response.status !== 404) {
-            throw new Error(`Bridge error: ${errText}`);
-        }
+    try {
+        await callBridge('/disable-account', { login: Number(login) });
+        return { success: true };
+    } catch (error: any) {
+        if (error.message.includes('404')) return { success: true, warning: 'Account not found' };
+        throw error;
     }
+}
 
-    return { success: true };
+export async function adjustMT5Balance(login: number, amount: number, comment: string = 'Admin Adjustment') {
+    return await callBridge('/adjust-balance', {
+        login: Number(login),
+        amount: Number(amount),
+        comment
+    });
+}
+
+export async function changeMT5Leverage(login: number, leverage: number) {
+    return await callBridge('/change-leverage', {
+        login: Number(login),
+        leverage: Number(leverage)
+    });
+}
+
+export async function enableMT5Account(login: number) {
+    return await callBridge('/enable-account', { login: Number(login) });
+}
+
+export async function stopOutMT5Account(login: number) {
+    return await callBridge('/stop-out-account', { login: Number(login) });
 }

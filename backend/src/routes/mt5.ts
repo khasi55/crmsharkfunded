@@ -1,8 +1,21 @@
 import { Router, Response, Request } from 'express';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
-import { createMT5Account } from '../lib/mt5-bridge';
+import {
+    createMT5Account,
+    fetchMT5Trades,
+    fetchMT5History,
+    disableMT5Account,
+    adjustMT5Balance,
+    changeMT5Leverage,
+    enableMT5Account,
+    stopOutMT5Account
+} from '../lib/mt5-bridge';
 import { EmailService } from '../services/email-service';
+import { AuditLogger } from '../lib/audit-logger';
+import { validateRequest, mt5AssignSchema, mt5BalanceAdjustSchema, mt5LeverageChangeSchema } from '../middleware/validation';
+import { sensitiveLimiter, resourceIntensiveLimiter } from '../middleware/rate-limit';
+import { logSecurityEvent } from '../utils/security-logger';
 
 const router = Router();
 // const MT5_BRIDGE_URL = process.env.MT5_BRIDGE_URL || 'http://localhost:8000';
@@ -23,10 +36,10 @@ function generatePassword(length = 10): string {
     return password;
 }
 
-// GET /api/mt5/accounts - List all MT5 accounts from unified table
-router.get('/accounts', async (req: Request, res: Response) => {
+// GET /api/mt5/accounts - List all MT5 accounts from unified table (admin only)
+router.get('/accounts', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
-        const { status, size, group, phase } = req.query;
+        const { status, size, group, phase, login } = req.query;
 
         // 1. Fetch Challenges
         let query = supabase
@@ -34,6 +47,9 @@ router.get('/accounts', async (req: Request, res: Response) => {
             .select('*');
 
         // Apply filters
+        if (login) {
+            query = query.eq('login', login);
+        }
         if (status && status !== 'all') {
             query = query.eq('status', status);
         }
@@ -137,16 +153,10 @@ router.get('/accounts', async (req: Request, res: Response) => {
     }
 });
 
-// POST /api/mt5/assign - Assign new MT5 account to user
-router.post('/assign', async (req, res: Response) => {
+// POST /api/mt5/assign - Assign new MT5 account to user (admin only)
+router.post('/assign', authenticate, requireRole(['super_admin', 'admin']), resourceIntensiveLimiter, validateRequest(mt5AssignSchema), async (req: AuthRequest, res: Response) => {
     try {
         const { email, mt5Group, accountSize, planType, note, imageUrl, competitionId } = req.body;
-
-        // Validate required fields
-        if (!email || !mt5Group || !accountSize || !planType || !note || !imageUrl) {
-            res.status(400).json({ error: 'Missing required fields (Note and Proof are mandatory)' });
-            return;
-        }
 
         // Validate Competition ID if applicable
         if (planType === 'Competition Account' && !competitionId) {
@@ -199,16 +209,26 @@ router.post('/assign', async (req, res: Response) => {
         // 3. Call Python MT5 Bridge to create account
         const callbackUrl = `${process.env.BACKEND_URL || process.env.FRONTEND_URL}/api/mt5/trades/webhook`;
 
-        console.log(`🔌 [MT5 Assign] Attempting to real create account in group: '${finalGroup}' for ${email}`);
+        // console.log(`🔌 [MT5 Assign] Attempting to real create account in group: '${finalGroup}' for ${email}`);
+        // console.log(`🔌 [MT5 Assign] Payload:`, JSON.stringify({...}));
 
-        const mt5Data = await createMT5Account({
-            name: profile.full_name || 'Trader',
-            email: profile.email,
-            group: finalGroup,
-            leverage: 100,
-            balance: accountSize,
-            callback_url: callbackUrl
-        });
+        let mt5Data;
+        try {
+            mt5Data = await createMT5Account({
+                name: profile.full_name || 'Trader',
+                email: profile.email,
+                group: finalGroup,
+                leverage: 100,
+                balance: accountSize,
+                callback_url: callbackUrl
+            }) as any;
+            // console.log(`✅ [MT5 Assign] Bridge Response:`, JSON.stringify(mt5Data, null, 2));
+        } catch (bridgeError: any) {
+            console.error(`❌ [MT5 Assign] Bridge Call Failed:`, bridgeError);
+            console.error(`❌ [MT5 Assign] Bridge Error Details:`, bridgeError.message);
+            if (bridgeError.cause) console.error(`❌ [MT5 Assign] Cause:`, bridgeError.cause);
+            throw new Error(`Bridge Account Creation Failed: ${bridgeError.message}`);
+        }
 
         const mt5Login = mt5Data.login;
         const masterPassword = mt5Data.password;
@@ -284,6 +304,18 @@ router.post('/assign', async (req, res: Response) => {
             ).catch(err => console.error("Async Email Error:", err));
         }
 
+        // 6. Log Admin Action
+        await logSecurityEvent({
+            userId: req.user!.id,
+            email: req.user!.email,
+            action: 'MT5_ACCOUNT_ASSIGN',
+            resource: 'mt5',
+            resourceId: String(mt5Login),
+            payload: { login: mt5Login, email: profile.email, plan: planType },
+            status: 'success',
+            ip: req.ip
+        });
+
         res.json({
             success: true,
             message: 'Account assigned successfully',
@@ -301,8 +333,8 @@ router.post('/assign', async (req, res: Response) => {
     }
 });
 
-// POST /api/mt5/sync-trades - Manually trigger trade sync from Bridge
-router.post('/sync-trades', async (req: Request, res: Response) => {
+// POST /api/mt5/sync-trades - Manually trigger trade sync from Bridge (admin only)
+router.post('/sync-trades', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { login, user_id } = req.body;
 
@@ -316,14 +348,14 @@ router.post('/sync-trades', async (req: Request, res: Response) => {
         // 1. Fetch trades from Python Bridge (should include both open and closed)
         const { fetchMT5Trades, fetchMT5History } = await import('../lib/mt5-bridge');
 
-        // Fetch Active Trades
-        const activeTrades = await fetchMT5Trades(login);
-        console.log(`📦 Bridge returned ${activeTrades.length} active trades`);
-
-        // Fetch Recent History (Last 24h) to catch scalping violations that closed quickly
+        // Parallel Fetch: Active Trades and Recent History (Last 24h)
         const oneDayAgo = Math.floor(Date.now() / 1000) - 86400;
-        const historyTrades = await fetchMT5History(login, oneDayAgo);
-        console.log(`📜 Bridge returned ${historyTrades.length} history trades (last 24h)`);
+        const [activeTrades, historyTrades] = await Promise.all([
+            fetchMT5Trades(login),
+            fetchMT5History(login, oneDayAgo)
+        ]);
+
+        console.log(`📦 Bridge returned ${activeTrades.length} active trades and ${historyTrades.length} history trades`);
 
         const allTrades = [...activeTrades, ...historyTrades];
         console.log(`∑ Total merged trades: ${allTrades.length}`);
@@ -405,6 +437,15 @@ router.post('/sync-trades', async (req: Request, res: Response) => {
             return;
         }
 
+        // --- CACHE INVALIDATION ---
+        try {
+            const { getRedis } = await import('../lib/redis');
+            const redis = getRedis();
+            await redis.del(`dashboard:bulk:${challenge.id}`);
+        } catch (err) {
+            console.error('Redis cache invalidation error:', err);
+        }
+
         // --- RECONCILIATION STEP ---
         // Identify trades that are Open in DB but missing from Bridge (meaning they closed)
         const bridgeTickets = new Set(allTrades.map((t: any) => Number(t.ticket)));
@@ -454,6 +495,10 @@ router.post('/sync-trades', async (req: Request, res: Response) => {
 
         res.json({ success: true, count: allTrades.length, trades: formattedTrades });
 
+        // 7. Log Admin Action
+        const { AuditLogger } = await import('../lib/audit-logger');
+        AuditLogger.info(req.user.email, `Manually Triggered Trade Sync: ${login}`, { login: Number(login), count: allTrades.length });
+
     } catch (error: any) {
         console.error('Sync error:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -463,7 +508,8 @@ router.post('/sync-trades', async (req: Request, res: Response) => {
 // ---------------- ADMIN ACTIONS ----------------
 
 // POST /api/mt5/admin/disable
-router.post('/admin/disable', authenticate, async (req: AuthRequest, res: Response) => {
+// POST /api/mt5/admin/disable - Disable MT5 account (admin only)
+router.post('/admin/disable', authenticate, requireRole(['super_admin', 'admin', 'risk_admin']), sensitiveLimiter, async (req: AuthRequest, res: Response) => {
     try {
         const { login } = req.body;
 
@@ -472,44 +518,23 @@ router.post('/admin/disable', authenticate, async (req: AuthRequest, res: Respon
             return res.status(401).json({ error: 'Unauthorized' });
         }
 
-        console.log(`🔌 Admin Request: Disable account ${login} using Bridge: ${MT5_BRIDGE_URL}`);
+        // 1. Call Bridge
+        const result = await disableMT5Account(Number(login));
 
-        const response = await fetch(`${MT5_BRIDGE_URL}/disable-account`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-API-Key': process.env.MT5_API_KEY || ''
-            },
-            body: JSON.stringify({ login: Number(login) })
-        });
-
-        if (!response.ok) {
-            const errText = await response.text();
-
-            // GRACEFUL HANDLING: If account is gone (404), we still want to disable it in CRM
-            if (response.status === 404 || errText.includes('404') || errText.toLowerCase().includes('not found')) {
-                console.warn(`⚠️ Account ${login} not found on Bridge (404). Marking as disabled in CRM anyway.`);
-                // We'll proceed to update DB below
-            } else {
-                console.error(`❌ Bridge Error (${response.status}):`, errText);
-                throw new Error(`Bridge error: ${errText}`);
-            }
-        }
-
-        let result;
-        if (response.ok) {
-            result = await response.json();
-        } else {
-            result = { success: true, message: 'Account missing on bridge, disabled in CRM.' };
-        }
-
-        // Update local DB status to match
-        const { error: dbError } = await supabase
-            .from('challenges')
-            .update({ status: 'disabled' }) // Manually disabled
-            .eq('login', login);
-
-        if (dbError) console.error('Failed to update DB status:', dbError);
+        // 2. Parallelize Audit Logging and DB Updates
+        Promise.all([
+            logSecurityEvent({
+                userId: req.user.id,
+                email: req.user.email,
+                action: 'MT5_ACCOUNT_DISABLE',
+                resource: 'mt5',
+                resourceId: String(login),
+                payload: { login, bridge_response: result },
+                status: 'success',
+                ip: req.ip
+            }),
+            supabase.from('challenges').update({ status: 'disabled' }).eq('login', login)
+        ]).catch(err => console.error('Post-Disable Sync Error:', err));
 
         res.json(result);
     } catch (error) {
@@ -519,7 +544,8 @@ router.post('/admin/disable', authenticate, async (req: AuthRequest, res: Respon
 });
 
 // POST /api/mt5/admin/stop-out
-router.post('/admin/stop-out', authenticate, async (req: AuthRequest, res: Response) => {
+// POST /api/mt5/admin/stop-out - Stop out MT5 account (admin only)
+router.post('/admin/stop-out', authenticate, requireRole(['super_admin', 'admin', 'risk_admin']), sensitiveLimiter, async (req: AuthRequest, res: Response) => {
     try {
         const { login } = req.body;
 
@@ -527,41 +553,23 @@ router.post('/admin/stop-out', authenticate, async (req: AuthRequest, res: Respo
             return res.status(401).json({ error: 'Unauthorized' });
         }
 
-        console.log(`🔌 Admin Request: Stop Out account ${login} using Bridge: ${MT5_BRIDGE_URL}`);
+        // 1. Call Bridge
+        const result = await stopOutMT5Account(Number(login));
 
-        const response = await fetch(`${MT5_BRIDGE_URL}/stop-out-account`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-API-Key': process.env.MT5_API_KEY || ''
-            },
-            body: JSON.stringify({ login: Number(login) })
-        });
-
-        if (!response.ok) {
-            const errText = await response.text();
-
-            // GRACEFUL HANDLING
-            if (response.status === 404 || errText.includes('404') || errText.toLowerCase().includes('not found')) {
-                console.warn(`⚠️ Account ${login} not found on Bridge (404). Marking as breached in CRM anyway.`);
-            } else {
-                console.error(`❌ Bridge Error (${response.status}):`, errText);
-                throw new Error(`Bridge error: ${errText}`);
-            }
-        }
-
-        let result;
-        if (response.ok) {
-            result = await response.json();
-        } else {
-            result = { success: true, message: 'Account missing on bridge, breached in CRM.' };
-        }
-
-        // Update local DB status
-        await supabase
-            .from('challenges')
-            .update({ status: 'breached' })
-            .eq('login', login);
+        // 2. Parallelize Audit Logging and DB Updates
+        Promise.all([
+            logSecurityEvent({
+                userId: req.user.id,
+                email: req.user.email,
+                action: 'MT5_ACCOUNT_STOP_OUT',
+                resource: 'mt5',
+                resourceId: String(login),
+                payload: { login, bridge_response: result },
+                status: 'success',
+                ip: req.ip
+            }),
+            supabase.from('challenges').update({ status: 'breached', breached_at: new Date().toISOString() }).eq('login', login)
+        ]).catch(err => console.error('Post-Stopout Sync Error:', err));
 
         res.json(result);
     } catch (error) {
@@ -571,7 +579,8 @@ router.post('/admin/stop-out', authenticate, async (req: AuthRequest, res: Respo
 });
 
 // POST /api/mt5/admin/enable
-router.post('/admin/enable', authenticate, async (req: AuthRequest, res: Response) => {
+// POST /api/mt5/admin/enable - Enable MT5 account (admin only)
+router.post('/admin/enable', authenticate, requireRole(['super_admin', 'admin', 'risk_admin']), sensitiveLimiter, async (req: AuthRequest, res: Response) => {
     try {
         const { login } = req.body;
 
@@ -579,41 +588,138 @@ router.post('/admin/enable', authenticate, async (req: AuthRequest, res: Respons
             return res.status(401).json({ error: 'Unauthorized' });
         }
 
-        console.log(`🔌 Admin Request: Enable account ${login} using Bridge: ${MT5_BRIDGE_URL}`);
+        const start = Date.now();
+        console.log(`🔌 [Enable] Starting for ${login}`);
 
-        const response = await fetch(`${MT5_BRIDGE_URL}/enable-account`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-API-Key': process.env.MT5_API_KEY || ''
-            },
-            body: JSON.stringify({ login: Number(login) })
+        // 1. Call Bridge
+        const bridgeStart = Date.now();
+        const result = await enableMT5Account(Number(login));
+        console.log(`⏱️ [Enable] Bridge took ${Date.now() - bridgeStart}ms`);
+
+        // 2. Log Admin Action
+        await logSecurityEvent({
+            userId: req.user.id,
+            email: req.user.email,
+            action: 'MT5_ACCOUNT_ENABLE',
+            resource: 'mt5',
+            resourceId: String(login),
+            payload: { login, bridge_response: result },
+            status: 'success',
+            ip: req.ip
         });
 
-        if (!response.ok) {
-            const errText = await response.text();
-            console.error(`❌ Bridge Error (${response.status}):`, errText);
-            throw new Error(`Bridge error: ${errText}`);
-        }
+        // 3. Update local DB status
+        const dbStart = Date.now();
+        await supabase.from('challenges').update({ status: 'active' }).eq('login', login);
+        console.log(`⏱️ [Enable] DB took ${Date.now() - dbStart}ms`);
 
-        const result = await response.json();
+        console.log(`✅ [Enable] Finished in ${Date.now() - start}ms`);
+        res.json(result);
+    } catch (error: any) {
+        console.error('Admin Enable Error:', error);
+        res.status(500).json({
+            error: 'Failed to enable account',
+            details: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+});
 
-        // Update local DB status
-        await supabase
-            .from('challenges')
-            .update({ status: 'active' })
-            .eq('login', login);
+// POST /api/mt5/admin/change-leverage - Change MT5 account leverage (admin only)
+router.post('/admin/change-leverage', authenticate, requireRole(['super_admin', 'admin', 'risk_admin']), sensitiveLimiter, validateRequest(mt5LeverageChangeSchema), async (req: AuthRequest, res: Response) => {
+    try {
+        const { login, leverage } = req.body;
+
+        if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+        if (!login || !leverage) return res.status(400).json({ error: 'Missing login or leverage' });
+
+        // 1. Call Bridge
+        const result = await changeMT5Leverage(Number(login), Number(leverage));
+
+        // 2. Parallelize Audit Logging and DB Updates
+        Promise.all([
+            logSecurityEvent({
+                userId: req.user.id,
+                email: req.user.email,
+                action: 'MT5_LEVERAGE_CHANGE',
+                resource: 'mt5',
+                resourceId: String(login),
+                payload: { login, leverage, result },
+                status: 'success',
+                ip: req.ip
+            }),
+            supabase.from('challenges').update({ leverage: Number(leverage) }).eq('login', login)
+        ]).catch(err => console.error('Post-Leverage Sync Error:', err));
 
         res.json(result);
-    } catch (error) {
-        console.error('Admin Enable Error:', error);
-        res.status(500).json({ error: 'Failed to enable account' });
+    } catch (error: any) {
+        console.error('Admin Leverage Change Error:', error);
+        res.status(500).json({ error: error.message || 'Failed to change leverage' });
+    }
+});
+
+// POST /api/mt5/admin/adjust-balance - Adjust MT5 balance (admin only)
+router.post('/admin/adjust-balance', authenticate, requireRole(['super_admin', 'admin', 'risk_admin']), sensitiveLimiter, validateRequest(mt5BalanceAdjustSchema), async (req: AuthRequest, res: Response) => {
+    try {
+        const { login, amount, comment } = req.body;
+
+        if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+        if (!login || amount === undefined) return res.status(400).json({ error: 'Missing login or amount' });
+
+        // 1. Call Bridge
+        const result = await adjustMT5Balance(Number(login), Number(amount), comment || 'Admin Adjustment');
+
+        // 2. Parallelize Audit Logging and DB Updates
+        (async () => {
+            try {
+                // Fetch current to update
+                const { data: challenge } = await supabase
+                    .from('challenges')
+                    .select('current_balance, current_equity')
+                    .eq('login', login)
+                    .single();
+
+                if (challenge) {
+                    await supabase
+                        .from('challenges')
+                        .update({
+                            current_balance: Number(challenge.current_balance) + Number(amount),
+                            current_equity: Number(challenge.current_equity) + Number(amount),
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('login', login);
+                }
+                await logSecurityEvent({
+                    userId: req.user!.id,
+                    email: req.user!.email,
+                    action: 'MT5_BALANCE_ADJUST',
+                    resource: 'mt5',
+                    resourceId: String(login),
+                    payload: { login, amount, comment, result },
+                    status: 'success',
+                    ip: req.ip
+                });
+            } catch (err) {
+                console.error('Post-Balance Sync Error:', err);
+            }
+        })();
+
+        res.json(result);
+    } catch (error: any) {
+        console.error('Admin Balance Adjust Error:', error);
+        res.status(500).json({ error: error.message || 'Failed to adjust balance' });
     }
 });
 
 // POST /api/mt5/trades/webhook - Receive closed trades (Poller OR Event)
 router.post('/trades/webhook', async (req: Request, res: Response) => {
     try {
+        const secret = req.headers['x-webhook-secret'];
+        if (secret !== process.env.MT5_WEBHOOK_SECRET) {
+            console.warn(`[Security] Unauthorized trade webhook attempt with invalid secret.`);
+            return res.status(401).json({ error: 'Unauthorized: Invalid webhook secret' });
+        }
+
         const body = req.body;
         // console.log(`📊 [Backend] Received Webhook Payload:`, JSON.stringify(body, null, 2));
 
@@ -698,6 +804,16 @@ router.post('/trades/webhook', async (req: Request, res: Response) => {
                 }
 
                 console.log(`✅ Successfully upserted ${validTrades.length} trades from batch.`);
+
+                // Cache Invalidation for all challenges in batch
+                try {
+                    const { getRedis } = await import('../lib/redis');
+                    const redis = getRedis();
+                    const challengesToInvalidate = Array.from(new Set(validTrades.map((t: any) => t.challenge_id)));
+                    await Promise.all(challengesToInvalidate.map(cid => redis.del(`dashboard:bulk:${cid}`)));
+                } catch (err) {
+                    console.error('Batch cache invalidation error:', err);
+                }
 
                 // WebSocket: Broadcast trade updates to affected users (filter ensures non-null)
                 const { broadcastTradeUpdate } = await import('../services/socket');
@@ -881,6 +997,12 @@ router.post('/trades/webhook', async (req: Request, res: Response) => {
 // POST /api/mt5/webhook - General Purpose Webhook (Breach, etc.)
 router.post('/webhook', async (req: Request, res: Response) => {
     try {
+        const secret = req.headers['x-webhook-secret'];
+        if (secret !== process.env.MT5_WEBHOOK_SECRET) {
+            console.warn(`[Security] Unauthorized general webhook attempt with invalid secret.`);
+            return res.status(401).json({ error: 'Unauthorized: Invalid webhook secret' });
+        }
+
         const body = req.body;
         console.log(`🔔 [Backend] Received Event Webhook:`, JSON.stringify(body, null, 2));
 
