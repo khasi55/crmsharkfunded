@@ -159,7 +159,7 @@ router.get('/history', authenticate, async (req: AuthRequest, res: Response) => 
 
         const { data: payouts, error } = await supabase
             .from('payout_requests')
-            .select('*')
+            .select('id, created_at, amount, payout_method, status, metadata, rejection_reason') // Select only necessary fields
             .eq('user_id', user.id)
             .order('created_at', { ascending: false });
 
