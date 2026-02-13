@@ -106,6 +106,31 @@ def deposit_funds(data: DepositRequest):
         print(f"❌ Deposit Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+class BalanceRequest(BaseModel):
+    login: int
+    amount: float
+    comment: str = "Admin Adjustment"
+
+@router.post("/adjust-balance")
+def adjust_balance(data: BalanceRequest):
+    if not worker.connected:
+        worker.connect()
+        
+    print(f"💰 Adjust Balance Request: {data.amount} for {data.login} ({data.comment})")
+    
+    try:
+        if hasattr(worker.manager, "DealerBalance"):
+            # MT5 DealerBalance typically handles positive (deposit) and negative (withdrawal)
+            worker.manager.DealerBalance(data.login, data.amount, data.comment)
+            return {"status": "success", "message": f"Adjusted balance by {data.amount}"}
+        else:
+            print("❌ DealerBalance method missing!")
+            raise HTTPException(status_code=500, detail="DealerBalance method missing")
+            
+    except Exception as e:
+        print(f"❌ Balance Adjustment Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/fetch-trades")
 def fetch_trades(data: FetchRequest):
     if not worker.connected:

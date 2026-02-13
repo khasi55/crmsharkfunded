@@ -75,8 +75,8 @@ app.use(cors({
             'https://www.sharkfunded.co',
             'https://app.sharkfunded.co',
             'https://admin.sharkfunded.co',
-            process.env.FRONTEND_URL,
-            process.env.ADMIN_URL
+            process.env.FRONTEND_URL?.replace(/\/$/, ''),
+            process.env.ADMIN_URL?.replace(/\/$/, '')
         ].filter(Boolean) as string[];
 
         if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.ngrok-free.app')) {
