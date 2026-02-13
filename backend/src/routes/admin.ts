@@ -116,7 +116,7 @@ router.post('/upgrade-account', authenticate, requireRole(['super_admin', 'admin
                 group: mt5Group,
                 leverage: account.leverage || 100,
                 balance: account.initial_balance,
-            });
+            }) as any;
 
             mt5Login = mt5Data.login;
             mt5Password = mt5Data.password;

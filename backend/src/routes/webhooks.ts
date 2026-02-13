@@ -259,7 +259,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             leverage: leverage,
             balance: order.account_size,
             callback_url: `${process.env.BACKEND_URL || process.env.FRONTEND_URL}/api/webhooks/mt5`
-        });
+        }) as any;
 
         // 5. Create Challenge Record & Competition Participant
         // 5. Determine Valid Challenge Type (Must match database constraint)
