@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { getAdminUser } from "@/utils/get-admin-user";
 import { AdminLayoutClient } from "@/components/admin/AdminLayoutClient";
 
+export const dynamic = 'force-dynamic';
+
 // This is a server component by default
 export default async function AdminLayout({
     children,
