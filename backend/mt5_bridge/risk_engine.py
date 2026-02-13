@@ -20,12 +20,13 @@ def load_rules():
         print(f"❌ [RiskEngine] Failed to load rules: {e}")
 
 # Webhook Config
-CRM_WEBHOOK_URL = os.environ.get("CRM_WEBHOOK_URL", "http://localhost:3001/api/mt5/webhook")
+CRM_WEBHOOK_URL = os.environ.get("CRM_WEBHOOK_URL", "https://api.sharkfunded.co/api/mt5/webhook")
 
 class RiskEngine:
-    def __init__(self, mt5_worker, supabase_client=None):
+    def __init__(self, mt5_worker, supabase_client=None, ws_manager=None):
         self.worker = mt5_worker
         self.supabase = supabase_client
+        self.ws_manager = ws_manager
         self.running = False
         self.thread = None
         self.lock = threading.Lock()
@@ -34,13 +35,14 @@ class RiskEngine:
         # Key: login (int), Value: { "date": "YYYY-MM-DD", "equity": float }
         self.daily_equity_map = {} 
         
-        # Funded Accounts Override Cache (Set of Logins)
-        self.funded_cache = set()
+        # Account Metadata Cache
+        # Key: login (int), Value: { "initial_balance": float, "type": str, "status": str }
+        self.account_metadata = {}
         self.last_cache_refresh = 0
         self.CACHE_REFRESH_INTERVAL = 60 # Refresh every 60 seconds
 
         load_rules()
-        self.refresh_funded_cache()
+        self.refresh_account_metadata()
 
     def start(self):
         if self.running:
@@ -48,7 +50,7 @@ class RiskEngine:
         self.running = True
         self.thread = threading.Thread(target=self._monitor_loop, daemon=True)
         self.thread.start()
-        print("🚀 [RiskEngine] Started Risk Monitor Thread")
+        print("🚀 [RiskEngine] Started Autonomous Risk Monitor Thread")
 
     def stop(self):
         self.running = False
@@ -60,98 +62,82 @@ class RiskEngine:
             try:
                 # Periodic Cache Refresh
                 if time.time() - self.last_cache_refresh > self.CACHE_REFRESH_INTERVAL:
-                    self.refresh_funded_cache()
+                    self.refresh_account_metadata()
 
                 self.check_all_accounts()
             except Exception as e:
                 print(f"⚠️ [RiskEngine] Error in loop: {e}")
             
-            time.sleep(1.0) # Check every 1 second (High Frequency)
+            time.sleep(0.5) 
 
-    def refresh_funded_cache(self):
-        """Fetches active accounts that should have Funded Rules (10%/5%) instead of Group Rules"""
+    def refresh_account_metadata(self):
+        """Fetches active accounts and their rules from Supabase"""
         if not self.supabase: return
         
         try:
-            # Query for active challenges that are "funded" OR "instant" 
-            # (Note: Instant usually implies 8% rule, but user wants OVERRIDE for "Funded" status. 
-            # We assume database 'challenge_type' contains 'funded' for legit funded accounts)
-            # Actually, per user request, we need to treat Passed Challenges (which become Funded) with 10% rule.
-            # So we look for 'funded' in the type.
-            
             response = self.supabase.table('challenges') \
-                .select('login') \
+                .select('login, initial_balance, challenge_type, status') \
                 .eq('status', 'active') \
-                .ilike('challenge_type', '%funded%') \
                 .execute()
                 
             if response.data:
-                new_cache = set()
+                new_metadata = {}
                 for row in response.data:
-                    if row.get('login'):
-                        new_cache.add(int(row['login']))
-                self.funded_cache = new_cache
-                # print(f"✅ [RiskEngine] Refreshed Funded Cache: {len(self.funded_cache)} accounts")
+                    login = row.get('login')
+                    if login:
+                        new_metadata[int(login)] = {
+                            "initial_balance": float(row.get('initial_balance', 0)),
+                            "type": row.get('challenge_type', ''),
+                            "status": row.get('status', 'active')
+                        }
+                self.account_metadata = new_metadata
+                # print(f"✅ [RiskEngine] Refreshed Metadata: {len(self.account_metadata)} accounts")
             
             self.last_cache_refresh = time.time()
             
         except Exception as e:
-            print(f"⚠️ [RiskEngine] Cache refresh failed: {e}")
+            print(f"⚠️ [RiskEngine] Metadata refresh failed: {e}")
 
     def check_all_accounts(self):
-        # Iterate all groups defined in rules
-        for group_name in rules_cache.keys():
-            # Get users for this group from Worker
-            # Escape backslashes for API call if needed, but rules_cache keys are raw
-            users = self.worker.get_group_users(group_name)
-            
-            for user in users:
-                # Convert dict to object-like if needed or just use dict access in check_user
-                # Update check_user to handle dict
-                self.check_user(user) 
+        # We now primarily iterate the account_metadata we have from CRM
+        # This ensures we only check accounts that exist in the CRM database
+        for login, meta in self.account_metadata.items():
+            # Get real-time data from MT5 Worker for this specific login
+            # Optimization: Worker could batch this, but for now we follow the existing pattern
+            user_info = self.worker.get_user_info(login)
+            if user_info:
+                self.check_user(user_info, meta)
 
-    def check_user(self, user_info):
+    def check_user(self, user_info, meta):
         """
-        user_info: Dict { login, group, equity, balance, ... }
+        user_info: Dict { login, group, equity, balance }
+        meta: Dict { initial_balance, type, status }
         """
         login = user_info.get('login')
         group = user_info.get('group')
         equity = user_info.get('equity')
         balance = user_info.get('balance')
+        initial_balance = meta.get('initial_balance', 0)
         
-        # 1. Get Rules
+        if initial_balance <= 0: return # Skip if no initial balance data
+
+        # 1. Get Rules for the group
         rule = rules_cache.get(group)
         if not rule:
-            # Try escaping backslashes if needed, or check fallback
-            return
-
-        # --- RULE OVERRIDE LOGIC ---
-        if login in self.funded_cache:
-            # Override for Funded Account (Passed Challenge)
-            # Standard Funded Rules: 10% Max, 5% Daily
             max_dd_percent = 10.0
             daily_dd_percent = 5.0
-            # print(f"ℹ️ [RiskEngine] Override Applied for {login}: 10%/5%")
+            profit_target_percent = 0.0
         else:
-            # Standard Group Rules (e.g. 8%/4% for Instant)
-            max_dd_percent = rule.get("max_drawdown_percent", 10.0)
-            daily_dd_percent = rule.get("daily_drawdown_percent", 5.0)
+            # Rule Override for Funded Accounts
+            if 'funded' in meta.get('type', '').lower():
+                max_dd_percent = 10.0
+                daily_dd_percent = 5.0
+                profit_target_percent = 0.0
+            else:
+                max_dd_percent = rule.get("max_drawdown_percent", 10.0)
+                daily_dd_percent = rule.get("daily_drawdown_percent", 5.0)
+                profit_target_percent = rule.get("profit_target_percent", 0.0)
 
-        reset_hour = rule.get("reset_hour_gmt", 0)
-
-        # 2. Get Initial Balance (Approximation or tracked?)
-        # For Max DD, we usually compare vs Initial Balance.
-        # Ideally, user_info has 'initial_balance'. If not, we might use 'balance' from a "reset point"
-        # BUT standard MT5 'balance' changes with closed trades. 
-        # We need the ORIGINAL starting balance for Max Drawdown (Static Model) or High Watermark (Trailing).
-        # Assumption: CRM sends "initial_balance" or we infer it.
-        # For now, let's assume Static Model based on Tier (e.g. 100k account).
-        
-        # Simplified: Use current balance as proxy for Initial if no other data? 
-        # NO, that resets risk on profit.
-        # We need the "Entry Capital". 
-        # If unavailable, we can't efficiently check MaxDD without CRM data.
-        
         # --- ZERO EQUITY GLITCH PROTECTION ---
         # Sometimes MT5 Bridge returns 0 equity for a split second during sync or creation.
         # If Balance is healthy but Equity is ~0, we skip the check to avoid false breach.
@@ -164,47 +150,62 @@ class RiskEngine:
             print(f"⚠️ [RiskEngine] IGNORED Low/Zero Equity Glitch for {login}. Eq: {equity}, Bal: {balance}")
             return
 
-        # --- DAILY DRAWDOWN CHECK ---
-        # 3. Check Daily Start Equity
+        # 1.5 WebSocket Broadcast (Unified Account Update)
+        if self.ws_manager:
+            import asyncio
+            floating_pl = 0.0
+            try:
+                positions = self.worker.get_positions(login) or []
+                for pos in positions:
+                    floating_pl += float(getattr(pos, 'Profit', getattr(pos, 'profit', 0.0)))
+            except: pass
+
+            payload = {
+                "event": "account_update",
+                "login": login,
+                "equity": equity,
+                "floating_pl": round(floating_pl, 2),
+                "trades_closed": False,
+                "closed_count": 0,
+                "timestamp": datetime.now().isoformat()
+            }
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running(): loop.create_task(self.ws_manager.broadcast(login, payload))
+                else: asyncio.run(self.ws_manager.broadcast(login, payload))
+            except: pass
+
+        # 2. OVERALL DRAWDOWN CHECK (Static Model vs Initial Balance)
+        max_dd_limit = initial_balance * (1 - (max_dd_percent / 100.0))
+        if equity <= max_dd_limit:
+            self.trigger_breach(login, "Overall Drawdown", equity, balance, max_dd_limit, initial_balance)
+            return
+
+        # 3. DAILY DRAWDOWN CHECK
         now = datetime.now(timezone.utc)
         today_str = now.strftime("%Y-%m-%d")
-        
-        # Update Daily Start if new day
         user_daily = self.daily_equity_map.get(login)
-        start_equity = equity # Default
         
         if not user_daily or user_daily['date'] != today_str:
-            # New Day (or first run)
-            # Fetch 'Start of Day' from history? Or just use current if it's the reset hour?
-            # This is the tricky part.
-            # WORKAROUND: If we don't have it, we initialize it to current equity.
-            # This effectively "Skips" daily DD check for the very first split second of run, 
-            # but tracks it thereafter.
             self.daily_equity_map[login] = { "date": today_str, "equity": equity }
             start_equity = equity
         else:
             start_equity = user_daily['equity']
 
-        # Calc Daily Limit
-        daily_limit = start_equity * (1 - (daily_dd_percent / 100.0))
-        
+        # Daily limit is StartOfDayEquity - (InitialBalance * DailyPercent)
+        daily_limit = start_equity - (initial_balance * (daily_dd_percent / 100.0))
         if equity <= daily_limit:
             self.trigger_breach(login, "Daily Drawdown", equity, balance, daily_limit, start_equity)
             return
 
-        # --- MAX DRAWDOWN CHECK ---
-        # Assuming we can get 'initial_balance' or derived from group name?
-        # e.g. "100K" -> 100,000. 
-        # Let's trust logic provided or CRM.
-        # For this snippet, I will check Max DD vs Balance (Trailing) or if we put Initial in the map.
-        
-        # Placeholder for MaxDD logic
-        pass
+        # 4. PROFIT TARGET CHECK
+        if profit_target_percent > 0:
+            target_equity = initial_balance * (1 + (profit_target_percent / 100.0))
+            if equity >= target_equity:
+                self.trigger_pass(login, equity, balance, target_equity)
 
     def trigger_breach(self, login, risk_type, current_equity, current_balance, limit, reference_value):
-        print(f"🛑 [RiskEngine] BREACH DETECTED for {login}: {risk_type}")
-        print(f"   Equity: {current_equity} <= Limit: {limit} (Ref: {reference_value})")
-
+        print(f"🛑 [RiskEngine] BREACH: {login} - {risk_type}. Eq: {current_equity} <= {limit}")
         # 1. Disable Account in MT5
         # self.worker.manager.UserAccountDisable(login) (Pseudocode)
         
@@ -220,10 +221,22 @@ class RiskEngine:
             "balance": current_balance,
             "timestamp": datetime.now().isoformat()
         }
-        
         try:
             requests.post(CRM_WEBHOOK_URL, json=payload, timeout=5)
-            print("✅ [RiskEngine] Webhook sent to CRM")
         except Exception as e:
-            print(f"❌ [RiskEngine] Webhook Failed: {e}")
+            print(f"❌ Webhook Failed for {login}: {e}")
 
+    def trigger_pass(self, login, current_equity, current_balance, target):
+        print(f"✅ [RiskEngine] PROFIT TARGET MET: {login}. Eq: {current_equity} >= {target}")
+        payload = {
+            "event": "account_passed",
+            "login": login,
+            "equity": current_equity,
+            "balance": current_balance,
+            "target": target,
+            "timestamp": datetime.now().isoformat()
+        }
+        try:
+            requests.post(CRM_WEBHOOK_URL, json=payload, timeout=5)
+        except Exception as e:
+            print(f"❌ Webhook Failed for {login}: {e}")

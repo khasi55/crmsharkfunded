@@ -1,10 +1,10 @@
 import { Router, Response } from 'express';
 import { supabase } from '../lib/supabase';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
 
 const router = Router();
 
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         // 1. Fetch payments (Limit to 500 for stability)
         const { data: payments, error } = await supabase

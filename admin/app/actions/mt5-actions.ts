@@ -2,37 +2,22 @@
 
 import { cookies } from "next/headers";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { fetchWithAuth } from "@/utils/fetch-with-auth";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:3001';
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'secure_admin_key_123';
 
 export async function executeAccountAction(login: number, action: 'disable' | 'stop-out' | 'enable') {
-    // 1. Verify Admin Session Cookie
-    const cookieStore = await cookies();
-    const adminSession = cookieStore.get("admin_session");
-
-    if (!adminSession?.value) {
-        return { error: "Unauthorized: Please log in again." };
-    }
-
-    // 2. Determine Endpoint
+    // 1. Determine Endpoint
     let endpoint = '';
     if (action === 'disable') endpoint = '/api/mt5/admin/disable';
     else if (action === 'stop-out') endpoint = '/api/mt5/admin/stop-out';
     else if (action === 'enable') endpoint = '/api/mt5/admin/enable';
 
-    const url = `${BACKEND_URL}${endpoint}`;
-
     try {
-        console.log(`🔌 Server Action: Sending ${action} request for ${login} to ${url}`);
-
-        // 3. Call Backend with Admin Key
-        const response = await fetch(url, {
+        // 2. Call Backend with fetchWithAuth
+        const response = await fetchWithAuth(endpoint, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-admin-api-key': ADMIN_API_KEY
-            },
             body: JSON.stringify({ login }),
         });
 
@@ -87,25 +72,13 @@ export async function getAccountTrades(login: number) {
 }
 
 export async function updateUserEmail(userId: string, newEmail: string) {
-    // 1. Verify Admin Session Cookie
-    const cookieStore = await cookies();
-    const adminSession = cookieStore.get("admin_session");
-
-    if (!adminSession?.value) {
-        return { error: "Unauthorized: Please log in again." };
-    }
-
-    const url = `${BACKEND_URL}/api/admin/users/update-email`;
+    const endpoint = '/api/admin/users/update-email';
 
     try {
         console.log(`🔌 Server Action: Updating email for ${userId} to ${newEmail}`);
 
-        const response = await fetch(url, {
+        const response = await fetchWithAuth(endpoint, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-admin-api-key': ADMIN_API_KEY
-            },
             body: JSON.stringify({ userId, newEmail }),
         });
 
@@ -200,4 +173,83 @@ export async function disableAccountsByGroup(groupName: string) {
     // 2. Reuse bulkDisableAccounts logic logic or call it directly?
     // Calling directly is better to reuse batching logic.
     return await bulkDisableAccounts(logins);
+}
+
+export async function adjustMT5Balance(login: number, amount: number, comment: string) {
+    const endpoint = '/api/mt5/admin/adjust-balance';
+
+    try {
+        const response = await fetchWithAuth(endpoint, {
+            method: 'POST',
+            body: JSON.stringify({ login, amount, comment }),
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            try {
+                const errJson = JSON.parse(errText);
+                return { error: errJson.error || `Server Error: ${response.statusText}` };
+            } catch {
+                return { error: `Server Error: ${errText}` };
+            }
+        }
+
+        return { success: true, message: `Balance adjusted by $${amount}` };
+    } catch (error: any) {
+        return { error: error.message || "Failed to adjust balance" };
+    }
+}
+
+export async function changeAccountLeverage(login: number, leverage: number) {
+    const endpoint = '/api/mt5/admin/change-leverage';
+
+    try {
+        const response = await fetchWithAuth(endpoint, {
+            method: 'POST',
+            body: JSON.stringify({ login, leverage }),
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            try {
+                const errJson = JSON.parse(errText);
+                return { error: errJson.error || `Server Error: ${response.statusText}` };
+            } catch {
+                return { error: `Server Error: ${errText}` };
+            }
+        }
+
+        return { success: true, message: `Leverage changed to 1:${leverage}` };
+    } catch (error: any) {
+        return { error: error.message || "Failed to change leverage" };
+    }
+}
+
+export async function syncMT5Trades(login: number) {
+    const endpoint = '/api/mt5/sync-trades';
+
+    try {
+        console.log(`🔌 Server Action: Syncing trades for ${login}`);
+
+        const response = await fetchWithAuth(endpoint, {
+            method: 'POST',
+            body: JSON.stringify({ login }),
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            try {
+                const errJson = JSON.parse(errText);
+                return { error: errJson.error || `Server Error: ${response.statusText}` };
+            } catch {
+                return { error: `Server Error: ${errText}` };
+            }
+        }
+
+        const result = await response.json();
+        return { success: true, message: `Synced ${result.count || 0} trades successfully`, count: result.count };
+    } catch (error: any) {
+        console.error("❌ Sync failed:", error);
+        return { error: error.message || "Failed to sync trades" };
+    }
 }

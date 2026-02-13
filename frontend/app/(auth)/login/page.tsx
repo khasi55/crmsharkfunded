@@ -37,13 +37,24 @@ export default function LoginPage() {
         setError(null)
 
         try {
-            const { error } = await supabase.auth.signInWithPassword({
+            const { data, error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             })
 
             if (error) {
                 throw error
+            }
+
+            if (data.session) {
+                // Initialize backend session via httpOnly cookie
+                await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/auth/session`, {
+                    method: 'POST',
+                    credentials: 'include', // ESSENTIAL for cross-site cookies
+                    headers: {
+                        'Authorization': `Bearer ${data.session.access_token}`
+                    }
+                }).catch(err => console.error('Session init failed:', err));
             }
 
             // Force a hard navigation to ensure fresh state

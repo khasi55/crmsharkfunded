@@ -3,6 +3,7 @@ import { authenticate, AuthRequest } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { RulesService } from '../services/rules-service';
 import { getRedis } from '../lib/redis';
+import { objectivesLimiter, tradesLimiter } from '../middleware/rate-limit';
 const fs = require('fs');
 
 const router = Router();
@@ -73,11 +74,14 @@ router.get('/calendar', authenticate, async (req: AuthRequest, res: Response) =>
         });
 
         const dailyStats = Object.entries(tradesByDay).map(([date, dayTrades]) => {
-            // Fix: Commission is reported per-side (or half), so we deduct it twice to match Net P&L (User Expectation: 1.98 vs 2.58)
-            const totalPnL = dayTrades.reduce((sum, t) => sum + (Number(t.profit_loss) || 0) + (Number(t.commission || 0) * 2) + (Number(t.swap) || 0), 0);
+            // Filter out balance/deposit transactions for performance metrics
+            const tradingTrades = dayTrades.filter((t: any) => t.symbol && t.symbol !== '');
+
+            // Fix: Commission is reported per-side (or half), so we deduct it twice to match Net P&L
+            const totalPnL = tradingTrades.reduce((sum, t) => sum + (Number(t.profit_loss) || 0) + (Number(t.commission || 0) * 2) + (Number(t.swap) || 0), 0);
             return {
                 date,
-                trades: dayTrades.length,
+                trades: tradingTrades.length,
                 profit: totalPnL,
                 isProfit: totalPnL > 0,
             };
@@ -95,7 +99,7 @@ router.get('/calendar', authenticate, async (req: AuthRequest, res: Response) =>
 });
 
 // GET /api/dashboard/trades
-router.get('/trades', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/trades', authenticate, tradesLimiter, async (req: AuthRequest, res: Response) => {
     try {
         const user = req.user;
         const { accountId, filter, limit, page } = req.query;
@@ -139,26 +143,7 @@ router.get('/trades', authenticate, async (req: AuthRequest, res: Response) => {
         let totalPnL = 0;
         let statsLoaded = false;
 
-        // Optimization: Redis Micro-Caching (10s TTL) to protect DB
-        const cacheKey = `stats:trades:${user.id}:${accountId || 'all'}:${filter || 'none'}`;
-        const redis = getRedis();
-        if (redis) {
-            try {
-                const cached = await redis.get(cacheKey);
-                if (cached) {
-                    const stats = JSON.parse(cached);
-                    totalTrades = stats.totalTrades;
-                    openTrades = stats.openTrades;
-                    closedTrades = stats.closedTrades;
-                    totalPnL = stats.totalPnL;
-                    statsLoaded = true;
-                }
-            } catch (e) {
-                console.error('Redis cache error:', e);
-            }
-        }
-
-        if (!statsLoaded) {
+        if (true) {
             // Optimization: Fetch stats using targeted queries
             const fetchStats = async () => {
                 let countQuery = supabase
@@ -180,9 +165,13 @@ router.get('/trades', authenticate, async (req: AuthRequest, res: Response) => {
 
                 const totalTradesVal = totalCount || 0;
                 const tradesForStats: any[] = pnlData || [];
-                const openTradesVal = tradesForStats.filter((t: any) => !t.close_time).length;
-                const closedTradesVal = tradesForStats.filter((t: any) => t.close_time).length;
-                const totalPnLVal = tradesForStats.reduce((sum: number, t: any) => sum + (Number(t.profit_loss) || 0) + ((Number(t.commission) || 0) * 2) + (Number(t.swap) || 0), 0);
+
+                // Exclude balance transactions from P&L and Trade counts
+                const tradingStatsTrades = tradesForStats.filter((t: any) => t.symbol && t.symbol !== '' && Number(t.lots) > 0);
+
+                const openTradesVal = tradingStatsTrades.filter((t: any) => !t.close_time).length;
+                const closedTradesVal = tradingStatsTrades.filter((t: any) => t.close_time).length;
+                const totalPnLVal = tradingStatsTrades.reduce((sum: number, t: any) => sum + (Number(t.profit_loss) || 0) + ((Number(t.commission) || 0) * 2) + (Number(t.swap) || 0), 0);
 
                 return { totalTrades: totalTradesVal, openTrades: openTradesVal, closedTrades: closedTradesVal, totalPnL: totalPnLVal };
             };
@@ -192,10 +181,6 @@ router.get('/trades', authenticate, async (req: AuthRequest, res: Response) => {
             openTrades = stats.openTrades;
             closedTrades = stats.closedTrades;
             totalPnL = stats.totalPnL;
-
-            if (redis) {
-                await redis.setex(cacheKey, 10, JSON.stringify({ totalTrades, openTrades, closedTrades, totalPnL }));
-            }
         }
 
         // 2. Fetch Paginated Rows
@@ -353,7 +338,7 @@ router.get('/accounts', authenticate, async (req: AuthRequest, res: Response) =>
 
 // GET /api/dashboard/objectives
 // Calculates risk metrics (daily loss, total loss, profit target) from trades
-router.get('/objectives', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/objectives', authenticate, objectivesLimiter, async (req: AuthRequest, res: Response) => {
     // console.log(`📊 Objectives endpoint HIT - Starting handler`);
 
     try {
@@ -370,37 +355,22 @@ router.get('/objectives', authenticate, async (req: AuthRequest, res: Response) 
             return res.status(400).json({ error: 'Missing challenge_id' });
         }
 
-        // Optimization: Redis Micro-Caching (5s TTL) for Objectives
-        const cacheKey = `stats:objectives:${user.id}:${challenge_id}`;
-        const redis = getRedis();
-        if (redis) {
-            try {
-                const cached = await redis.get(cacheKey);
-                if (cached) return res.json(JSON.parse(cached));
-            } catch (e) {
-                console.error('Redis objectives cache error:', e);
-            }
+        // Strict Tenancy Check: Verify challenge belongs to user
+        const { data: challengeOwner, error: ownerError } = await supabase
+            .from('challenges')
+            .select('user_id')
+            .eq('id', challenge_id)
+            .single();
+
+        if (ownerError || !challengeOwner) {
+            return res.status(404).json({ error: 'Challenge not found' });
         }
 
-        // Fetch all trades for this challenge
-        const { data: trades, error } = await supabase
-            .from('trades')
-            .select('*')
-            .eq('challenge_id', challenge_id)
-            .eq('user_id', user.id);
-
-        if (error) {
-            console.error('Error fetching trades for objectives:', error);
-            return res.status(500).json({ error: 'Database error' });
+        if (challengeOwner.user_id !== user.id) {
+            console.warn(`[Security] Unauthorized access attempt by ${user.id} for challenge ${challenge_id}`);
+            return res.status(403).json({ error: 'Forbidden: You do not own this challenge' });
         }
 
-        // console.log(`📊 Fetched ${trades?.length || 0} trades for challenge ${challenge_id}`);
-        if (trades && trades.length > 0) {
-            // if (DEBUG) console.log(`   Sample trade:`, trades[0]);
-        }
-
-        // Fetch challenge limits and DATA
-        // Fetch challenge limits and DATA
         // DYNAMIC RULES
         const { maxDailyLoss, maxTotalLoss, profitTarget, rules, challenge } = await RulesService.calculateObjectives(String(challenge_id));
 
@@ -486,10 +456,6 @@ router.get('/objectives', authenticate, async (req: AuthRequest, res: Response) 
                 }
             }
         };
-
-        if (redis) {
-            await redis.setex(cacheKey, 5, JSON.stringify(responseData));
-        }
 
         return res.json(responseData);
 
@@ -591,7 +557,7 @@ router.get('/consistency', authenticate, async (req: AuthRequest, res: Response)
 
         const { data: trades, error } = await supabase
             .from('trades')
-            .select('profit_loss, lots')
+            .select('profit_loss, lots, symbol')
             .eq('challenge_id', challenge_id)
             .eq('user_id', user.id); // Implicit tenancy check
 
@@ -603,8 +569,10 @@ router.get('/consistency', authenticate, async (req: AuthRequest, res: Response)
         // console.log(`✅ Found ${trades?.length || 0} trades for consistency.`);
 
         // Calculate consistency
-        const winningTrades = (trades || []).filter(t => Number(t.profit_loss) > 0);
-        // console.log(`📊 Stats: Total Trades=${trades?.length}, Winning=${winningTrades.length}`);
+        // Exclude balance transactions
+        const tradingTrades = (trades || []).filter(t => t.symbol && t.symbol !== '' && Number(t.lots) > 0);
+        const winningTrades = tradingTrades.filter(t => Number(t.profit_loss) > 0);
+        // console.log(`📊 Stats: Total Trading=${tradingTrades.length}, Winning=${winningTrades.length}`);
 
         const totalProfit = winningTrades.reduce((sum, t) => sum + Number(t.profit_loss), 0);
         const largestWin = winningTrades.reduce((max, t) => Math.max(max, Number(t.profit_loss)), 0);
@@ -623,10 +591,10 @@ router.get('/consistency', authenticate, async (req: AuthRequest, res: Response)
 
         // Stats
         const avgWin = winningTrades.length > 0 ? totalProfit / winningTrades.length : 0;
-        const losingTrades = (trades || []).filter(t => Number(t.profit_loss) < 0);
+        const losingTrades = tradingTrades.filter(t => Number(t.profit_loss) < 0);
         const totalLoss = losingTrades.reduce((sum, t) => sum + Math.abs(Number(t.profit_loss)), 0);
         const avgLoss = losingTrades.length > 0 ? totalLoss / losingTrades.length : 0;
-        const avgTradeSize = (trades || []).reduce((sum, t) => sum + Number(t.lots), 0) / ((trades?.length) || 1);
+        const avgTradeSize = tradingTrades.reduce((sum, t) => sum + Number(t.lots), 0) / (tradingTrades.length || 1);
 
         // History: placeholder for chart
         const history = [
@@ -636,7 +604,7 @@ router.get('/consistency', authenticate, async (req: AuthRequest, res: Response)
         res.json({
             consistency: {
                 score: consistencyScore,
-                eligible: concentration <= 50 // Rule: Max single win 50%
+                eligible: concentration <= 50
             },
             stats: {
                 avg_trade_size: avgTradeSize,
@@ -696,6 +664,282 @@ router.post('/sharing/toggle', authenticate, async (req: AuthRequest, res: Respo
         });
     } catch (error) {
         console.error('Sharing toggle error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// GET /api/dashboard/bulk
+// Consolidates all dashboard data into a single request for performance
+router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
+    try {
+        const user = req.user;
+        const { challenge_id, accountId } = req.query;
+        const targetId = (challenge_id || accountId) as string;
+
+        if (!user) {
+            return res.status(401).json({ error: 'Not authenticated' });
+        }
+
+        if (!targetId) {
+            return res.status(400).json({ error: 'Missing challenge_id or accountId' });
+        }
+
+        // --- REDIS CACHE CHECK ---
+        const redis = getRedis();
+        const cacheKey = `dashboard:bulk:${targetId}`;
+
+        try {
+            const cachedData = await redis.get(cacheKey);
+            if (cachedData) {
+                // console.log(`🚀 [Bulk API] Cache Hit for ${targetId}`);
+                return res.json(JSON.parse(cachedData));
+            }
+        } catch (err) {
+            console.error('Redis cache get error:', err);
+        }
+
+        // Fetch everything in parallel
+        // 1. Trades (Optimized select)
+        // 2. Risk violations
+        // 3. Consistency data
+        // 4. Challenge data
+        const [tradesResponse, riskResponse, consistencyResponse, challengeResponse] = await Promise.all([
+            supabase.from('trades')
+                .select('id, ticket, symbol, type, lots, open_price, close_price, open_time, close_time, profit_loss, commission, swap')
+                .eq('challenge_id', targetId),
+            supabase.from('risk_violations').select('*').eq('challenge_id', targetId).order('created_at', { ascending: false }),
+            supabase.from('consistency_scores').select('*').eq('challenge_id', targetId).order('date', { ascending: false }).limit(30),
+            supabase.from('challenges').select('*').eq('id', targetId).single()
+        ]);
+
+        if (challengeResponse.error || !challengeResponse.data) {
+            return res.status(404).json({ error: 'Challenge not found' });
+        }
+
+        // Tenancy Check
+        if (challengeResponse.data.user_id !== user.id) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const allTrades = tradesResponse.data || [];
+        const violations = riskResponse.data || [];
+        const consistencyHistory = consistencyResponse.data || [];
+
+        // CALCULATE OBJECTIVES & RULES
+        const { maxDailyLoss, maxTotalLoss, profitTarget, rules } = await RulesService.calculateObjectives(targetId);
+
+        const initialBalance = Number(challengeResponse.data.initial_balance);
+        const currentEquity = Number(challengeResponse.data.current_equity);
+        const startOfDayEquity = Number(challengeResponse.data.start_of_day_equity ?? initialBalance);
+
+        let netPnL = 0;
+        let totalLots = 0;
+        let biggestWin = 0;
+        let biggestLoss = 0;
+        let grossProfit = 0;
+        let grossLoss = 0;
+        let winCount = 0;
+        let loseCount = 0;
+        const totalTrades = allTrades.length;
+
+        allTrades.forEach(trade => {
+            const profit = Number(trade.profit_loss) || 0;
+            const comm = (Number(trade.commission) || 0) * 2;
+            const swap = Number(trade.swap) || 0;
+            const tradeNet = profit + comm + swap;
+
+            netPnL += tradeNet;
+            totalLots += Number(trade.lots) || 0;
+            if (tradeNet > biggestWin) biggestWin = tradeNet;
+            if (tradeNet < biggestLoss) biggestLoss = tradeNet;
+
+            if (tradeNet > 0) {
+                grossProfit += tradeNet;
+                winCount++;
+            } else if (tradeNet < 0) {
+                grossLoss += Math.abs(tradeNet);
+                loseCount++;
+            }
+        });
+
+        const profitFactor = grossLoss > 0 ? (grossProfit / grossLoss) : (grossProfit > 0 ? 100 : 0);
+        const winRate = totalTrades > 0 ? (winCount / totalTrades) * 100 : 0;
+        const avgWin = winCount > 0 ? (grossProfit / winCount) : 0;
+        const avgLoss = loseCount > 0 ? (grossLoss / loseCount) : 0;
+
+        // 1. Daily Loss (Equity Based)
+        const dailyNet = currentEquity - startOfDayEquity;
+        const dailyLoss = dailyNet >= 0 ? 0 : Math.abs(dailyNet);
+        const dailyBreachLevel = startOfDayEquity - maxDailyLoss;
+        const dailyRemaining = Math.max(0, currentEquity - dailyBreachLevel);
+
+        // 2. Total Loss (Equity Based)
+        const totalNet = currentEquity - initialBalance;
+        const totalLoss = totalNet >= 0 ? 0 : Math.abs(totalNet);
+        const totalBreachLevel = initialBalance - maxTotalLoss;
+        const totalRemaining = Math.max(0, currentEquity - totalBreachLevel);
+
+        // 3. Profit Target
+        const currentProfitMetric = Math.max(0, totalNet);
+
+        // CALCULATE CALENDAR
+        const tradesByDay: Record<string, any[]> = {};
+        allTrades.forEach((trade: any) => {
+            if (trade.close_time) {
+                const day = new Date(trade.close_time).toISOString().split('T')[0];
+                if (!tradesByDay[day]) tradesByDay[day] = [];
+                tradesByDay[day].push(trade);
+            }
+        });
+
+        const dailyStats = Object.entries(tradesByDay).map(([date, dayTrades]) => {
+            const tradingTrades = dayTrades.filter((t: any) => t.symbol && t.symbol !== '');
+            const totalPnL = tradingTrades.reduce((sum, t) => sum + (Number(t.profit_loss) || 0) + (Number(t.commission || 0) * 2) + (Number(t.swap) || 0), 0);
+            return {
+                date,
+                trades: tradingTrades.length,
+                profit: totalPnL,
+                isProfit: totalPnL > 0,
+            };
+        });
+
+        const bullishCount = allTrades.filter(t => String(t.type).toLowerCase().includes('buy') || String(t.type) === '0').length;
+        const bearishCount = allTrades.filter(t => String(t.type).toLowerCase().includes('sell') || String(t.type) === '1').length;
+
+        let longWins = 0, longLosses = 0, longProfit = 0, longLossCost = 0, longCount = 0;
+        let shortWins = 0, shortLosses = 0, shortProfit = 0, shortLossCost = 0, shortCount = 0;
+
+        allTrades.forEach(trade => {
+            const profit = Number(trade.profit_loss) || 0;
+            const comm = (Number(trade.commission) || 0) * 2;
+            const swap = Number(trade.swap) || 0;
+            const tradeNet = profit + comm + swap;
+            const tType = String(trade.type).toLowerCase();
+            const isLong = tType === 'buy' || tType === '0';
+            const isShort = tType === 'sell' || tType === '1';
+
+            if (isLong) {
+                longCount++;
+                if (tradeNet > 0) {
+                    longWins++;
+                    longProfit += tradeNet;
+                } else {
+                    longLosses++;
+                    longLossCost += Math.abs(tradeNet);
+                }
+            } else if (isShort) {
+                shortCount++;
+                if (tradeNet > 0) {
+                    shortWins++;
+                    shortProfit += tradeNet;
+                } else {
+                    shortLosses++;
+                    shortLossCost += Math.abs(tradeNet);
+                }
+            }
+        });
+
+        const bulkData = {
+            objectives: {
+                daily_loss: {
+                    current: dailyLoss,
+                    max_allowed: maxDailyLoss,
+                    remaining: dailyRemaining,
+                    threshold: dailyBreachLevel,
+                    start_of_day_equity: startOfDayEquity,
+                    status: currentEquity <= dailyBreachLevel ? 'breached' : 'passed'
+                },
+                total_loss: {
+                    current: totalLoss,
+                    max_allowed: maxTotalLoss,
+                    remaining: totalRemaining,
+                    threshold: totalBreachLevel,
+                    status: currentEquity <= totalBreachLevel ? 'breached' : 'passed'
+                },
+                profit_target: {
+                    current: currentProfitMetric,
+                    target: profitTarget,
+                    remaining: Math.max(0, profitTarget - currentProfitMetric),
+                    threshold: profitTarget,
+                    status: (profitTarget > 0 && currentProfitMetric >= profitTarget) ? 'passed' : 'ongoing'
+                },
+                rules: {
+                    max_daily_loss_percent: rules.max_daily_loss_percent,
+                    max_total_loss_percent: rules.max_total_loss_percent,
+                    profit_target_percent: rules.profit_target_percent
+                },
+                stats: {
+                    total_trades: totalTrades,
+                    total_lots: Number(totalLots.toFixed(2)),
+                    biggest_win: biggestWin,
+                    biggest_loss: biggestLoss,
+                    net_pnl: netPnL
+                },
+                challenge: challengeResponse.data
+            },
+            risk: {
+                violations: violations,
+                summary: {
+                    total: violations.length,
+                    latest: violations[0]?.created_at || null
+                }
+            },
+            consistency: {
+                history: consistencyHistory,
+                score: consistencyHistory[0]?.score || 0
+            },
+            calendar: {
+                stats: dailyStats
+            },
+            trades: {
+                trades: allTrades.slice(0, 30)
+            },
+            analysis: {
+                bullish: bullishCount,
+                bearish: bearishCount,
+                total: totalTrades,
+                profit_factor: Number(profitFactor.toFixed(2)),
+                win_rate: Number(winRate.toFixed(2)),
+                avg_win: Number(avgWin.toFixed(2)),
+                avg_loss: Number(avgLoss.toFixed(2)),
+                gross_profit: Number(grossProfit.toFixed(2)),
+                gross_loss: Number(grossLoss.toFixed(2)),
+                win_count: winCount,
+                lose_count: loseCount,
+                daily_stats: dailyStats,
+                long_stats: {
+                    total: longCount,
+                    wins: longWins,
+                    losses: longLosses,
+                    profit: Number(longProfit.toFixed(2)),
+                    loss_cost: Number(longLossCost.toFixed(2)),
+                    total_net: Number((longProfit - longLossCost).toFixed(2)),
+                    win_rate: longCount > 0 ? Number(((longWins / longCount) * 100).toFixed(2)) : 0
+                },
+                short_stats: {
+                    total: shortCount,
+                    wins: shortWins,
+                    losses: shortLosses,
+                    profit: Number(shortProfit.toFixed(2)),
+                    loss_cost: Number(shortLossCost.toFixed(2)),
+                    total_net: Number((shortProfit - shortLossCost).toFixed(2)),
+                    win_rate: shortCount > 0 ? Number(((shortWins / shortCount) * 100).toFixed(2)) : 0
+                }
+            }
+        };
+
+        // --- REDIS CACHE SET ---
+        try {
+            await redis.set(cacheKey, JSON.stringify(bulkData), 'EX', 300); // 5 minutes TTL
+            // console.log(`💾 [Bulk API] Cached data for ${targetId}`);
+        } catch (err) {
+            console.error('Redis cache set error:', err);
+        }
+
+        res.json(bulkData);
+
+    } catch (error) {
+        console.error('Bulk API error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

@@ -154,7 +154,7 @@ const GaugeCard = ({ title, centerLabel, centerValue, centerSubValue, centerValu
 };
 
 import { useAccount } from "@/contexts/AccountContext";
-import { fetchFromBackend } from "@/lib/backend-api";
+import { useDashboardData } from "@/contexts/DashboardDataContext";
 
 interface TradeAnalysisProps {
     trades?: any[];
@@ -163,77 +163,32 @@ interface TradeAnalysisProps {
 
 export default function TradeAnalysis({ trades: initialTrades, isPublic }: TradeAnalysisProps = {}) {
     const accountContext = isPublic ? null : useAccount();
+    const { data: dashboardData, loading: dashboardLoading } = useDashboardData();
     const selectedAccount = accountContext?.selectedAccount;
-    const [trades, setTrades] = useState<Trade[]>(initialTrades || []);
-    const [loading, setLoading] = useState(!initialTrades);
+
+    const [stats, setStats] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (isPublic && initialTrades) {
-            setTrades(initialTrades);
+        if (dashboardData.analysis) {
+            setStats(dashboardData.analysis);
             setLoading(false);
-            return;
+        } else if (dashboardLoading.global) {
+            setLoading(true);
         }
-        if (selectedAccount) {
-            fetchTrades();
-        }
-    }, [selectedAccount, initialTrades, isPublic]);
+    }, [dashboardData.analysis, dashboardLoading.global]);
 
-    const fetchTrades = async () => {
-        try {
-            if (!selectedAccount) return;
-            const data = await fetchFromBackend(`/api/dashboard/trades/analysis?accountId=${selectedAccount.id}`);
+    if (loading || !stats) return <div className="h-64 animate-pulse bg-[#050923] rounded-xl" />;
 
-            setTrades(data.trades || []);
-        } catch (error) {
-            console.error('Error fetching trades:', error);
-            // Fallback to demo data
-            setTrades([]);
-        } finally {
-            setLoading(false);
-        }
+    const safeShort = stats.short_stats || { wins: 0, losses: 0, profit: 0, loss_cost: 0, total_net: 0, win_rate: 0 };
+    const safeLong = stats.long_stats || { wins: 0, losses: 0, profit: 0, loss_cost: 0, total_net: 0, win_rate: 0 };
+    const safeAll = {
+        total: stats.total || 0,
+        winRate: stats.win_rate || 0,
+        lossRate: 100 - (stats.win_rate || 0),
+        winsCount: stats.win_count || 0,
+        lossesCount: stats.lose_count || 0
     };
-
-
-
-    const calculateStats = (type: 'buy' | 'sell' | 'all') => {
-        const filtered = type === 'all' ? trades : trades.filter(t => {
-            const tType = String(t.type).toLowerCase();
-            if (type === 'buy') return tType === 'buy' || tType === '0';
-            if (type === 'sell') return tType === 'sell' || tType === '1';
-            return false;
-        });
-        const total = filtered.length;
-        if (total === 0) return null;
-
-        const winners = filtered.filter(t => t.profit_loss > 0);
-        const losers = filtered.filter(t => t.profit_loss <= 0);
-
-        const totalProfit = filtered.reduce((sum, t) => sum + t.profit_loss, 0);
-        const winsProfit = winners.reduce((sum, t) => sum + t.profit_loss, 0);
-        const lossesCost = Math.abs(losers.reduce((sum, t) => sum + t.profit_loss, 0));
-
-        return {
-            total,
-            totalProfit,
-            winsCount: winners.length,
-            lossesCount: losers.length,
-            winsProfit,
-            lossesCost,
-            winRate: (winners.length / total) * 100,
-            lossRate: (losers.length / total) * 100
-        };
-    };
-
-    const shortStats = calculateStats('sell');
-    const longStats = calculateStats('buy');
-    const allStats = calculateStats('all');
-
-    if (loading) return <div className="h-64 animate-pulse bg-[#050923] rounded-xl" />;
-
-    // Only render if we have data, otherwise placeholders
-    const safeShort = shortStats || { total: 0, totalProfit: 0, winsCount: 0, lossesCount: 0, winsProfit: 0, lossesCost: 0, winRate: 0, lossRate: 0 };
-    const safeLong = longStats || { total: 0, totalProfit: 0, winsCount: 0, lossesCount: 0, winsProfit: 0, lossesCost: 0, winRate: 0, lossRate: 0 };
-    const safeAll = allStats || { total: 0, totalProfit: 0, winsCount: 0, lossesCount: 0, winsProfit: 0, lossesCost: 0, winRate: 0, lossRate: 0 };
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -241,28 +196,14 @@ export default function TradeAnalysis({ trades: initialTrades, isPublic }: Trade
             <GaugeCard
                 title="Short Analysis"
                 centerLabel="Profit"
-                centerValue={safeShort.totalProfit >= 0 ? `$${safeShort.totalProfit.toFixed(2)}` : `-$${Math.abs(safeShort.totalProfit).toFixed(2)}`}
-                centerValueColor={safeShort.totalProfit >= 0 ? "text-green-400" : "text-white"}
-
-                // Actually usually dashboard gauges are consistent. Let's stick to Green = Win (Left?), Red = Loss (Right?)
-                // Provided image "Short Analysis": Left starts Red, Right ends Green. The arc is mostly Red.
-                // Center text "-$1,890.13". 
-                // Let's assume Left = Loss (Red), Right = Win (Green) for Short Analysis?
-                // Or maybe Left = Short, Right = Long? No, this is "Short Analysis".
-                // Let's stick to Standard: Left = Win (Green), Right = Loss (Red). 
-                // Users Image: "Short Analysis" -> Center is negative. Arc is Left Red, Right Green? No, image is Left Red, Right Green. 
-                // Wait, if result is negative, maybe Red dominates?
-                // Let's default: Left side = Win Rate (Green), Right side = Loss Rate (Red).
-                // Percentages must sum to 100.
-                percentages={{ left: safeShort.winRate, right: safeShort.lossRate }}
+                centerValue={safeShort.total_net >= 0 ? `$${safeShort.total_net.toFixed(2)}` : `-$${Math.abs(safeShort.total_net).toFixed(2)}`}
+                centerValueColor={safeShort.total_net >= 0 ? "text-green-400" : "text-white"}
+                percentages={{ left: safeShort.win_rate, right: 100 - safeShort.win_rate }}
                 stats={{
-                    left: { label: `Wins (${safeShort.winsCount})`, value: `$${safeShort.winsProfit.toFixed(2)}` },
-                    middle: { label: "Win Rate", value: `${safeShort.winRate.toFixed(2)}%` },
-                    right: { label: `Losses (${safeShort.lossesCount})`, value: `$${safeShort.lossesCost.toFixed(2)}` }
+                    left: { label: `Wins (${safeShort.wins})`, value: `$${safeShort.profit.toFixed(2)}` },
+                    middle: { label: "Win Rate", value: `${safeShort.win_rate.toFixed(2)}%` },
+                    right: { label: `Losses (${safeShort.losses})`, value: `$${safeShort.loss_cost.toFixed(2)}` }
                 }}
-                // If we want Green for Left, set colors explicitly
-                // Image has Red Left, Green Right for the first card?
-                // Let's use Green Left, Red Right as it's more standard for "Win Rate".
                 colors={{ left: "#22c55e", right: "#ef4444" }}
             />
 
@@ -273,7 +214,7 @@ export default function TradeAnalysis({ trades: initialTrades, isPublic }: Trade
                 centerValue={safeAll.total}
                 stats={{
                     left: { label: `${safeAll.winRate.toFixed(2)}%`, value: `Wins: ${safeAll.winsCount}` },
-                    middle: { label: "", value: "" }, // Hide middle for this one?
+                    middle: { label: "", value: "" },
                     right: { label: `${safeAll.lossRate.toFixed(2)}%`, value: `Losses: ${safeAll.lossesCount}` }
                 }}
                 percentages={{ left: safeAll.winRate, right: safeAll.lossRate }}
@@ -284,13 +225,13 @@ export default function TradeAnalysis({ trades: initialTrades, isPublic }: Trade
             <GaugeCard
                 title="Long Analysis"
                 centerLabel="Profit"
-                centerValue={safeLong.totalProfit >= 0 ? `$${safeLong.totalProfit.toFixed(2)}` : `-$${Math.abs(safeLong.totalProfit).toFixed(2)}`}
-                centerValueColor={safeLong.totalProfit >= 0 ? "text-green-400" : "text-white"}
-                percentages={{ left: safeLong.winRate, right: safeLong.lossRate }}
+                centerValue={safeLong.total_net >= 0 ? `$${safeLong.total_net.toFixed(2)}` : `-$${Math.abs(safeLong.total_net).toFixed(2)}`}
+                centerValueColor={safeLong.total_net >= 0 ? "text-green-400" : "text-white"}
+                percentages={{ left: safeLong.win_rate, right: 100 - safeLong.win_rate }}
                 stats={{
-                    left: { label: `Wins (${safeLong.winsCount})`, value: `$${safeLong.winsProfit.toFixed(2)}` },
-                    middle: { label: "Win Rate", value: `${safeLong.winRate.toFixed(2)}%` },
-                    right: { label: `Losses (${safeLong.lossesCount})`, value: `$${safeLong.lossesCost.toFixed(2)}` }
+                    left: { label: `Wins (${safeLong.wins})`, value: `$${safeLong.profit.toFixed(2)}` },
+                    middle: { label: "Win Rate", value: `${safeLong.win_rate.toFixed(2)}%` },
+                    right: { label: `Losses (${safeLong.losses})`, value: `$${safeLong.loss_cost.toFixed(2)}` }
                 }}
                 colors={{ left: "#22c55e", right: "#ef4444" }}
             />

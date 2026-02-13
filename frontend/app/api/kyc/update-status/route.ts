@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { getForwardableCookies } from '@/lib/cookie-utils';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
 
@@ -14,12 +15,16 @@ export async function POST(req: NextRequest) {
 
         const body = await req.json();
 
+        // Forward cookies (including sf_session) to backend
+        const forwardedCookies = await getForwardableCookies();
+
         // Forward request to backend
         const response = await fetch(`${BACKEND_URL}/api/kyc/update-status`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${session.access_token}`,
+                'Cookie': forwardedCookies
             },
             body: JSON.stringify(body),
         });

@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { emailService } from '../lib/email';
 import { EmailService as NodemailerEmailService } from '../services/email-service';
@@ -36,8 +36,8 @@ router.get('/logs', authenticate, async (req: AuthRequest, res: Response) => {
     }
 });
 
-// GET /api/email/templates - List email templates
-router.get('/templates', authenticate, async (req: AuthRequest, res: Response) => {
+// GET /api/email/templates - List email templates (admin only)
+router.get('/templates', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { data: templates, error } = await supabase
             .from('email_templates')
@@ -58,8 +58,8 @@ router.get('/templates', authenticate, async (req: AuthRequest, res: Response) =
     }
 });
 
-// POST /api/email/send - Send single email (admin only for now)
-router.post('/send', authenticate, async (req: AuthRequest, res: Response) => {
+// POST /api/email/send - Send single email (admin only)
+router.post('/send', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const user = req.user;
         if (!user) {
@@ -98,7 +98,7 @@ router.post('/send', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // POST /api/email/bulk - Send bulk emails (admin only)
-router.post('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/bulk', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const user = req.user;
         if (!user) {
@@ -142,8 +142,8 @@ router.post('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
     }
 });
 
-// POST /api/email/send-account-credentials - Send MT5 account credentials (admin use)
-router.post('/send-account-credentials', async (req, res: Response) => {
+// POST /api/email/send-account-credentials - Send MT5 account credentials (admin only)
+router.post('/send-account-credentials', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { email, name, accountSize, login, masterPassword, investorPassword, server, mt5Group, planType } = req.body;
 
@@ -256,8 +256,8 @@ SharkFunded Team
     }
 });
 
-// POST /api/email/send-event-invite - Send Top 32 Event Invitation
-router.post('/send-event-invite', authenticate, async (req: AuthRequest, res: Response) => {
+// POST /api/email/send-event-invite - Send Top 32 Event Invitation (admin only)
+router.post('/send-event-invite', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { email, name, userIds } = req.body;
 
@@ -301,8 +301,8 @@ router.post('/send-event-invite', authenticate, async (req: AuthRequest, res: Re
     }
 });
 
-// POST /api/email/preview-event-invite - Get HTML preview for Top 32 Event
-router.post('/preview-event-invite', authenticate, async (req: AuthRequest, res: Response) => {
+// POST /api/email/preview-event-invite - Get HTML preview for Top 32 Event (admin only)
+router.post('/preview-event-invite', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { name } = req.body;
         const html = NodemailerEmailService.getEventInviteHtml(name || "Trader Code");

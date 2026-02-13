@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || 'sharkfunded_admin_secret_2026_secure_key';
+const JWT_SECRET = process.env.JWT_SECRET || 'shark_admin_session_secure_2026_k8s_prod_v1';
 
 export async function loginAdmin(formData: FormData) {
     const email = formData.get("email")?.toString().trim();
@@ -89,5 +89,5 @@ export async function logoutAdmin() {
     const cookieStore = await cookies();
     cookieStore.delete("admin_session");
     cookieStore.delete("admin_email");
-    redirect("/login");
+    redirect("/admin/login");
 }

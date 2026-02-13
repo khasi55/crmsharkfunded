@@ -7,7 +7,7 @@ import { AuditLogger } from '../lib/audit-logger';
 
 const router = Router();
 
-router.post('/upgrade-account', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/upgrade-account', authenticate, requireRole(['super_admin', 'admin', 'risk_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { accountId } = req.body;
 

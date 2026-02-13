@@ -1,6 +1,6 @@
 import express from 'express';
 import { supabase } from '../lib/supabase';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
 import { AuditLogger } from '../lib/audit-logger';
 
 const router = express.Router();
@@ -8,7 +8,7 @@ const router = express.Router();
 // --- MERCHANT SETTINGS ---
 
 // GET /api/admin/settings/merchant
-router.get('/merchant', authenticate, async (req: AuthRequest, res) => {
+router.get('/merchant', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res) => {
     try {
         const { data, error } = await supabase
             .from('merchant_config')
@@ -39,7 +39,7 @@ router.get('/merchant', authenticate, async (req: AuthRequest, res) => {
 
 // POST /api/admin/settings/merchant
 // Update a specific gateway
-router.post('/merchant', authenticate, async (req: AuthRequest, res) => {
+router.post('/merchant', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res) => {
     const { id, gateway_name, is_active, api_key, api_secret, webhook_secret, environment } = req.body;
 
     try {
@@ -87,7 +87,7 @@ router.post('/merchant', authenticate, async (req: AuthRequest, res) => {
 // --- PRICING SETTINGS ---
 
 // GET /api/admin/settings/pricing
-router.get('/pricing', authenticate, async (req: AuthRequest, res) => {
+router.get('/pricing', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res) => {
     try {
         const { data, error } = await supabase
             .from('pricing_configurations')
@@ -113,7 +113,7 @@ router.get('/pricing', authenticate, async (req: AuthRequest, res) => {
 });
 
 // POST /api/admin/settings/pricing
-router.post('/pricing', authenticate, async (req: AuthRequest, res) => {
+router.post('/pricing', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res) => {
     try {
         const config = req.body;
 

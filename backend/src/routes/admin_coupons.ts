@@ -1,12 +1,12 @@
 import { Router, Response } from 'express';
 import { supabase } from '../lib/supabase';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
 import { AuditLogger } from '../lib/audit-logger';
 
 const router = Router();
 
-// GET / - List all coupons
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+// GET / - List all coupons (admin only)
+router.get('/', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         // Fetch coupons
         const { data: coupons, error: couponsError } = await supabase
@@ -54,7 +54,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // POST / - Create a new coupon
-router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const {
             code,
@@ -116,7 +116,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // PUT /:id - Update a coupon
-router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.put('/:id', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const updates = req.body;
@@ -146,7 +146,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // DELETE /:id - Delete a coupon (or deactivate)
-router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.delete('/:id', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
 

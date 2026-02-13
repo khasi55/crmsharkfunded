@@ -1,6 +1,9 @@
 import { Router, Response } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
+import { validateRequest, profileUpdateSchema, passwordUpdateSchema, emailUpdateSchema, walletUpdateSchema } from '../middleware/validation';
+import { sensitiveLimiter } from '../middleware/rate-limit';
+import { logSecurityEvent } from '../utils/security-logger';
 
 const router = Router();
 
@@ -15,7 +18,7 @@ router.get('/profile', authenticate, async (req: AuthRequest, res: Response) => 
 
         const { data: profile, error } = await supabase
             .from('profiles')
-            .select('*')
+            .select('id, full_name, phone, country, address, pincode, display_name, avatar_url, wallet_balance, created_at')
             .eq('id', user.id)
             .single();
 
@@ -40,40 +43,44 @@ router.get('/profile', authenticate, async (req: AuthRequest, res: Response) => 
 });
 
 // PUT /api/user/profile - Update user profile
-router.put('/profile', authenticate, async (req: AuthRequest, res: Response) => {
+router.put('/profile', authenticate, validateRequest(profileUpdateSchema), async (req: AuthRequest, res: Response) => {
     try {
-        const user = req.user;
-        if (!user) {
-            res.status(401).json({ error: 'Not authenticated' });
-            return;
-        }
-
+        const user = req.user!;
         const updates = req.body;
-
-        // Validate and sanitize updates
-        const allowedFields = ['full_name', 'phone', 'country', 'city', 'address', 'pincode', 'display_name', 'avatar_url'];
-        const sanitizedUpdates: any = {};
-
-        allowedFields.forEach(field => {
-            if (updates[field] !== undefined) {
-                sanitizedUpdates[field] = updates[field];
-            }
-        });
-
 
         // Update profile
         const { data, error } = await supabase
             .from('profiles')
-            .update(sanitizedUpdates)
+            .update(updates)
             .eq('id', user.id)
             .select()
             .single();
 
         if (error) {
             console.error('Error updating profile:', error);
+            await logSecurityEvent({
+                userId: user.id,
+                email: user.email,
+                action: 'UPDATE_PROFILE',
+                resource: 'profile',
+                payload: updates,
+                status: 'failure',
+                errorMessage: error.message,
+                ip: req.ip
+            });
             res.status(500).json({ error: 'Failed to update profile' });
             return;
         }
+
+        await logSecurityEvent({
+            userId: user.id,
+            email: user.email,
+            action: 'UPDATE_PROFILE',
+            resource: 'profile',
+            payload: updates,
+            status: 'success',
+            ip: req.ip
+        });
 
         res.json({
             success: true,
@@ -87,34 +94,64 @@ router.put('/profile', authenticate, async (req: AuthRequest, res: Response) => 
 });
 
 // PUT /api/user/update-email - Update user email
-router.put('/update-email', authenticate, async (req: AuthRequest, res: Response) => {
+router.put('/update-email', authenticate, sensitiveLimiter, validateRequest(emailUpdateSchema), async (req: AuthRequest, res: Response) => {
     try {
-        const user = req.user;
-        if (!user) {
-            res.status(401).json({ error: 'Not authenticated' });
-            return;
-        }
+        const user = req.user!;
+        const { currentPassword, newEmail } = req.body;
 
-        const { email } = req.body;
+        // 🛡️ SECURITY LAYER: Verify current password
+        const { error: authError } = await supabase.auth.signInWithPassword({
+            email: user.email,
+            password: currentPassword
+        });
 
-        if (!email) {
-            res.status(400).json({ error: 'Email is required' });
+        if (authError) {
+            await logSecurityEvent({
+                userId: user.id,
+                email: user.email,
+                action: 'UPDATE_EMAIL_AUTH_FAIL',
+                resource: 'auth',
+                status: 'failure',
+                errorMessage: 'Invalid current password',
+                ip: req.ip
+            });
+            res.status(401).json({ error: 'Invalid current password' });
             return;
         }
 
         // Update email via Supabase Auth
-        const { data, error } = await supabase.auth.admin.updateUserById(
+        const { error } = await supabase.auth.admin.updateUserById(
             user.id,
-            { email }
+            { email: newEmail }
         );
 
         if (error) {
             console.error('Error updating email:', error);
+            await logSecurityEvent({
+                userId: user.id,
+                email: user.email,
+                action: 'UPDATE_EMAIL',
+                resource: 'auth',
+                payload: { newEmail },
+                status: 'failure',
+                errorMessage: error.message,
+                ip: req.ip
+            });
             res.status(500).json({ error: 'Failed to update email' });
             return;
         }
 
-        res.json({ success: true, message: 'Email updated successfully' });
+        await logSecurityEvent({
+            userId: user.id,
+            email: user.email,
+            action: 'UPDATE_EMAIL',
+            resource: 'auth',
+            payload: { newEmail },
+            status: 'success',
+            ip: req.ip
+        });
+
+        res.json({ success: true, message: 'Email updated successfully. Please verify your new email.' });
 
     } catch (error: any) {
         console.error('Email update error', error);
@@ -123,32 +160,60 @@ router.put('/update-email', authenticate, async (req: AuthRequest, res: Response
 });
 
 // PUT /api/user/update-password - Update user password
-router.put('/update-password', authenticate, async (req: AuthRequest, res: Response) => {
+router.put('/update-password', authenticate, sensitiveLimiter, validateRequest(passwordUpdateSchema), async (req: AuthRequest, res: Response) => {
     try {
-        const user = req.user;
-        if (!user) {
-            res.status(401).json({ error: 'Not authenticated' });
-            return;
-        }
+        const user = req.user!;
+        const { currentPassword, newPassword } = req.body;
 
-        const { password } = req.body;
+        // 🛡️ SECURITY LAYER: Verify current password
+        const { error: authError } = await supabase.auth.signInWithPassword({
+            email: user.email,
+            password: currentPassword
+        });
 
-        if (!password || password.length < 6) {
-            res.status(400).json({ error: 'Password must be at least 6 characters' });
+        if (authError) {
+            await logSecurityEvent({
+                userId: user.id,
+                email: user.email,
+                action: 'UPDATE_PASSWORD_AUTH_FAIL',
+                resource: 'auth',
+                status: 'failure',
+                errorMessage: 'Invalid current password',
+                ip: req.ip
+            });
+            res.status(401).json({ error: 'Invalid current password' });
             return;
         }
 
         // Update password via Supabase Auth
-        const { data, error } = await supabase.auth.admin.updateUserById(
+        const { error } = await supabase.auth.admin.updateUserById(
             user.id,
-            { password }
+            { password: newPassword }
         );
 
         if (error) {
             console.error('Error updating password:', error);
+            await logSecurityEvent({
+                userId: user.id,
+                email: user.email,
+                action: 'UPDATE_PASSWORD',
+                resource: 'auth',
+                status: 'failure',
+                errorMessage: error.message,
+                ip: req.ip
+            });
             res.status(500).json({ error: 'Failed to update password' });
             return;
         }
+
+        await logSecurityEvent({
+            userId: user.id,
+            email: user.email,
+            action: 'UPDATE_PASSWORD',
+            resource: 'auth',
+            status: 'success',
+            ip: req.ip
+        });
 
         res.json({ success: true, message: 'Password updated successfully' });
 
@@ -198,20 +263,10 @@ router.get('/wallet', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // POST /api/user/wallet - Save user wallet address
-router.post('/wallet', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/wallet', authenticate, sensitiveLimiter, validateRequest(walletUpdateSchema), async (req: AuthRequest, res: Response) => {
     try {
-        const user = req.user;
-        if (!user) {
-            res.status(401).json({ error: 'Not authenticated' });
-            return;
-        }
-
+        const user = req.user!;
         const { walletAddress } = req.body;
-
-        if (!walletAddress || typeof walletAddress !== 'string' || walletAddress.length < 10) {
-            res.status(400).json({ error: 'Invalid wallet address' });
-            return;
-        }
 
         // Check if already locked
         const { data: existing } = await supabase
@@ -239,15 +294,35 @@ router.post('/wallet', authenticate, async (req: AuthRequest, res: Response) => 
             .single();
 
         if (error) {
+            await logSecurityEvent({
+                userId: user.id,
+                email: user.email,
+                action: 'SAVE_WALLET',
+                resource: 'wallet',
+                payload: { walletAddress },
+                status: 'failure',
+                errorMessage: error.message,
+                ip: req.ip
+            });
+
             if (error.code === '23503') {
-                console.log(`ℹ️ [Wallet] Session invalid (${error.code}). User check failed.`); // Info log instead of error
-                res.status(401).json({ error: 'Session invalid. User account not found. Please log out and log in again.' });
+                res.status(401).json({ error: 'Session invalid. User account not found.' });
             } else {
                 console.error('Error saving wallet:', error);
                 res.status(500).json({ error: 'Failed to save wallet address' });
             }
             return;
         }
+
+        await logSecurityEvent({
+            userId: user.id,
+            email: user.email,
+            action: 'SAVE_WALLET',
+            resource: 'wallet',
+            payload: { walletAddress },
+            status: 'success',
+            ip: req.ip
+        });
 
         res.json({ success: true, wallet: data });
 

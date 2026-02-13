@@ -30,9 +30,20 @@ export async function fetchFromBackend(endpoint: string, options: RequestInit & 
 
     const response = await fetch(`${BACKEND_URL}${path}`, {
         cache: 'no-store', // Disable caching to ensure fresh data
+        credentials: 'include', // Support cross-origin cookies
         ...options,
         headers,
     });
+
+    if (response.status === 401 && typeof window !== 'undefined') {
+        const isAuthCheck = endpoint.includes('/api/auth/session');
+        if (!isAuthCheck) {
+            console.warn('Unauthorized request detected. Redirecting to login...');
+            sessionStorage.removeItem('sf_backend_synced');
+            window.location.href = '/login';
+            throw new Error('Unauthorized');
+        }
+    }
 
     if (!response.ok) {
         throw new Error(`Backend error: ${response.statusText}`);

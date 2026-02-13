@@ -30,28 +30,36 @@ const PORT = process.env.PORT || 3001;
 // 🛡️ SECURITY HEADERS (HELMET)
 app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
-    contentSecurityPolicy: false, // Managed by frontend if needed
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://*.supabase.co"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            imgSrc: ["'self'", "blob:", "data:", "https://*.supabase.co"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+            connectSrc: ["'self'", "https://*.supabase.co", "https://api.sharkfunded.co", "https://api.sharkfunded.com", "wss://*.supabase.co", "ws://localhost:3001", "http://localhost:3001", "ws://127.0.0.1:3001", "http://127.0.0.1:3001"],
+            frameSrc: ["'self'", "https://*.supabase.co"],
+            objectSrc: ["'none'"],
+            upgradeInsecureRequests: [],
+        },
+    },
+    hsts: {
+        maxAge: 63072000,
+        includeSubDomains: true,
+        preload: true,
+    },
+    xssFilter: true,
+    noSniff: true,
+    frameguard: {
+        action: 'sameorigin',
+    },
 }));
 
-// 🛡️ RATE LIMITING
-const globalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 1000, // Limit each IP to 1000 requests per window
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Too many requests, please try again later.' }
-});
-
-const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // Limit each IP to 10 login attempts per 15 minutes
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Too many login attempts, please try again later.' }
-});
+import { globalLimiter, sensitiveLimiter } from './middleware/rate-limit';
 
 app.use('/api/', globalLimiter);
-app.use('/api/admin/login', loginLimiter); // Assuming login endpoint exists or will be routed
+app.use('/api/admin/login', sensitiveLimiter);
+app.use('/api/auth/login', sensitiveLimiter);
 
 app.use(cookieParser());
 app.use(cors({
@@ -137,7 +145,9 @@ import publicRouter from './routes/public';
 import adminRouter from './routes/admin';
 import uploadRouter from './routes/upload';
 import paymentsRouter from './routes/payments';
+import authSessionRouter from './routes/auth_session';
 
+app.use('/api/auth', authSessionRouter);
 app.use('/api/overview', overviewRouter);
 app.use('/api/config', publicConfigRouter);
 app.use('/api/admin/users', adminUsersRouter);
@@ -285,10 +295,11 @@ const riskWorker = startRiskEventWorker();
 
 // Initialize Socket.IO
 import { createServer } from 'http';
-import { initializeSocket } from './services/socket';
+import { initializeSocket, initializeBridgeWS } from './services/socket';
 
 const httpServer = createServer(app);
 initializeSocket(httpServer);
+initializeBridgeWS();
 
 const server = httpServer.listen(PORT, () => {
     if (DEBUG) console.log(`✅ Sharkfunded CRM Backend running on port ${PORT}`);

@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Clock, AlertCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAccount } from "@/contexts/AccountContext";
+import { useDashboardData } from "@/contexts/DashboardDataContext";
 import { fetchFromBackend } from "@/lib/backend-api";
 import { useState, useEffect } from "react";
 
@@ -108,10 +109,9 @@ interface TradingObjectivesProps {
 export default function TradingObjectives({ objectives: initialObjectives, account, isPublic }: TradingObjectivesProps = {}) {
     const accountContext = isPublic ? null : useAccount();
     const selectedAccount = account || accountContext?.selectedAccount;
-    const accountLoading = accountContext?.loading;
+    const { data: dashboardData, loading: dashboardLoading } = useDashboardData();
     const [resetTimer, setResetTimer] = useState("--:--:--");
     const [rules, setRules] = useState<ChallengeRules | null>(null);
-    const [loadingRules, setLoadingRules] = useState(false);
 
     // Calculate time until midnight UTC (daily reset)
     useEffect(() => {
@@ -133,9 +133,10 @@ export default function TradingObjectives({ objectives: initialObjectives, accou
         return () => clearInterval(interval);
     }, []);
 
-    // Fetch rules from database when account changes
+    // Sync with DashboardData
     useEffect(() => {
         if (initialObjectives) {
+            console.log('[TradingObjectives] Using initialObjectives:', !!initialObjectives.daily_loss);
             setRules({
                 max_daily_loss_percent: initialObjectives.daily_loss?.max_allowed_percent ?? 5,
                 max_total_loss_percent: initialObjectives.total_loss?.max_allowed_percent ?? 10,
@@ -147,88 +148,39 @@ export default function TradingObjectives({ objectives: initialObjectives, accou
                 current_daily_loss: initialObjectives.daily_loss?.current ?? 0,
                 current_total_loss: initialObjectives.total_loss?.current ?? 0,
                 current_profit: initialObjectives.profit_target?.current ?? 0,
-                start_of_day_equity: initialObjectives.daily_loss?.threshold + initialObjectives.daily_loss?.max_allowed,
-                daily_remaining: initialObjectives.daily_loss?.remaining,
-                total_remaining: initialObjectives.total_loss?.remaining,
+                start_of_day_equity: (initialObjectives.daily_loss?.threshold ?? 0) + (initialObjectives.daily_loss?.max_allowed ?? 0),
+                daily_remaining: initialObjectives.daily_loss?.remaining ?? 0,
+                total_remaining: initialObjectives.total_loss?.remaining ?? 0,
             });
-            setLoadingRules(false);
             return;
         }
 
-        if (!selectedAccount) {
-            setRules(null);
-            return;
-        }
-
-        const fetchRules = async () => {
-            setLoadingRules(true);
-            try {
-                // Parse account type (normalize to lowercase)
-                const accountType = selectedAccount.account_type?.toLowerCase().replace(/\s+/g, '') || 'phase1';
-
-                // Use actual initial balance for accurate calculations
-                const accountSize = selectedAccount.initial_balance || selectedAccount.balance || 100000;
-
-
-                // Fetch rules from API
-                const result = await fetchFromBackend('/api/objectives/calculate', {
-                    method: 'POST',
-                    body: JSON.stringify({ challenge_id: selectedAccount.challenge_id })
-                });
-
-                if (!result.objectives) {
-
-                    // Use default percentages if no rules found
-                    setRules({
-                        max_daily_loss_percent: 5,
-                        max_total_loss_percent: 10,
-                        profit_target_percent: 8,
-                        min_trading_days: 0,
-                        max_daily_loss_amount: accountSize * 0.05,
-                        max_total_loss_amount: accountSize * 0.10,
-                        profit_target_amount: accountSize * 0.08,
-                    });
-                } else {
-                    const data = result.objectives;
-                    setRules({
-                        max_daily_loss_percent: data.rules?.max_daily_loss_percent ?? 5,
-                        max_total_loss_percent: data.rules?.max_total_loss_percent ?? 10,
-                        profit_target_percent: data.rules?.profit_target_percent ?? 8,
-                        min_trading_days: 0,
-                        max_daily_loss_amount: data.daily_loss.max_allowed ?? 0,
-                        max_total_loss_amount: data.total_loss.max_allowed ?? 0,
-                        profit_target_amount: data.profit_target.target ?? 0,
-                        // Store actual current values from backend
-                        current_daily_loss: data.daily_loss.current ?? 0,
-                        current_total_loss: data.total_loss.current ?? 0,
-                        current_profit: data.profit_target.current ?? 0,
-                        start_of_day_equity: data.daily_loss.start_of_day_equity ?? 0,
-                        daily_remaining: data.daily_loss.remaining,
-                        total_remaining: data.total_loss.remaining,
-                    });
-                }
-            } catch (error) {
-                console.error('Error fetching challenge rules:', error);
-                // Fallback to defaults
-                const accountSize = selectedAccount.initial_balance || selectedAccount.balance || 100000;
-                setRules({
-                    max_daily_loss_percent: 5,
-                    max_total_loss_percent: 10,
-                    profit_target_percent: 8,
-                    min_trading_days: 0,
-                    max_daily_loss_amount: accountSize * 0.05,
-                    max_total_loss_amount: accountSize * 0.10,
-                    profit_target_amount: accountSize * 0.08,
-                });
-            } finally {
-                setLoadingRules(false);
+        if (dashboardData.objectives) {
+            if (!dashboardData.objectives.daily_loss) {
+                console.warn('[TradingObjectives] objectives found but daily_loss is missing structure! Structure:', Object.keys(dashboardData.objectives));
+                return;
             }
-        };
 
-        fetchRules();
-    }, [selectedAccount]);
+            const data = dashboardData.objectives;
+            setRules({
+                max_daily_loss_percent: data.rules?.max_daily_loss_percent ?? 5,
+                max_total_loss_percent: data.rules?.max_total_loss_percent ?? 10,
+                profit_target_percent: data.rules?.profit_target_percent ?? 8,
+                min_trading_days: 0,
+                max_daily_loss_amount: data.daily_loss.max_allowed ?? 0,
+                max_total_loss_amount: data.total_loss.max_allowed ?? 0,
+                profit_target_amount: data.profit_target.target ?? 0,
+                current_daily_loss: data.daily_loss.current ?? 0,
+                current_total_loss: data.total_loss.current ?? 0,
+                current_profit: data.profit_target.current ?? 0,
+                start_of_day_equity: data.daily_loss.start_of_day_equity ?? 0,
+                daily_remaining: data.daily_loss.remaining,
+                total_remaining: data.total_loss.remaining,
+            });
+        }
+    }, [dashboardData.objectives, initialObjectives]);
 
-    if (accountLoading || loadingRules) {
+    if (dashboardLoading.global && !rules) {
         return (
             <div className="space-y-4">
                 <h2 className="text-lg font-bold text-slate-900">Trading Objectives</h2>

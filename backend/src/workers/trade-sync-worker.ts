@@ -144,7 +144,7 @@ export async function startTradeSyncWorker() {
         }
     }, {
         connection: getRedis() as any,
-        concurrency: 40, // INCREASED for 6k accounts
+        concurrency: 20, // Toned down from 40 to avoid bridge congestion
         limiter: {
             max: 500,
             duration: 1000

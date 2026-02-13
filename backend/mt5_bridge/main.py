@@ -1,15 +1,80 @@
 import random
 import string
 from datetime import datetime, timedelta
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
-from typing import List
+from typing import List, Dict
 import traceback
 import subprocess
 import os
 import json
 
 app = FastAPI()
+
+# --- WEBSOCKET MANAGER (SCALABLE) ---
+class ConnectionManager:
+    def __init__(self):
+        # login -> list or set of WebSockets
+        self.rooms: Dict[int, List[WebSocket]] = {}
+
+    async def connect(self, login: int, websocket: WebSocket):
+        await websocket.accept()
+        if login not in self.rooms:
+            self.rooms[login] = []
+        self.rooms[login].append(websocket)
+        print(f"📡 WS: Client connected to room {login}. Total in room: {len(self.rooms[login])}")
+
+    def disconnect(self, login: int, websocket: WebSocket):
+        if login in self.rooms:
+            if websocket in self.rooms[login]:
+                self.rooms[login].remove(websocket)
+            if not self.rooms[login]:
+                del self.rooms[login]
+        print(f"📡 WS: Client disconnected from room {login}")
+
+    async def broadcast(self, login: int, message: dict):
+        """
+        Sends to:
+        1. Specific login room
+        2. Master room (login 0)
+        """
+        # Lazy Check: If no one is listening to this login or the master stream, skip.
+        has_login_clients = login in self.rooms and self.rooms[login]
+        has_master_clients = 0 in self.rooms and self.rooms[0]
+
+        if not has_login_clients and not has_master_clients:
+            return
+
+        targets = []
+        if has_login_clients:
+            targets.extend(self.rooms[login])
+        if has_master_clients:
+            targets.extend(self.rooms[0])
+
+        # Remove duplicates if a client is in both (though unlikely in this design)
+        targets = list(set(targets))
+
+        for connection in targets:
+            try:
+                await connection.send_json(message)
+            except Exception as e:
+                # Disconnect will handle cleanup
+                pass
+
+ws_manager = ConnectionManager()
+
+@app.websocket("/ws/stream/{login}")
+async def websocket_endpoint(websocket: WebSocket, login: int):
+    await ws_manager.connect(login, websocket)
+    try:
+        while True:
+            # Keep connection alive
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        ws_manager.disconnect(login, websocket)
+    except Exception as e:
+        print(f"⚠️ WS: Error ({login}): {e}")
+        ws_manager.disconnect(login, websocket)
 
 # In-memory cache to track last sync per account (for polling optimization)
 last_synced_tickets = {}
@@ -86,7 +151,7 @@ try:
         # Start Dynamic Trade Poller
         try:
             from trade_poller import start_dynamic_polling
-            start_dynamic_polling(worker, interval=10, reload_interval=300)
+            start_dynamic_polling(worker, interval=10, reload_interval=300, ws_manager=ws_manager)
         except Exception as e:
             print(f"⚠️ Failed to start Trade Poller: {e}")
 
@@ -94,7 +159,7 @@ try:
         try:
             from risk_engine import RiskEngine
             # Pass Supabase client to RiskEngine (if available)
-            risk_engine = RiskEngine(worker, supabase)
+            risk_engine = RiskEngine(worker, supabase, ws_manager=ws_manager)
             risk_engine.start()
         except Exception as e:
              print(f"⚠️ Failed to start Risk Engine: {e}")

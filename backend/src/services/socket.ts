@@ -1,5 +1,6 @@
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as HTTPServer } from 'http';
+import WebSocket from 'ws';
 import { supabase } from '../lib/supabase';
 
 let io: SocketIOServer | null = null;
@@ -102,6 +103,117 @@ export function initializeSocket(httpServer: HTTPServer) {
     return io;
 }
 
+// --- MT5 BRIDGE WEBSOCKET RELAY ---
+const BRIDGE_WS_URL = process.env.MT5_BRIDGE_WS_URL || 'wss://bridge.sharkfunded.co/ws/stream/0';
+let bridgeWs: WebSocket | null = null;
+const loginToChallengeMap = new Map<number, string>();
+let bridgeStatus: 'connected' | 'disconnected' | 'connecting' | 'error' = 'disconnected';
+let lastBridgeError: string | null = null;
+
+async function getChallengeIdByLogin(login: number): Promise<string | null> {
+    // 1. Check cache
+    if (loginToChallengeMap.has(login)) {
+        return loginToChallengeMap.get(login)!;
+    }
+
+    // 2. Query Supabase
+    try {
+        const { data, error } = await supabase
+            .from('challenges')
+            .select('id')
+            .eq('login', login)
+            .single();
+
+        if (data && !error) {
+            loginToChallengeMap.set(login, data.id);
+            return data.id;
+        }
+    } catch (err) {
+        console.error(`❌ WS Relay: DB Lookup failed for login ${login}:`, err);
+    }
+    return null;
+}
+
+export function initializeBridgeWS() {
+    console.log(`🔌 WS Relay: Connecting to MT5 Bridge at ${BRIDGE_WS_URL}...`);
+
+    bridgeWs = new WebSocket(BRIDGE_WS_URL, {
+        headers: {
+            'X-API-Key': process.env.MT5_API_KEY || '',
+            'ngrok-skip-browser-warning': 'true'
+        }
+    });
+
+    bridgeWs.on('open', () => {
+        console.log('✅ WS Relay: Connected to MT5 Bridge');
+        bridgeStatus = 'connected';
+        lastBridgeError = null;
+    });
+
+    bridgeWs.on('message', async (data) => {
+        try {
+            const message = JSON.parse(data.toString());
+            const { event, login } = message;
+
+            if (DEBUG) console.log(`📥 WS Relay: Received ${event} for login ${login}`);
+
+            const challengeId = await getChallengeIdByLogin(login);
+            if (!challengeId) {
+                if (DEBUG) console.warn(`⚠️ WS Relay: No challenge found for login ${login}`);
+                return;
+            }
+
+            if (event === 'account_update') {
+                // Relay Balance/Equity/P&L
+                broadcastBalanceUpdate(challengeId, {
+                    equity: message.equity,
+                    floating_pl: message.floating_pl,
+                    timestamp: message.timestamp
+                });
+
+                // If trades were closed in this update, relay them too
+                if (message.trades_closed && Array.isArray(message.trades)) {
+                    message.trades.forEach((trade: any) => {
+                        broadcastTradeUpdate(challengeId, {
+                            type: 'new_trade',
+                            trade: trade
+                        });
+                    });
+                }
+            } else if (event === 'trade_update' || event === 'trades_closed') {
+                // Relay each trade in the batch if it's a batch, or handle individual
+                if (Array.isArray(message.trades)) {
+                    message.trades.forEach((trade: any) => {
+                        broadcastTradeUpdate(challengeId, {
+                            type: 'new_trade',
+                            trade: trade
+                        });
+                    });
+                } else if (message.trade) {
+                    broadcastTradeUpdate(challengeId, {
+                        type: 'new_trade',
+                        trade: message.trade
+                    });
+                }
+            }
+        } catch (err) {
+            console.error('❌ WS Relay: Message processing failed:', err);
+        }
+    });
+
+    bridgeWs.on('close', () => {
+        console.warn('⚠️ WS Relay: Bridge connection closed. Reconnecting in 5s...');
+        bridgeStatus = 'disconnected';
+        setTimeout(initializeBridgeWS, 5000);
+    });
+
+    bridgeWs.on('error', (err) => {
+        console.error('❌ WS Relay: Bridge error:', err.message);
+        bridgeStatus = 'error';
+        lastBridgeError = err.message;
+    });
+}
+
 export function getIO(): SocketIOServer | null {
     return io;
 }
@@ -125,7 +237,11 @@ export function getSocketMetrics() {
         totalConnections: io.engine.clientsCount,
         authenticatedConnections: authenticatedCount,
         rooms: rooms,
-        roomCount: rooms.length
+        roomCount: rooms.length,
+        bridge: {
+            status: bridgeStatus,
+            error: lastBridgeError
+        }
     };
 }
 

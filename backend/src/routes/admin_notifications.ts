@@ -2,7 +2,7 @@ import express, { Router, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
 import { AuditLogger } from '../lib/audit-logger';
 
 dotenv.config();
@@ -20,7 +20,7 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase: SupabaseClient = createClient(supabaseUrl!, supabaseKey!);
 
 // GET /api/admin/notifications
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { data, error } = await supabase
             .from('notifications')
@@ -37,7 +37,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // POST /api/admin/notifications/mark-read
-router.post('/mark-read', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/mark-read', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { id, all } = req.body;
 
@@ -64,7 +64,7 @@ router.post('/mark-read', authenticate, async (req: AuthRequest, res: Response) 
 });
 
 // DELETE /api/admin/notifications/:id
-router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.delete('/:id', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const { error } = await supabase

@@ -9,6 +9,7 @@ import { SocketProvider } from "@/contexts/SocketContext";
 import { AccountProvider } from "@/contexts/AccountContext";
 
 import { ToastProvider } from "@/contexts/ToastContext";
+import SessionGuard from "@/components/auth/SessionGuard";
 
 export default function MainLayout({
     children,
@@ -18,32 +19,34 @@ export default function MainLayout({
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     return (
-        <SocketProvider>
-            <AccountProvider>
-                <ToastProvider>
-                    <div className="flex h-screen overflow-hidden bg-[#FFFFFF] relative">
-                        <Sidebar
-                            isOpen={isSidebarOpen}
-                            onClose={() => setIsSidebarOpen(false)}
-                        />
+        <SessionGuard>
+            <SocketProvider>
+                <AccountProvider>
+                    <ToastProvider>
+                        <div className="flex h-screen overflow-hidden bg-[#FFFFFF] relative">
+                            <Sidebar
+                                isOpen={isSidebarOpen}
+                                onClose={() => setIsSidebarOpen(false)}
+                            />
 
-                        {/* Mobile Menu Trigger */}
-                        <button
-                            onClick={() => setIsSidebarOpen(true)}
-                            className="md:hidden absolute top-4 left-4 z-[101] p-2 text-gray-400 hover:text-white bg-black/50 rounded-lg backdrop-blur-sm shadow-lg border border-white/10"
-                        >
-                            <Menu size={24} />
-                        </button>
+                            {/* Mobile Menu Trigger */}
+                            <button
+                                onClick={() => setIsSidebarOpen(true)}
+                                className="md:hidden absolute top-4 left-4 z-[101] p-2 text-gray-400 hover:text-white bg-black/50 rounded-lg backdrop-blur-sm shadow-lg border border-white/10"
+                            >
+                                <Menu size={24} />
+                            </button>
 
-                        <div className="flex-1 flex flex-col h-full relative w-full bg-[#EDF6FE] md:rounded-3xl md:my-4 md:mr-4 overflow-hidden">
-                            {/* Header removed as per request to move dashboard up */}
-                            <main className="flex-1 overflow-y-auto w-full relative">
-                                {children}
-                            </main>
+                            <div className="flex-1 flex flex-col h-full relative w-full bg-[#EDF6FE] md:rounded-3xl md:my-4 md:mr-4 overflow-hidden">
+                                {/* Header removed as per request to move dashboard up */}
+                                <main className="flex-1 overflow-y-auto w-full relative">
+                                    {children}
+                                </main>
+                            </div>
                         </div>
-                    </div>
-                </ToastProvider>
-            </AccountProvider>
-        </SocketProvider>
+                    </ToastProvider>
+                </AccountProvider>
+            </SocketProvider>
+        </SessionGuard>
     );
 }

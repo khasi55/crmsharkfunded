@@ -19,9 +19,9 @@ const BRIDGE_URL = process.env.BRIDGE_URL || 'https://bridge.sharkfunded.co';
 // --- CONFIGURATION ---
 const DEBUG = process.env.DEBUG === 'true'; // STRICT: Silence risk monitor logs in dev
 
-export function startRiskMonitor(intervalSeconds: number = 20) {
+export function startRiskMonitor(intervalSeconds: number = 300) {
     if (DEBUG) {
-        console.log(`⏰ Risk Monitor Scheduler started. Interval: ${intervalSeconds}s`);
+        console.log(`⏰ Risk Monitor Scheduler (Safety Sync) started. Interval: ${intervalSeconds}s`);
         console.log(`🛡️ Limits: Dynamic based on MT5 Groups`);
     }
 

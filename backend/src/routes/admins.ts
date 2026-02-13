@@ -1,7 +1,7 @@
 import express, { Router, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
 import { AuditLogger } from '../lib/audit-logger';
 import bcrypt from 'bcrypt';
 
@@ -19,7 +19,8 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 // GET /api/admins - List all admins
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+// GET / - List all admins (super_admin only)
+router.get('/', authenticate, requireRole(['super_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { data: admins, error } = await supabase
             .from('admin_users')
@@ -36,7 +37,8 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // POST /api/admins - Create new admin
-router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
+// POST / - Create new admin (super_admin only)
+router.post('/', authenticate, requireRole(['super_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { email, password, full_name, role, permissions } = req.body;
 
@@ -87,7 +89,8 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // DELETE /api/admins/:id - Delete admin
-router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+// DELETE /:id - Delete admin (super_admin only)
+router.delete('/:id', authenticate, requireRole(['super_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
 

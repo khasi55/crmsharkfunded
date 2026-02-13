@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { TrendingUp, TrendingDown } from "lucide-react";
-import { useAccount } from "@/contexts/AccountContext";
-import { fetchFromBackend } from "@/lib/backend-api";
+import { useDashboardData } from "@/contexts/DashboardDataContext";
 import { cn } from "@/lib/utils";
 
 interface Trade {
@@ -13,7 +12,7 @@ interface Trade {
 }
 
 export default function BehavioralBias() {
-    const { selectedAccount } = useAccount();
+    const { data: dashboardData, loading: dashboardLoading } = useDashboardData();
     const [stats, setStats] = useState({
         total: 0,
         bullish: 0,
@@ -24,24 +23,12 @@ export default function BehavioralBias() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (selectedAccount) {
-            fetchTrades();
-        }
-    }, [selectedAccount]);
+        if (dashboardData.analysis) {
+            const { bullish, bearish, total } = dashboardData.analysis;
 
-    const fetchTrades = async () => {
-        try {
-            if (!selectedAccount) return;
-            const data = await fetchFromBackend(`/api/dashboard/trades/analysis?accountId=${selectedAccount.id}`);
-            const trades: Trade[] = data.trades || [];
-
-            const total = trades.length;
             if (total === 0) {
                 setStats({ total: 0, bullish: 0, bearish: 0, bullishPercent: 50, bearishPercent: 50 });
             } else {
-                const bullish = trades.filter(t => String(t.type).toLowerCase().includes('buy') || String(t.type) === '0').length;
-                const bearish = trades.filter(t => String(t.type).toLowerCase().includes('sell') || String(t.type) === '1').length;
-
                 setStats({
                     total,
                     bullish,
@@ -50,12 +37,11 @@ export default function BehavioralBias() {
                     bearishPercent: (bearish / total) * 100
                 });
             }
-        } catch (error) {
-            console.error('Error fetching trades for bias:', error);
-        } finally {
             setLoading(false);
+        } else if (dashboardLoading.global) {
+            setLoading(true);
         }
-    };
+    }, [dashboardData.analysis, dashboardLoading.global]);
 
     if (loading) return <div className="h-full bg-[#050923]/50 animate-pulse rounded-2xl" />;
 

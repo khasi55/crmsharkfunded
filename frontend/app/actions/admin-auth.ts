@@ -33,10 +33,24 @@ export async function loginAdmin(formData: FormData) {
 
     // Set a session cookie
     const cookieStore = await cookies();
-    // Use an explicit type cast or optional chaining if necessary, though 'user' is typed from RPC return
-    const userId = (user as { id: string }).id;
+    const jwt = require("jsonwebtoken");
+    const JWT_SECRET = process.env.JWT_SECRET || 'shark_admin_session_secure_2026_k8s_prod_v1';
 
-    cookieStore.set("admin_session", userId, {
+    const adminUser = user as { id: string, email: string, role?: string };
+
+    // Sign a JWT for the admin session
+    // This matches the format expected by backend/src/middleware/auth.ts
+    const token = jwt.sign(
+        {
+            id: adminUser.id,
+            email: adminUser.email,
+            role: adminUser.role || 'admin',
+        },
+        JWT_SECRET,
+        { expiresIn: "1d" }
+    );
+
+    cookieStore.set("admin_session", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         maxAge: 60 * 60 * 24, // 1 day

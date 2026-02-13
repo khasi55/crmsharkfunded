@@ -178,12 +178,12 @@ export default function AdminMT5Client() {
             );
         }
 
-        // Exclude breached/disabled/upgraded accounts from all tabs UNLESS status filter is specifically set
+        // Exclude breached/failed/upgraded accounts from all tabs UNLESS status filter is specifically set
+        // Note: We now include 'disabled' in the 'all' view as per user request.
         if (statusFilter !== "breached" && statusFilter !== "failed" && statusFilter !== "disabled" && statusFilter !== "upgraded") {
             filtered = filtered.filter(a =>
                 a.status !== 'breached' &&
                 a.status !== 'failed' &&
-                a.status !== 'disabled' &&
                 a.status !== 'upgraded' &&
                 !a.upgraded_to
             );
@@ -515,6 +515,7 @@ export default function AdminMT5Client() {
                                                 accountId={account.id} login={account.login || 0} currentStatus={account.status}
                                                 challengeType={account.challenge_type} upgradedTo={account.upgraded_to}
                                                 userId={account.user_id} currentEmail={account.profiles?.email || undefined}
+                                                onRefresh={fetchAccounts}
                                             />
                                         </td>
                                         <td className="px-6 py-4 text-gray-900">{new Date(account.created_at).toLocaleDateString()}</td>

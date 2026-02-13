@@ -145,21 +145,29 @@ export default function MT5ActionsClient() {
                             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
                                 <Gauge className="h-4 w-4" /> Account Settings
                             </h3>
-                            <div className="flex items-center justify-between">
-                                <div className="space-y-1">
-                                    <p className="text-xs text-gray-500 font-bold">LEVERAGE</p>
-                                    <p className="text-lg font-bold text-purple-600">1:{account.leverage || '?'}</p>
-                                </div>
-                                <div className="pt-2">
-                                    <AccountActions
-                                        accountId={account.id}
-                                        login={account.login || 0}
-                                        currentStatus={account.status}
-                                    // Simple reload to refresh the search result state isn't ideal but works
-                                    // In a real app we'd pass a refresh callback
-                                    />
-                                </div>
+                            <div className="space-y-1">
+                                <p className="text-xs text-gray-500 font-bold">LEVERAGE</p>
+                                <p className="text-lg font-bold text-purple-600">1:{account.leverage || '?'}</p>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Prominent Action Bar */}
+                    <div className="bg-gray-50 px-8 py-6 border-t border-gray-200">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+                            <div className="space-y-1">
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Administrative Actions</p>
+                                <p className="text-sm text-gray-600 font-medium">Perform manual adjustments and syncs for this account</p>
+                            </div>
+                            <AccountActions
+                                accountId={account.id}
+                                login={account.login || 0}
+                                currentStatus={account.status}
+                                userId={account.user_id}
+                                currentEmail={account.profiles?.email || ""}
+                                challengeType={account.challenge_type}
+                                onRefresh={() => handleSearch({ preventDefault: () => { } } as any)}
+                            />
                         </div>
                     </div>
 

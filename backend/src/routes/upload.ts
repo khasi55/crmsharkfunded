@@ -1,12 +1,13 @@
 import { Router, Response, Request } from 'express';
 import multer from 'multer';
 import { supabase } from '../lib/supabase';
+import { authenticate, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // POST /api/upload
-router.post('/', upload.single('file'), async (req: Request, res: Response) => {
+router.post('/', authenticate, upload.single('file'), async (req: AuthRequest, res: Response) => {
     try {
         const file = req.file;
         const { bucket, path } = req.body;

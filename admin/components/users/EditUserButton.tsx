@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Pencil, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -16,6 +17,7 @@ interface EditUserButtonProps {
 }
 
 export function EditUserButton({ user }: EditUserButtonProps) {
+    const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
@@ -53,7 +55,7 @@ export function EditUserButton({ user }: EditUserButtonProps) {
 
             toast.success('User updated successfully');
             setIsOpen(false);
-            window.location.reload();
+            router.refresh();
 
         } catch (error: any) {
             toast.error(error.message);

@@ -7,10 +7,11 @@ from datetime import datetime
 from supabase import create_client
 
 class DynamicTradePoller:
-    def __init__(self, worker, interval=10, reload_interval=300):
+    def __init__(self, worker, interval=10, reload_interval=300, ws_manager=None):
         self.worker = worker
         self.interval = interval
         self.reload_interval = reload_interval
+        self.ws_manager = ws_manager
         self.running = False
         self.last_reload = 0
         
@@ -179,7 +180,38 @@ class DynamicTradePoller:
                         })
 
                 if closed_trades:
-                    print(f"📤 Sending {len(closed_trades)} trades for {login} to CRM")
+                    print(f"Update: Sending {len(closed_trades)} trades for {login} to CRM")
+                    
+                    # WebSocket Broadcast
+                    if self.ws_manager:
+                        import asyncio
+                        try:
+                            # Note: DynamicTradePoller might run in a thread without a loop?
+                            # Usually main.py (FastAPI) has a loop. 
+                            # If this is a background thread, we need to handle loop safely.
+                            payload = {
+                                "event": "account_update",
+                                "login": login,
+                                "equity": 0.0, # Will be refreshed by risk engine in 500ms
+                                "floating_pl": 0.0, 
+                                "trades_closed": True,
+                                "closed_count": len(closed_trades),
+                                "trades": closed_trades,
+                                "timestamp": datetime.now().isoformat()
+                            }
+                            # Simple way to run async from sync if loop exists
+                            try:
+                                loop = asyncio.get_event_loop()
+                                if loop.is_running():
+                                    loop.create_task(self.ws_manager.broadcast(login, payload))
+                                else:
+                                    asyncio.run(self.ws_manager.broadcast(login, payload))
+                            except Exception as ws_err:
+                                # Fallback or silent fail
+                                pass
+                        except Exception as e:
+                            print(f"⚠️ WS Broadcast Error (Trades): {e}")
+
                     payload = {
                         "login": login,
                         "group": "dynamic", # We might need to fetch group, but CRM finds by login
@@ -194,3 +226,22 @@ class DynamicTradePoller:
             except Exception as e:
                 # print(f"⚠️ Poll Loop Error ({login}): {e}")
                 pass
+
+def start_dynamic_polling(worker, interval=10, reload_interval=300, ws_manager=None):
+    poller = DynamicTradePoller(worker, interval, reload_interval, ws_manager)
+    poller.running = True
+    thread = threading.Thread(target=poller._run_forever, daemon=True)
+    thread.start()
+    return poller
+
+def _run_forever(self):
+    print("🚀 Poller: Thread Started")
+    while self.running:
+        try:
+            self._poll_step()
+        except Exception as e:
+            print(f"⚠️ Poller Loop Error: {e}")
+        time.sleep(self.interval)
+
+# Adding the method to the class dynamically or just defining it above
+DynamicTradePoller._run_forever = _run_forever

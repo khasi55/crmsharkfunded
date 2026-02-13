@@ -21,7 +21,8 @@ import {
     Activity,
     Scan,
     Send,
-    AlertTriangle
+    AlertTriangle,
+    Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logoutAdmin } from "@/app/actions/admin-auth";
@@ -33,6 +34,7 @@ const navigation = [
     { name: "Users", href: "/users", icon: Users, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'] },
     { name: "Accounts List", href: "/accounts", icon: List, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'] },
     { name: "MT5 Accounts", href: "/mt5", icon: Server, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'] },
+    { name: "MT5 Actions", href: "/mt5/actions", icon: Zap, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'] },
     { name: "Risk Settings", href: "/mt5-risk", icon: Gauge, roles: ['super_admin', 'admin', 'risk_admin'] },
     { name: "Risk Violations", href: "/risk-violations", icon: AlertTriangle, roles: ['super_admin', 'admin', 'risk_admin'] },
     { name: "Payments", href: "/payments", icon: CreditCard, roles: ['super_admin', 'admin', 'sub_admin'] }, // Changed from settings/payment to /payments for report
@@ -47,6 +49,7 @@ const navigation = [
     { name: "Event Scanner", href: "/event-scanner", icon: Scan, roles: ['super_admin', 'admin', 'sub_admin'] },
     { name: "Emails", href: "/emails", icon: Send, roles: ['super_admin', 'admin'] },
     { name: "Admins", href: "/admins", icon: ShieldCheck, roles: ['super_admin', 'admin'] },
+    { name: "Audit Logs", href: "/logs", icon: List, roles: ['super_admin', 'admin'] },
 ];
 
 interface AdminSidebarProps {

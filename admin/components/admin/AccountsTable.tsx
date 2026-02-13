@@ -62,9 +62,7 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
             if ('success' in result && result.success) {
                 toast.success(result.message);
                 setSelectedIds(new Set()); // Clear selection
-                // The server action doesn't automatically revalidate client cache perfectly in all cases, 
-                // so a hard refresh ensures UI consistency.
-                window.location.reload();
+                router.refresh();
             } else {
                 toast.error(`Bulk action failed: ${result.error}`);
                 if (result.details?.errors?.length) {
@@ -117,7 +115,7 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
             const result = await disableAccountsByGroup(currentGroupFilter);
             if ('success' in result && result.success) {
                 toast.success(result.message);
-                window.location.reload();
+                router.refresh();
             } else {
                 toast.error(`Group disable failed: ${result.error}`);
             }

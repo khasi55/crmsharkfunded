@@ -1,7 +1,10 @@
 import { Router, Response, Request } from 'express';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { RulesService } from '../services/rules-service';
+import { validateRequest, payoutRequestSchema } from '../middleware/validation';
+import { resourceIntensiveLimiter } from '../middleware/rate-limit';
+import { logSecurityEvent } from '../utils/security-logger';
 
 const router = Router();
 
@@ -215,17 +218,10 @@ router.get('/history', authenticate, async (req: AuthRequest, res: Response) => 
 });
 
 // POST /api/payouts/request
-router.post('/request', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/request', authenticate, resourceIntensiveLimiter, validateRequest(payoutRequestSchema), async (req: AuthRequest, res: Response) => {
     try {
-        const user = req.user;
+        const user = req.user!;
         const { amount, method, challenge_id } = req.body;
-        const DEBUG = process.env.DEBUG === 'true';
-        // if (DEBUG) console.log(`[Payout Request] User: ${user?.id}, Amount: ${amount}, ChallengeID: ${challenge_id}`);
-
-        if (!user) {
-            res.status(401).json({ error: 'Not authenticated' });
-            return;
-        }
 
         // 0. CHECK KYC STATUS (CRITICAL)
         const { data: kycSession } = await supabase
@@ -237,6 +233,16 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
             .maybeSingle();
 
         if (!kycSession) {
+            await logSecurityEvent({
+                userId: user.id,
+                email: user.email,
+                action: 'PAYOUT_REQUEST_KYC_FAIL',
+                resource: 'payout',
+                payload: { amount, challenge_id },
+                status: 'failure',
+                errorMessage: 'KYC Verification Required',
+                ip: req.ip
+            });
             return res.status(400).json({ error: 'KYC Verification Required. Please complete your identity verification before requesting a payout.' });
         }
 
@@ -481,6 +487,16 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
             // console.error('Failed to send notification (non-blocking):', notifError);
         }
 
+        await logSecurityEvent({
+            userId: user.id,
+            email: user.email,
+            action: 'PAYOUT_REQUEST',
+            resource: 'payout',
+            payload: { amount, challenge_id },
+            status: 'success',
+            ip: req.ip
+        });
+
         res.json({ success: true, message: 'Payout request submitted successfully' });
 
     } catch (error: any) {
@@ -496,7 +512,7 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
 // ============================================
 
 // GET /api/payouts/admin - Get all payout requests (admin only)
-router.get('/admin', async (req: Request, res: Response) => {
+router.get('/admin', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         // Fetch all payout requests with user profiles
         const { data: requests, error } = await supabase
@@ -555,7 +571,7 @@ router.get('/admin', async (req: Request, res: Response) => {
 });
 
 // GET /api/payouts/admin/:id - Get single payout request details (admin only)
-router.get('/admin/:id', async (req: Request, res: Response) => {
+router.get('/admin/:id', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
 
@@ -605,9 +621,10 @@ router.get('/admin/:id', async (req: Request, res: Response) => {
     }
 });
 
-// PUT /api/payouts/admin/:id/approve - Approve a payout request
-router.put('/admin/:id/approve', async (req: Request, res: Response) => {
+// PUT /api/payouts/admin/:id/approve - Approve a payout request (admin only)
+router.put('/admin/:id/approve', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
+        if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
         const { id } = req.params;
         const { transaction_id } = req.body;
 
@@ -634,6 +651,10 @@ router.put('/admin/:id/approve', async (req: Request, res: Response) => {
             throw error;
         }
 
+        // Log Admin Action
+        const { AuditLogger } = await import('../lib/audit-logger');
+        AuditLogger.info(req.user.email, `Approved Payout Request: ${id}`, { payout_id: id, transaction_id: finalTransactionId });
+
         res.json({
             success: true,
             message: 'Payout approved successfully',
@@ -645,9 +666,10 @@ router.put('/admin/:id/approve', async (req: Request, res: Response) => {
     }
 });
 
-// PUT /api/payouts/admin/:id/reject - Reject a payout request
-router.put('/admin/:id/reject', async (req: Request, res: Response) => {
+// PUT /api/payouts/admin/:id/reject - Reject a payout request (admin only)
+router.put('/admin/:id/reject', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
+        if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
         const { id } = req.params;
         const { reason } = req.body;
 
@@ -669,6 +691,10 @@ router.put('/admin/:id/reject', async (req: Request, res: Response) => {
             // console.error('Error rejecting payout:', error);
             throw error;
         }
+
+        // Log Admin Action
+        const { AuditLogger } = await import('../lib/audit-logger');
+        AuditLogger.info(req.user.email, `Rejected Payout Request: ${id}`, { payout_id: id, reason });
 
         res.json({ success: true, message: 'Payout rejected successfully' });
     } catch (error: any) {

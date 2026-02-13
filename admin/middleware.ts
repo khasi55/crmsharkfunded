@@ -31,7 +31,9 @@ export async function middleware(request: NextRequest) {
     const path = request.nextUrl.pathname
 
     // 1. Allow public paths
-    if (path.startsWith('/login') || path.startsWith('/_next') || path.includes('.')) {
+    // Note: with basePath: '/admin', pathname is relative to /admin (so /login instead of /admin/login)
+    // However, to be safe we check both or just the relative one.
+    if (path.startsWith('/login') || path === '/' || path.startsWith('/_next') || path.includes('.')) {
         return NextResponse.next()
     }
 
@@ -39,7 +41,7 @@ export async function middleware(request: NextRequest) {
     const token = request.cookies.get('admin_session')?.value
 
     if (!token) {
-        console.warn(`[Middleware] No token found for ${path}. Redirecting to /login`)
+        console.warn(`[Middleware] No token found for ${path}. Redirecting to /admin/login`)
         return NextResponse.redirect(new URL('/login', request.url))
     }
 
@@ -62,7 +64,7 @@ export async function middleware(request: NextRequest) {
             const getFirstAuthorizedRoute = () => {
                 const routes = Object.keys(PERMISSION_MAP);
                 for (const route of routes) {
-                    if (permissions.includes(PERMISSION_MAP[route])) return route;
+                    if (permissions.includes(PERMISSION_MAP[route])) return `/admin${route}`;
                 }
                 return null;
             };
@@ -71,8 +73,11 @@ export async function middleware(request: NextRequest) {
             const sortedRoutes = Object.keys(PERMISSION_MAP).sort((a, b) => b.length - a.length);
             let matchedRoute: string | null = null;
 
+            // Strip /admin prefix for matching against PERMISSION_MAP
+            const relativePath = path.replace(/^\/admin/, '') || '/';
+
             for (const route of sortedRoutes) {
-                if (path === route || path.startsWith(route + '/')) {
+                if (relativePath === route || relativePath.startsWith(route + '/')) {
                     matchedRoute = route;
                     break;
                 }
@@ -82,10 +87,10 @@ export async function middleware(request: NextRequest) {
                 const requiredPermission = PERMISSION_MAP[matchedRoute];
                 if (!permissions.includes(requiredPermission)) {
                     console.warn(`[Middleware] Path ${path} REQUIRES ${requiredPermission}. User has: ${permissions.join(', ')}`);
-                    const fallback = getFirstAuthorizedRoute() || '/login';
+                    const fallback = getFirstAuthorizedRoute() || '/admin/login';
                     return NextResponse.redirect(new URL(fallback, request.url));
                 }
-            } else if (path === '/' || path === '/dashboard') {
+            } else if (relativePath === '/' || relativePath === '/dashboard') {
                 // Landing page check
                 if (!permissions.includes('dashboard')) {
                     const fallback = getFirstAuthorizedRoute();
@@ -99,7 +104,7 @@ export async function middleware(request: NextRequest) {
     } catch (error) {
         console.error('[Middleware] JWT Verification Failed:', error)
         // Clear invalid cookie and redirect
-        const response = NextResponse.redirect(new URL('/login', request.url))
+        const response = NextResponse.redirect(new URL('/admin/login', request.url))
         response.cookies.delete('admin_session')
         return response
     }

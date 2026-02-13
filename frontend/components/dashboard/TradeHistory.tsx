@@ -23,6 +23,7 @@ interface Trade {
 }
 
 import { useAccount } from "@/contexts/AccountContext";
+import { useDashboardData } from "@/contexts/DashboardDataContext";
 import { fetchFromBackend } from "@/lib/backend-api";
 import { useSocket } from "@/contexts/SocketContext";
 import { useChallengeSubscription } from "@/hooks/useChallengeSocket";
@@ -35,6 +36,7 @@ interface TradeHistoryProps {
 export default function TradeHistory({ trades: initialTrades, isPublic }: TradeHistoryProps = {}) {
     const accountContext = isPublic ? null : useAccount();
     const selectedAccount = accountContext?.selectedAccount;
+    const { data: dashboardData, loading: dashboardLoading } = useDashboardData();
     const [trades, setTrades] = useState<Trade[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'open' | 'closed'>('closed');
@@ -60,72 +62,85 @@ export default function TradeHistory({ trades: initialTrades, isPublic }: TradeH
     // Ensure we are subscribed to this challenge's room
     useChallengeSubscription(selectedAccount?.id);
 
-    // Initial Fetch & Socket Listeners
+    // Sync with Props or Context
     useEffect(() => {
-        if (initialTrades) {
-            setTrades(initialTrades);
-            const closed = initialTrades.filter(t => !!t.close_time);
+        const sourceData = initialTrades || dashboardData.trades;
+
+        if (sourceData) {
+            // Apply Filters Locally
+            let filteredTrades = [...sourceData];
+            if (filter === 'open') {
+                filteredTrades = filteredTrades.filter(t => !t.close_time);
+            } else if (filter === 'closed') {
+                filteredTrades = filteredTrades.filter(t => !!t.close_time);
+            }
+
+            // Calculate Stats Locally
+            const openCount = sourceData.filter((t: Trade) => !t.close_time).length;
+            const closedCount = sourceData.filter((t: Trade) => !!t.close_time).length;
+            const totalPnL = sourceData.reduce((acc: number, t: Trade) => acc + (Number(t.profit_loss) || 0) + (Number(t.commission || 0) * 2) + (Number(t.swap) || 0), 0);
+
             setStats({
-                totalTrades: initialTrades.length,
-                openTrades: initialTrades.filter(t => !t.close_time).length,
-                closedTrades: closed.length,
-                totalPnL: initialTrades.reduce((acc, t) => acc + (t.profit_loss || 0) + (t.commission || 0) + (t.swap || 0), 0)
+                totalTrades: sourceData.length,
+                openTrades: openCount,
+                closedTrades: closedCount,
+                totalPnL: totalPnL
             });
+
+            // Local Pagination
+            setTotalPages(Math.ceil(filteredTrades.length / tradesPerPage));
+            const start = (currentPage - 1) * tradesPerPage;
+            setTrades(filteredTrades.slice(start, start + tradesPerPage));
+
             setLoading(false);
+            return;
+        }
+
+        if (dashboardLoading.global) {
+            setLoading(true);
             return;
         }
 
         if (!selectedAccount) return;
 
-        // Initial fetch
+        // Fallback: If no bulk data, fetch independently (e.g. for deep pagination if we ever restrict bulk)
         fetchTrades();
 
-        if (!socket) return;
+    }, [filter, selectedAccount, initialTrades, dashboardData.trades, dashboardLoading.global, currentPage]);
 
-        // Listen for real-time updates
+    // Socket Listeners for Real-time refreshing
+    useEffect(() => {
+        if (!socket || !selectedAccount) return;
+
         const handleTradeUpdate = (data: any) => {
-            // console.log("⚡ New trade received via socket:", data);
-            // Verify trade belongs to this account
             if (data.login === selectedAccount.login || data.challenge_id === selectedAccount.id) {
-                fetchTrades(true); // Silent refresh
+                // If we are using bulk data, we might want to refresh bulk. 
+                // For now, let's keep it simple and just fetch trades if we don't have bulk? 
+                // Or let fetchTrades handle it.
+                fetchTrades(true);
             }
         };
 
         socket.on('trade_update', handleTradeUpdate);
-
         return () => {
             socket.off('trade_update', handleTradeUpdate);
         };
-    }, [filter, selectedAccount, socket, currentPage]); // Added currentPage dependency
+    }, [selectedAccount, socket]);
 
     const fetchTrades = async (isSilent = false) => {
         try {
             if (!selectedAccount) return;
             if (!isSilent) setLoading(true);
 
-            // fetchFromBackend handles auth headers automatically
-            // Server-side pagination: page=${currentPage}&limit=${tradesPerPage}
             const data = await fetchFromBackend(`/api/dashboard/trades?filter=${filter}&page=${currentPage}&limit=${tradesPerPage}&accountId=${selectedAccount.id}`);
 
             if (data.trades) {
                 setTrades(data.trades);
-
-                // Use server-provided stats if available, otherwise fallback (though backend should provide them now)
-                if (data.stats) {
-                    setStats(data.stats);
-                }
-
-                // Calculate total pages from server metadata
-                if (data.pagination) {
-                    setTotalPages(data.pagination.totalPages);
-                } else {
-                    // Fallback if backend doesn't return pagination metadata yet
-                    setTotalPages(1);
-                }
+                if (data.stats) setStats(data.stats);
+                if (data.pagination) setTotalPages(data.pagination.totalPages);
             }
         } catch (error) {
             console.error('Error fetching trades:', error);
-            // Fallback to demo data on error
             setTrades([]);
         } finally {
             if (!isSilent) setLoading(false);

@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { RulesService } from '../services/rules-service';
+import { getRedis } from '../lib/redis';
 import * as fs from 'fs';
 
 const router = Router();
@@ -25,6 +26,35 @@ router.post('/calculate', authenticate, async (req: AuthRequest, res: Response) 
     try {
         // console.log("📊 OBJECTIVES HANDLER V3 - Checking for Breach Reason");
         const { challenge_id } = req.body;
+        const user = req.user;
+
+        if (!challenge_id) {
+            return res.status(400).json({ error: 'Missing challenge_id' });
+        }
+
+        // TENANCY CHECK: Ensure user owns this challenge
+        const { data: challenge } = await supabase
+            .from('challenges')
+            .select('user_id')
+            .eq('id', challenge_id)
+            .single();
+
+        if (challenge?.user_id !== user.id) {
+            console.warn(`[Tenancy] Unauthorized objective calculation attempt for challenge ${challenge_id} by user ${user.id}`);
+            return res.status(403).json({ error: 'Access denied: You do not own this account.' });
+        }
+
+        // Optimization: Redis Micro-Caching (30s TTL)
+        const cacheKey = `stats:calculate:${user.id}:${challenge_id}`;
+        const redis = getRedis();
+        if (redis) {
+            try {
+                const cached = await redis.get(cacheKey);
+                if (cached) return res.json(JSON.parse(cached));
+            } catch (e) {
+                console.error('[Objectives] Redis cache error:', e);
+            }
+        }
 
 
         // fs.appendFileSync('backend_request_debug.log', `[OBJ-ENTRY] Body: ${JSON.stringify(req.body)}\n`);
@@ -222,6 +252,10 @@ router.post('/calculate', authenticate, async (req: AuthRequest, res: Response) 
 
         // Use relative path to match server.ts
         // fs.appendFileSync('backend_request_debug.log', `[OBJECTIVES-RESP] ${JSON.stringify(responsePayload)}\n`);
+
+        if (redis) {
+            await redis.setex(cacheKey, 15, JSON.stringify(responsePayload));
+        }
 
         return res.json(responsePayload);
 

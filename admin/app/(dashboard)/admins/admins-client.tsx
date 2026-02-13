@@ -8,6 +8,7 @@ interface AdminUser {
     email: string;
     full_name: string;
     role: string;
+    last_seen: string | null;
     created_at: string;
 }
 
@@ -145,6 +146,7 @@ export default function AdminsClientPage() {
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin User</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Seen</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
@@ -152,11 +154,11 @@ export default function AdminsClientPage() {
                     <tbody className="bg-white divide-y divide-gray-200">
                         {loading ? (
                             <tr>
-                                <td colSpan={5} className="px-6 py-12 text-center text-gray-500">Loading...</td>
+                                <td colSpan={6} className="px-6 py-12 text-center text-gray-500">Loading...</td>
                             </tr>
                         ) : admins.length === 0 ? (
                             <tr>
-                                <td colSpan={5} className="px-6 py-12 text-center text-gray-500">No admin users found.</td>
+                                <td colSpan={6} className="px-6 py-12 text-center text-gray-500">No admin users found.</td>
                             </tr>
                         ) : (
                             admins.map((admin) => (
@@ -185,6 +187,9 @@ export default function AdminsClientPage() {
                                             <Mail className="h-4 w-4 text-gray-400 mr-2" />
                                             {admin.email}
                                         </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {admin.last_seen ? new Date(admin.last_seen).toLocaleString() : 'Never'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {new Date(admin.created_at).toLocaleDateString()}

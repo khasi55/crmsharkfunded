@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Award } from "lucide-react";
 import { useAccount } from "@/contexts/AccountContext";
+import { useDashboardData } from "@/contexts/DashboardDataContext";
 import { fetchFromBackend } from "@/lib/backend-api";
 
 interface ConsistencyData {
@@ -18,71 +19,29 @@ interface ConsistencyData {
 }
 
 export default function ConsistencyScore() {
+    const { data: dashboardData, loading: dashboardLoading } = useDashboardData();
     const [data, setData] = useState<ConsistencyData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const { selectedAccount } = useAccount();
+    const loading = dashboardLoading.global;
 
     useEffect(() => {
-        fetchConsistencyData();
-    }, [selectedAccount]);
-
-    const fetchConsistencyData = async () => {
-        try {
-            if (!selectedAccount) {
-                setData({
-                    consistencyScore: 0,
-                    isPayoutEligible: false,
-                    totalProfit: 0,
-                    largestTrade: 0,
-                    totalWinningTrades: 0,
-                    threshold: 15,
-                });
-                setLoading(false);
-                return;
-            }
-
-            const result = await fetchFromBackend(`/api/dashboard/consistency?challenge_id=${selectedAccount.id}`);
-
-
-            if (!result.consistency) {
-                console.error("Missing consistency data:", result);
-                setData({
-                    consistencyScore: -2, // Distinct error code
-                    isPayoutEligible: false,
-                    totalProfit: 0,
-                    largestTrade: 0,
-                    totalWinningTrades: 0,
-                    threshold: 15,
-                    accountType: result.error || "Unknown Error" // Store error msg
-                });
-                setLoading(false);
-                return;
-            }
-
+        if (dashboardData.consistency) {
+            const result = dashboardData.consistency;
             const c = result.consistency;
             setData({
-                consistencyScore: c.score || 0, // Backend sends 'score' not 'consistencyScore'
-                isPayoutEligible: c.eligible || false, // Backend sends 'eligible'
+                consistencyScore: c?.score || 0,
+                isPayoutEligible: c?.eligible || false,
                 totalProfit: result.stats?.avg_win || 0,
                 largestTrade: result.stats?.largest_win || 0,
-                totalWinningTrades: 0, // Not in response
+                totalWinningTrades: 0,
                 threshold: 15,
                 accountType: undefined,
                 isInstantFunding: false,
             });
-        } catch (error) {
-            console.error('Error fetching consistency:', error);
-            setData({
-                consistencyScore: -1, // Error / No Data
-                isPayoutEligible: false,
-                totalProfit: 0,
-                largestTrade: 0,
-                totalWinningTrades: 0,
-                threshold: 15,
-            });
-        } finally {
-            setLoading(false);
         }
+    }, [dashboardData.consistency]);
+
+    const fetchConsistencyData = async () => {
+        // No longer needed independently
     };
 
     if (loading) {

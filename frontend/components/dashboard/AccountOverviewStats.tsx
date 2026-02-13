@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { DollarSign, TrendingUp, Calendar, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAccount } from "@/contexts/AccountContext";
+import { useDashboardData } from "@/contexts/DashboardDataContext";
 import { fetchFromBackend } from "@/lib/backend-api";
 import { useSocket } from "@/contexts/SocketContext";
 
@@ -38,8 +39,7 @@ export default function AccountOverviewStats() {
     // Force HMR update
 
     const { selectedAccount, loading } = useAccount();
-    const { socket, isConnected, isAuthenticated } = useSocket();
-
+    const { data: dashboardData } = useDashboardData();
     // Use state for Realized PnL
     const [realizedPnL, setRealizedPnL] = useState<number | null>(null);
 
@@ -47,56 +47,12 @@ export default function AccountOverviewStats() {
     useChallengeSubscription(selectedAccount?.id);
 
     useEffect(() => {
-        if (!selectedAccount) return;
-
-        async function fetchRealizedPnL() {
-            if (!selectedAccount) return;
-
-            try {
-                const data = await fetchFromBackend(`/api/dashboard/objectives?challenge_id=${selectedAccount.id}`);
-
-                // extract net_pnl from response
-                if (data.objectives?.stats?.net_pnl !== undefined) {
-                    setRealizedPnL(data.objectives.stats.net_pnl);
-                } else {
-                    // Fallback or null if not ready
-                    console.warn("net_pnl not found in response", data);
-                }
-            } catch (error) {
-                console.error("Error fetching realized PnL:", error);
-            }
+        if (dashboardData.objectives?.stats?.net_pnl !== undefined) {
+            setRealizedPnL(dashboardData.objectives.stats.net_pnl);
         }
+    }, [dashboardData.objectives]);
 
-        fetchRealizedPnL();
-
-        // WebSocket: Listen for real-time trade and balance updates
-        if (socket && isAuthenticated) {
-            const handleTradeUpdate = (data: any) => {
-
-                // Refetch PnL when new trade arrives
-                fetchRealizedPnL();
-            };
-
-            const handleBalanceUpdate = (data: any) => {
-
-                // Update balance if provided
-                if (data.balance !== undefined) {
-                    setRealizedPnL(data.balance - (selectedAccount.initial_balance || 100000));
-                }
-            };
-
-            socket.on('trade_update', handleTradeUpdate);
-            socket.on('balance_update', handleBalanceUpdate);
-
-            return () => {
-                socket.off('trade_update', handleTradeUpdate);
-                socket.off('balance_update', handleBalanceUpdate);
-            };
-        }
-    }, [selectedAccount, socket, isConnected, isAuthenticated]);
-
-
-    if (loading) {
+    if (loading && !dashboardData.objectives) {
         return (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
                 {[...Array(3)].map((_, i) => (

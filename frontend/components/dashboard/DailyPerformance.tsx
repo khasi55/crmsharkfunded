@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { useAccount } from "@/contexts/AccountContext";
 import { fetchFromBackend } from "@/lib/backend-api";
 import { cn } from "@/lib/utils";
+import { useDashboardData } from "@/contexts/DashboardDataContext";
 
 interface DayStats {
     dayName: string; // Mon, Tue, etc.
@@ -13,7 +13,7 @@ interface DayStats {
 }
 
 export default function DailyPerformance() {
-    const { selectedAccount } = useAccount();
+    const { data: dashboardData, loading: dashboardLoading } = useDashboardData();
     const [dailyData, setDailyData] = useState<DayStats[]>([]);
     const [loading, setLoading] = useState(true);
     const [bestDay, setBestDay] = useState<string>('');
@@ -21,54 +21,19 @@ export default function DailyPerformance() {
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
     useEffect(() => {
-        if (selectedAccount) {
-            fetchData();
-        }
-    }, [selectedAccount]);
+        if (dashboardData.analysis?.daily_stats) {
+            const stats = dashboardData.analysis.daily_stats;
 
-    const fetchData = async () => {
-        try {
-            if (!selectedAccount) return;
-            // Fetch ALL trades for analysis (or at least recent month). 
-            // Better to use the trades/analysis endpoint which returns all trades.
-            const data = await fetchFromBackend(`/api/dashboard/trades/analysis?accountId=${selectedAccount.id}`);
-            const trades = data.trades || [];
-
-            // Initialize buckets
-            const stats: { [key: number]: { pnl: number, count: number } } = {
-                0: { pnl: 0, count: 0 }, 1: { pnl: 0, count: 0 }, 2: { pnl: 0, count: 0 },
-                3: { pnl: 0, count: 0 }, 4: { pnl: 0, count: 0 }, 5: { pnl: 0, count: 0 }, 6: { pnl: 0, count: 0 }
-            };
-
-            trades.forEach((trade: any) => {
-                const date = new Date(trade.close_time || trade.open_time);
-                const day = date.getDay(); // 0-6
-
-                const pnl = (trade.profit_loss || 0) + (trade.commission || 0) + (trade.swap || 0);
-                stats[day].pnl += pnl;
-                stats[day].count += 1;
-            });
-
-            // Filter to Mon-Fri usually, but let's show all if needed. 
-            // Crypto trades on weekends?
-            // Lets show Mon-Fri as main, maybe exclude Sun/Sat if empty.
-
-            // Convert to array 1 (Mon) -> 5 (Fri). 
-            // Logic: Check if we have weekend trades.
-            const hasWeekend = stats[0].count > 0 || stats[6].count > 0;
-
-            const daysToShow = hasWeekend ? [0, 1, 2, 3, 4, 5, 6] : [1, 2, 3, 4, 5];
-
-            const result = daysToShow.map(dayIdx => ({
-                dayName: dayNames[dayIdx],
-                pnl: stats[dayIdx].pnl,
-                count: stats[dayIdx].count
+            const result = stats.slice(-7).map((s: any) => ({
+                dayName: dayNames[new Date(s.date).getDay()],
+                pnl: s.profit,
+                count: s.trades
             }));
 
             // Find Best Day
             let maxPnL = -Infinity;
             let best = '';
-            result.forEach(d => {
+            result.forEach((d: any) => {
                 if (d.pnl > maxPnL) {
                     maxPnL = d.pnl;
                     best = d.dayName;
@@ -77,13 +42,11 @@ export default function DailyPerformance() {
 
             setDailyData(result);
             setBestDay(best);
-
-        } catch (error) {
-            console.error('Error fetching daily stats:', error);
-        } finally {
             setLoading(false);
+        } else if (dashboardLoading.global) {
+            setLoading(true);
         }
-    };
+    }, [dashboardData.analysis, dashboardLoading.global]);
 
     if (loading) return <div className="h-full bg-[#050923]/50 animate-pulse rounded-2xl" />;
 

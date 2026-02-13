@@ -1,0 +1,215 @@
+{
+    "info": {
+        "_postman_id": "sharkfunded-crm-api-testing-v2",
+        "name": "SharkFunded CRM API (Fixed)",
+        "description": "Collection for testing SharkFunded CRM backend APIs. Includes fixes for variable parsing and path resolution.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Auth",
+            "item": [
+                {
+                    "name": "Admin Login",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"admin@sharkfunded.com\",\n    \"password\": \"your-password\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/login",
+                            "host": [
+                                "{{host}}"
+                            ],
+                            "path": [
+                                "api",
+                                "admin",
+                                "login"
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "User APIs",
+            "item": [
+                {
+                    "name": "Dashboard Summary",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Cookie",
+                                "value": "sf_session={{sf_session}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/dashboard/summary",
+                            "host": [
+                                "{{host}}"
+                            ],
+                            "path": [
+                                "api",
+                                "dashboard",
+                                "summary"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Profile",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Cookie",
+                                "value": "sf_session={{sf_session}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/user/profile",
+                            "host": [
+                                "{{host}}"
+                            ],
+                            "path": [
+                                "api",
+                                "user",
+                                "profile"
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Admin Portal APIs",
+            "item": [
+                {
+                    "name": "List MT5 Accounts",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Cookie",
+                                "value": "admin_session={{admin_session}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/mt5/accounts",
+                            "host": [
+                                "{{host}}"
+                            ],
+                            "path": [
+                                "api",
+                                "mt5",
+                                "accounts"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Sync MT5 Trades",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Cookie",
+                                "value": "admin_session={{admin_session}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"login\": 1234567\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/mt5/sync-trades",
+                            "host": [
+                                "{{host}}"
+                            ],
+                            "path": [
+                                "api",
+                                "mt5",
+                                "sync-trades"
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Public Performance",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{baseUrl}}/api/public-performance/performance/:token",
+                    "host": [
+                        "{{host}}"
+                    ],
+                    "path": [
+                        "api",
+                        "public-performance",
+                        "performance",
+                        ":token"
+                    ],
+                    "variable": [
+                        {
+                            "key": "token",
+                            "value": "your-token-here"
+                        }
+                    ]
+                }
+            },
+            "response": []
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:3001",
+            "type": "string"
+        },
+        {
+            "key": "host",
+            "value": "localhost",
+            "type": "string"
+        },
+        {
+            "key": "admin_session",
+            "value": "replace_with_actual_cookie",
+            "type": "string"
+        },
+        {
+            "key": "sf_session",
+            "value": "replace_with_actual_cookie",
+            "type": "string"
+        },
+        {
+            "key": "adminApiKey",
+            "value": "sk_admin_2026_sharkfunded_crm_key",
+            "type": "string"
+        }
+    ]
+}

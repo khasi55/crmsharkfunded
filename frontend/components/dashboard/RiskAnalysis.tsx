@@ -5,6 +5,7 @@ import { CheckCircle2, AlertCircle, RefreshCw, Scale, ShieldAlert, Newspaper, Za
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAccount } from "@/contexts/AccountContext";
+import { useDashboardData } from "@/contexts/DashboardDataContext";
 import { fetchFromBackend } from "@/lib/backend-api";
 
 interface BreachDetail {
@@ -126,11 +127,10 @@ interface RiskAnalysisProps {
 }
 
 export default function RiskAnalysis({ account: initialAccount, data: initialData, isPublic }: RiskAnalysisProps = {}) {
-    const accountContext = isPublic ? null : useAccount();
-    const selectedAccount = initialAccount || accountContext?.selectedAccount;
-    const accountLoading = accountContext?.loading;
+    const { data: dashboardData, loading: dashboardLoading } = useDashboardData();
+    const { selectedAccount } = useAccount();
     const [violations, setViolations] = useState<ViolationData>({});
-    const [loading, setLoading] = useState(!initialData);
+    const loading = dashboardLoading.global;
     const [lastUpdate, setLastUpdate] = useState<Date | null>(initialData ? new Date() : null);
 
     useEffect(() => {
@@ -138,19 +138,23 @@ export default function RiskAnalysis({ account: initialAccount, data: initialDat
             processViolations(initialData.violations);
             return;
         }
-        if (selectedAccount) {
-            fetchViolations();
-        } else {
-            setViolations({});
-            setLoading(false);
+
+        if (dashboardData.risk) {
+            processViolations(dashboardData.risk.violations);
+            setLastUpdate(new Date());
         }
-    }, [selectedAccount, initialData, isPublic]);
+    }, [dashboardData.risk, initialData, isPublic]);
 
     const processViolations = (violationList: any[]) => {
         const grouped: ViolationData = {};
         RISK_RULES.forEach(rule => {
             grouped[rule.key] = [];
         });
+
+        if (!violationList || !Array.isArray(violationList)) {
+            setViolations(grouped);
+            return;
+        }
 
         violationList.forEach((violation: any) => {
             const rule = RISK_RULES.find(r =>
@@ -168,51 +172,13 @@ export default function RiskAnalysis({ account: initialAccount, data: initialDat
         });
 
         setViolations(grouped);
-        setLoading(false);
     };
 
     const fetchViolations = async () => {
-        if (!selectedAccount) return;
-
-        setLoading(true);
-        try {
-            const result = await fetchFromBackend(`/api/dashboard/risk?challenge_id=${selectedAccount.challenge_id}`);
-
-            // Group violations by rule type
-            const grouped: ViolationData = {};
-            RISK_RULES.forEach(rule => {
-                grouped[rule.key] = [];
-            });
-
-            if (result.risk && result.risk.violations) {
-                result.risk.violations.forEach((violation: any) => {
-                    // Find which rule this violation belongs to
-                    const rule = RISK_RULES.find(r =>
-                        r.violationTypes.includes(violation.violation_type)
-                    );
-
-                    if (rule) {
-                        grouped[rule.key].push({
-                            ticket: violation.trade_ticket || 'N/A',
-                            symbol: violation.symbol || 'Unknown',
-                            time: new Date(violation.created_at).toLocaleString(),
-                            reason: violation.description || violation.violation_type,
-                        });
-                    }
-                });
-            }
-
-            setViolations(grouped);
-            setLastUpdate(new Date());
-        } catch (error) {
-            console.error('Error fetching violations:', error);
-            setViolations({});
-        } finally {
-            setLoading(false);
-        }
+        // No longer needed independently
     };
 
-    if (accountLoading || loading) {
+    if (loading && !dashboardData.risk) {
         return (
             <div className="w-full">
                 <div className="flex items-center justify-between mb-6">

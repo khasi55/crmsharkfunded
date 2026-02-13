@@ -1,31 +1,17 @@
 import { Router, Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { createDiditSession } from '../lib/didit';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
 import { AuditLogger } from '../lib/audit-logger';
+import { resourceIntensiveLimiter } from '../middleware/rate-limit';
+import { logSecurityEvent } from '../utils/security-logger';
 
 const router = Router();
 
-// Helper function to extract user from authorization header
-async function getUserFromAuth(authHeader: string | undefined) {
-    if (!authHeader) {
-        throw new Error('No authorization header');
-    }
-
-    const token = authHeader.split(' ')[1];
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-
-    if (error || !user) {
-        throw new Error('Unauthorized');
-    }
-
-    return user;
-}
-
 // GET /api/kyc/status - Get KYC status for current user
-router.get('/status', async (req: Request, res: Response) => {
+router.get('/status', authenticate, async (req: AuthRequest, res: Response) => {
     try {
-        const user = await getUserFromAuth(req.headers.authorization);
+        const user = req.user!;
 
         // Fetch the latest KYC session for this user
         const { data: session, error: sessionError } = await supabase
@@ -71,9 +57,9 @@ router.get('/status', async (req: Request, res: Response) => {
 });
 
 // POST /api/kyc/create-session - Create a new KYC verification session
-router.post('/create-session', async (req: Request, res: Response) => {
+router.post('/create-session', authenticate, async (req: AuthRequest, res: Response) => {
     try {
-        const user = await getUserFromAuth(req.headers.authorization);
+        const user = req.user;
 
         // Check for existing active session
         const { data: existingSession } = await supabase
@@ -384,7 +370,7 @@ router.post('/update-status', async (req: Request, res: Response) => {
 // ============================================
 
 // GET /api/kyc/admin - List all KYC sessions (admin only)
-router.get('/admin', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/admin', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { data: sessions, error } = await supabase
             .from('kyc_sessions')
@@ -427,7 +413,7 @@ router.get('/admin', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // GET /api/kyc/admin/:id - Get single KYC session details (admin only)
-router.get('/admin/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/admin/:id', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
 
@@ -466,7 +452,7 @@ router.get('/admin/:id', authenticate, async (req: AuthRequest, res: Response) =
 });
 
 // POST /api/kyc/admin/:id/approve - Manually approve a KYC session
-router.post('/admin/:id/approve', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/admin/:id/approve', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const { document_url, document_type } = req.body as { document_url?: string; document_type?: string };
@@ -525,7 +511,7 @@ router.post('/admin/:id/approve', authenticate, async (req: AuthRequest, res: Re
 });
 
 // POST /api/kyc/admin/:id/reject - Manually reject a KYC session
-router.post('/admin/:id/reject', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/admin/:id/reject', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const { reason } = req.body as { reason?: string };

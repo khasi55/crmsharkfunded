@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Plus, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function CreateUserButton() {
+    const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
@@ -42,8 +44,7 @@ export function CreateUserButton() {
             toast.success('User created successfully');
             setIsOpen(false);
             setFormData({ email: '', password: '', full_name: '', country: '', phone: '' });
-            // Ideally trigger refresh, but simple button for now
-            window.location.reload();
+            router.refresh();
 
         } catch (error: any) {
             toast.error(error.message);

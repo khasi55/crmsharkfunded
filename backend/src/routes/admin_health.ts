@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { getSocketMetrics } from '../services/socket';
 import { supabase } from '../lib/supabase';
 import { getRedis } from '../lib/redis';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
 
 const router = Router();
 
@@ -10,7 +10,7 @@ const router = Router();
 const BRIDGE_URL = process.env.BRIDGE_URL || 'https://bridge.sharkfunded.co';
 
 // GET /api/admin/health - System health monitoring
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const healthData: any = {
             timestamp: new Date().toISOString(),
@@ -24,7 +24,11 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
                 status: 'healthy',
                 connections: socketMetrics.totalConnections,
                 authenticated: socketMetrics.authenticatedConnections,
-                rooms: socketMetrics.roomCount
+                rooms: socketMetrics.roomCount,
+                bridge_relay: {
+                    status: socketMetrics.bridge?.status || 'unknown',
+                    error: socketMetrics.bridge?.error || null
+                }
             };
         } catch (error) {
             healthData.services.websocket = {

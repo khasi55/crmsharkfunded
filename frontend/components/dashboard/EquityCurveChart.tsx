@@ -7,6 +7,7 @@ import { LineChart, Line, Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip,
 import { cn } from "@/lib/utils";
 import { getEquityCurveData } from "@/app/actions/dashboard";
 import { useAccount } from "@/contexts/AccountContext";
+import { useDashboardData } from "@/contexts/DashboardDataContext";
 
 interface EquityPoint {
     date: string;
@@ -27,9 +28,10 @@ interface EquityCurveChartProps {
 
 export default function EquityCurveChart({ account, trades: initialTrades, initialBalance, initialData, isPublic }: EquityCurveChartProps = {}) {
     const accountContext = isPublic ? null : useAccount();
+    const { data: dashboardData, loading: dashboardLoading } = useDashboardData();
     const selectedAccount = account || accountContext?.selectedAccount;
     const [data, setData] = useState<EquityPoint[]>(initialData || []);
-    const [loading, setLoading] = useState(!initialData);
+    const [loading, setLoading] = useState(true);
     const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('1M');
     const [stats, setStats] = useState({
         currentEquity: initialData?.[initialData.length - 1]?.equity || selectedAccount?.initial_balance || 100000,
@@ -39,59 +41,100 @@ export default function EquityCurveChart({ account, trades: initialTrades, initi
     });
 
     useEffect(() => {
-        if (isPublic && initialData) return;
-        fetchEquityData();
-    }, [selectedPeriod, selectedAccount, initialData, isPublic]);
+        if (isPublic && initialData) {
+            setLoading(false);
+            return;
+        }
+
+        const sourceTrades = initialTrades || dashboardData.trades;
+        if (sourceTrades && selectedAccount) {
+            calculateChart(sourceTrades, selectedAccount);
+            setLoading(false);
+        } else if (dashboardLoading.global) {
+            setLoading(true);
+        }
+    }, [selectedPeriod, selectedAccount, dashboardData.trades, dashboardLoading.global, initialData, isPublic]);
+
+    const calculateChart = (allTrades: any[], account: any) => {
+        const initialBalance = account.initial_balance || 100000;
+        const now = new Date();
+        const startDate = new Date();
+
+        switch (selectedPeriod) {
+            case '1D': startDate.setDate(now.getDate() - 1); break;
+            case '1W': startDate.setDate(now.getDate() - 7); break;
+            case '1M': startDate.setDate(now.getDate() - 30); break;
+            case '3M': startDate.setDate(now.getDate() - 90); break;
+            case 'ALL': startDate.setFullYear(2000); break;
+            default: startDate.setDate(now.getDate() - 30);
+        }
+
+        // 1. Separate Prior Trades from Current Period Trades (Only closed trades)
+        const closedTrades = allTrades
+            .filter(t => !!t.close_time)
+            .sort((a, b) => new Date(a.close_time).getTime() - new Date(b.close_time).getTime());
+
+        const priorTrades = selectedPeriod === 'ALL' ? [] : closedTrades.filter(t => new Date(t.close_time) < startDate);
+        const periodTrades = selectedPeriod === 'ALL' ? closedTrades : closedTrades.filter(t => new Date(t.close_time) >= startDate);
+
+        let runningProfit = priorTrades.reduce((sum, t) => sum + (Number(t.profit_loss) || 0) + (Number(t.commission || 0) * 2) + (Number(t.swap) || 0), 0);
+        let runningEquity = initialBalance + runningProfit;
+
+        // 2. Build Curve
+        const equityCurve: EquityPoint[] = [];
+
+        // Start point
+        equityCurve.push({
+            date: startDate.toISOString(),
+            equity: runningEquity,
+            profit: runningProfit,
+            displayDate: formatDate(startDate, selectedPeriod)
+        });
+
+        periodTrades.forEach(t => {
+            const netPnl = (Number(t.profit_loss) || 0) + (Number(t.commission || 0) * 2) + (Number(t.swap) || 0);
+            runningEquity += netPnl;
+            runningProfit += netPnl;
+
+            const d = new Date(t.close_time);
+            equityCurve.push({
+                date: t.close_time,
+                equity: runningEquity,
+                profit: runningProfit,
+                displayDate: formatDate(d, selectedPeriod)
+            });
+        });
+
+        // 3. Handle Breach/Latest State
+        if (account.status === 'breached' || account.status === 'failed' || (periodTrades.length === 0 && priorTrades.length === 0)) {
+            const currentEquity = Number(account.equity || account.current_equity || runningEquity);
+            const currentProfit = currentEquity - initialBalance;
+
+            // If the latest point isn't already close to current equity, append the final status
+            const lastPoint = equityCurve[equityCurve.length - 1];
+            if (!lastPoint || Math.abs(lastPoint.equity - currentEquity) > 1) {
+                equityCurve.push({
+                    date: now.toISOString(),
+                    equity: currentEquity,
+                    profit: currentProfit,
+                    displayDate: formatDate(now, selectedPeriod)
+                });
+            }
+        }
+
+        setData(equityCurve);
+
+        const latest = equityCurve[equityCurve.length - 1];
+        setStats({
+            currentEquity: latest?.equity || initialBalance,
+            totalProfit: latest?.profit || 0,
+            percentChange: (((latest?.equity || initialBalance) - initialBalance) / initialBalance) * 100,
+            highestEquity: Math.max(...equityCurve.map(d => d.equity), initialBalance)
+        });
+    };
 
     const fetchEquityData = async () => {
-        try {
-            if (isPublic && initialData) return;
-            if (!selectedAccount && !initialTrades) {
-                setLoading(false);
-                return;
-            }
-
-            const startingBalance = initialBalance || selectedAccount?.initial_balance || 100000;
-            const data = await getEquityCurveData(selectedAccount?.id || 'public', startingBalance, selectedPeriod);
-
-            if (data && data.length > 0) {
-                // Process server data
-                const latest = data[data.length - 1];
-                const highest = Math.max(...data.map((d: any) => d.equity));
-                const percentChange = ((latest.equity - startingBalance) / startingBalance) * 100;
-
-                setStats({
-                    currentEquity: latest.equity,
-                    totalProfit: latest.profit,
-                    percentChange,
-                    highestEquity: highest
-                });
-                setData(data);
-                setLoading(false);
-                return;
-            }
-
-            // Fallback: If no server data (new account), show flat line
-            const now = new Date();
-            setData([{
-                date: now.toISOString(),
-                equity: startingBalance,
-                profit: 0,
-                displayDate: formatDate(now, selectedPeriod)
-            }]);
-            setStats({
-                currentEquity: startingBalance,
-                totalProfit: 0,
-                percentChange: 0,
-                highestEquity: startingBalance
-            });
-
-        } catch (error) {
-            console.error('Error fetching equity data:', error);
-            setData([]);
-        } finally {
-            setLoading(false);
-        }
+        // Obsolete: replaced by calculateChart
     };
 
     const formatDate = (date: Date, period: TimePeriod): string => {

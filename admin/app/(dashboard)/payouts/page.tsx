@@ -10,11 +10,11 @@ export default async function PayoutsPage() {
     const user = await getAdminUser();
 
     if (!user) {
-        redirect("/login");
+        redirect("/admin/login");
     }
 
     if (!ALLOWED_ROLES.includes(user.role)) {
-        redirect("/dashboard");
+        redirect("/admin/dashboard");
     }
 
     return <AdminPayoutsClient />;

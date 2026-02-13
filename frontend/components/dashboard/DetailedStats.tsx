@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Calendar, Hash, BarChart3, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
 import { useAccount } from "@/contexts/AccountContext";
+import { useDashboardData } from "@/contexts/DashboardDataContext";
 import { fetchFromBackend } from "@/lib/backend-api";
 import { cn } from "@/lib/utils";
 
@@ -15,30 +16,9 @@ interface StatItem {
 
 export default function DetailedStats() {
     const { selectedAccount } = useAccount();
-    const [statsData, setStatsData] = useState<any>(null);
-    const [loading, setLoading] = useState(false);
-
-    useEffect(() => {
-        const fetchStats = async () => {
-            if (!selectedAccount) return;
-            setLoading(true);
-            try {
-                const data = await fetchFromBackend('/api/objectives/calculate', {
-                    method: 'POST',
-                    body: JSON.stringify({ challenge_id: selectedAccount.id })
-                });
-                if (data.stats) {
-                    setStatsData(data.stats);
-                }
-            } catch (err) {
-                console.error("Failed to fetch stats:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchStats();
-    }, [selectedAccount]);
+    const { data: dashboardData, loading: dashboardLoading } = useDashboardData();
+    const statsData = dashboardData.stats;
+    const loading = dashboardLoading.global;
 
     // Create stats based on selected account
     const getStats = (): StatItem[] => {

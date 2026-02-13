@@ -144,7 +144,7 @@ export default function SystemHealthPage() {
                         </div>
 
                         <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
+                            <div className="flex justify-between border-b border-gray-100 pb-2 mb-2">
                                 <span className="text-gray-600">Total Connections:</span>
                                 <span className="font-semibold">{healthData.services.websocket.connections}</span>
                             </div>
@@ -156,6 +156,29 @@ export default function SystemHealthPage() {
                                 <span className="text-gray-600">Active Rooms:</span>
                                 <span className="font-semibold">{healthData.services.websocket.rooms}</span>
                             </div>
+
+                            {/* Bridge Relay Status */}
+                            {healthData.services.websocket.bridge_relay && (
+                                <div className="mt-4 pt-4 border-t border-gray-100">
+                                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Bridge Relay (MT5)</h4>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-600">Status:</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${healthData.services.websocket.bridge_relay.status === 'connected'
+                                                    ? 'bg-green-100 text-green-700'
+                                                    : 'bg-red-100 text-red-700'
+                                                }`}>
+                                                {healthData.services.websocket.bridge_relay.status}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {healthData.services.websocket.bridge_relay.error && (
+                                        <p className="text-[10px] text-red-500 mt-1 italic">
+                                            Error: {healthData.services.websocket.bridge_relay.error}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

@@ -25,5 +25,5 @@ export async function GET(request: Request) {
     }
 
     // return the user to an error page with instructions
-    return NextResponse.redirect(`${origin}/login?error=Could not authenticate user`)
+    return NextResponse.redirect(`${origin}/admin/login?error=Could not authenticate user`)
 }

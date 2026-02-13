@@ -1,6 +1,6 @@
 import express, { Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
 import { EmailService } from '../services/email-service';
 
 const router = express.Router();
@@ -48,7 +48,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // POST /api/competitions - Admin create competition
-router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { title, description, start_date, end_date, entry_fee, prize_pool, max_participants, platform, image_url, initial_balance } = req.body;
 
@@ -234,7 +234,7 @@ router.post('/:id/join', authenticate, async (req: AuthRequest, res: Response) =
 });
 
 // POST /api/competitions/admin/assign-account - Admin manually assign account
-router.post('/admin/assign-account', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/admin/assign-account', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { competitionId, login } = req.body;
         const DEBUG = process.env.DEBUG === 'true';
@@ -312,7 +312,7 @@ router.post('/admin/assign-account', authenticate, async (req: AuthRequest, res:
 
 
 // GET /api/competitions/admin - Admin list all
-router.get('/admin', authenticate, async (req: any, res: Response) => {
+router.get('/admin', authenticate, requireRole(['super_admin', 'admin']), async (req: any, res: Response) => {
     try {
         const { data, error } = await supabase
             .from('competitions')
@@ -327,7 +327,7 @@ router.get('/admin', authenticate, async (req: any, res: Response) => {
 });
 
 // GET /api/competitions/admin/trades/:challengeId - Admin fetch trades for a specific challenge
-router.get('/admin/trades/:challengeId', authenticate, async (req: any, res: Response) => {
+router.get('/admin/trades/:challengeId', authenticate, requireRole(['super_admin', 'admin']), async (req: any, res: Response) => {
     try {
         const { challengeId } = req.params;
 
@@ -345,9 +345,22 @@ router.get('/admin/trades/:challengeId', authenticate, async (req: any, res: Res
 });
 
 // GET /api/competitions/trades/:challengeId - Public fetch trades for a specific challenge (Leaderboard drill-down)
-router.get('/trades/:challengeId', async (req, res) => {
+router.get('/trades/:challengeId', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const { challengeId } = req.params;
+        const user = req.user;
+
+        // Check if user owns the challenge OR if it's a competition challenge (semi-public)
+        // For now, let's at least verify it's a competition challenge to allow public viewing
+        const { data: challenge } = await supabase
+            .from('challenges')
+            .select('user_id, metadata')
+            .eq('id', challengeId)
+            .single();
+
+        if (challenge?.user_id !== user.id && !challenge?.metadata?.is_competition) {
+            return res.status(403).json({ error: "Access denied: Public trade viewing is only allowed for competitions." });
+        }
 
         // Fetch trades for the challenge
         const { data: trades, error } = await supabase

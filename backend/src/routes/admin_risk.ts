@@ -1,6 +1,6 @@
 import express from 'express';
 import { supabase } from '../lib/supabase'; // Adjust path if needed
-import { authenticate } from '../middleware/auth'; // Ensure admin auth
+import { authenticate, requireRole } from '../middleware/auth'; // Ensure admin auth
 import { RulesService } from '../services/rules-service'; // Import RulesService
 import { EmailService } from '../services/email-service'; // Import EmailService
 import { AuditLogger } from '../lib/audit-logger';
@@ -8,7 +8,7 @@ import { AuditLogger } from '../lib/audit-logger';
 const router = express.Router();
 
 // --- RISK GROUPS ---
-router.get('/groups', authenticate, async (req: any, res: any) => {
+router.get('/groups', authenticate, requireRole(['super_admin', 'risk_admin', 'admin']), async (req: any, res: any) => {
     try {
         const { data, error } = await supabase
             .from('mt5_risk_groups')
@@ -22,7 +22,7 @@ router.get('/groups', authenticate, async (req: any, res: any) => {
     }
 });
 
-router.post('/groups', authenticate, async (req: any, res: any) => {
+router.post('/groups', authenticate, requireRole(['super_admin', 'risk_admin', 'admin']), async (req: any, res: any) => {
     const { id, group_name, max_drawdown_percent, daily_drawdown_percent, profit_target_percent } = req.body;
     // console.log("📝 [Admin Risk] Saving Group:", { id, group_name, profit_target_percent });
     try {
@@ -51,7 +51,7 @@ router.post('/groups', authenticate, async (req: any, res: any) => {
     }
 });
 
-router.delete('/groups/:id', authenticate, async (req: any, res: any) => {
+router.delete('/groups/:id', authenticate, requireRole(['super_admin', 'risk_admin', 'admin']), async (req: any, res: any) => {
     const { id } = req.params;
     // console.log("🗑️ [Admin Risk] Deleting Group:", id);
     try {
@@ -73,7 +73,7 @@ router.delete('/groups/:id', authenticate, async (req: any, res: any) => {
 });
 
 // --- CHALLENGE TYPE RULES ---
-router.get('/challenge-type-rules', authenticate, async (req: any, res: any) => {
+router.get('/challenge-type-rules', authenticate, requireRole(['super_admin', 'risk_admin', 'admin']), async (req: any, res: any) => {
     try {
         const { data, error } = await supabase
             .from('challenge_type_rules')
@@ -87,7 +87,7 @@ router.get('/challenge-type-rules', authenticate, async (req: any, res: any) => 
     }
 });
 
-router.post('/challenge-type-rules', authenticate, async (req: any, res: any) => {
+router.post('/challenge-type-rules', authenticate, requireRole(['super_admin', 'risk_admin', 'admin']), async (req: any, res: any) => {
     const { challenge_type, profit_target_percent, daily_drawdown_percent, max_drawdown_percent, description } = req.body;
     console.log("📝 [Admin Risk] Saving Challenge Type Rule:", { challenge_type, profit_target_percent });
     try {
@@ -117,7 +117,7 @@ router.post('/challenge-type-rules', authenticate, async (req: any, res: any) =>
 });
 
 // --- SERVER CONFIG ---
-router.get('/server-config', authenticate, async (req: any, res: any) => {
+router.get('/server-config', authenticate, requireRole(['super_admin', 'risk_admin', 'admin']), async (req: any, res: any) => {
     try {
         const { data, error } = await supabase
             .from('mt5_server_config')
@@ -139,7 +139,7 @@ router.get('/server-config', authenticate, async (req: any, res: any) => {
     }
 });
 
-router.post('/server-config', authenticate, async (req: any, res: any) => {
+router.post('/server-config', authenticate, requireRole(['super_admin', 'risk_admin', 'admin']), async (req: any, res: any) => {
     const { server_ip, manager_login, manager_password, api_port, callback_url, monitored_groups } = req.body;
     try {
         // Fetch existing logic to handle password update
@@ -222,7 +222,7 @@ router.post('/server-config', authenticate, async (req: any, res: any) => {
 });
 
 // --- LOGS ---
-router.get('/logs', authenticate, async (req: any, res: any) => {
+router.get('/logs', authenticate, requireRole(['super_admin', 'risk_admin', 'admin']), async (req: any, res: any) => {
     try {
         const { data, error } = await supabase
             .from('system_logs')

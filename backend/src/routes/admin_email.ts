@@ -1,12 +1,12 @@
-
-import { Router } from 'express';
+import { Router, Response } from 'express';
 import { EmailService } from '../services/email-service';
 import { supabaseAdmin } from '../lib/supabase';
+import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
 
 const router = Router();
 
-// Middleware to check if user is admin (simplified for now)
-router.post('/send-event-invites', async (req, res) => {
+// POST /api/admin/email/send-event-invites - Send Top 32 Event Invites (admin only)
+router.post('/send-event-invites', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { recipients } = req.body; // Expects array of { name, email }
 
@@ -18,52 +18,21 @@ router.post('/send-event-invites', async (req, res) => {
 
         const results = [];
 
-        // Process in chunks to avoid overwhelming the mail server
         for (const recipient of recipients) {
-            if (!recipient.email || !recipient.name) {
-                results.push({ email: recipient.email, status: 'failed', error: 'Missing email or name' });
-                continue;
-            }
-
             try {
                 await EmailService.sendEventInvite(recipient.email, recipient.name);
-                results.push({ email: recipient.email, status: 'sent' });
-                await new Promise(resolve => setTimeout(resolve, 200));
+                results.push({ email: recipient.email, success: true });
             } catch (err: any) {
-                console.error(`Failed to send to ${recipient.email}:`, err);
-                results.push({ email: recipient.email, status: 'failed', error: err.message });
+                console.error(`Failed to send invite to ${recipient.email}:`, err.message);
+                results.push({ email: recipient.email, success: false, error: err.message });
             }
         }
 
-        res.json({ message: 'Process completed', results });
+        res.json({ success: true, results });
 
     } catch (error: any) {
-        console.error('Error in bulk send:', error);
+        console.error('Send event invites error:', error);
         res.status(500).json({ error: 'Internal server error' });
-    }
-});
-
-router.post('/preview-invite', async (req, res) => {
-    try {
-        const { name } = req.body;
-        // Use a placeholder if no name provided, or the provided name
-        const previewName = name || "Valued Partner";
-
-        // Generate HTML. Passing undefined to qrCodeCid to show placeholder or nothing? 
-        // The original method handles undefined. 
-        // We can pass a dummy CID or just let it be empty.
-        // Let's pass a dummy placeholder image for preview to look better if needed, 
-        // but getEventInviteHtml handles `undefined` by skipping the QR section or showing empty?
-        // Let's check getEventInviteHtml again. It checks `if (qrCodeCid)`.
-        // To show a full preview, maybe we should pass a dummy QR placeholder URL?
-        // But for now, let's just pass `undefined` or a hardcoded placeholder if we want to show layout.
-
-        const html = EmailService.getEventInviteHtml(previewName, "https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg");
-
-        res.json({ html });
-    } catch (error: any) {
-        console.error('Error generating preview:', error);
-        res.status(500).json({ error: 'Failed to generate preview' });
     }
 });
 

@@ -13,7 +13,7 @@ export default async function AdminLayout({
     const user = await getAdminUser();
 
     if (!user) {
-        redirect("/login");
+        redirect("/admin/login");
     }
 
     return <AdminLayoutClient user={user}>{children}</AdminLayoutClient>;

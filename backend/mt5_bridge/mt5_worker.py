@@ -219,28 +219,41 @@ class MT5Worker:
         """Fetch all users in a group with their equity/balance"""
         users = []
         if self._manager:
-            # Assuming Manager API has UserLogins or similar
-            # Real Manager API usually returns just logins, then we need UserRequest for each.
-            # Start with getting logins
             try:
                 logins = self._manager.UserLogins(group) or []
                 for login in logins:
-                    user_data = self._manager.UserRequest(login)
-                    if user_data:
-                         # Normalize to object
-                         users.append({
-                             "login": user_data.Login,
-                             "group": user_data.Group,
-                             "equity": user_data.Equity,
-                             "balance": user_data.Balance
-                         })
+                    u = self.get_user_info(login)
+                    if u: users.append(u)
             except Exception as e:
                 print(f"Error fetching group users {group}: {e}")
-        
-        # If using Client API (Terminal), we can only see OURSELF
-        elif self._use_client_api:
-            # We can only return the currently logged in user if they match the group
-            # This is a limitation of Client API. 
-            pass
-            
         return users
+
+    def get_user_info(self, login: int):
+        """Fetch real-time equity/balance for a single login"""
+        if not self.connected: return None
+        
+        try:
+            if self._manager:
+                user_data = self._manager.UserRequest(login)
+                if user_data:
+                    return {
+                        "login": int(user_data.Login),
+                        "group": user_data.Group,
+                        "equity": float(user_data.Equity),
+                        "balance": float(user_data.Balance)
+                    }
+            elif self._use_client_api:
+                # Client API can only see one account at a time (the one it's logged into)
+                # If we're logged into the requested login, return its info
+                acc_info = mt5.account_info()
+                if acc_info and acc_info.login == login:
+                    return {
+                        "login": int(acc_info.login),
+                        "group": acc_info.group,
+                        "equity": float(acc_info.equity),
+                        "balance": float(acc_info.balance)
+                    }
+        except Exception as e:
+            print(f"Error fetching user info for {login}: {e}")
+            
+        return None

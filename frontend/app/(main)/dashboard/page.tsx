@@ -15,6 +15,7 @@ import { ChevronRight, Key, RotateCw, Plus, LayoutDashboard, Rocket, LogOut, Sha
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { AccountProvider, useAccount } from "@/contexts/AccountContext";
+import { DashboardDataProvider } from "@/contexts/DashboardDataContext";
 import { useState, useEffect } from "react";
 import CredentialsModal from "@/components/dashboard/CredentialsModal";
 import ShareModal from "@/components/dashboard/ShareModal";
@@ -475,6 +476,8 @@ function DashboardContent() {
 
 export default function DashboardPage() {
     return (
-        <DashboardContent />
+        <DashboardDataProvider>
+            <DashboardContent />
+        </DashboardDataProvider>
     );
 }
