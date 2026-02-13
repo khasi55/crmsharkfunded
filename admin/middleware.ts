@@ -42,7 +42,7 @@ export async function middleware(request: NextRequest) {
 
     if (!token) {
         console.warn(`[Middleware] No token found for ${path}. Redirecting to /admin/login`)
-        return NextResponse.redirect(new URL('/login', request.url))
+        return NextResponse.redirect(new URL('/admin/login', request.url))
     }
 
     try {
@@ -53,7 +53,7 @@ export async function middleware(request: NextRequest) {
         const allowedRoles = ['admin', 'super_admin', 'sub_admin', 'risk_admin', 'payouts_admin']
         if (!allowedRoles.includes(payload.role as string)) {
             console.error(`[Middleware] Unauthorized role: ${payload.role}`)
-            return NextResponse.redirect(new URL('/login', request.url))
+            return NextResponse.redirect(new URL('/admin/login', request.url))
         }
 
         // 5. Granular Permission Check

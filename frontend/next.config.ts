@@ -67,7 +67,7 @@ const nextConfig: NextConfig = {
 
   async rewrites() {
     const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
-    const ADMIN_URL = process.env.ADMIN_URL || 'http://localhost:3002';
+    const ADMIN_URL = (process.env.ADMIN_URL || 'http://localhost:3002').replace(/\/$/, '');
     return [
       {
         source: '/api/dashboard/:path*',
@@ -120,6 +120,10 @@ const nextConfig: NextConfig = {
       {
         source: '/socket.io/:path*',
         destination: `${BACKEND_URL}/socket.io/:path*`,
+      },
+      {
+        source: '/admin',
+        destination: `${ADMIN_URL}/admin/`,
       },
       {
         source: '/admin/:path*',
