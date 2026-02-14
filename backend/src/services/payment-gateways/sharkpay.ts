@@ -15,15 +15,27 @@ export class SharkPayGateway implements PaymentGateway {
         this.apiUrl = process.env.SHARKPAY_API_URL || 'https://sharkpay-o9zz.vercel.app';
     }
 
-    private async getConfig() {
-        // Fetch from DB first (only if Supabase credentials are available)
-        try {
-            if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-                const supabase = createClient(
+    private async getSupabaseClient() {
+        if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+            try {
+                return createClient(
                     process.env.SUPABASE_URL,
                     process.env.SUPABASE_SERVICE_ROLE_KEY
                 );
+            } catch (error) {
+                console.warn("Failed to initialize Supabase client in SharkPay:", error);
+                return null;
+            }
+        }
+        return null;
+    }
 
+    private async getConfig() {
+        // Fetch from DB first (only if Supabase credentials are available)
+        try {
+            const supabase = await this.getSupabaseClient();
+
+            if (supabase) {
                 const { data } = await supabase
                     .from('merchant_config')
                     .select('*')
