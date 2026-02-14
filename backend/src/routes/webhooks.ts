@@ -265,6 +265,8 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             const customerEmail = finalOrder.metadata?.customerEmail || finalOrder.metadata?.email || body.email;
             if (customerEmail) {
                 console.log(`[Payment Webhook] Guest checkout detected. Searching for user with email: ${customerEmail}`);
+
+                // 1. Try to find existing profile
                 const { data: guestProfile } = await supabase
                     .from('profiles')
                     .select('id')
@@ -274,11 +276,58 @@ async function handlePaymentWebhook(req: Request, res: Response) {
                 if (guestProfile) {
                     finalOrder.user_id = guestProfile.id;
                     console.log(`[Payment Webhook] Resolved user_id ${guestProfile.id} for guest email ${customerEmail}`);
-                    // Persist for future consistency
-                    await supabase.from('payment_orders').update({ user_id: guestProfile.id }).eq('order_id', internalOrderId);
                 } else {
-                    console.warn(`⚠️ [Payment Webhook] Guest checkout: No profile found for ${customerEmail}. Final challenge creation may fail.`);
+                    // 2. If no profile, create Auth User & Profile
+                    console.log(`[Payment Webhook] No profile found for ${customerEmail}. Creating new user...`);
+
+                    try {
+                        // Check if auth user exists first (in case profile is just missing)
+                        const { data: { users: authUsers } } = await supabase.auth.admin.listUsers();
+                        const existingAuthUser = authUsers.find(u => u.email?.toLowerCase() === customerEmail.toLowerCase());
+
+                        let newUserId = existingAuthUser?.id;
+
+                        if (!newUserId) {
+                            const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+                                email: customerEmail,
+                                password: Math.random().toString(36).slice(-12) + 'Aa1!', // Random secure password
+                                email_confirm: true
+                            });
+
+                            if (createError) throw createError;
+                            newUserId = newUser.user.id;
+                            console.log(`[Payment Webhook] Created new Auth User: ${newUserId}`);
+                        } else {
+                            console.log(`[Payment Webhook] Found existing Auth User ${newUserId}, but Profile was missing.`);
+                        }
+
+                        // Ensure Profile Exists
+                        const fullName = finalOrder.metadata?.customerName || customerEmail.split('@')[0];
+                        const { error: profError } = await supabase.from('profiles').upsert({
+                            id: newUserId,
+                            email: customerEmail,
+                            full_name: fullName,
+                            metadata: { source: 'guest_checkout_webhook' }
+                        });
+
+                        if (profError) {
+                            console.error(`[Payment Webhook] Profile creation failed:`, profError);
+                        } else {
+                            console.log(`[Payment Webhook] Created/Ensured Profile for ${newUserId}`);
+                            finalOrder.user_id = newUserId;
+                        }
+
+                    } catch (createUserError: any) {
+                        console.error(`[Payment Webhook] Failed to create guest user:`, createUserError);
+                    }
                 }
+
+                if (finalOrder.user_id) {
+                    await supabase.from('payment_orders').update({ user_id: finalOrder.user_id }).eq('order_id', internalOrderId);
+                } else {
+                    console.warn(`⚠️ [Payment Webhook] Guest checkout: Could not resolve or create user for ${customerEmail}.`);
+                }
+
             } else {
                 console.warn(`⚠️ [Payment Webhook] Guest checkout: No email found in metadata/payload for order ${internalOrderId}.`);
             }
