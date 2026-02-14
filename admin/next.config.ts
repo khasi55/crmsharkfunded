@@ -29,12 +29,12 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: `
       default-src 'self' https://*.supabase.co;
-      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co;
-      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-      img-src 'self' blob: data: https://*.supabase.co;
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://*.tradingview.com https://s3.tradingview.com;
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.tradingview.com;
+      img-src 'self' blob: data: https://*.supabase.co https://*.tradingview.com;
       font-src 'self' https://fonts.gstatic.com data:;
       connect-src 'self' https://*.supabase.co https://*.ngrok-free.app https://api.sharkfunded.co https://api.sharkfunded.com wss://*.supabase.co ws://localhost:3001 http://localhost:3001 ws://127.0.0.1:3001 http://127.0.0.1:3001;
-      frame-src 'self' https://*.supabase.co;
+      frame-src 'self' https://*.supabase.co https://*.tradingview.com;
       base-uri 'self';
       form-action 'self';
     `.replace(/\s{2,}/g, ' ').trim()

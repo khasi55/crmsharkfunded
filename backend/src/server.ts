@@ -56,12 +56,12 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://*.supabase.co"],
-            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-            imgSrc: ["'self'", "blob:", "data:", "https://*.supabase.co"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://*.supabase.co", "https://*.tradingview.com", "https://s3.tradingview.com"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://*.tradingview.com"],
+            imgSrc: ["'self'", "blob:", "data:", "https://*.supabase.co", "https://*.tradingview.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
             connectSrc: ["'self'", "https://*.supabase.co", "https://api.sharkfunded.co", "https://api.sharkfunded.com", "wss://*.supabase.co", "ws://localhost:3001", "http://localhost:3001", "ws://127.0.0.1:3001", "http://127.0.0.1:3001"],
-            frameSrc: ["'self'", "https://*.supabase.co", "https://sharkpay-o9zz.vercel.app", "https://*.cregis.io"],
+            frameSrc: ["'self'", "https://*.supabase.co", "https://sharkpay-o9zz.vercel.app", "https://*.cregis.io", "https://*.tradingview.com"],
             objectSrc: ["'none'"],
             upgradeInsecureRequests: [],
         },
