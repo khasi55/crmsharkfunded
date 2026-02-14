@@ -260,6 +260,30 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             return res.status(404).json({ error: 'Order not found' });
         }
 
+        // Guest Checkout Resolution: Resolve user_id if null
+        if (!finalOrder.user_id) {
+            const customerEmail = finalOrder.metadata?.customerEmail || finalOrder.metadata?.email || body.email;
+            if (customerEmail) {
+                console.log(`[Payment Webhook] Guest checkout detected. Searching for user with email: ${customerEmail}`);
+                const { data: guestProfile } = await supabase
+                    .from('profiles')
+                    .select('id')
+                    .ilike('email', customerEmail)
+                    .maybeSingle();
+
+                if (guestProfile) {
+                    finalOrder.user_id = guestProfile.id;
+                    console.log(`[Payment Webhook] Resolved user_id ${guestProfile.id} for guest email ${customerEmail}`);
+                    // Persist for future consistency
+                    await supabase.from('payment_orders').update({ user_id: guestProfile.id }).eq('order_id', internalOrderId);
+                } else {
+                    console.warn(`⚠️ [Payment Webhook] Guest checkout: No profile found for ${customerEmail}. Final challenge creation may fail.`);
+                }
+            } else {
+                console.warn(`⚠️ [Payment Webhook] Guest checkout: No email found in metadata/payload for order ${internalOrderId}.`);
+            }
+        }
+
 
 
         // ---------------------------------------------------------
@@ -363,7 +387,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             const { data: challenge, error: challengeError } = await supabase
                 .from('challenges')
                 .insert({
-                    user_id: order.user_id,
+                    user_id: finalOrder.user_id,
                     challenge_type: challengeType,
                     initial_balance: order.account_size,
                     current_balance: order.account_size,
@@ -393,7 +417,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             if (isCompetition && challenge && order.metadata?.competition_id) {
                 await supabase.from('competition_participants').insert({
                     competition_id: order.metadata.competition_id,
-                    user_id: order.user_id,
+                    user_id: finalOrder.user_id,
                     status: 'active',
                     challenge_id: challenge.id
                 });
@@ -466,7 +490,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
                     // Create MT5 Account (Free)
 
                     // Use same params as main account (which we now have reliably)
-                    const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', order.user_id).maybeSingle();
+                    const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', finalOrder.user_id).maybeSingle();
                     const fullName = profile?.full_name || 'Trader';
                     const email = profile?.email || 'noemail@sharkfunded.com';
 
@@ -500,7 +524,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
                     const { data: freeChallenge } = await supabase
                         .from('challenges')
                         .insert({
-                            user_id: order.user_id,
+                            user_id: finalOrder.user_id,
                             challenge_type: (challengeType || 'evaluation'), // use the same mapped type as main
                             initial_balance: order.account_size,
                             current_balance: order.account_size,

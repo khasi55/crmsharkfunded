@@ -169,7 +169,7 @@ export class SharkPayGateway implements PaymentGateway {
 
     private async convertToINR(usdAmount: number): Promise<number> {
         // Simple Fixed Calculation: USD * 94
-        const USD_TO_INR = 94;
+        const USD_TO_INR = 98;
         return Math.round(usdAmount * USD_TO_INR);
     }
 }
