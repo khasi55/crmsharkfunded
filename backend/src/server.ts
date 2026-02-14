@@ -11,9 +11,36 @@ import cookieParser from 'cookie-parser';
 import { authenticate, requireRole } from './middleware/auth';
 
 import path from 'path';
+import fs from 'fs';
 
-// Force load .env from current working directory
-dotenv.config({ path: path.join(process.cwd(), '.env') });
+// DEBUG: Log where we are running from
+console.log(`[Server] Starting... CWD: ${process.cwd()}`);
+console.log(`[Server] __dirname: ${__dirname}`);
+
+// Try loading .env from CWD
+const envPathCwd = path.join(process.cwd(), '.env');
+if (fs.existsSync(envPathCwd)) {
+    console.log(`[Server] Found .env at ${envPathCwd}`);
+    dotenv.config({ path: envPathCwd });
+} else {
+    console.warn(`[Server] .env NOT found at ${envPathCwd}`);
+
+    // Fallback: Try one level up from __dirname (useful if running from dist/)
+    const envPathDist = path.resolve(__dirname, '../.env');
+    if (fs.existsSync(envPathDist)) {
+        console.log(`[Server] Found .env at ${envPathDist}`);
+        dotenv.config({ path: envPathDist });
+    } else {
+        console.warn(`[Server] .env NOT found at ${envPathDist} either.`);
+    }
+}
+
+// Check if loaded
+if (!process.env.SUPABASE_URL) {
+    console.error(`[Server] SUPABASE_URL is still missing after dotenv config.`);
+} else {
+    console.log(`[Server] SUPABASE_URL loaded successfully.`);
+}
 
 const DEBUG = process.env.DEBUG === 'true';
 const BRIDGE_API_KEY = process.env.BRIDGE_API_KEY || 'sharkfunded_internal_bridge_key_2026';
