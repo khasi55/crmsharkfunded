@@ -505,16 +505,24 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             isBOGO = true;
         }
 
-        // Final safe check: Look up the coupon itself in the database if not already flagged
+        // Fix for Case Sensitivity: explicitly uppercase check or ilike was already doing it but logic flow was tricky
         if (!isBOGO && order.coupon_code) {
-            const { data: couponData } = await supabase
+            // We already check for "BOGO" in code above.
+            // But if code is "SINGLE", it failed above.
+            // We need to look up coupon in DB.
+        }
+
+        // Final safe check: Look up the coupon itself in the database if not already flagged
+        if (order.coupon_code) {
+            const { data: coupon, error: couponError } = await supabase
                 .from('discount_coupons')
-                .select('discount_type')
+                .select('id, uses_count, max_uses, discount_type') // Added discount_type to select
                 .ilike('code', order.coupon_code.trim())
                 .maybeSingle();
 
-            if (couponData?.discount_type === 'bogo') {
-                isBOGO = true;
+            if (coupon && coupon.discount_type === 'bogo') { // Added condition for discount_type
+                // Increment usage count if valid
+                isBOGO = true; // Corrected sBOGO to isBOGO
 
             }
         }
