@@ -10,7 +10,19 @@ import fs from 'fs';
 import cookieParser from 'cookie-parser';
 import { authenticate, requireRole } from './middleware/auth';
 
+
 import path from 'path';
+
+// Load environment variables
+const envPath = path.resolve(__dirname, '../.env');
+console.log(`[Server] Attempting to load .env from: ${envPath}`);
+const dotenvResult = dotenv.config({ path: envPath });
+
+if (dotenvResult.error) {
+    console.warn(`[Server] Warning: Failed to load .env file from ${envPath}`);
+} else {
+    console.log(`[Server] .env loaded successfully.`);
+}
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
