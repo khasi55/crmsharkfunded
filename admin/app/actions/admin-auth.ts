@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { verify } from "otplib";
 
 const JWT_SECRET = process.env.JWT_SECRET || 'shark_admin_session_secure_2026_k8s_prod_v1';
 
@@ -22,7 +23,7 @@ export async function loginAdmin(formData: FormData) {
         // Direct query to admin_users table (Service Role bypasses RLS)
         const { data: user, error } = await supabase
             .from("admin_users")
-            .select("id, email, full_name, role, password, permissions")
+            .select("id, email, full_name, role, password, permissions, is_two_factor_enabled, is_webauthn_enabled, two_factor_secret, webauthn_credentials")
             .eq("email", email)
             .maybeSingle();
 
@@ -47,36 +48,33 @@ export async function loginAdmin(formData: FormData) {
             return { error: "Invalid credentials" };
         }
 
-        // Generate a secure JWT
-        const token = jwt.sign(
-            {
-                id: user.id,
-                email: user.email,
-                role: user.role || 'admin',
-                permissions: user.permissions || []
-            },
+        // Check if 2FA is enabled
+        const is2FAEnabled = !!(user.is_two_factor_enabled || user.is_webauthn_enabled);
+
+        // Generate a temporary short-lived token (5 mins) to verify 2FA or handle Setup
+        const tempToken = jwt.sign(
+            { id: user.id, purpose: '2fa_verification' },
             JWT_SECRET,
-            { expiresIn: '24h' }
+            { expiresIn: '5m' }
         );
 
-        // Set a secure session cookie
-        const cookieStore = await cookies();
-        cookieStore.set("admin_session", token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            maxAge: 60 * 60 * 24, // 1 day
-            path: "/",
-            sameSite: "lax"
-        });
-
-        // Set admin email cookie for frontend headers (used by AuditLogger)
-        cookieStore.set("admin_email", user.email, {
-            httpOnly: false, // Accessible by client-side actions if needed, but safe
-            secure: process.env.NODE_ENV === "production",
-            maxAge: 60 * 60 * 24,
-            path: "/",
-            sameSite: "lax"
-        });
+        if (is2FAEnabled) {
+            return {
+                requires2FA: true,
+                tempToken,
+                methods: {
+                    totp: !!user.is_two_factor_enabled,
+                    webauthn: !!user.is_webauthn_enabled
+                }
+            };
+        } else {
+            // Force 2FA Setup
+            return {
+                requires2FASetup: true,
+                tempToken,
+                email: user.email // Pass email for TOTP label
+            };
+        }
 
         return { success: true };
     } catch (e: any) {
@@ -85,9 +83,76 @@ export async function loginAdmin(formData: FormData) {
     }
 }
 
+
+export async function verifyTOTPLogin(tempToken: string, code: string) {
+    try {
+        const decoded = jwt.verify(tempToken, JWT_SECRET) as any;
+        if (!decoded || decoded.purpose !== '2fa_verification') {
+            return { error: "Invalid or expired session" };
+        }
+
+        const supabase = createAdminClient();
+        const { data: user } = await supabase
+            .from("admin_users")
+            .select("id, email, full_name, role, permissions, two_factor_secret")
+            .eq("id", decoded.id)
+            .single();
+
+        if (!user || !user.two_factor_secret) {
+            return { error: "2FA not configured for this user" };
+        }
+
+        const isValid = await verify({
+            token: code,
+            secret: user.two_factor_secret
+        }) as any;
+
+        if (!isValid || !isValid.valid) {
+            return { error: "Invalid 2FA code" };
+        }
+
+        return await establishAdminSession(user);
+    } catch (e) {
+        return { error: "Verification failed" };
+    }
+}
+
+async function establishAdminSession(user: any) {
+    const token = jwt.sign(
+        {
+            id: user.id,
+            email: user.email,
+            role: user.role || 'admin',
+            full_name: user.full_name,
+            permissions: user.permissions || []
+        },
+        JWT_SECRET,
+        { expiresIn: '24h' }
+    );
+
+    const cookieStore = await cookies();
+    cookieStore.set("admin_session", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 60 * 60 * 24,
+        path: "/",
+        sameSite: "lax"
+    });
+
+    cookieStore.set("admin_email", user.email, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 60 * 60 * 24,
+        path: "/",
+        sameSite: "lax"
+    });
+
+    return { success: true };
+}
+
 export async function logoutAdmin() {
     const cookieStore = await cookies();
     cookieStore.delete("admin_session");
     cookieStore.delete("admin_email");
-    redirect("/admin/login");
+    redirect("/login"); // Updated to match relative path in middleware
 }
