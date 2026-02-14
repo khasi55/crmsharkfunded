@@ -389,7 +389,26 @@ router.post('/sync-trades', authenticate, requireRole(['super_admin', 'admin']),
             challenge_id: challenge.id,
             user_id: challenge.user_id,
             symbol: t.symbol,
-            type: t.type === 0 ? 'sell' : t.type === 1 ? 'buy' : 'balance',
+            type: (() => {
+                let tType = t.type === 0 ? 'buy' : t.type === 1 ? 'sell' : 'balance'; // Default mapping (Standard MT5: 0=Buy, 1=Sell)
+
+                // Override with Price Action Inference
+                const profit = Number(t.profit);
+                const openPrice = Number(t.price);
+                const closePrice = t.close_price ? Number(t.close_price) : Number(t.current_price || t.price);
+
+                if (openPrice > 0 && closePrice > 0 && Math.abs(profit) > 0.0001) {
+                    const priceDelta = closePrice - openPrice;
+                    if (profit > 0) {
+                        if (priceDelta > 0) tType = 'buy';
+                        else if (priceDelta < 0) tType = 'sell';
+                    } else {
+                        if (priceDelta > 0) tType = 'sell';
+                        else if (priceDelta < 0) tType = 'buy';
+                    }
+                }
+                return tType;
+            })(),
             lots: t.volume / 100,
             open_price: t.price,
             close_price: t.close_price || null,
@@ -764,7 +783,24 @@ router.post('/trades/webhook', async (req: Request, res: Response) => {
                     user_id: challenge.user_id,
                     ticket: Number(t.ticket),
                     symbol: t.symbol,
-                    type: t.type === 0 ? 'sell' : t.type === 1 ? 'buy' : 'balance', // Inverted mapping
+                    type: (() => {
+                        let tType = t.type === 0 ? 'buy' : t.type === 1 ? 'sell' : 'balance';
+                        const profit = Number(t.profit);
+                        const openPrice = Number(t.open_price || 0);
+                        const closePrice = t.close_price ? Number(t.close_price) : 0;
+
+                        if (openPrice > 0 && closePrice > 0 && Math.abs(profit) > 0.0001) {
+                            const priceDelta = closePrice - openPrice;
+                            if (profit > 0) {
+                                if (priceDelta > 0) tType = 'buy';
+                                else if (priceDelta < 0) tType = 'sell';
+                            } else {
+                                if (priceDelta > 0) tType = 'sell';
+                                else if (priceDelta < 0) tType = 'buy';
+                            }
+                        }
+                        return tType;
+                    })(),
                     lots: t.volume / 100,
                     open_price: t.open_price || 0,
                     close_price: t.close_price,
