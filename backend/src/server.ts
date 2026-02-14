@@ -11,35 +11,16 @@ import cookieParser from 'cookie-parser';
 import { authenticate, requireRole } from './middleware/auth';
 
 import path from 'path';
-import fs from 'fs';
 
-// DEBUG: Log where we are running from
-console.log(`[Server] Starting... CWD: ${process.cwd()}`);
-console.log(`[Server] __dirname: ${__dirname}`);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// Try loading .env from CWD
-const envPathCwd = path.join(process.cwd(), '.env');
-if (fs.existsSync(envPathCwd)) {
-    console.log(`[Server] Found .env at ${envPathCwd}`);
-    dotenv.config({ path: envPathCwd });
-} else {
-    console.warn(`[Server] .env NOT found at ${envPathCwd}`);
 
-    // Fallback: Try one level up from __dirname (useful if running from dist/)
-    const envPathDist = path.resolve(__dirname, '../.env');
-    if (fs.existsSync(envPathDist)) {
-        console.log(`[Server] Found .env at ${envPathDist}`);
-        dotenv.config({ path: envPathDist });
-    } else {
-        console.warn(`[Server] .env NOT found at ${envPathDist} either.`);
-    }
+if (!supabaseUrl) {
+    console.error(`[Server] CRITICAL: SUPABASE_URL/NEXT_PUBLIC_SUPABASE_URL is missing.`);
 }
-
-// Check if loaded
-if (!process.env.SUPABASE_URL) {
-    console.error(`[Server] SUPABASE_URL is still missing after dotenv config.`);
-} else {
-    console.log(`[Server] SUPABASE_URL loaded successfully.`);
+if (!supabaseKey) {
+    console.error(`[Server] CRITICAL: SUPABASE_SERVICE_ROLE_KEY/NEXT_PUBLIC_SUPABASE_ANON_KEY is missing.`);
 }
 
 const DEBUG = process.env.DEBUG === 'true';
@@ -130,8 +111,7 @@ app.use((req, res, next) => {
 });
 
 // Supabase Setup
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
 
 if (!supabaseUrl || !supabaseKey) {
     console.error("Missing Supabase credentials in .env");
