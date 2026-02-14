@@ -605,11 +605,25 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
     }
     const { data: orderData } = await supabase
         .from('payment_orders')
-        .select('metadata')
+        .select('metadata, coupon_code')
         .eq('order_id', orderId)
         .maybeSingle();
 
     let referrerId = orderData?.metadata?.affiliate_id;
+
+    // Fallback: Check Coupon Code
+    if (!referrerId && orderData?.coupon_code) {
+        const { data: coupon } = await supabase
+            .from('discount_coupons')
+            .select('affiliate_id')
+            .ilike('code', orderData.coupon_code)
+            .maybeSingle();
+
+        if (coupon?.affiliate_id) {
+            referrerId = coupon.affiliate_id;
+            log(`✅ Found referrer from coupon: ${referrerId}`);
+        }
+    }
 
     if (!referrerId) {
         // Fallback to profile referral
@@ -623,7 +637,7 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
     }
 
     if (!referrerId) {
-        log(`ℹ️ No referrer for user ${userId}`);
+        log(`ℹ️ No referrer for user ${userId} (checked metadata, coupon, and profile)`);
 
         return;
     }
