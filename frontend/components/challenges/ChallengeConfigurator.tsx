@@ -632,17 +632,22 @@ export default function ChallengeConfigurator() {
                             <div className="flex justify-between items-start text-sm">
                                 <span className="text-muted-foreground">${size.toLocaleString()} — {type === "1-step" ? "One Step" : type === "2-step" ? "Two Step" : "Instant"} {model === "lite" ? "Lite" : "Prime"}</span>
                                 <div className="text-right">
-                                    <span className="font-bold font-mono">{displayCurrency === 'INR' ? '₹' : '$'}{(gateway === 'sharkpay' ? Math.round(basePriceUSD * 94) : basePriceUSD).toLocaleString()}</span>
+                                    <span className="font-bold font-mono">{displayCurrency === 'INR' ? '₹' : '$'}{(gateway === 'sharkpay' ? Math.round(basePriceUSD * 98) : basePriceUSD).toLocaleString()}</span>
                                 </div>
                             </div>
 
                             {appliedCoupon && (
                                 <div className="flex justify-between items-center text-sm">
-                                    <span className="text-green-400">
-                                        Discount ({appliedCoupon.coupon.code})
+                                    <span className={cn("transition-colors", appliedCoupon.discount.type === 'bogo' ? "text-purple-400 font-bold" : "text-green-400")}>
+                                        {appliedCoupon.discount.type === 'bogo' ? 'BOGO Active' : 'Discount'} ({appliedCoupon.coupon.code})
                                         {appliedCoupon.discount.type === 'percentage' && ` - ${appliedCoupon.discount.value}%`}
                                     </span>
-                                    <span className="font-bold font-mono text-green-400">-{displayCurrency === 'INR' ? '₹' : '$'}{(gateway === 'sharkpay' ? Math.round(discountAmount * 94) : discountAmount).toLocaleString()}</span>
+                                    <span className={cn("font-bold font-mono", appliedCoupon.discount.type === 'bogo' ? "text-purple-400" : "text-green-400")}>
+                                        {appliedCoupon.discount.type === 'bogo'
+                                            ? "FREE ACCOUNT"
+                                            : `-${displayCurrency === 'INR' ? '₹' : '$'}${(gateway === 'sharkpay' ? Math.round(discountAmount * 98) : discountAmount).toLocaleString()}`
+                                        }
+                                    </span>
                                 </div>
                             )}
                             <div className="text-xs text-muted-foreground">
