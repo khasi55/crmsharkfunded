@@ -56,8 +56,8 @@ const CHALLENGE_TYPES = [
 ];
 
 const MODELS = [
-    { id: "lite", label: "SharkFunded Lite", desc: "Classic model" },
-    { id: "prime", label: "SharkFunded Prime", desc: "Higher leverage" }
+    { id: "prime", label: "SharkFunded Prime", desc: "Higher leverage" },
+    { id: "lite", label: "SharkFunded Lite", desc: "Classic model" }
 ];
 
 const PLATFORMS = [
@@ -317,7 +317,7 @@ export default function ChallengeConfigurator() {
 
     const discountAmount = appliedCoupon ? appliedCoupon.discount.amount : 0;
     const finalPriceUSD = Math.max(0, basePriceUSD - discountAmount);
-    const finalPriceINR = Math.round(finalPriceUSD * 94); // Simple fixed rate: 94 (Synced with Gateway)
+    const finalPriceINR = Math.round(finalPriceUSD * 98); // Simple fixed rate: 98 (Synced with Gateway)
 
 
     const selectedGateway = PAYMENT_GATEWAYS.find(g => g.id === gateway);

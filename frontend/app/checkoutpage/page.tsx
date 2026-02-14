@@ -63,7 +63,7 @@ const SectionHeader = ({ title, sub }: { title: string, sub: string }) => (
 
 // Constants
 // Constants
-const EXCHANGE_RATE_INR = 94;
+const EXCHANGE_RATE_INR = 98;
 const CHALLENGE_TYPES = [
     { id: "1-step", label: "One Step", desc: "Single phase evaluation" },
     { id: "2-step", label: "Two Step", desc: "Standard verification", recommended: true },
@@ -71,8 +71,8 @@ const CHALLENGE_TYPES = [
 ];
 
 const MODELS = [
-    { id: "lite", label: "SharkFunded Lite", desc: "Classic model" },
-    { id: "prime", label: "SharkFunded Prime", desc: "Higher leverage" }
+    { id: "prime", label: "SharkFunded Prime", desc: "Higher leverage" },
+    { id: "lite", label: "SharkFunded Lite", desc: "Classic model" }
 ];
 
 const PLATFORMS = [
@@ -303,6 +303,25 @@ function CheckoutContent() {
 
                         {/* Config Column */}
                         <div className="xl:col-span-2 space-y-8">
+                            {/* Model */}
+                            <section>
+                                <SectionHeader title="Model" sub="Choose your account tier" />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {MODELS.map(m => (
+                                        <RadioPill
+                                            key={m.id}
+                                            active={model === m.id}
+                                            label={m.label}
+                                            subLabel={m.desc}
+                                            onClick={() => {
+                                                setModel(m.id);
+                                                if (m.id === 'prime' && type === '1-step') setType('2-step');
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            </section>
+
                             {/* Type */}
                             <section>
                                 <SectionHeader title="Challenge Type" sub="Choose your evaluation path" />
@@ -320,25 +339,6 @@ function CheckoutContent() {
                                             />
                                         );
                                     })}
-                                </div>
-                            </section>
-
-                            {/* Model */}
-                            <section>
-                                <SectionHeader title="Model" sub="Choose your account tier" />
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {MODELS.map(m => (
-                                        <RadioPill
-                                            key={m.id}
-                                            active={model === m.id}
-                                            label={m.label}
-                                            subLabel={m.desc}
-                                            onClick={() => {
-                                                setModel(m.id);
-                                                if (m.id === 'prime' && type === '1-step') setType('2-step');
-                                            }}
-                                        />
-                                    ))}
                                 </div>
                             </section>
 
