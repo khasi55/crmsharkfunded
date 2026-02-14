@@ -3,18 +3,24 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 
-const getSupabaseClient = () => {
+const getSupabaseClient = (): SupabaseClient | null => {
     dotenv.config({ path: path.join(process.cwd(), '.env') });
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-        console.error("Missing Supabase credentials for EventEntryService");
-        throw new Error("Supabase credentials missing");
+        console.error("Missing Supabase credentials for EventEntryService - Operations will fail");
+        // console.trace("Trace for EventEntryService init"); // Uncomment to debug who calls this eagerly
+        return null;
     }
 
-    return createClient(supabaseUrl, supabaseKey);
+    try {
+        return createClient(supabaseUrl, supabaseKey);
+    } catch (error) {
+        console.error("Failed to create Supabase client:", error);
+        return null;
+    }
 };
 
 // Lazy initialization
@@ -24,7 +30,10 @@ function getSupabase(): SupabaseClient {
     if (!supabaseInstance) {
         supabaseInstance = getSupabaseClient();
     }
-    return supabaseInstance!;
+    if (!supabaseInstance) {
+        throw new Error("Supabase client not initialized (check credentials)");
+    }
+    return supabaseInstance;
 }
 
 export class EventEntryService {
