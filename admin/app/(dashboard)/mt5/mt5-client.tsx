@@ -172,8 +172,7 @@ export default function AdminMT5Client() {
             });
         } else if (activeTab === "instant") {
             filtered = filtered.filter(a =>
-                a.challenge_type === "Instant" ||
-                a.challenge_type === "Rapid" ||
+                (a.challenge_type || "").toLowerCase().includes("instant") ||
                 (a.plan_type || "").toLowerCase().includes("instant")
             );
         }
