@@ -62,8 +62,8 @@ router.get('/', authenticate, requireRole(['super_admin', 'payouts_admin', 'admi
                 coupon_code: p.coupon_code || '-',
                 created_at: p.created_at,
                 paid_at: p.paid_at,
-                user_name: profile?.full_name || profile?.email?.split('@')[0] || 'Unknown',
-                user_email: profile?.email || 'Unknown'
+                user_name: profile?.full_name || profile?.email?.split('@')[0] || p.metadata?.customerName || p.metadata?.name || 'Guest User',
+                user_email: profile?.email || p.metadata?.customerEmail || p.metadata?.email || 'Unknown'
             };
         });
 

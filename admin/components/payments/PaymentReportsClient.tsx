@@ -169,7 +169,7 @@ export function PaymentReportsClient() {
                                             {payment.currency === 'INR' ? '₹' : '$'}{payment.amount}
                                             {payment.currency !== 'INR' && (
                                                 <div className="text-xs text-gray-400 mt-1">
-                                                    ≈ ₹{(payment.amount * 92).toLocaleString()}
+                                                    ≈ ₹{(payment.amount * 98).toLocaleString()}
                                                 </div>
                                             )}
                                         </td>

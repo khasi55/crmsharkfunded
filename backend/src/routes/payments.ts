@@ -124,7 +124,11 @@ router.post('/create-order', async (req: Request, res: Response) => {
             payment_gateway: gateway,
             payment_id: result.gatewayOrderId,
             coupon_code: metadata?.coupon,
-            metadata: metadata || {}
+            metadata: {
+                ...(metadata || {}),
+                customerName,
+                customerEmail
+            }
         });
 
         if (dbError) {
