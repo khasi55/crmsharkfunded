@@ -187,7 +187,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     {/* Footer / Discord Button */}
                     <div className="p-6 mt-auto">
                         <a
-                            href="https://discord.gg/sharkfunded"
+                            href="https://discord.com/invite/aGnhzaZeCJ"
                             target="_blank"
                             rel="noopener noreferrer"
                             className={cn(
