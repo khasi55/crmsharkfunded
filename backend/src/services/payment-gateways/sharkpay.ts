@@ -47,7 +47,8 @@ export class SharkPayGateway implements PaymentGateway {
                         keyId: data.api_key,
                         keySecret: data.api_secret,
                         webhookSecret: data.webhook_secret,
-                        environment: data.environment
+                        environment: data.environment,
+                        apiUrl: process.env.SHARKPAY_API_URL || 'https://payments.sharkfunded.com'
                     };
                 }
             }
@@ -60,7 +61,8 @@ export class SharkPayGateway implements PaymentGateway {
             keyId: process.env.SHARKPAY_API_KEY || process.env.SHARK_PAYMENT_KEY_ID || '',
             keySecret: process.env.SHARKPAY_API_SECRET || process.env.SHARK_PAYMENT_KEY_SECRET || '',
             webhookSecret: process.env.SHARKPAY_WEBHOOK_SECRET || '',
-            environment: 'sandbox'
+            environment: 'sandbox',
+            apiUrl: process.env.SHARKPAY_API_URL || 'https://payments.sharkfunded.com'
         };
     }
 
@@ -70,6 +72,8 @@ export class SharkPayGateway implements PaymentGateway {
             if (!config.keyId || !config.keySecret) {
                 throw new Error("SharkPay API Credentials missing (DB or ENV)");
             }
+
+            const apiUrl = config.apiUrl;
 
             // Convert USD to INR for SharkPay
             const amountINR = await this.convertToINR(params.amount);
@@ -92,7 +96,7 @@ export class SharkPayGateway implements PaymentGateway {
             const timeoutId = setTimeout(() => controller.abort(), 30000);
 
             try {
-                const response = await fetch(`${this.apiUrl}/api/create-order`, {
+                const response = await fetch(`${apiUrl}/api/create-order`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

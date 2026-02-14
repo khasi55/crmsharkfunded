@@ -8,18 +8,16 @@ import crypto from 'crypto';
 
 export class SharkPayGateway implements PaymentGateway {
     name = 'sharkpay';
-    private keyId: string;
-    private keySecret: string;
-    private apiUrl: string;
 
     constructor() {
-        this.keyId = process.env.SHARK_PAYMENT_KEY_ID || '';
-        this.keySecret = process.env.SHARK_PAYMENT_KEY_SECRET || '';
-        this.apiUrl = process.env.SHARKPAY_API_URL || '';
     }
 
     async createOrder(params: CreateOrderParams): Promise<CreateOrderResponse> {
         try {
+            const keyId = process.env.SHARK_PAYMENT_KEY_ID || process.env.SHARKPAY_API_KEY || '';
+            const keySecret = process.env.SHARK_PAYMENT_KEY_SECRET || process.env.SHARKPAY_API_SECRET || '';
+            const apiUrl = process.env.SHARKPAY_API_URL || 'https://payments.sharkfunded.com';
+
             // Convert USD to INR for SharkPay
             const amountINR = await this.convertToINR(params.amount);
 
@@ -36,11 +34,11 @@ export class SharkPayGateway implements PaymentGateway {
 
             console.log('SharkPay request:', { ...payload, amount: amountINR });
 
-            const response = await fetch(`${this.apiUrl}/api/create-order`, {
+            const response = await fetch(`${apiUrl}/api/create-order`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Basic ${Buffer.from(`${this.keyId}:${this.keySecret}`).toString('base64')}`,
+                    'Authorization': `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`,
                 },
                 body: JSON.stringify(payload),
             });
