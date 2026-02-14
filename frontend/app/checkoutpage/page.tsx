@@ -457,7 +457,6 @@ function CheckoutContent() {
                                             <span className="font-bold text-lg text-slate-800">Total</span>
                                             <div className="text-right">
                                                 <div className="text-2xl font-black text-blue-600">${finalPriceUSD}</div>
-                                                <div className="text-xs text-slate-400">approx ₹{Math.round(finalPriceUSD * EXCHANGE_RATE_INR).toLocaleString()}</div>
                                             </div>
                                         </div>
                                     </div>

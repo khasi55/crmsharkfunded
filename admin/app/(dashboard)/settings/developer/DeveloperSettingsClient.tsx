@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Save, Key, Globe, Shield } from "lucide-react";
 // We'll reuse the pricing settings actions or create new ones if needed
 // For now let's assume we can save to pricing_configurations as 'developer_settings'
-import { fetchWithAuth } from "@/utils/fetch-with-auth";
+import { saveDeveloperSettings, getDeveloperSettings } from "@/app/actions/settings-actions";
 
 export function DeveloperSettingsClient() {
     const [settings, setSettings] = useState({
@@ -20,11 +20,8 @@ export function DeveloperSettingsClient() {
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                const res = await fetchWithAuth("/api/admin/settings/developer");
-                if (res.ok) {
-                    const data = await res.json();
-                    setSettings(prev => ({ ...prev, ...data }));
-                }
+                const data = await getDeveloperSettings();
+                setSettings(prev => ({ ...prev, ...data }));
             } catch (e) {
                 console.error("Error fetching developer settings:", e);
             } finally {
@@ -36,15 +33,8 @@ export function DeveloperSettingsClient() {
 
     const handleSave = async () => {
         try {
-            const res = await fetchWithAuth("/api/admin/settings/developer", {
-                method: "POST",
-                body: JSON.stringify(settings),
-            });
-            if (res.ok) {
-                alert("Developer settings saved!");
-            } else {
-                alert("Failed to save developer settings");
-            }
+            await saveDeveloperSettings(settings);
+            alert("Developer settings saved!");
         } catch (e) {
             console.error("Error saving developer settings:", e);
             alert("Error saving settings");
