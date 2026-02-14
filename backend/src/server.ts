@@ -10,7 +10,10 @@ import fs from 'fs';
 import cookieParser from 'cookie-parser';
 import { authenticate, requireRole } from './middleware/auth';
 
-dotenv.config();
+import path from 'path';
+
+// Force load .env from current working directory
+dotenv.config({ path: path.join(process.cwd(), '.env') });
 
 const DEBUG = process.env.DEBUG === 'true';
 const BRIDGE_API_KEY = process.env.BRIDGE_API_KEY || 'sharkfunded_internal_bridge_key_2026';
