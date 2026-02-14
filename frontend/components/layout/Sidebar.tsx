@@ -31,7 +31,7 @@ const menuItems: { icon: any, label: string, href: string }[] = [
     { icon: Trophy, label: "Challenges", href: "/challenges" },
     { icon: Swords, label: "Competitions", href: "/competitions" },
     { icon: UserCheck, label: "KYC", href: "/kyc" },
-    { icon: Gift, label: "Rewards", href: "/rewards" },
+    // { icon: Gift, label: "Rewards", href: "/rewards" },
     { icon: Medal, label: "Certificates", href: "/certificates" },
     { icon: BarChart2, label: "Ranking", href: "/ranking" },
     { icon: Calendar, label: "Calendar", href: "/economics" },
