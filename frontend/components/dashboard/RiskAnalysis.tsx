@@ -33,11 +33,8 @@ interface RiskItemProps {
 
 // Define risk rules with their corresponding violation types from the database
 const RISK_RULES: RiskRule[] = [
-    { key: "martingale", label: "Martingale", description: "Monitoring for progressive betting patterns.", icon: RefreshCw, violationTypes: ["martingale", "revenge_trading"] },
-    { key: "arbitrage", label: "Arbitrage", description: "Latency arbitrage and error detection.", icon: Scale, violationTypes: ["arbitrage", "latency"] },
-    { key: "hedging", label: "Hedging", description: "Correlation and opposing position checks.", icon: ShieldAlert, violationTypes: ["hedging", "copy_trading"] },
-    { key: "news_trading", label: "News Trading", description: "Trading activity during high-impact events.", icon: Newspaper, violationTypes: ["news_trading"] },
-    { key: "tick_scalping", label: "Tick Scalping", description: "Minimum trade duration verification.", icon: Zap, violationTypes: ["tick_scalping", "min_duration"] },
+    { key: "tick_scalping", label: "Tick Scalping", description: "Minimum trade duration of 120 seconds.", icon: Zap, violationTypes: ["tick_scalping", "min_duration"] },
+    { key: "loss_limit", label: "1% Loss Rule", description: "Single trade loss cannot exceed 1% of account size.", icon: ShieldAlert, violationTypes: ["loss_consistency", "max_loss_exceeded"] },
 ];
 
 function RiskItem({ label, description, status, icon: Icon, breaches }: RiskItemProps) {
@@ -253,7 +250,14 @@ export default function RiskAnalysis({ account: initialAccount, data: initialDat
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
-                {RISK_RULES.map(rule => {
+                {RISK_RULES.filter(rule => {
+                    // 1% Loss Rule: Only show for Instant/Funded accounts
+                    if (rule.key === 'loss_limit') {
+                        const type = (selectedAccount?.account_type || '').toLowerCase();
+                        return type.includes('instant') || type.includes('funded');
+                    }
+                    return true;
+                }).map(rule => {
                     const ruleViolations = violations[rule.key] || [];
                     const hasFailed = ruleViolations.length > 0;
 

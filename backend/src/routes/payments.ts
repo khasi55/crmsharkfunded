@@ -10,8 +10,19 @@ const router = Router();
  * Create a payment order through the specified gateway
  * REQUIRES AUTHENTICATION
  */
-router.post('/create-order', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/create-order', async (req: Request, res: Response) => {
     try {
+        // Optional Authentication
+        let user = null;
+        const authHeader = req.headers.authorization;
+        if (authHeader) {
+            const token = authHeader.split(' ')[1];
+            if (token) {
+                const { data: { user: authUser } } = await supabase.auth.getUser(token);
+                user = authUser;
+            }
+        }
+
         const {
             gateway,
             orderId,
@@ -43,7 +54,8 @@ router.post('/create-order', authenticate, async (req: AuthRequest, res: Respons
             orderId,
             amount,
             currency,
-            customerEmail
+            customerEmail,
+            isAuthenticated: !!user
         });
 
         // Create order via gateway
@@ -97,9 +109,9 @@ router.post('/create-order', authenticate, async (req: AuthRequest, res: Respons
             else if (type === '2-step') accountTypeId = 7;
         }
 
-        // Insert into database
+        // Insert into database (Handle optional user_id)
         const { error: dbError } = await supabase.from('payment_orders').insert({
-            user_id: (req as any).user.id,
+            user_id: user?.id || null, // Allow null for guest checkout
             order_id: orderId,
             amount: amount,
             currency: currency,

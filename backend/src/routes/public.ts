@@ -65,7 +65,15 @@ router.get('/performance/:token', async (req: Request, res: Response) => {
         // Pre-calculate Equity Curve
         let runningEquity = initialBalance;
         let runningProfit = 0;
-        const equityCurve = (allTrades || []).map(t => {
+
+        // Filter out non-trading operations from the curve
+        const tradingTradesOnly = (allTrades || []).filter(t => {
+            const symbol = (t.symbol || '');
+            const isNonTrade = symbol.trim() === '' || symbol === '#N/A';
+            return !isNonTrade;
+        });
+
+        const equityCurve = tradingTradesOnly.map(t => {
             const netPnl = (Number(t.profit_loss) || 0) + (Number(t.commission) || 0) + (Number(t.swap) || 0);
             runningEquity += netPnl;
             runningProfit += netPnl;
@@ -115,7 +123,7 @@ router.get('/performance/:token', async (req: Request, res: Response) => {
         ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
         // Format trades for the history table (latest first)
-        const historyTrades = [...(allTrades || [])].reverse().slice(0, 100).map(t => ({
+        const historyTrades = tradingTradesOnly.reverse().slice(0, 100).map(t => ({
             id: t.id,
             ticket_number: t.ticket,
             symbol: t.symbol,

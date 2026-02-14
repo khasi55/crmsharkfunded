@@ -11,6 +11,9 @@ BEGIN
     ADD CONSTRAINT discount_coupons_discount_type_check 
     CHECK (discount_type IN ('percentage', 'fixed', 'bogo'));
     
+    -- Drop existing function to allow changing return columns
+    DROP FUNCTION IF EXISTS public.validate_coupon(text, uuid, numeric, text);
+
     -- Update validate_coupon function to handle bogo
     CREATE OR REPLACE FUNCTION validate_coupon(
         p_code TEXT,
@@ -25,7 +28,8 @@ BEGIN
         coupon_id UUID,
         discount_type TEXT,
         affiliate_id UUID,
-        commission_rate NUMERIC
+        commission_rate NUMERIC,
+        discount_value NUMERIC
     ) AS $func$
     DECLARE
         v_coupon public.discount_coupons%ROWTYPE;
@@ -39,30 +43,30 @@ BEGIN
         
         -- Check if coupon exists
         IF NOT FOUND THEN
-            RETURN QUERY SELECT false, 0::NUMERIC, 'Invalid coupon code'::TEXT, NULL::UUID, NULL::TEXT, NULL::UUID, NULL::NUMERIC;
+            RETURN QUERY SELECT false, 0::NUMERIC, 'Invalid coupon code'::TEXT, NULL::UUID, NULL::TEXT, NULL::UUID, NULL::NUMERIC, NULL::NUMERIC;
             RETURN;
         END IF;
         
         -- Check if active
         IF NOT v_coupon.is_active THEN
-            RETURN QUERY SELECT false, 0::NUMERIC, 'Coupon is inactive'::TEXT, v_coupon.id, v_coupon.discount_type, v_coupon.affiliate_id, v_coupon.commission_rate;
+            RETURN QUERY SELECT false, 0::NUMERIC, 'Coupon is inactive'::TEXT, v_coupon.id, v_coupon.discount_type, v_coupon.affiliate_id, v_coupon.commission_rate, v_coupon.discount_value;
             RETURN;
         END IF;
         
         -- Check validity period
         IF v_coupon.valid_from > NOW() THEN
-            RETURN QUERY SELECT false, 0::NUMERIC, 'Coupon not yet valid'::TEXT, v_coupon.id, v_coupon.discount_type, v_coupon.affiliate_id, v_coupon.commission_rate;
+            RETURN QUERY SELECT false, 0::NUMERIC, 'Coupon not yet valid'::TEXT, v_coupon.id, v_coupon.discount_type, v_coupon.affiliate_id, v_coupon.commission_rate, v_coupon.discount_value;
             RETURN;
         END IF;
         
         IF v_coupon.valid_until IS NOT NULL AND v_coupon.valid_until < NOW() THEN
-            RETURN QUERY SELECT false, 0::NUMERIC, 'Coupon has expired'::TEXT, v_coupon.id, v_coupon.discount_type, v_coupon.affiliate_id, v_coupon.commission_rate;
+            RETURN QUERY SELECT false, 0::NUMERIC, 'Coupon has expired'::TEXT, v_coupon.id, v_coupon.discount_type, v_coupon.affiliate_id, v_coupon.commission_rate, v_coupon.discount_value;
             RETURN;
         END IF;
         
         -- Check max uses
         IF v_coupon.max_uses IS NOT NULL AND v_coupon.uses_count >= v_coupon.max_uses THEN
-            RETURN QUERY SELECT false, 0::NUMERIC, 'Coupon usage limit reached'::TEXT, v_coupon.id, v_coupon.discount_type, v_coupon.affiliate_id, v_coupon.commission_rate;
+            RETURN QUERY SELECT false, 0::NUMERIC, 'Coupon usage limit reached'::TEXT, v_coupon.id, v_coupon.discount_type, v_coupon.affiliate_id, v_coupon.commission_rate, v_coupon.discount_value;
             RETURN;
         END IF;
         
@@ -72,19 +76,19 @@ BEGIN
         WHERE coupon_id = v_coupon.id AND user_id = p_user_id;
         
         IF v_coupon.max_uses_per_user IS NOT NULL AND v_user_usage_count >= v_coupon.max_uses_per_user THEN
-            RETURN QUERY SELECT false, 0::NUMERIC, 'You have already used this coupon'::TEXT, v_coupon.id, v_coupon.discount_type, v_coupon.affiliate_id, v_coupon.commission_rate;
+            RETURN QUERY SELECT false, 0::NUMERIC, 'You have already used this coupon'::TEXT, v_coupon.id, v_coupon.discount_type, v_coupon.affiliate_id, v_coupon.commission_rate, v_coupon.discount_value;
             RETURN;
         END IF;
         
         -- Check min purchase amount
         IF p_amount < v_coupon.min_purchase_amount THEN
-            RETURN QUERY SELECT false, 0::NUMERIC, 'Minimum purchase amount not met'::TEXT, v_coupon.id, v_coupon.discount_type, v_coupon.affiliate_id, v_coupon.commission_rate;
+            RETURN QUERY SELECT false, 0::NUMERIC, 'Minimum purchase amount not met'::TEXT, v_coupon.id, v_coupon.discount_type, v_coupon.affiliate_id, v_coupon.commission_rate, v_coupon.discount_value;
             RETURN;
         END IF;
         
         -- Check account type applicability
         IF v_coupon.account_types IS NOT NULL AND NOT (p_account_type = ANY(v_coupon.account_types)) THEN
-            RETURN QUERY SELECT false, 0::NUMERIC, 'Coupon not valid for this account type'::TEXT, v_coupon.id, v_coupon.discount_type, v_coupon.affiliate_id, v_coupon.commission_rate;
+            RETURN QUERY SELECT false, 0::NUMERIC, 'Coupon not valid for this account type'::TEXT, v_coupon.id, v_coupon.discount_type, v_coupon.affiliate_id, v_coupon.commission_rate, v_coupon.discount_value;
             RETURN;
         END IF;
         
@@ -108,7 +112,7 @@ BEGIN
         -- Ensure discount doesn't exceed amount
         v_discount := LEAST(v_discount, p_amount);
         
-        RETURN QUERY SELECT true, v_discount, NULL::TEXT, v_coupon.id, v_coupon.discount_type, v_coupon.affiliate_id, v_coupon.commission_rate;
+        RETURN QUERY SELECT true, v_discount, NULL::TEXT, v_coupon.id, v_coupon.discount_type, v_coupon.affiliate_id, v_coupon.commission_rate, v_coupon.discount_value;
     END;
     $func$ LANGUAGE plpgsql;
 

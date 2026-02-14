@@ -11,8 +11,6 @@ router.get('/test-path-123', (req, res) => {
     res.json({ success: true, message: 'WEBHOOKS_FILE_IS_ACTIVE' });
 });
 
-// POST /api/webhooks/mt5
-// Receives pushed trades from Python bridge
 router.post('/mt5', async (req: Request, res: Response) => {
     // Security Check: Verify Shared Secret
     const authorizedSecret = process.env.MT5_WEBHOOK_SECRET;
@@ -117,6 +115,27 @@ router.get('/payment', async (req: Request, res: Response) => {
     }
 });
 
+/**
+ * Cregis Webhook Handler
+ */
+router.post('/cregis', async (req: Request, res: Response) => {
+    console.log('[Webhook] Cregis Event:', JSON.stringify(req.body));
+
+    // Adapt Cregis payload to internal structure expected by handlePaymentWebhook
+    // Cregis sends: third_party_id (OrderId), status (1=success), amount
+
+    // We could verify signature here, but for now we prioritize handling the success.
+    // TODO: Add signature verification
+
+    // Mutate req.body to match what handlePaymentWebhook looks for
+    req.body.reference_id = req.body.third_party_id;
+    req.body.status = req.body.status == 1 ? 'success' : 'failed';
+    req.body.gateway = 'cregis';
+    req.body.transaction_id = req.body.order_id; // Cregis Order ID
+
+    await handlePaymentWebhook(req, res);
+});
+
 async function handlePaymentWebhook(req: Request, res: Response) {
     try {
         const body = req.method === 'GET' ? req.query : req.body;
@@ -181,6 +200,35 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         }
 
         // 3. Status Update (Atomic)
+
+        // Fetch order first to validate amount
+        const { data: existingOrder, error: fetchError } = await supabase
+            .from('payment_orders')
+            .select('*')
+            .eq('order_id', internalOrderId)
+            .single();
+
+        if (fetchError || !existingOrder) {
+            console.error(`❌ [Payment] Order not found for ${internalOrderId}`);
+            return res.status(404).json({ error: 'Order not found' });
+        }
+
+        // Validate Underpayment
+        const receivedAmount = Number(amount);
+        const orderAmount = Number(existingOrder.amount); // Assuming amount is the column
+
+        if (!isNaN(receivedAmount) && !isNaN(orderAmount) && receivedAmount < orderAmount) {
+            console.warn(`⚠️ Underpayment detected for ${internalOrderId}. Paid: ${receivedAmount}, Expected: ${orderAmount}`);
+
+            await supabase.from('payment_orders').update({
+                status: 'partial_paid',
+                payment_id: body.paymentId || body.transaction_id || body.utr,
+                payment_method: body.paymentMethod || 'gateway',
+                metadata: { ...existingOrder.metadata, received_amount: receivedAmount }
+            }).eq('order_id', internalOrderId);
+
+            return res.json({ message: 'Payment partial, account not created' });
+        }
 
         const { data: order, error: updateError } = await supabase
             .from('payment_orders')

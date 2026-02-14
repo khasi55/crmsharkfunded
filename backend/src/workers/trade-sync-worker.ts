@@ -67,24 +67,29 @@ export async function startTradeSyncWorker() {
                     challenge_id: challengeId,
                     user_id: userId,
                     symbol: t.symbol,
-                    // SYSTEMATIC FIX: Auto-correct trade type based on Price Action vs Profit
+                    // SYSTEMATIC FIX: Auto-correct trade type based on Price Action vs Profit (New Logic)
                     type: (() => {
-                        let rawType = inputType;
+                        let tType = inputType;
                         const profit = Number(t.profit);
                         const openPrice = Number(t.price);
                         const closePrice = t.close_price ? Number(t.close_price) : Number(t.current_price || t.price);
-                        const priceDelta = closePrice - openPrice;
 
-                        if (Math.abs(profit) > 1.0) {
+                        // Skip if prices or profit are invalid/zero/noise
+                        if (openPrice > 0 && closePrice > 0 && Math.abs(profit) > 0.0001) {
+                            const priceDelta = closePrice - openPrice;
+
                             if (profit > 0) {
-                                if (priceDelta > 0) return 'buy';
-                                if (priceDelta < 0) return 'sell';
+                                // Profitable Trade
+                                if (priceDelta > 0) tType = 'buy';      // Up + Profit = Buy
+                                else if (priceDelta < 0) tType = 'sell'; // Down + Profit = Sell
                             } else {
-                                if (priceDelta > 0) return 'sell';
-                                if (priceDelta < 0) return 'buy';
+                                // Losing Trade
+                                if (priceDelta > 0) tType = 'sell';      // Up + Loss = Sell
+                                else if (priceDelta < 0) tType = 'buy';  // Down + Loss = Buy
                             }
                         }
-                        return rawType;
+
+                        return tType;
                     })(),
                     lots: t.volume / 100,
                     open_price: t.price,

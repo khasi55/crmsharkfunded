@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, X, Filter, Loader2, Wallet, Calendar, User, CreditCard, ChevronDown, ChevronRight, Users, LayoutList, Network } from "lucide-react";
+import { Check, X, Filter, Loader2, Wallet, Calendar, User, CreditCard, ChevronDown, ChevronRight, Users, LayoutList, Network, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Withdrawal {
@@ -34,7 +34,10 @@ interface ReferredUser {
     email: string;
     full_name: string;
     created_at: string;
+    coupon_used?: string | null;
+    account_count: number;
     accounts: Account[];
+    loadingAccounts?: boolean;
 }
 
 interface AffiliateNode {
@@ -46,6 +49,7 @@ interface AffiliateNode {
     sales_volume?: number;
     sales_count?: number;
     referred_users: ReferredUser[];
+    loadingReferrals?: boolean;
 }
 
 export default function AdminAffiliatesClient() {
@@ -59,10 +63,13 @@ export default function AdminAffiliatesClient() {
 
     // Tree State
     const [affiliateTree, setAffiliateTree] = useState<AffiliateNode[]>([]);
-    const [filteredTree, setFilteredTree] = useState<AffiliateNode[]>([]);
     const [loadingTree, setLoadingTree] = useState(false);
     const [expandedAffiliates, setExpandedAffiliates] = useState<Set<string>>(new Set());
+    const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
     const [searchQuery, setSearchQuery] = useState("");
+    const [page, setPage] = useState(0);
+    const [totalAffiliates, setTotalAffiliates] = useState(0);
+    const limit = 20;
 
     // Action State
     const [processingId, setProcessingId] = useState<string | null>(null);
@@ -87,42 +94,15 @@ export default function AdminAffiliatesClient() {
         }
     }, [withdrawals, statusFilter]);
 
-    // Search Logic
+    // Search & Page Logic
     useEffect(() => {
-        if (!searchQuery.trim()) {
-            setFilteredTree(affiliateTree);
-            return;
+        if (activeTab === 'tree') {
+            const timeoutId = setTimeout(() => {
+                fetchTree();
+            }, 500);
+            return () => clearTimeout(timeoutId);
         }
-
-        const query = searchQuery.toLowerCase();
-        const filtered = affiliateTree.filter(node => {
-            // Check Affiliate match
-            const affiliateMatch =
-                node.full_name?.toLowerCase().includes(query) ||
-                node.email?.toLowerCase().includes(query) ||
-                node.referral_code?.toLowerCase().includes(query);
-
-            if (affiliateMatch) return true;
-
-            // Check Children match
-            const childrenMatch = node.referred_users.some(u =>
-                u.full_name?.toLowerCase().includes(query) ||
-                u.email?.toLowerCase().includes(query)
-            );
-
-            return childrenMatch;
-        });
-
-        setFilteredTree(filtered);
-
-        // Auto-expand if searching
-        if (searchQuery.trim().length > 2) {
-            const matches = new Set<string>();
-            filtered.forEach(node => matches.add(node.id));
-            setExpandedAffiliates(matches);
-        }
-
-    }, [searchQuery, affiliateTree]);
+    }, [searchQuery, page]);
 
     const fetchWithdrawals = async () => {
         setLoading(true);
@@ -143,11 +123,16 @@ export default function AdminAffiliatesClient() {
     const fetchTree = async () => {
         setLoadingTree(true);
         try {
-            const res = await fetch('/api/admin/affiliates/tree');
-            const data = await res.json();
+            const params = new URLSearchParams({
+                page: page.toString(),
+                limit: limit.toString(),
+                search: searchQuery
+            });
+            const res = await fetch(`/api/admin/affiliates/tree?${params.toString()}`);
             if (res.ok) {
+                const data = await res.json();
                 setAffiliateTree(data.tree || []);
-                setFilteredTree(data.tree || []); // Init filtered
+                setTotalAffiliates(data.total || 0);
             }
         } catch (error) {
             console.error("Error fetching tree:", error);
@@ -156,11 +141,85 @@ export default function AdminAffiliatesClient() {
         }
     };
 
+    const fetchReferrals = async (affiliateId: string) => {
+        // Find the node
+        const node = affiliateTree.find(n => n.id === affiliateId);
+        if (!node || node.referred_users.length > 0) return; // Already loaded
+
+        // Mark as loading
+        setAffiliateTree(prev => prev.map(n => n.id === affiliateId ? { ...n, loadingReferrals: true } : n));
+
+        try {
+            const res = await fetch(`/api/admin/affiliates/tree/${affiliateId}/referrals`);
+            if (res.ok) {
+                const data = await res.json();
+                setAffiliateTree(prev => prev.map(n =>
+                    n.id === affiliateId ? { ...n, referred_users: data.referrals || [], loadingReferrals: false } : n
+                ));
+            }
+        } catch (error) {
+            console.error("Error fetching referrals:", error);
+            setAffiliateTree(prev => prev.map(n => n.id === affiliateId ? { ...n, loadingReferrals: false } : n));
+        }
+    };
+
+    const fetchAccounts = async (userId: string, affiliateId: string) => {
+        const node = affiliateTree.find(n => n.id === affiliateId);
+        const user = node?.referred_users.find(u => u.id === userId);
+        if (!user || user.accounts.length > 0) return;
+
+        // Mark as loading
+        setAffiliateTree(prev => prev.map(n =>
+            n.id === affiliateId ? {
+                ...n,
+                referred_users: n.referred_users.map(u => u.id === userId ? { ...u, loadingAccounts: true } : u)
+            } : n
+        ));
+
+        try {
+            const res = await fetch(`/api/admin/affiliates/tree/user/${userId}/accounts`);
+            if (res.ok) {
+                const data = await res.json();
+                setAffiliateTree(prev => prev.map(n =>
+                    n.id === affiliateId ? {
+                        ...n,
+                        referred_users: n.referred_users.map(u =>
+                            u.id === userId ? { ...u, accounts: data.accounts || [], loadingAccounts: false } : u
+                        )
+                    } : n
+                ));
+            }
+        } catch (error) {
+            console.error("Error fetching accounts:", error);
+            setAffiliateTree(prev => prev.map(n =>
+                n.id === affiliateId ? {
+                    ...n,
+                    referred_users: n.referred_users.map(u => u.id === userId ? { ...u, loadingAccounts: false } : u)
+                } : n
+            ));
+        }
+    };
+
     const toggleAffiliate = (id: string) => {
         const newSet = new Set(expandedAffiliates);
-        if (newSet.has(id)) newSet.delete(id);
-        else newSet.add(id);
+        if (newSet.has(id)) {
+            newSet.delete(id);
+        } else {
+            newSet.add(id);
+            fetchReferrals(id);
+        }
         setExpandedAffiliates(newSet);
+    };
+
+    const toggleUser = (userId: string, affiliateId: string) => {
+        const newSet = new Set(expandedUsers);
+        if (newSet.has(userId)) {
+            newSet.delete(userId);
+        } else {
+            newSet.add(userId);
+            fetchAccounts(userId, affiliateId);
+        }
+        setExpandedUsers(newSet);
     };
 
     const handleAction = async (id: string, status: 'approved' | 'rejected', reason?: string) => {
@@ -404,12 +463,17 @@ export default function AdminAffiliatesClient() {
 
                             {/* Tree Display */}
                             <div className="space-y-4">
-                                {filteredTree.length === 0 ? (
+                                {loadingTree ? (
+                                    <div className="flex items-center justify-center p-12">
+                                        <Loader2 className="h-6 w-6 animate-spin mr-3" />
+                                        <span className="text-slate-500">Updating tree...</span>
+                                    </div>
+                                ) : affiliateTree.length === 0 ? (
                                     <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-500">
                                         No affiliates found.
                                     </div>
                                 ) : (
-                                    filteredTree.map((node) => (
+                                    affiliateTree.map((node) => (
                                         <div key={node.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
                                             <div
                                                 className="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors"
@@ -426,12 +490,20 @@ export default function AdminAffiliatesClient() {
                                                 </div>
                                                 <div className="flex items-center gap-6">
                                                     <div className="text-right">
-                                                        <div className="text-xs text-slate-500 uppercase">Referral Code</div>
-                                                        <div className="font-mono text-sm text-slate-900">{node.referral_code}</div>
+                                                        <div className="text-xs text-slate-500 uppercase font-medium tracking-wider">Referral Code</div>
+                                                        <div className="font-mono text-sm text-slate-900">{node.referral_code || '---'}</div>
                                                     </div>
                                                     <div className="text-right">
-                                                        <div className="text-xs text-slate-500 uppercase">Referred</div>
+                                                        <div className="text-xs text-slate-500 uppercase font-medium tracking-wider">Referred</div>
                                                         <div className="font-semibold text-slate-900">{node.referred_count}</div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-xs text-slate-500 uppercase font-medium tracking-wider">Sales</div>
+                                                        <div className="font-semibold text-slate-900">{node.sales_count || 0}</div>
+                                                    </div>
+                                                    <div className="text-right min-w-[80px]">
+                                                        <div className="text-xs text-slate-500 uppercase font-medium tracking-wider">Revenue</div>
+                                                        <div className="font-semibold text-emerald-600">${(node.sales_volume || 0).toLocaleString()}</div>
                                                     </div>
                                                     {expandedAffiliates.has(node.id) ? (
                                                         <ChevronDown className="text-slate-400" />
@@ -442,39 +514,123 @@ export default function AdminAffiliatesClient() {
                                             </div>
 
                                             {/* Referred Users */}
-                                            {expandedAffiliates.has(node.id) && node.referred_users.length > 0 && (
+                                            {expandedAffiliates.has(node.id) && (
                                                 <div className="border-t border-slate-200 bg-slate-50 p-4">
-                                                    <div className="space-y-3">
-                                                        {node.referred_users.map((user) => (
-                                                            <div key={user.id} className="bg-white rounded-lg border border-slate-200 p-3">
-                                                                <div className="flex items-center justify-between mb-2">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <div className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center">
-                                                                            <User size={12} />
+                                                    {node.loadingReferrals ? (
+                                                        <div className="flex items-center justify-center py-4">
+                                                            <Loader2 size={16} className="animate-spin text-slate-400 mr-2" />
+                                                            <span className="text-sm text-slate-500">Fetching referrals...</span>
+                                                        </div>
+                                                    ) : node.referred_users.length === 0 ? (
+                                                        <div className="text-center py-4 text-sm text-slate-500">No referred users found.</div>
+                                                    ) : (
+                                                        <div className="space-y-3">
+                                                            {node.referred_users.map((user) => (
+                                                                <div key={user.id} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                                                                    <div
+                                                                        className="p-3 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors"
+                                                                        onClick={() => toggleUser(user.id, node.id)}
+                                                                    >
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center">
+                                                                                <User size={14} />
+                                                                            </div>
+                                                                            <div>
+                                                                                <div className="text-sm font-medium text-slate-900">{user.full_name}</div>
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <div className="text-xs text-slate-500">{user.email}</div>
+                                                                                    {user.coupon_used && (
+                                                                                        <>
+                                                                                            <span className="text-slate-300">•</span>
+                                                                                            <div className="flex items-center gap-1 bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded text-[10px] font-bold border border-amber-100 uppercase">
+                                                                                                <Tag size={10} />
+                                                                                                {user.coupon_used}
+                                                                                            </div>
+                                                                                        </>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
                                                                         </div>
-                                                                        <div>
-                                                                            <div className="text-sm font-medium text-slate-900">{user.full_name}</div>
-                                                                            <div className="text-xs text-slate-500">{user.email}</div>
+                                                                        <div className="flex items-center gap-4">
+                                                                            <div className="text-right">
+                                                                                <div className="text-xs text-slate-400">{new Date(user.created_at).toLocaleDateString()}</div>
+                                                                                <div className="text-xs font-medium text-slate-600">
+                                                                                    {user.account_count || 0} Account(s)
+                                                                                </div>
+                                                                            </div>
+                                                                            {expandedUsers.has(user.id) ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
                                                                         </div>
                                                                     </div>
-                                                                    <div className="text-xs text-slate-400">
-                                                                        {new Date(user.created_at).toLocaleDateString()}
-                                                                    </div>
+
+                                                                    {/* Accounts List */}
+                                                                    {expandedUsers.has(user.id) && (
+                                                                        <div className="px-3 pb-3 pt-1 border-t border-slate-100 bg-slate-50/30">
+                                                                            {user.loadingAccounts ? (
+                                                                                <div className="flex items-center gap-2 py-2 text-xs text-slate-500">
+                                                                                    <Loader2 size={12} className="animate-spin" />
+                                                                                    Loading MT5 details...
+                                                                                </div>
+                                                                            ) : user.accounts.length === 0 ? (
+                                                                                <div className="text-xs text-slate-400 py-1 italic">No active accounts found.</div>
+                                                                            ) : (
+                                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                                                                                    {user.accounts.map(acc => (
+                                                                                        <div key={acc.id} className="text-xs bg-white border border-slate-100 rounded-md p-2 flex justify-between items-center shadow-sm">
+                                                                                            <div>
+                                                                                                <div className="font-mono font-medium text-slate-900 mb-0.5">{acc.login}</div>
+                                                                                                <div className="text-slate-500 flex items-center gap-2">
+                                                                                                    <span className="capitalize">{acc.plan_type.replace('_', ' ')}</span>
+                                                                                                    <span>•</span>
+                                                                                                    <span>${acc.initial_balance.toLocaleString()}</span>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <span className={cn(
+                                                                                                "px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
+                                                                                                acc.status === 'active' ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500"
+                                                                                            )}>
+                                                                                                {acc.status}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
                                                                 </div>
-                                                                {user.accounts && user.accounts.length > 0 && (
-                                                                    <div className="text-xs text-slate-500">
-                                                                        {user.accounts.length} account(s)
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        ))}
-                                                    </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
                                     ))
                                 )}
                             </div>
+
+                            {/* Pagination */}
+                            {totalAffiliates > limit && (
+                                <div className="flex items-center justify-between bg-white px-4 py-3 rounded-xl border border-slate-200 mt-6 shadow-sm">
+                                    <div className="text-sm text-slate-500 font-medium">
+                                        Showing <span className="text-slate-900">{page * limit + 1}</span> to <span className="text-slate-900">{Math.min((page + 1) * limit, totalAffiliates)}</span> of <span className="text-slate-900 font-semibold">{totalAffiliates}</span> affiliates
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setPage(p => Math.max(0, p - 1))}
+                                            disabled={page === 0}
+                                            className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all"
+                                        >
+                                            Previous
+                                        </button>
+                                        <button
+                                            onClick={() => setPage(p => p + 1)}
+                                            disabled={(page + 1) * limit >= totalAffiliates}
+                                            className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all"
+                                        >
+                                            Next
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </>
                     )}
                 </>

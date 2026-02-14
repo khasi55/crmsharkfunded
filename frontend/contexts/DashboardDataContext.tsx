@@ -102,6 +102,14 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
         const handleBalanceUpdate = (update: any) => {
             console.log('📊 [DashboardData] balance_update received:', update);
             setData((prev) => {
+                // IGNORE Zero Equity Glitch from bridge (Aggressive Check)
+                // We ignore any update with 0 equity to prevent UI from showing "Failed" before Risk Engine syncs.
+                // Real blowouts will be handled by 'status' updates or Risk Engine passing valid low equity.
+                if (Number(update.equity) === 0) {
+                    console.warn('⚠️ [DashboardData] Ignoring 0 equity update (glitch protection)');
+                    return prev;
+                }
+
                 if (!prev.objectives || !prev.objectives.challenge) {
                     // Trigger refresh if update arrives before primary data
                     if (!refreshInFlightRef.current) {
@@ -205,7 +213,27 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
 export function useDashboardData() {
     const context = useContext(DashboardDataContext);
     if (context === undefined) {
-        throw new Error('useDashboardData must be used within a DashboardDataProvider');
+        return {
+            data: {
+                objectives: null,
+                stats: null,
+                trades: null,
+                risk: null,
+                consistency: null,
+                calendar: null,
+                analysis: null,
+            },
+            loading: {
+                objectives: false,
+                trades: false,
+                risk: false,
+                consistency: false,
+                calendar: false,
+                global: false,
+            },
+            error: null,
+            refreshData: async () => { },
+        } as DashboardDataContextType;
     }
     return context;
 }

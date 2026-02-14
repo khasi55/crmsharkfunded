@@ -63,8 +63,22 @@ export default function TradeHistory({ trades: initialTrades, isPublic }: TradeH
         const sourceData = initialTrades || dashboardData.trades;
 
         if (sourceData) {
+            // Filter out non-trades (Deposits, Balance, etc.)
+            const tradingTrades = sourceData.filter((t: Trade) => {
+                const comment = (t.comment || '').toLowerCase();
+                const symbol = (t.symbol || '');
+                const isNonTrade = comment.includes('deposit') ||
+                    comment.includes('balance') ||
+                    comment.includes('initial') ||
+                    symbol.trim() === '' ||
+                    symbol === 'BALANCE' ||
+                    symbol === '#N/A' ||
+                    Number(t.lots) === 0;
+                return !isNonTrade;
+            });
+
             // Apply Filters Locally
-            let filteredTrades = [...sourceData];
+            let filteredTrades = [...tradingTrades];
             if (filter === 'open') {
                 filteredTrades = filteredTrades.filter(t => !t.close_time);
             } else if (filter === 'closed') {
@@ -72,12 +86,12 @@ export default function TradeHistory({ trades: initialTrades, isPublic }: TradeH
             }
 
             // Calculate Stats Locally
-            const openCount = sourceData.filter((t: Trade) => !t.close_time).length;
-            const closedCount = sourceData.filter((t: Trade) => !!t.close_time).length;
-            const totalPnL = sourceData.reduce((acc: number, t: Trade) => acc + (Number(t.profit_loss) || 0) + (Number(t.commission || 0) * 2) + (Number(t.swap) || 0), 0);
+            const openCount = tradingTrades.filter((t: Trade) => !t.close_time).length;
+            const closedCount = tradingTrades.filter((t: Trade) => !!t.close_time).length;
+            const totalPnL = tradingTrades.reduce((acc: number, t: Trade) => acc + (Number(t.profit_loss) || 0) + (Number(t.commission || 0) * 2) + (Number(t.swap) || 0), 0);
 
             setStats({
-                totalTrades: sourceData.length,
+                totalTrades: tradingTrades.length,
                 openTrades: openCount,
                 closedTrades: closedCount,
                 totalPnL: totalPnL
@@ -165,13 +179,18 @@ export default function TradeHistory({ trades: initialTrades, isPublic }: TradeH
     const formatDuration = (openTime: string, closeTime: string | null) => {
         if (!closeTime) return 'Open';
         const duration = new Date(closeTime).getTime() - new Date(openTime).getTime();
-        const hours = Math.floor(duration / (1000 * 60 * 60));
-        const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
-        if (hours > 24) {
-            const days = Math.floor(hours / 24);
-            return `${days}d ${hours % 24}h`;
-        }
-        return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+
+        if (duration < 1000) return '< 1s';
+
+        const seconds = Math.floor((duration / 1000) % 60);
+        const minutes = Math.floor((duration / (1000 * 60)) % 60);
+        const hours = Math.floor((duration / (1000 * 60 * 60)) % 24);
+        const days = Math.floor(duration / (1000 * 60 * 60 * 24));
+
+        if (days > 0) return `${days}d ${hours}h`;
+        if (hours > 0) return `${hours}h ${minutes}m`;
+        if (minutes > 0) return `${minutes}m ${seconds}s`;
+        return `${seconds}s`;
     };
 
     if (loading) {

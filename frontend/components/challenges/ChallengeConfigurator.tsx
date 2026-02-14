@@ -66,7 +66,7 @@ const PLATFORMS = [
 
 const PAYMENT_GATEWAYS = [
     { id: "sharkpay", label: "SharkPay", currency: "INR", desc: "Pay in Indian Rupees (₹)", icon: "🇮🇳" },
-    { id: "epay", label: "Credit/Debit Card", currency: "USD", desc: "Pay with global cards", icon: "💳" }
+    { id: "cregis", label: "Crypto (Cregis)", currency: "USD", desc: "Pay with BTC, ETH, USDT", icon: "🏆" }
 ];
 
 // Helper to map size number to string key
@@ -415,8 +415,8 @@ export default function ChallengeConfigurator() {
             if (res.ok && data.success) {
                 // Open payment in iframe modal or redirect
                 if (data.paymentUrl) {
-                    if (gateway === 'epay') {
-                        // EPay requires top-level redirect
+                    if (gateway === 'cregis' || gateway === 'epay') {
+                        // Cregis/EPay requires top-level redirect
                         window.location.href = data.paymentUrl;
                     } else {
                         setPaymentUrl(data.paymentUrl);
@@ -695,7 +695,7 @@ export default function ChallengeConfigurator() {
                                 ) : (
                                     <>
                                         <CreditCard size={20} />
-                                        {gateway === 'epay' ? 'Pay/Redeem Voucher' : 'Proceed to Payment'}
+                                        {gateway === 'cregis' ? 'Pay with Crypto' : 'Proceed to Payment'}
                                     </>
                                 )}
                             </button>

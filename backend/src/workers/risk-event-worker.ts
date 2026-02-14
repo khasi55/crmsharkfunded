@@ -56,7 +56,7 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
     // 1. Fetch Challenge
     const { data: challenge } = await supabase
         .from('challenges')
-        .select('id, user_id, initial_balance, start_of_day_equity, status, created_at, group')
+        .select('id, user_id, initial_balance, start_of_day_equity, status, created_at, group, challenge_type')
         .eq('login', login)
         .single();
 
@@ -68,30 +68,36 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
     // 2. Filter Trades for behavioral checks (Ghost Trade Protection)
     const validIncomingTrades = trades.filter((t: any) => t.volume > 0 && ['0', '1', 'buy', 'sell'].includes(String(t.type).toLowerCase()));
 
-    // START FIX: Systematic Data Correction (Auto-detect Type based on PnL vs Price)
+    // START FIX: Infer Trade Type from Price Action (User Request)
+    // The upstream source sometimes sends incorrect types (e.g. 'Sell' for a losing Long).
+    // Logic: 
+    // - Profit > 0: Price UP -> Buy, Price DOWN -> Sell
+    // - Profit < 0: Price UP -> Sell, Price DOWN -> Buy
     validIncomingTrades.forEach((t: any) => {
-        // 1. Get raw type
-        const rawType = (String(t.type) === '0' || String(t.type).toLowerCase() === 'buy') ? 'buy' : 'sell';
-
-        // 2. Calculate Profit & Price Delta
-        const profit = Number(t.profit);
-        const openPrice = Number(t.price);
+        const openPrice = Number(t.open_price || t.price);
         const closePrice = t.close_price ? Number(t.close_price) : Number(t.current_price || t.price);
-        const priceDelta = closePrice - openPrice;
+        const profit = Number(t.profit);
 
-        // 3. Inference Logic (Only if profit is significant > $1.00)
-        if (Math.abs(profit) > 1.0) {
+        // Skip if prices or profit are invalid/zero/noise
+        if (openPrice > 0 && closePrice > 0 && Math.abs(profit) > 0.0001) {
+            const priceDelta = closePrice - openPrice; // Positive if price went UP
+
             if (profit > 0) {
-                // Profitable: Price UP = Buy, Price DOWN = Sell
-                if (priceDelta > 0) t.type = 'buy';
-                else if (priceDelta < 0) t.type = 'sell';
+                // Profitable Trade
+                if (priceDelta > 0) t.type = 'buy';      // Up + Profit = Buy
+                else if (priceDelta < 0) t.type = 'sell'; // Down + Profit = Sell
             } else {
-                // Loss: Price UP = Sell, Price DOWN = Buy
-                if (priceDelta > 0) t.type = 'sell';
-                else if (priceDelta < 0) t.type = 'buy';
+                // Losing Trade
+                if (priceDelta > 0) t.type = 'sell';      // Up + Loss = Sell
+                else if (priceDelta < 0) t.type = 'buy';  // Down + Loss = Buy
             }
         }
-        // Else keep original type
+        // Fallback: If logic skipped (e.g. 0 profit), keep original type but normalize string
+        if (!['buy', 'sell'].includes(t.type)) {
+            const rt = String(t.type).toLowerCase();
+            if (rt === '0' || rt.includes('buy')) t.type = 'buy';
+            else if (rt === '1' || rt.includes('sell')) t.type = 'sell';
+        }
     });
     // END FIX
 
@@ -214,11 +220,19 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
             allow_weekend_trading: rulesConfig?.allow_weekend_trading ?? true,
             allow_news_trading: rulesConfig?.allow_news_trading ?? true,
             allow_ea_trading: rulesConfig?.allow_ea_trading ?? true,
-            min_trade_duration_seconds: rulesConfig?.min_trade_duration_seconds ?? 0,
+            min_trade_duration_seconds: rulesConfig?.min_trade_duration_seconds ?? 120,
             max_single_win_percent: rulesConfig?.max_single_win_percent ?? 50,
             // New Flags (Default to TRUE/Allowed if missing to avoid mass breaches)
             allow_hedging: rulesConfig?.allow_hedging ?? true,
-            allow_martingale: rulesConfig?.allow_martingale ?? true
+            allow_martingale: rulesConfig?.allow_martingale ?? true,
+
+            // 1% Loss Rule: Apply only to Instant/Funded accounts
+            max_single_loss_percent: rulesConfig?.max_single_loss_percent ?? (() => {
+                const type = (challenge.challenge_type || '').toLowerCase();
+                if (type.includes('instant') || type.includes('funded')) return 1;
+                return 0; // Disabled for evaluations
+            })(),
+            initialBalance: Number(challenge.initial_balance)
         };
 
         // Get context trades (today's and open)

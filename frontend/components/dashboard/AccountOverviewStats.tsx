@@ -75,9 +75,10 @@ export default function AccountOverviewStats() {
     const created = (selectedAccount as any).created_at || new Date().toISOString();
     const startDate = new Date(created).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-    // Display PnL: Use fetched Realized PnL if available, otherwise fallback to Equity PnL
-    // Note: If realizedPnL is 0, we still use it. null means not fetched yet.
-    const displayPnL = realizedPnL !== null ? realizedPnL : ((selectedAccount.equity || selectedAccount.balance || 0) - initialBalance);
+    // Display PnL: Calculate directly from Equity/Balance relative to Initial Balance
+    // This ensures consistency with the Equity Curve and avoids dependency on potentially stale objective stats
+    const currentEquity = selectedAccount.equity ?? selectedAccount.balance ?? initialBalance;
+    const displayPnL = currentEquity - initialBalance;
 
     const isPnlNegative = displayPnL < 0;
     const isPnlPositive = displayPnL > 0;

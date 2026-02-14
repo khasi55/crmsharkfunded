@@ -192,7 +192,8 @@ function DashboardContent() {
                                 <span className="hidden sm:inline">Log Out</span>
                             </button>
 
-                            {selectedAccount && (
+                            {/* Share Dashboard Button - Hidden as per request */}
+                            {/* {selectedAccount && (
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => setShowShareModal(true)}
@@ -208,7 +209,7 @@ function DashboardContent() {
                                         <span className="hidden md:inline">{selectedAccount.is_public ? "Shared" : "Share"}</span>
                                     </button>
                                 </div>
-                            )}
+                            )} */}
 
                             {/* User Profile Dropdown */}
                             <div className="relative">

@@ -22,7 +22,7 @@ router.get('/calendar', authenticate, async (req: AuthRequest, res: Response) =>
 
         let query = supabase
             .from('trades')
-            .select('close_time, profit_loss, commission, swap')
+            .select('close_time, profit_loss, commission, swap, comment')
             .eq('user_id', user.id)
             .order('close_time', { ascending: true, nullsFirst: false });
 
@@ -74,10 +74,19 @@ router.get('/calendar', authenticate, async (req: AuthRequest, res: Response) =>
         });
 
         const dailyStats = Object.entries(tradesByDay).map(([date, dayTrades]) => {
-            // Filter out balance/deposit transactions for performance metrics
-            const tradingTrades = dayTrades.filter((t: any) => t.symbol && t.symbol !== '');
+            // Filter out non-trading operations (deposits, balance trades, etc.)
+            const tradingTrades = dayTrades.filter((t: any) => {
+                const comment = (t.comment || '').toLowerCase();
+                const symbol = (t.symbol || '');
+                const isNonTrade = comment.includes('deposit') ||
+                    comment.includes('balance') ||
+                    comment.includes('initial') ||
+                    symbol.trim() === '' ||
+                    symbol === '#N/A' ||
+                    symbol === 'BALANCE' || Number(t.lots) === 0;
+                return !isNonTrade;
+            });
 
-            // Fix: Commission is reported per-side (or half), so we deduct it twice to match Net P&L
             const totalPnL = tradingTrades.reduce((sum, t) => sum + (Number(t.profit_loss) || 0) + (Number(t.commission || 0) * 2) + (Number(t.swap) || 0), 0);
             return {
                 date,
@@ -156,7 +165,7 @@ router.get('/trades', authenticate, tradesLimiter, async (req: AuthRequest, res:
 
                 let pnlQuery = supabase
                     .from('trades')
-                    .select('profit_loss, commission, swap, close_time')
+                    .select('profit_loss, commission, swap, close_time, comment, symbol, lots')
                     .eq('user_id', user.id);
 
                 if (accountId) pnlQuery = pnlQuery.eq('challenge_id', accountId);
@@ -167,7 +176,17 @@ router.get('/trades', authenticate, tradesLimiter, async (req: AuthRequest, res:
                 const tradesForStats: any[] = pnlData || [];
 
                 // Exclude balance transactions from P&L and Trade counts
-                const tradingStatsTrades = tradesForStats.filter((t: any) => t.symbol && t.symbol !== '' && Number(t.lots) > 0);
+                const tradingStatsTrades = tradesForStats.filter((t: any) => {
+                    const comment = (t.comment || '').toLowerCase();
+                    const symbol = (t.symbol || '');
+                    const isNonTrade = comment.includes('deposit') ||
+                        comment.includes('balance') ||
+                        comment.includes('initial') ||
+                        symbol.trim() === '' ||
+                        symbol === '#N/A' ||
+                        symbol === 'BALANCE' || Number(t.lots) === 0;
+                    return !isNonTrade;
+                });
 
                 const openTradesVal = tradingStatsTrades.filter((t: any) => !t.close_time).length;
                 const closedTradesVal = tradingStatsTrades.filter((t: any) => t.close_time).length;
@@ -379,6 +398,10 @@ router.get('/objectives', authenticate, objectivesLimiter, async (req: AuthReque
         const currentEquity = Number(challenge.current_equity);
         const startOfDayEquity = Number(challenge.start_of_day_equity ?? initialBalance); // Fallback to Initial if NULL (e.g. Day 1)
 
+        console.log(`[DEBUG_OBJECTIVES] Challenge: ${challenge_id}`);
+        console.log(`[DEBUG_OBJECTIVES] Initial: ${initialBalance}, Equity: ${currentEquity}, SOD: ${startOfDayEquity}`);
+        console.log(`[DEBUG_OBJECTIVES] MaxDaily: ${maxDailyLoss}, MaxTotal: ${maxTotalLoss}`);
+
         // 1. Daily Loss Calculation
         // Formula: How much have we lost since Start of Day?
         // If (Equity > SOD), Daily Loss is 0 (Profit).
@@ -395,6 +418,8 @@ router.get('/objectives', authenticate, objectivesLimiter, async (req: AuthReque
             dailyProfit = 0;
         }
 
+        console.log(`[DEBUG_OBJECTIVES] DailyNet: ${dailyNet}, DailyLoss: ${dailyLoss}`);
+
         // 2. Total Loss Calculation
         // Formula: How much have we lost from Initial Balance?
         const totalNet = currentEquity - initialBalance;
@@ -408,6 +433,8 @@ router.get('/objectives', authenticate, objectivesLimiter, async (req: AuthReque
             totalLoss = Math.abs(totalNet);
             totalProfit = 0;
         }
+
+        console.log(`[DEBUG_OBJECTIVES] TotalNet: ${totalNet}, TotalLoss: ${totalLoss}`);
 
         // 3. REMAINING BUFFER CALCULATION
         // Daily Remaining = (SOD Equity - DailyLimitAmount) - CurrentEquity ?
@@ -709,7 +736,7 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
         const [analyticsTradesResponse, recentTradesResponse, riskResponse, advancedRiskResponse, consistencyResponse, challengeResponse] = await Promise.all([
             // 1. Analytics Trades: Fetch ALL rows but ONLY columns needed for stats (Lightweight)
             supabase.from('trades')
-                .select('profit_loss, commission, swap, lots, type, close_time, symbol') // Minimal columns
+                .select('profit_loss, commission, swap, lots, type, close_time, symbol, comment') // Minimal columns
                 .eq('challenge_id', targetId),
 
             // 2. Recent Trades: Fetch only recent 30 rows with FULL columns for display
@@ -757,6 +784,17 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
         const currentEquity = Number(challengeResponse.data.current_equity);
         const startOfDayEquity = Number(challengeResponse.data.start_of_day_equity ?? initialBalance);
 
+        try {
+            const fs = require('fs');
+            const logMsg = `[DEBUG_BULK] ID: ${targetId} | Init: ${initialBalance} | Eq: ${currentEquity} | SOD: ${startOfDayEquity}\n`;
+            fs.appendFileSync('bulk_debug.log', logMsg);
+        } catch (e) {
+            console.error('Logging failed', e);
+        }
+
+        console.log(`[DEBUG_BULK] Challenge: ${targetId}`);
+        console.log(`[DEBUG_BULK] Initial: ${initialBalance}, Equity: ${currentEquity}, SOD: ${startOfDayEquity}`);
+
         let netPnL = 0;
         let totalLots = 0;
         let biggestWin = 0;
@@ -765,9 +803,21 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
         let grossLoss = 0;
         let winCount = 0;
         let loseCount = 0;
-        const totalTrades = allAnalyticsTrades.length;
+        let totalTrades = 0;
 
         allAnalyticsTrades.forEach(trade => {
+            const comment = (trade.comment || '').toLowerCase();
+            const symbol = (trade.symbol || '');
+            const isNonTrade = comment.includes('deposit') ||
+                comment.includes('balance') ||
+                comment.includes('initial') ||
+                symbol.trim() === '' ||
+                symbol === '#N/A' ||
+                symbol === 'BALANCE' || Number(trade.lots) === 0;
+
+            if (isNonTrade) return;
+
+            totalTrades++;
             const profit = Number(trade.profit_loss) || 0;
             const comm = (Number(trade.commission) || 0) * 2;
             const swap = Number(trade.swap) || 0;
@@ -818,7 +868,17 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
         });
 
         const dailyStats = Object.entries(tradesByDay).map(([date, dayTrades]) => {
-            const tradingTrades = dayTrades.filter((t: any) => t.symbol && t.symbol !== '');
+            const tradingTrades = dayTrades.filter((t: any) => {
+                const comment = (t.comment || '').toLowerCase();
+                const symbol = (t.symbol || '');
+                const isNonTrade = comment.includes('deposit') ||
+                    comment.includes('balance') ||
+                    comment.includes('initial') ||
+                    symbol.trim() === '' ||
+                    symbol === '#N/A' ||
+                    symbol === 'BALANCE' || Number(t.lots) === 0;
+                return !isNonTrade;
+            });
             const totalPnL = tradingTrades.reduce((sum, t) => sum + (Number(t.profit_loss) || 0) + (Number(t.commission || 0) * 2) + (Number(t.swap) || 0), 0);
             return {
                 date,
@@ -835,6 +895,17 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
         let shortWins = 0, shortLosses = 0, shortProfit = 0, shortLossCost = 0, shortCount = 0;
 
         allAnalyticsTrades.forEach(trade => {
+            const comment = (trade.comment || '').toLowerCase();
+            const symbol = (trade.symbol || '');
+            const isNonTrade = comment.includes('deposit') ||
+                comment.includes('balance') ||
+                comment.includes('initial') ||
+                symbol.trim() === '' ||
+                symbol === '#N/A' ||
+                symbol === 'BALANCE' || Number(trade.lots) === 0;
+
+            if (isNonTrade) return;
+
             const profit = Number(trade.profit_loss) || 0;
             const comm = (Number(trade.commission) || 0) * 2;
             const swap = Number(trade.swap) || 0;

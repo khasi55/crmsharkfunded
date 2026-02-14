@@ -71,7 +71,18 @@ export default function EquityCurveChart({ account, trades: initialTrades, initi
 
         // 1. Separate Prior Trades from Current Period Trades (Only closed trades)
         const closedTrades = allTrades
-            .filter(t => !!t.close_time)
+            .filter(t => {
+                const comment = (t.comment || '').toLowerCase();
+                const symbol = (t.symbol || '');
+                const isNonTrade = comment.includes('deposit') ||
+                    comment.includes('balance') ||
+                    comment.includes('initial') ||
+                    symbol.trim() === '' ||
+                    symbol === 'BALANCE' ||
+                    symbol === '#N/A' ||
+                    Number(t.lots) === 0;
+                return !!t.close_time && !isNonTrade;
+            })
             .sort((a, b) => new Date(a.close_time).getTime() - new Date(b.close_time).getTime());
 
         const priorTrades = selectedPeriod === 'ALL' ? [] : closedTrades.filter(t => new Date(t.close_time) < startDate);

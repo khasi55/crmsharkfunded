@@ -13,6 +13,9 @@ export interface AdvancedRiskRules {
     // Extended Rules
     allow_hedging?: boolean;
     allow_martingale?: boolean;
+    // New Rule
+    max_single_loss_percent?: number;
+    initialBalance?: number; // Context for percentage calcs
 }
 
 export class AdvancedRiskEngine {
@@ -100,6 +103,12 @@ export class AdvancedRiskEngine {
         if (rules.min_trade_duration_seconds > 0) {
             const scalping = this.checkTickScalping(trade, rules.min_trade_duration_seconds);
             if (scalping) violations.push(scalping);
+        }
+
+        // 6. 1% Loss Rule (For Instant/Funded)
+        if (rules.max_single_loss_percent && rules.max_single_loss_percent > 0 && rules.initialBalance) {
+            const lossViolation = this.checkMaxSingleLoss(trade, rules.initialBalance, rules.max_single_loss_percent);
+            if (lossViolation) violations.push(lossViolation);
         }
 
         return violations;
@@ -218,6 +227,31 @@ export class AdvancedRiskEngine {
                 description: `Scalping Detected: Duration ${duration}s < Minimum ${minDuration}s`,
                 trade_ticket: trade.ticket_number,
                 symbol: trade.symbol
+            };
+        }
+        return null;
+    }
+
+    // Rule: Max Single Loss (1% Rule)
+    private checkMaxSingleLoss(trade: Trade, initialBalance: number, maxPercent: number): RiskViolation | null {
+        // Only check closed trades with negative PL
+        if (!trade.close_time || trade.profit_loss >= 0) return null;
+
+        const maxLossAmount = initialBalance * (maxPercent / 100);
+        const lossAbs = Math.abs(trade.profit_loss);
+
+        if (lossAbs >= maxLossAmount) {
+            return {
+                violation_type: 'max_loss_exceeded',
+                severity: 'breach',
+                description: `1% Loss Rule Breached: Loss $${lossAbs.toFixed(2)} exceeds ${maxPercent}% of balance ($${maxLossAmount.toFixed(2)})`,
+                trade_ticket: trade.ticket_number,
+                symbol: trade.symbol,
+                metadata: {
+                    loss: lossAbs,
+                    limit: maxLossAmount,
+                    percent: (lossAbs / initialBalance) * 100
+                }
             };
         }
         return null;

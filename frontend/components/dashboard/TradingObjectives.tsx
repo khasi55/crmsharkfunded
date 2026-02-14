@@ -46,12 +46,14 @@ function ObjectiveRow({ title, timer, max, current, threshold, status, isLossLim
             <div className="flex justify-between items-start mb-3">
                 <div className="flex items-center gap-3">
                     <h3 className="font-bold text-white text-sm">{title}</h3>
-                    <div className="group relative">
-                        <AlertCircle size={14} className="text-gray-500 cursor-help" />
-                        <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block w-48 p-2 bg-black text-white text-[10px] rounded-lg z-20 border border-white/10">
-                            Breaching this limit will close your account.
+                    {isLossLimit && (
+                        <div className="group relative">
+                            <AlertCircle size={14} className="text-gray-500 cursor-help" />
+                            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block w-48 p-2 bg-black text-white text-[10px] rounded-lg z-20 border border-white/10">
+                                Breaching this limit will close your account.
+                            </div>
                         </div>
-                    </div>
+                    )}
                     {timer && (
                         <span className="flex items-center gap-1.5 text-[10px] font-bold text-blue-400 bg-blue-500/10 px-2 py-1 rounded-md border border-blue-500/20">
                             <Clock size={12} /> {timer}
@@ -112,6 +114,13 @@ export default function TradingObjectives({ objectives: initialObjectives, accou
     const { data: dashboardData, loading: dashboardLoading } = useDashboardData();
     const [resetTimer, setResetTimer] = useState("--:--:--");
     const [rules, setRules] = useState<ChallengeRules | null>(null);
+
+    // Debug Logs
+    useEffect(() => {
+        if (rules) {
+            console.log('[TradingObjectives] Rules Updated:', JSON.stringify(rules, null, 2));
+        }
+    }, [rules]);
 
     // Calculate time until midnight UTC (daily reset)
     useEffect(() => {
@@ -240,7 +249,6 @@ export default function TradingObjectives({ objectives: initialObjectives, accou
                         </span>
                     )}
                 </div>
-                <button className="text-xs font-bold text-blue-400 hover:text-blue-300">View Rules</button>
             </div>
 
 

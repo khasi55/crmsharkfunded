@@ -164,7 +164,8 @@ function CheckoutContent() {
         try {
             const data = await fetchFromBackend('/api/coupons/validate', {
                 method: 'POST',
-                body: JSON.stringify({ code: coupon.trim(), amount: basePriceUSD, account_type_id: null })
+                body: JSON.stringify({ code: coupon.trim(), amount: basePriceUSD, account_type_id: null }),
+                requireAuth: false
             });
             if (data.valid) {
                 setAppliedCoupon(data);
@@ -576,7 +577,8 @@ function CheckoutContent() {
                             </button>
 
                             {/* EPay Option */}
-                            <button
+                            {/* EPay Option - Removed as per request */}
+                            {/* <button
                                 onClick={() => setSelectedGateway("epay")}
                                 className={cn(
                                     "p-8 bg-white border rounded-2xl shadow-sm transition-all text-left",
@@ -594,7 +596,7 @@ function CheckoutContent() {
                                 <div className="mt-4 text-lg font-bold text-blue-600">
                                     ${finalPriceUSD.toFixed(2)}
                                 </div>
-                            </button>
+                            </button> */}
 
                             {/* Cregis Crypto Option */}
                             <button
@@ -624,7 +626,7 @@ function CheckoutContent() {
                                 ? "SharkPay provides instant UPI and local bank transfer options."
                                 : selectedGateway === "Cregis"
                                     ? "Cregis supports multiple cryptocurrencies with instant verification."
-                                    : "Paymentservice.me supports international Visa, Mastercard, and AMEX cards (Redirects to secure page)."}
+                                    : "Select a payment method above."}
                         </div>
                     </div>
 
@@ -656,7 +658,7 @@ function CheckoutContent() {
                         >
                             {loading ? <Loader2 className="animate-spin" /> : (
                                 currentStep === 3
-                                    ? (selectedGateway.toLowerCase() === 'epay' ? "Pay/Redeem Voucher" : `Pay with ${selectedGateway === 'Sharkpay' ? 'UPI' : selectedGateway}`)
+                                    ? (selectedGateway.toLowerCase() === 'cregis' ? "Pay with Crypto" : `Pay with ${selectedGateway === 'Sharkpay' ? 'UPI' : selectedGateway}`)
                                     : "Continue"
                             )} <ArrowRight size={18} />
                         </button>
