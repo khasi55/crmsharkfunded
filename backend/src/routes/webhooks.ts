@@ -187,10 +187,25 @@ router.post('/cregis', async (req: Request, res: Response) => {
 
     // Mutate req.body to match what handlePaymentWebhook looks for
     if (req.body) {
+        // Flatten nested 'data' object if present (Cregis V2 structure)
+        if (req.body.data && typeof req.body.data === 'object') {
+            console.log('[Webhook] Cregis: Flattening nested data object');
+            const data = req.body.data;
+            req.body.order_id = data.order_id || req.body.order_id;
+            req.body.amount = data.order_amount || data.amount || req.body.amount;
+            // Map status from data if present
+            if (data.status) req.body.status = data.status;
+            // Map transaction ID
+            req.body.transaction_id = data.cregis_id || data.payment_id;
+        }
+
         req.body.reference_id = req.body.third_party_id || req.body.order_id;
-        req.body.status = (req.body.status == 1 || req.body.status === 'paid' || req.body.payment_status === 'paid') ? 'success' : 'failed';
+
+        const rawStatus = String(req.body.status || '').toLowerCase();
+        req.body.status = (req.body.status == 1 || rawStatus === 'paid' || rawStatus === 'success' || req.body.payment_status === 'paid') ? 'success' : 'failed';
+
         req.body.gateway = 'cregis';
-        req.body.transaction_id = req.body.order_id || req.body.payment_id; // Cregis Order ID
+        req.body.transaction_id = req.body.transaction_id || req.body.order_id || req.body.payment_id; // Cregis Order ID
 
         // Map amount if needed (cregis might send 'order_amount' or 'amount')
         if (!req.body.amount && req.body.order_amount) req.body.amount = req.body.order_amount;
