@@ -72,6 +72,33 @@ const verifyPaymentSecret = (req: Request): boolean => {
  * Called by gateway to notify success
  */
 router.post('/payment', async (req: Request, res: Response) => {
+    // DEBUG: Log Headers
+    console.log('[Webhook] Payment Generic Headers:', JSON.stringify(req.headers));
+
+    // FORCE PARSE: If body is empty, try to read stream
+    if (!req.body || Object.keys(req.body).length === 0) {
+        try {
+            const rawBody = await new Promise<string>((resolve, reject) => {
+                let data = '';
+                req.setEncoding('utf8');
+                req.on('data', chunk => data += chunk);
+                req.on('end', () => resolve(data));
+                req.on('error', err => reject(err));
+            });
+
+            if (rawBody) {
+                console.log('[Webhook] Payment Generic Raw Body Captured:', rawBody);
+                try {
+                    req.body = JSON.parse(rawBody);
+                } catch (e) {
+                    console.warn('[Webhook] Failed to JSON parse raw body:', e);
+                }
+            }
+        } catch (e) {
+            console.error('[Webhook] Error reading stream:', e);
+        }
+    }
+
     fs.appendFileSync('backend_request_debug.log', `[WEBHOOK ENTRY] Method: ${req.method}, Path: ${req.path}, Body: ${JSON.stringify(req.body)}\n`);
 
     if (!verifyPaymentSecret(req)) {
@@ -119,19 +146,55 @@ router.get('/payment', async (req: Request, res: Response) => {
  * Cregis Webhook Handler
  */
 router.post('/cregis', async (req: Request, res: Response) => {
-    console.log('[Webhook] Cregis Event:', JSON.stringify(req.body));
+    // DEBUG: Log Headers to diagnose Content-Type mismatch
+    console.log('[Webhook] Cregis Headers:', JSON.stringify(req.headers));
+
+    // FORCE PARSE: If body is empty, try to read stream (handling text/plain or other types)
+    if (!req.body || Object.keys(req.body).length === 0) {
+        try {
+            const rawBody = await new Promise<string>((resolve, reject) => {
+                let data = '';
+                req.setEncoding('utf8');
+                req.on('data', chunk => data += chunk);
+                req.on('end', () => resolve(data));
+                req.on('error', err => reject(err));
+            });
+
+            if (rawBody) {
+                console.log('[Webhook] Cregis Raw Body Captured:', rawBody);
+                try {
+                    req.body = JSON.parse(rawBody);
+                } catch (e) {
+                    console.warn('[Webhook] Failed to JSON parse raw body:', e);
+                    // attempt query string parse if JSON fails?
+                    // req.body = require('querystring').parse(rawBody);
+                }
+            } else {
+                console.warn('[Webhook] Cregis Body is truly empty.');
+            }
+        } catch (e) {
+            console.error('[Webhook] Error reading stream:', e);
+        }
+    }
+
+    console.log('[Webhook] Cregis Event (Parsed):', JSON.stringify(req.body));
 
     // Adapt Cregis payload to internal structure expected by handlePaymentWebhook
     // Cregis sends: third_party_id (OrderId), status (1=success), amount
 
     // We could verify signature here, but for now we prioritize handling the success.
-    // TODO: Add signature verification
+    // TODO: Add signature verification in future
 
     // Mutate req.body to match what handlePaymentWebhook looks for
-    req.body.reference_id = req.body.third_party_id;
-    req.body.status = req.body.status == 1 ? 'success' : 'failed';
-    req.body.gateway = 'cregis';
-    req.body.transaction_id = req.body.order_id; // Cregis Order ID
+    if (req.body) {
+        req.body.reference_id = req.body.third_party_id || req.body.order_id;
+        req.body.status = (req.body.status == 1 || req.body.status === 'paid' || req.body.payment_status === 'paid') ? 'success' : 'failed';
+        req.body.gateway = 'cregis';
+        req.body.transaction_id = req.body.order_id || req.body.payment_id; // Cregis Order ID
+
+        // Map amount if needed (cregis might send 'order_amount' or 'amount')
+        if (!req.body.amount && req.body.order_amount) req.body.amount = req.body.order_amount;
+    }
 
     await handlePaymentWebhook(req, res);
 });
@@ -154,7 +217,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             return null;
         };
 
-        const internalOrderId = getPayloadValue(body, ['reference_id', 'reference', 'orderid', 'orderId', 'internalOrderId']);
+        const internalOrderId = getPayloadValue(body, ['reference_id', 'reference', 'orderid', 'orderId', 'internalOrderId', 'order_id']);
         const status = getPayloadValue(body, ['status', 'transt', 'transactionStatus']);
         const amount = getPayloadValue(body, ['amount', 'tranmt', 'receive_amount', 'orderAmount']);
 
@@ -627,6 +690,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
 
     } catch (error: any) {
         console.error('❌ Payment Webhook Error:', error);
+        fs.appendFileSync('backend_request_debug.log', `[WEBHOOK ERROR] ${new Date().toISOString()} - ${error.message} - Stack: ${error.stack}\n`);
         if (req.method === 'GET') {
             return res.redirect(`${process.env.FRONTEND_URL}/payment/failed`);
         }
