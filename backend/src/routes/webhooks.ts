@@ -188,15 +188,28 @@ router.post('/cregis', async (req: Request, res: Response) => {
     // Mutate req.body to match what handlePaymentWebhook looks for
     if (req.body) {
         // Flatten nested 'data' object if present (Cregis V2 structure)
-        if (req.body.data && typeof req.body.data === 'object') {
-            console.log('[Webhook] Cregis: Flattening nested data object');
-            const data = req.body.data;
-            req.body.order_id = data.order_id || req.body.order_id;
-            req.body.amount = data.order_amount || data.amount || req.body.amount;
-            // Map status from data if present
-            if (data.status) req.body.status = data.status;
-            // Map transaction ID
-            req.body.transaction_id = data.cregis_id || data.payment_id;
+        if (req.body.data) {
+            let data = req.body.data;
+
+            // Fix: Cregis sends 'data' as a JSON string, not an object
+            if (typeof data === 'string') {
+                try {
+                    console.log('[Webhook] Cregis: Parsing stringified data field');
+                    data = JSON.parse(data);
+                } catch (e) {
+                    console.warn('[Webhook] Failed to parse Cregis data string:', e);
+                }
+            }
+
+            if (typeof data === 'object') {
+                console.log('[Webhook] Cregis: Flattening nested data object');
+                req.body.order_id = data.order_id || req.body.order_id;
+                req.body.amount = data.order_amount || data.amount || req.body.amount;
+                // Map status from data if present
+                if (data.status) req.body.status = data.status;
+                // Map transaction ID
+                req.body.transaction_id = data.cregis_id || data.payment_id;
+            }
         }
 
         req.body.reference_id = req.body.third_party_id || req.body.order_id;
