@@ -71,6 +71,8 @@ async function getStats() {
     const oneMonth = 30 * oneDay;
     const oneYear = 365 * oneDay;
 
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
     const sumByPeriod = (items: any[], dateField: string, amountField: string = 'amount') => {
         const stats = { daily: 0, weekly: 0, monthly: 0, yearly: 0, total: 0 };
 
@@ -79,7 +81,7 @@ async function getStats() {
             const diff = now.getTime() - date.getTime();
             const amount = Number(item[amountField]) || 0;
 
-            if (diff <= oneDay) stats.daily += amount;
+            if (date >= startOfDay) stats.daily += amount;
             if (diff <= oneWeek) stats.weekly += amount;
             if (diff <= oneMonth) stats.monthly += amount;
             if (diff <= oneYear) stats.yearly += amount;
@@ -392,7 +394,7 @@ export default async function AdminDashboardPage() {
                                 <thead className="bg-gray-50 border-b border-gray-200">
                                     <tr>
                                         <th className="px-6 py-3 font-semibold text-gray-700">Metric</th>
-                                        <th className="px-6 py-3 font-semibold text-gray-700 text-right">Daily (24h)</th>
+                                        <th className="px-6 py-3 font-semibold text-gray-700 text-right">Daily (Today)</th>
                                         <th className="px-6 py-3 font-semibold text-gray-700 text-right">Weekly (7d)</th>
                                         <th className="px-6 py-3 font-semibold text-gray-700 text-right">Monthly (30d)</th>
                                         <th className="px-6 py-3 font-semibold text-gray-700 text-right">Yearly (365d)</th>
