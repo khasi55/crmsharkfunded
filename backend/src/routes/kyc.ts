@@ -370,7 +370,7 @@ router.post('/update-status', async (req: Request, res: Response) => {
 // ============================================
 
 // GET /api/kyc/admin - List all KYC sessions (admin only)
-router.get('/admin', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
+router.get('/admin', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { data: sessions, error } = await supabase
             .from('kyc_sessions')
@@ -413,7 +413,7 @@ router.get('/admin', authenticate, requireRole(['super_admin', 'admin']), async 
 });
 
 // GET /api/kyc/admin/:id - Get single KYC session details (admin only)
-router.get('/admin/:id', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
+router.get('/admin/:id', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
 
@@ -452,7 +452,7 @@ router.get('/admin/:id', authenticate, requireRole(['super_admin', 'admin']), as
 });
 
 // POST /api/kyc/admin/:id/approve - Manually approve a KYC session
-router.post('/admin/:id/approve', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
+router.post('/admin/:id/approve', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const { document_url, document_type } = req.body as { document_url?: string; document_type?: string };
@@ -511,7 +511,7 @@ router.post('/admin/:id/approve', authenticate, requireRole(['super_admin', 'adm
 });
 
 // POST /api/kyc/admin/:id/reject - Manually reject a KYC session
-router.post('/admin/:id/reject', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
+router.post('/admin/:id/reject', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const { reason } = req.body as { reason?: string };

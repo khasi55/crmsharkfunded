@@ -30,8 +30,8 @@ export function CreateUserButton() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-admin-api-key': 'secure_admin_key_123' // Should match backend key
                 },
+                credentials: 'include',
                 body: JSON.stringify(formData)
             });
 

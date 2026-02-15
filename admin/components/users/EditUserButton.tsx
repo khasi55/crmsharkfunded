@@ -39,8 +39,8 @@ export function EditUserButton({ user }: EditUserButtonProps) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-admin-api-key': 'secure_admin_key_123'
                 },
+                credentials: 'include',
                 body: JSON.stringify({
                     userId: user.id,
                     ...formData

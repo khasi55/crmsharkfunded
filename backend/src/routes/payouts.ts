@@ -223,6 +223,17 @@ router.post('/request', authenticate, resourceIntensiveLimiter, validateRequest(
         const user = req.user!;
         const { amount, method, challenge_id } = req.body;
 
+        // 🛡️ SECURITY INVESTIGATION: Log Request Details
+        console.warn(`[SECURITY AUDIT] Payout Request Attempt:`, JSON.stringify({
+            ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+            userAgent: req.headers['user-agent'],
+            adminKeyHeader: req.headers['x-admin-api-key'] ? 'PRESENT' : 'MISSING',
+            adminEmailHeader: req.headers['x-admin-email'],
+            authUser: user.email,
+            amount: amount,
+            challenge_id: challenge_id
+        }));
+
         // 0. CHECK KYC STATUS (CRITICAL)
         const { data: kycSession } = await supabase
             .from('kyc_sessions')
@@ -512,7 +523,7 @@ router.post('/request', authenticate, resourceIntensiveLimiter, validateRequest(
 // ============================================
 
 // GET /api/payouts/admin - Get all payout requests (admin only)
-router.get('/admin', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin']), async (req: AuthRequest, res: Response) => {
+router.get('/admin', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         // Fetch all payout requests with user profiles
         const { data: requests, error } = await supabase
@@ -571,7 +582,7 @@ router.get('/admin', authenticate, requireRole(['super_admin', 'payouts_admin', 
 });
 
 // GET /api/payouts/admin/:id - Get single payout request details (admin only)
-router.get('/admin/:id', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin']), async (req: AuthRequest, res: Response) => {
+router.get('/admin/:id', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
 
@@ -622,9 +633,20 @@ router.get('/admin/:id', authenticate, requireRole(['super_admin', 'payouts_admi
 });
 
 // PUT /api/payouts/admin/:id/approve - Approve a payout request (admin only)
-router.put('/admin/:id/approve', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin']), async (req: AuthRequest, res: Response) => {
+router.put('/admin/:id/approve', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+        // 🛡️ SECURITY INVESTIGATION: Log Request Details
+        console.warn(`[SECURITY AUDIT] Payout Approval Attempt:`, JSON.stringify({
+            ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+            userAgent: req.headers['user-agent'],
+            adminKeyHeader: req.headers['x-admin-api-key'] ? 'PRESENT' : 'MISSING',
+            adminEmailHeader: req.headers['x-admin-email'],
+            authUser: req.user.email,
+            payoutId: req.params.id
+        }));
+
         const { id } = req.params;
         const { transaction_id } = req.body;
 
@@ -667,7 +689,7 @@ router.put('/admin/:id/approve', authenticate, requireRole(['super_admin', 'payo
 });
 
 // PUT /api/payouts/admin/:id/reject - Reject a payout request (admin only)
-router.put('/admin/:id/reject', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin']), async (req: AuthRequest, res: Response) => {
+router.put('/admin/:id/reject', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
         const { id } = req.params;

@@ -79,10 +79,10 @@ export const mt5AccountCreateSchema = z.object({
 
 export const mt5BalanceAdjustSchema = z.object({
     body: z.object({
-        amount: z.number().positive(),
-        type: z.enum(['deposit', 'withdrawal']),
+        login: z.number(),
+        amount: z.number(),
         comment: z.string().max(100).optional()
-    }).strict()
+    })
 });
 
 export const mt5LeverageChangeSchema = z.object({

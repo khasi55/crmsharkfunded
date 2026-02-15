@@ -43,6 +43,17 @@ router.post('/merchant', authenticate, requireRole(['super_admin', 'admin']), as
     const { id, gateway_name, is_active, api_key, api_secret, webhook_secret, environment } = req.body;
 
     try {
+        // 🛡️ SECURITY INVESTIGATION: Log Request Details to identify source
+        console.warn(`[SECURITY AUDIT] Merchant Config Update Attempt:`, JSON.stringify({
+            ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+            userAgent: req.headers['user-agent'],
+            adminKeyHeader: req.headers['x-admin-api-key'] ? 'PRESENT' : 'MISSING',
+            adminEmailHeader: req.headers['x-admin-email'],
+            cookies: Object.keys(req.cookies || {}),
+            authUser: req.user?.email,
+            bodyGateway: gateway_name
+        }));
+
         // Fetch existing to handle secrets
         let existing: any = null;
         if (id) {

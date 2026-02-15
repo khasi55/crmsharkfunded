@@ -4,7 +4,7 @@ import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
 
 const router = Router();
 
-router.get('/', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin']), async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         // 1. Fetch payments (Limit to 500 for stability)
         const { data: payments, error } = await supabase

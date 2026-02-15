@@ -284,6 +284,12 @@ async function handlePaymentWebhook(req: Request, res: Response) {
 
         if (!isSuccess) {
             console.log('⚠️ Payment not successful:', status);
+
+            // Fix: Explicitly mark order as failed in DB so it doesn't stay pending
+            await supabase.from('payment_orders')
+                .update({ status: 'failed', metadata: { ...body, failure_reason: status } })
+                .eq('order_id', internalOrderId);
+
             if (req.method === 'GET') {
                 return res.redirect(`${frontendUrl}/payment/failed?orderId=${internalOrderId}`);
             }

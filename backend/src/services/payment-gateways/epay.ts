@@ -17,7 +17,7 @@ export class EPayGateway implements PaymentGateway {
 
     constructor() {
         this.merchantId = process.env.EPAY_MID || '976697204360081';
-        this.apiUrl = process.env.EPAY_API_URL || 'https://api.paymentservice.me/v1/stage';
+        this.apiUrl = process.env.EPAY_API_URL || 'https://api.paymentservice.me/v1/auth';
     }
 
     async createOrder(params: CreateOrderParams): Promise<CreateOrderResponse> {

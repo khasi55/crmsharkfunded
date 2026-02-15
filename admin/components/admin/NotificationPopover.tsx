@@ -25,7 +25,7 @@ export function NotificationPopover() {
     const fetchNotifications = async () => {
         try {
             const res = await fetch(`/api/admin/notifications`, {
-                headers: { 'x-admin-api-key': 'sk_admin_2026_sharkfunded_crm_key' }
+                credentials: 'include'
             });
             if (res.ok) {
                 const data = await res.json();
@@ -51,8 +51,8 @@ export function NotificationPopover() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-admin-api-key': 'sk_admin_2026_sharkfunded_crm_key'
                 },
+                credentials: 'include',
                 body: JSON.stringify({ id })
             });
         } catch (error) {
@@ -67,8 +67,8 @@ export function NotificationPopover() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-admin-api-key': 'sk_admin_2026_sharkfunded_crm_key'
                 },
+                credentials: 'include',
                 body: JSON.stringify({ all: true })
             });
         } catch (error) {
@@ -81,7 +81,7 @@ export function NotificationPopover() {
         try {
             await fetch(`/api/admin/notifications/${id}`, {
                 method: 'DELETE',
-                headers: { 'x-admin-api-key': 'sk_admin_2026_sharkfunded_crm_key' }
+                credentials: 'include'
             });
         } catch (error) {
             console.error('Failed to delete', error);

@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { getAdminUser } from "./get-admin-user";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:3001';
-const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'secure_admin_key_123';
+const ADMIN_API_KEY = process.env.ADMIN_API_KEY || '';
 
 /**
  * Standard fetch wrapper for admin server actions.

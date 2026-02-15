@@ -75,10 +75,30 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         if (adminSessionToken) {
             try {
                 const decoded = jwt.verify(adminSessionToken, JWT_SECRET) as any;
+                // console.log(`[Auth] Decoded Admin Token:`, decoded); 
+
                 if (decoded && decoded.id) {
+                    let email = decoded.email;
+
+                    // 🛡️ Fallback: If email is missing in JWT (legacy session?), fetch from DB
+                    if (!email) {
+                        console.warn(`[Auth] Admin JWT missing email. Fetching from DB for ID: ${decoded.id}`);
+                        const { data: adminUser } = await getSupabase()
+                            .from('admin_users')
+                            .select('email')
+                            .eq('id', decoded.id)
+                            .single();
+
+                        if (adminUser?.email) {
+                            email = adminUser.email;
+                        } else {
+                            console.error(`[Auth] Failed to find admin user for ID: ${decoded.id}. Defaulting to fallback.`);
+                        }
+                    }
+
                     req.user = {
                         id: decoded.id,
-                        email: decoded.email || 'admin@sharkfunded.com',
+                        email: email || 'admin@sharkfunded.com',
                         role: decoded.role || 'admin',
                         permissions: decoded.permissions || []
                     };

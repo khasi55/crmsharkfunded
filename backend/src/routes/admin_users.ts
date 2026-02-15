@@ -24,7 +24,7 @@ const supabaseAdmin = createClient(supabaseUrl!, supabaseServiceKey!, {
 });
 
 // POST /api/admin/users/update-email
-router.post('/update-email', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
+router.post('/update-email', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { userId, newEmail } = req.body;
 
@@ -124,7 +124,7 @@ router.post('/create', authenticate, async (req: AuthRequest, res: Response) => 
 });
 
 // GET /api/admin/users/search - Search users for dropdown (limit 50)
-router.get('/search', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
+router.get('/search', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const query = req.query.q as string || '';
 
@@ -157,7 +157,7 @@ router.get('/search', authenticate, requireRole(['super_admin', 'admin']), async
 });
 
 // POST /api/admin/users/update - Update user details
-router.post('/update', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
+router.post('/update', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { userId, full_name, country, phone } = req.body;
 
