@@ -433,6 +433,43 @@ router.get('/admin/:id', authenticate, requireRole(['super_admin', 'admin', 'sub
             return;
         }
 
+        // --- AUTO-HEAL: Check if raw_response is minimal and fetch full data if needed ---
+        const raw = session.raw_response || {};
+        const isMinimal = !raw.id_document && !raw.decision && !raw.full_name && !raw.driver_license && !raw.passport;
+
+        // ensure we have a didit session id to fetch with
+        if (isMinimal && session.didit_session_id) {
+            console.log(`ℹ️ Auto-healing KYC session ${id}: Fetching full data from Didit...`);
+            try {
+                // Lazy load to avoid circular dependency issues if any
+                const { getDiditSession } = require('../lib/didit');
+                const fullData = await getDiditSession(session.didit_session_id);
+
+                if (fullData) {
+                    console.log(`✅ Auto-heal successful for ${id}`);
+
+                    // Update the DB with the new full data so we don't have to fetch again
+                    const { error: updateError } = await supabase
+                        .from('kyc_sessions')
+                        .update({
+                            raw_response: fullData,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', id);
+
+                    if (updateError) {
+                        console.error('Failed to save auto-healed data:', updateError);
+                    } else {
+                        // Update current session object to return the fresh data
+                        session.raw_response = fullData;
+                    }
+                }
+            } catch (healError) {
+                console.error('⚠️ Auto-heal failed:', healError);
+                // Continue with existing data
+            }
+        }
+
         // Manual join for profile
         let profile = null;
         if (session.user_id) {

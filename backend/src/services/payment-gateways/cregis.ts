@@ -137,10 +137,12 @@ export class CregisGateway implements PaymentGateway {
     }
 
     parseWebhookData(body: any): WebhookData {
+        const rawStatus = String(body.status || '').toLowerCase();
+        const isSuccess = body.status === 1 || rawStatus === 'paid' || rawStatus === 'success' || rawStatus === 'paid_over' || body.event_type === 'paid_over';
         return {
             orderId: body.third_party_id,
             paymentId: body.order_id,
-            status: body.status === 1 ? 'success' : 'failed', // 1 usually means success in these APIs
+            status: isSuccess ? 'success' : 'failed',
             amount: Number(body.amount),
             paymentMethod: 'crypto',
             metadata: {}

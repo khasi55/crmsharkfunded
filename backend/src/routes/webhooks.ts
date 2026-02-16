@@ -215,7 +215,7 @@ router.post('/cregis', async (req: Request, res: Response) => {
         req.body.reference_id = req.body.third_party_id || req.body.order_id;
 
         const rawStatus = String(req.body.status || '').toLowerCase();
-        req.body.status = (req.body.status == 1 || rawStatus === 'paid' || rawStatus === 'success' || req.body.payment_status === 'paid') ? 'success' : 'failed';
+        req.body.status = (req.body.status == 1 || rawStatus === 'paid' || rawStatus === 'success' || req.body.payment_status === 'paid' || rawStatus === 'paid_over' || req.body.event_type === 'paid_over') ? 'success' : 'failed';
 
         req.body.gateway = 'cregis';
         req.body.transaction_id = req.body.transaction_id || req.body.order_id || req.body.payment_id; // Cregis Order ID
@@ -277,6 +277,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         const isSuccess =
             statusLower === 'success' ||
             statusLower === 'paid' ||
+            statusLower === 'paid_over' ||
             statusLower === 'verified' ||
             statusLower === 'purchased' ||
             statusLower === 'payment accepted' ||
@@ -409,6 +410,9 @@ async function handlePaymentWebhook(req: Request, res: Response) {
 
                         if (profError) {
                             console.error(`[Payment Webhook] Profile creation failed:`, profError);
+                            // Even if profile fails, we have the auth user ID, so we can try to proceed
+                            finalOrder.user_id = newUserId;
+                            console.log(`[Payment Webhook] Proceeding with user_id ${newUserId} despite profile error.`);
                         } else {
                             console.log(`[Payment Webhook] Created/Ensured Profile for ${newUserId}`);
                             finalOrder.user_id = newUserId;
@@ -529,6 +533,11 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             }
 
 
+
+            if (!finalOrder.user_id) {
+                console.error(`❌ [Payment] Cannot create challenge: No user_id resolved for order ${internalOrderId}`);
+                throw new Error(`Challenge record could not be created: No user_id resolved`);
+            }
 
             const { data: challenge, error: challengeError } = await supabase
                 .from('challenges')

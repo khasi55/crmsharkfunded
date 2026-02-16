@@ -6,12 +6,25 @@ const router = Router();
 
 router.get('/', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
-        // 1. Fetch payments (Limit to 500 for stability)
-        const { data: payments, error } = await supabase
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 50;
+        const status = req.query.status as string;
+        const offset = (page - 1) * limit;
+
+        // 1. Build Query
+        let query = supabase
             .from('payment_orders')
-            .select('*')
+            .select('*', { count: 'exact' })
             .order('created_at', { ascending: false })
-            .limit(500);
+            .range(offset, offset + limit - 1);
+
+        // Apply status filter if provided
+        if (status && status !== 'all') {
+            query = query.eq('status', status);
+        }
+
+        // Execute Query
+        const { data: payments, count, error } = await query;
 
         if (error) {
             console.error('Error fetching admin payments:', error);
@@ -19,7 +32,15 @@ router.get('/', authenticate, requireRole(['super_admin', 'payouts_admin', 'admi
         }
 
         if (!payments || payments.length === 0) {
-            return res.json([]);
+            return res.json({
+                data: [],
+                meta: {
+                    total: 0,
+                    page,
+                    limit,
+                    totalPages: 0
+                }
+            });
         }
 
         // 2. Extract unique user IDs
@@ -67,7 +88,15 @@ router.get('/', authenticate, requireRole(['super_admin', 'payouts_admin', 'admi
             };
         });
 
-        res.json(formattedPayments);
+        res.json({
+            data: formattedPayments,
+            meta: {
+                total: count || 0,
+                page,
+                limit,
+                totalPages: Math.ceil((count || 0) / limit)
+            }
+        });
     } catch (err) {
         console.error('Internal server error in admin payments:', err);
         res.status(500).json({ error: 'Internal server error' });

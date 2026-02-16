@@ -260,7 +260,9 @@ router.post('/assign', authenticate, requireRole(['super_admin', 'admin', 'sub_a
                     assignment_note: note,
                     assignment_image_url: imageUrl,
                     is_competition: !!competitionId,
-                    competition_id: competitionId
+                    competition_id: competitionId,
+                    assigned_by: req.user.email,
+                    assigned_by_id: req.user.id
                 }
             })
             .select()
