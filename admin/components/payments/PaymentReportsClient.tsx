@@ -23,14 +23,24 @@ interface PaymentOrder {
 export function PaymentReportsClient() {
     const [payments, setPayments] = useState<PaymentOrder[]>([]);
     const [loading, setLoading] = useState(true);
+    const [statusFilter, setStatusFilter] = useState("all");
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
     const [searchQuery, setSearchQuery] = useState("");
 
     const fetchPayments = async () => {
+        setLoading(true);
         try {
-            const res = await fetch(`/api/admin/payments`);
+            const queryParams = new URLSearchParams({
+                page: page.toString(),
+                limit: "50",
+                status: statusFilter
+            });
+            const res = await fetch(`/api/admin/payments?${queryParams}`);
             if (res.ok) {
-                const data = await res.json();
-                setPayments(data);
+                const { data, meta } = await res.json();
+                setPayments(data || []);
+                setTotalPages(meta?.totalPages || 1);
             }
         } catch (error) {
             console.error("Failed to fetch payments", error);
@@ -41,8 +51,10 @@ export function PaymentReportsClient() {
 
     useEffect(() => {
         fetchPayments();
-    }, []);
+    }, [page, statusFilter]);
 
+    // Client-side search filtering (on top of server-side pagination/filtering)
+    // Note: Ideally search should also be server-side for large datasets
     const filteredPayments = payments.filter(payment =>
         payment.user_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         payment.user_email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -81,28 +93,45 @@ export function PaymentReportsClient() {
 
     return (
         <div className="space-y-6">
-            {/* Header / Search */}
-            <div className="flex items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <input
-                        type="text"
-                        placeholder="Search by name, email, or order ID..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full rounded-lg bg-gray-50 border border-gray-200 pl-10 pr-4 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                    />
+            {/* Filters & Actions */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+
+                {/* Status Filters */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0">
+                    {['all', 'paid', 'pending', 'failed'].map((status) => (
+                        <button
+                            key={status}
+                            onClick={() => { setStatusFilter(status); setPage(1); }}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium capitalize whitespace-nowrap transition-colors ${statusFilter === status
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                }`}
+                        >
+                            {status}
+                        </button>
+                    ))}
                 </div>
-                <div className="flex items-center gap-4">
-                    <div className="text-sm text-gray-500">
-                        Total: <span className="text-gray-900 font-medium">{filteredPayments.length}</span>
+
+                <div className="flex items-center gap-4 w-full md:w-auto">
+                    {/* Search */}
+                    <div className="relative flex-1 md:w-64">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder="Search current page..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full rounded-lg bg-gray-50 border border-gray-200 pl-10 pr-4 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                        />
                     </div>
+
+                    {/* Export */}
                     <button
                         onClick={handleExport}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium whitespace-nowrap"
                     >
                         <Download className="h-4 w-4" />
-                        Export to CSV
+                        Export
                     </button>
                 </div>
             </div>
@@ -126,13 +155,16 @@ export function PaymentReportsClient() {
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
-                                        Loading payments...
+                                    <td colSpan={8} className="px-6 py-12 text-center text-gray-400">
+                                        <div className="flex flex-col items-center justify-center gap-2">
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                                            Loading payments...
+                                        </div>
                                     </td>
                                 </tr>
                             ) : filteredPayments.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
+                                    <td colSpan={8} className="px-6 py-12 text-center text-gray-400">
                                         No payments found
                                     </td>
                                 </tr>
@@ -186,6 +218,29 @@ export function PaymentReportsClient() {
                             )}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Pagination */}
+                <div className="border-t border-gray-200 bg-gray-50 px-6 py-4 flex items-center justify-between">
+                    <p className="text-sm text-gray-500">
+                        Page <span className="font-medium text-gray-900">{page}</span> of <span className="font-medium text-gray-900">{totalPages}</span>
+                    </p>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                            disabled={page === 1 || loading}
+                            className="px-3 py-1 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Previous
+                        </button>
+                        <button
+                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                            disabled={page === totalPages || loading}
+                            className="px-3 py-1 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Next
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

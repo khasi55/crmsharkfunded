@@ -8,11 +8,11 @@ export default async function AdminsPage() {
     const user = await getAdminUser();
 
     if (!user) {
-        redirect("/admin/login");
+        redirect("/login");
     }
 
     if (user.role !== 'super_admin') {
-        redirect("/admin/dashboard");
+        redirect("/dashboard");
     }
 
     return <AdminsClientPage />;

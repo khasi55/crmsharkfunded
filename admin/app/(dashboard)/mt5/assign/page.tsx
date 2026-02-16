@@ -10,7 +10,7 @@ export default async function AssignAccountPage() {
     return (
         <div className="space-y-6">
             <Link
-                href="/admin/mt5"
+                href="/mt5"
                 className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
             >
                 <ArrowLeft className="h-4 w-4" />

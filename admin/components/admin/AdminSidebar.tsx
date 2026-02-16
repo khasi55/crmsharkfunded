@@ -33,6 +33,7 @@ const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin', 'payouts_admin'] },
     { name: "Users", href: "/users", icon: Users, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'] },
     { name: "Accounts List", href: "/accounts", icon: List, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'] },
+    { name: "Pending Upgrades", href: "/passed-accounts", icon: Trophy, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'] },
     { name: "MT5 Accounts", href: "/mt5", icon: Server, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'] },
     { name: "MT5 Actions", href: "/mt5/actions", icon: Zap, roles: ['super_admin', 'admin', 'sub_admin', 'risk_admin'] },
     { name: "Risk Settings", href: "/mt5-risk", icon: Gauge, roles: ['super_admin', 'admin', 'risk_admin'] },

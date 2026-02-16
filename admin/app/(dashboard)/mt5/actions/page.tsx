@@ -10,11 +10,11 @@ export default async function MT5ActionsPage() {
     const user = await getAdminUser();
 
     if (!user) {
-        redirect("/admin/login");
+        redirect("/login");
     }
 
     if (!ALLOWED_ROLES.includes(user.role)) {
-        redirect("/admin/dashboard");
+        redirect("/dashboard");
     }
 
     return <MT5ActionsClient />;

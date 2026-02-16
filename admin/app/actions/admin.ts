@@ -30,8 +30,8 @@ export async function updateKYCStatus(
 
     console.log(`🛡️ [Audit] ${user.email} updated KYC ${requestId} to ${status}`);
 
-    revalidatePath("/admin/kyc");
-    revalidatePath(`/admin/kyc/${requestId}`);
+    revalidatePath("/kyc");
+    revalidatePath(`/kyc/${requestId}`);
 }
 
 export async function updatePayoutStatus(
@@ -62,6 +62,6 @@ export async function updatePayoutStatus(
 
     console.log(`🛡️ [Audit] ${user.email} updated Payout ${requestId} to ${status}`);
 
-    revalidatePath("/admin/payouts");
-    revalidatePath(`/admin/payouts/${requestId}`);
+    revalidatePath("/payouts");
+    revalidatePath(`/payouts/${requestId}`);
 }

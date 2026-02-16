@@ -11,6 +11,7 @@ const PERMISSION_MAP: Record<string, string> = {
     '/payouts': 'payouts',
     '/payments': 'payments',
     '/accounts': 'accounts list',
+    '/passed-accounts': 'pending upgrades',
     '/mt5/actions': 'mt5 actions',
     '/mt5/assign': 'assign account',
     '/mt5': 'mt5 accounts',

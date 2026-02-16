@@ -30,13 +30,18 @@ export default async function AdminUserDetailsPage({
         { data: certificates },
         { data: kycRequests },
         { data: payoutRequests },
+        { data: paymentOrders },
     ] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", id).single(),
         supabase.from("challenges").select("*").eq("user_id", id).order('created_at', { ascending: false }),
         supabase.from("certificates").select("*").eq("user_id", id),
         supabase.from("kyc_requests").select("*").eq("user_id", id),
         supabase.from("payout_requests").select("*").eq("user_id", id),
+        supabase.from("payment_orders").select("*").eq("user_id", id).eq("status", "paid"),
     ]);
+
+    const totalPaid = (paymentOrders || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    const totalPayouts = (payoutRequests || []).filter(r => ['approved', 'processed'].includes(r.status)).reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
 
     if (!profile) {
         notFound();
@@ -48,7 +53,7 @@ export default async function AdminUserDetailsPage({
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                     <Link
-                        href="/admin/users"
+                        href="/users"
                         className="inline-flex items-center text-sm text-gray-500 hover:text-indigo-600 mb-2 transition-colors"
                     >
                         <ArrowLeft className="h-4 w-4 mr-1" />
@@ -69,7 +74,40 @@ export default async function AdminUserDetailsPage({
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Paid</p>
+                            <p className="text-2xl font-black text-gray-900 mt-1">${totalPaid.toLocaleString()}</p>
+                        </div>
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-50">
+                            <CreditCard className="h-6 w-6 text-orange-600" />
+                        </div>
+                    </div>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Payout</p>
+                            <p className="text-2xl font-black text-emerald-600 mt-1">${totalPayouts.toLocaleString()}</p>
+                        </div>
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50">
+                            <DollarSign className="h-6 w-6 text-emerald-600" />
+                        </div>
+                    </div>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Commission</p>
+                            <p className="text-2xl font-black text-gray-900 mt-1">${(Number(profile.total_commission) || 0).toLocaleString()}</p>
+                        </div>
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50">
+                            <Users className="h-6 w-6 text-indigo-600" />
+                        </div>
+                    </div>
+                </div>
                 <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between">
                         <div>
@@ -84,22 +122,11 @@ export default async function AdminUserDetailsPage({
                 <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Referrals</p>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Referrals</p>
                             <p className="text-2xl font-black text-gray-900 mt-1">{profile.total_referrals || 0}</p>
                         </div>
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50">
-                            <Users className="h-6 w-6 text-indigo-600" />
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Commission</p>
-                            <p className="text-2xl font-black text-gray-900 mt-1">${(Number(profile.total_commission) || 0).toLocaleString()}</p>
-                        </div>
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50">
-                            <DollarSign className="h-6 w-6 text-emerald-600" />
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50">
+                            <Users className="h-6 w-6 text-blue-600" />
                         </div>
                     </div>
                 </div>

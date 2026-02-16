@@ -29,7 +29,7 @@ export default function AdminsClientPage() {
     // Hardcoded list of available permissions based on Sidebar keys
     // We use the lowercase name as the permission key
     const AVAILABLE_PERMISSIONS = [
-        "dashboard", "users", "accounts list", "mt5 accounts", "mt5 actions", "risk settings", "risk violations",
+        "dashboard", "users", "accounts list", "pending upgrades", "mt5 accounts", "mt5 actions", "risk settings", "risk violations",
         "payments", "settings", "assign account", "kyc requests", "payouts",
         "affiliate payouts", "competitions", "coupons", "system health",
         "event scanner", "emails", "admins", "audit logs"
