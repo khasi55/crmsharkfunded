@@ -156,6 +156,9 @@ export default function SettingsPage() {
         try {
             if (activeTab === 'security') {
                 // Validate Password
+                if (!security.current) {
+                    throw new Error("Current password is required");
+                }
                 if (!security.newPass || security.newPass.length < 6) {
                     throw new Error("Password must be at least 6 characters");
                 }
@@ -166,7 +169,10 @@ export default function SettingsPage() {
                 // Call Password Update Endpoint
                 await fetchFromBackend('/api/user/update-password', {
                     method: 'PUT',
-                    body: JSON.stringify({ password: security.newPass })
+                    body: JSON.stringify({
+                        currentPassword: security.current,
+                        newPassword: security.newPass
+                    })
                 });
 
                 setSaveMessage({ type: 'success', text: 'Password updated successfully!' });

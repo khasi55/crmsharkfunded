@@ -576,8 +576,8 @@ function CheckoutContent() {
                             </button>
 
                             {/* EPay Option */}
-                            {/* EPay Option - Removed as per request */}
-                            {/* <button
+                            {/* EPay Option */}
+                            <button
                                 onClick={() => setSelectedGateway("epay")}
                                 className={cn(
                                     "p-8 bg-white border rounded-2xl shadow-sm transition-all text-left",
@@ -595,7 +595,7 @@ function CheckoutContent() {
                                 <div className="mt-4 text-lg font-bold text-blue-600">
                                     ${finalPriceUSD.toFixed(2)}
                                 </div>
-                            </button> */}
+                            </button>
 
                             {/* Cregis Crypto Option */}
                             <button

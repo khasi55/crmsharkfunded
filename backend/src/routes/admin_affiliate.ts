@@ -144,29 +144,55 @@ router.get('/tree', authenticate, requireRole(['super_admin', 'payouts_admin', '
             }
         });
 
-        const allAffiliateCodes = Array.from(affiliateCodeMap.keys());
+        const affiliateIdsForSales = Array.from(affiliateCodeMap.values());
 
-        // 5. Fetch sales for these codes
+        // 5. Fetch sales from direct referrals (even without coupons)
+        const { data: referredUsers } = await supabase
+            .from('profiles')
+            .select('id, referred_by')
+            .in('referred_by', affiliateIdsForSales);
+
+        const referredUserIds = referredUsers?.map(u => u.id) || [];
+        const userToReferrerMap = new Map<string, string>();
+        referredUsers?.forEach(u => userToReferrerMap.set(u.id, u.referred_by!));
+
+        // 6. Fetch all potentially relevant orders
+        // (Either by referral users OR by coupons)
+        const allAffiliateCodesRaw = Array.from(affiliateCodeMap.keys());
+        const allAffiliateCodes = [...new Set([
+            ...allAffiliateCodesRaw,
+            ...allAffiliateCodesRaw.map(c => c.toLowerCase()),
+            ...allAffiliateCodesRaw.map(c => c.toUpperCase()),
+            ...allAffiliateCodesRaw.map(c => c.charAt(0).toUpperCase() + c.slice(1).toLowerCase())
+        ])];
+
+        const { data: orders, error: ordersError } = await supabase
+            .from('payment_orders')
+            .select('amount, coupon_code, user_id')
+            .or(`coupon_code.in.(${allAffiliateCodes.join(',')}),user_id.in.(${referredUserIds.join(',')})`)
+            .eq('status', 'paid');
+
         const salesStatsMap = new Map<string, { volume: number, count: number }>();
-        if (allAffiliateCodes.length > 0) {
-            const { data: orders } = await supabase
-                .from('payment_orders')
-                .select('amount, coupon_code')
-                .in('coupon_code', allAffiliateCodes)
-                .eq('status', 'paid');
+        orders?.forEach(o => {
+            let attributedAffId: string | undefined;
 
-            orders?.forEach(o => {
-                if (o.coupon_code) {
-                    const affId = affiliateCodeMap.get(o.coupon_code.toLowerCase());
-                    if (affId) {
-                        const stats = salesStatsMap.get(affId) || { volume: 0, count: 0 };
-                        stats.volume += Number(o.amount) || 0;
-                        stats.count += 1;
-                        salesStatsMap.set(affId, stats);
-                    }
-                }
-            });
-        }
+            // Priority 1: Coupon Code (Explicit attribution)
+            if (o.coupon_code) {
+                attributedAffId = affiliateCodeMap.get(o.coupon_code.toLowerCase());
+            }
+
+            // Priority 2: Direct Referral (If no coupon or coupon doesn't belong to another affiliate)
+            if (!attributedAffId && o.user_id) {
+                attributedAffId = userToReferrerMap.get(o.user_id);
+            }
+
+            if (attributedAffId) {
+                const stats = salesStatsMap.get(attributedAffId) || { volume: 0, count: 0 };
+                stats.volume += Number(o.amount) || 0;
+                stats.count += 1;
+                salesStatsMap.set(attributedAffId, stats);
+            }
+        });
 
         const tree = affiliates.map(a => {
             const stats = salesStatsMap.get(a.id) || { volume: 0, count: 0 };
@@ -233,16 +259,28 @@ router.get('/tree/:id/referrals', authenticate, requireRole(['super_admin', 'pay
         const referralIds = allReferrals.map(r => r.id);
         const { data: userOrders } = await supabase
             .from('payment_orders')
-            .select('user_id, coupon_code')
+            .select('user_id, coupon_code, order_id, amount, currency, account_size, account_type_name, created_at')
             .in('user_id', referralIds)
             .eq('status', 'paid')
             .not('coupon_code', 'is', null);
 
-        // Map user_id to the most relevant coupon (one belonging to this affiliate or any used)
+        // Map user_id to their orders
+        const userOrdersMap = new Map<string, any[]>();
         const userCouponMap = new Map<string, string>();
+
         userOrders?.forEach(o => {
-            if (o.coupon_code) {
-                // For now, take the first valid one found
+            const orders = userOrdersMap.get(o.user_id) || [];
+            orders.push({
+                order_id: o.order_id,
+                amount: o.amount,
+                currency: o.currency,
+                account_size: o.account_size,
+                account_type_name: o.account_type_name,
+                created_at: o.created_at
+            });
+            userOrdersMap.set(o.user_id, orders);
+
+            if (o.coupon_code && !userCouponMap.has(o.user_id)) {
                 userCouponMap.set(o.user_id, o.coupon_code);
             }
         });
@@ -262,6 +300,7 @@ router.get('/tree/:id/referrals', authenticate, requireRole(['super_admin', 'pay
             ...r,
             coupon_used: userCouponMap.get(r.id) || null,
             account_count: accountCountMap.get(r.id) || 0,
+            sales_details: userOrdersMap.get(r.id) || [],
             accounts: []
         }));
 
@@ -273,21 +312,119 @@ router.get('/tree/:id/referrals', authenticate, requireRole(['super_admin', 'pay
     }
 });
 
-// GET /api/admin/affiliates/tree/user/:id/accounts - Lazy load MT5 accounts
-router.get('/tree/user/:id/accounts', authenticate, requireRole(['super_admin', 'payouts_admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
+// GET /api/admin/affiliates/sales - Get affiliate sales reports
+router.get('/sales', authenticate, requireRole(['super_admin', 'payouts_admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
-        const { id } = req.params;
-        const { data: challenges, error } = await supabase
-            .from('challenges')
-            .select('id, user_id, login, status, plan_type:challenge_type, initial_balance, current_equity, created_at')
-            .eq('user_id', id)
-            .order('created_at', { ascending: false });
+        const page = parseInt(req.query.page as string) || 0;
+        const limit = parseInt(req.query.limit as string) || 20;
+        const search = (req.query.search as string || '').toLowerCase();
 
-        if (error) throw error;
+        console.log(`💰 Fetching Affiliate Sales (Page: ${page}, Limit: ${limit}, Search: ${search})...`);
 
-        res.json({ accounts: challenges || [] });
+        // 1. Fetch total count of paid orders with coupons or potentially associated with affiliates
+        // Note: Narrowing down to orders with coupons for better performance, but ideally we check all paid orders if we check referral_code too.
+        let countQuery = supabase
+            .from('payment_orders')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'paid')
+            .not('coupon_code', 'is', null);
+
+        const { count, error: countError } = await countQuery;
+        if (countError) throw countError;
+
+        // 2. Fetch paginated sales
+        const { data: orders, error: oError } = await supabase
+            .from('payment_orders')
+            .select('*')
+            .eq('status', 'paid')
+            .not('coupon_code', 'is', null)
+            .order('created_at', { ascending: false })
+            .range(page * limit, (page + 1) * limit - 1);
+
+        if (oError) throw oError;
+        if (!orders || orders.length === 0) return res.json({ sales: [], total: 0 });
+
+        // 3. Fetch unique customer profiles for these orders
+        const customerIds = [...new Set(orders.map(o => o.user_id).filter(Boolean))];
+        const profilesMap: Record<string, any> = {};
+        if (customerIds.length > 0) {
+            const { data: customerProfiles } = await supabase
+                .from('profiles')
+                .select('id, email, full_name')
+                .in('id', customerIds);
+
+            customerProfiles?.forEach(p => {
+                profilesMap[p.id] = p;
+            });
+        }
+
+        // 4. Resolve affiliates for these orders
+        const rawCouponCodes = [...new Set(orders.map(o => o.coupon_code).filter(Boolean) as string[])];
+        // Include both original and lowercase/uppercase to be safe for .in() query
+        const couponCodes = [...new Set([
+            ...rawCouponCodes,
+            ...rawCouponCodes.map(c => c.toLowerCase()),
+            ...rawCouponCodes.map(c => c.toUpperCase()),
+            ...rawCouponCodes.map(c => c.charAt(0).toUpperCase() + c.slice(1).toLowerCase())
+        ])];
+
+        // Fetch coupons to find affiliate links
+        const { data: coupons } = await supabase
+            .from('discount_coupons')
+            .select('code, affiliate_id, profiles:affiliate_id (email, full_name)')
+            .in('code', couponCodes);
+
+        // Fetch profiles whose referral_code matches any coupon code used
+        const { data: profileReferrals } = await supabase
+            .from('profiles')
+            .select('id, email, full_name, referral_code')
+            .in('referral_code', couponCodes);
+
+        // Create a lookup map: coupon_code -> affiliate info
+        const affiliateLookup = new Map<string, any>();
+
+        coupons?.forEach(c => {
+            if (c.code && c.profiles) {
+                affiliateLookup.set(c.code.toLowerCase(), c.profiles);
+            }
+        });
+
+        profileReferrals?.forEach(p => {
+            if (p.referral_code) {
+                affiliateLookup.set(p.referral_code.toLowerCase(), {
+                    email: p.email,
+                    full_name: p.full_name
+                });
+            }
+        });
+
+        // 5. Transform data for the frontend
+        let sales = orders.map((o: any) => {
+            const coupon = o.coupon_code?.toLowerCase();
+            const affiliate = coupon ? affiliateLookup.get(coupon) : null;
+            return {
+                ...o,
+                customer: profilesMap[o.user_id] || null,
+                affiliate
+            };
+        });
+
+        // 6. Apply client-side search across joined fields
+        if (search) {
+            sales = sales.filter(s =>
+                s.order_id?.toLowerCase().includes(search) ||
+                s.customer?.email?.toLowerCase().includes(search) ||
+                s.customer?.full_name?.toLowerCase().includes(search) ||
+                s.affiliate?.email?.toLowerCase().includes(search) ||
+                s.affiliate?.full_name?.toLowerCase().includes(search) ||
+                s.coupon_code?.toLowerCase().includes(search)
+            );
+        }
+
+        res.json({ sales, total: count || 0 });
+
     } catch (error: any) {
-        console.error('Fetch user accounts error:', error);
+        console.error('Fetch affiliate sales error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

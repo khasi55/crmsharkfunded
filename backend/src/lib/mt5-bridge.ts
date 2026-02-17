@@ -31,7 +31,10 @@ async function callBridge(endpoint: string, body: any, method = 'POST') {
 
         if (!response.ok) {
             const errText = await response.text();
-            console.error(`❌ [Bridge] HTTP Error ${response.status}: ${errText}`);
+            // Silence 404s as they are common for test/demo accounts and handled by callers
+            if (response.status !== 404) {
+                console.error(`❌ [Bridge] HTTP Error ${response.status}: ${errText}`);
+            }
             throw new Error(`Bridge error: ${errText}`);
         }
 
@@ -39,8 +42,11 @@ async function callBridge(endpoint: string, body: any, method = 'POST') {
         // console.log(`✅ [Bridge] Success (${Date.now() - start}ms)`);
         return data;
     } catch (error: any) {
-        console.error(`❌ [Bridge] ${endpoint} failed:`, error.message);
-        if (error.cause) console.error(`❌ [Bridge] Cause:`, error.cause);
+        // Only log failures that aren't 404 errors
+        if (!error.message.includes('404')) {
+            console.error(`❌ [Bridge] ${endpoint} failed:`, error.message);
+            if (error.cause) console.error(`❌ [Bridge] Cause:`, error.cause);
+        }
         throw error;
     }
 }

@@ -240,27 +240,6 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                                 </div>
                             )}
 
-                            {/* Consistency Check (New) */}
-                            {selectedAccountId && getSelectedAccount()?.consistency?.enabled && (
-                                <div className={`p-3 rounded-lg border flex items-start gap-3 ${getSelectedAccount()?.consistency?.passed ? 'bg-blue-500/10 border-blue-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
-                                    <div className={`p-1 rounded-full ${getSelectedAccount()?.consistency?.passed ? 'bg-blue-500/20 text-blue-400' : 'bg-red-500/20 text-red-400'}`}>
-                                        {getSelectedAccount()?.consistency?.passed ? <CheckCircle size={14} /> : <AlertTriangle size={14} />}
-                                    </div>
-                                    <div>
-                                        <p className={`text-xs font-bold ${getSelectedAccount()?.consistency?.passed ? 'text-blue-400' : 'text-red-400'}`}>
-                                            Consistency Score: {getSelectedAccount()?.consistency?.score.toFixed(1)}%
-                                        </p>
-                                        <p className="text-[10px] text-gray-400 mt-0.5">
-                                            Max allowed single trade profit: {getSelectedAccount()?.consistency?.maxAllowed}%.
-                                            {!getSelectedAccount()?.consistency?.passed && <span className="block mt-1 text-red-300 font-medium">Violation: {getSelectedAccount()?.consistency?.details}</span>}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Method Selection (Hidden as it's single option for now) */}
-                            {/* ... */}
-
                             {/* Amount Input */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-300 mb-2">

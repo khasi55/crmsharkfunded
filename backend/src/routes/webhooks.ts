@@ -780,7 +780,7 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
         const { data: coupon } = await supabase
             .from('discount_coupons')
             .select('affiliate_id')
-            .ilike('code', orderData.coupon_code)
+            .ilike('code', orderData.coupon_code.trim())
             .maybeSingle();
 
         if (coupon?.affiliate_id) {
@@ -809,10 +809,45 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
     log(`✅ Referrer found: ${referrerId}`);
 
 
-    // 2. Calculate Commission (Prioritize custom rate from coupon, fallback to 7% flat)
-    const commissionRate = orderData?.metadata?.commission_rate !== undefined && orderData?.metadata?.commission_rate !== null
-        ? Number(orderData.metadata.commission_rate) / 100
-        : 0.07;
+    // 2. Calculate Commission (Multi-level Fallback)
+    let commissionRate = 0.07; // System Default
+
+    // Level 1: Check Order Metadata (Directly stored during checkout)
+    if (orderData?.metadata?.commission_rate !== undefined && orderData?.metadata?.commission_rate !== null) {
+        commissionRate = Number(orderData.metadata.commission_rate) / 100;
+        log(`💰 Rate from Metadata: ${commissionRate * 100}%`);
+    }
+    // Level 2: Check Coupon Settings (Case-insensitive lookup)
+    else if (orderData?.coupon_code) {
+        const { data: coupon } = await supabase
+            .from('discount_coupons')
+            .select('commission_rate')
+            .ilike('code', orderData.coupon_code.trim())
+            .maybeSingle();
+
+        if (coupon?.commission_rate !== undefined && coupon?.commission_rate !== null) {
+            commissionRate = Number(coupon.commission_rate) / 100;
+            log(`💰 Rate from Coupon Table (${orderData.coupon_code}): ${commissionRate * 100}%`);
+        }
+    }
+
+    // Level 3: Check Affiliate Profile (Custom percentage for this user)
+    if (commissionRate === 0.07) { // Only if we haven't found a better rate yet
+        const { data: affiliate } = await supabase
+            .from('profiles')
+            .select('affiliate_percentage')
+            .eq('id', referrerId)
+            .maybeSingle();
+
+        if (affiliate?.affiliate_percentage !== undefined && affiliate?.affiliate_percentage !== null) {
+            commissionRate = Number(affiliate.affiliate_percentage) / 100;
+            log(`💰 Rate from Affiliate Profile: ${commissionRate * 100}%`);
+        }
+    }
+
+    if (commissionRate === 0.07) {
+        log(`💰 Falling back to System Default Rate: 7%`);
+    }
 
     const commissionAmount = Number((amount * commissionRate).toFixed(2));
     log(`💰 Commission Rate: ${commissionRate * 100}%, Amount: ${commissionAmount}`);

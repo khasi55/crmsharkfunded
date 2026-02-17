@@ -146,8 +146,7 @@ router.post('/upgrade-account', authenticate, requireRole(['super_admin', 'admin
                     status: 'active',
                     metadata: {
                         ...(account.metadata || {}),
-                        upgraded_from: account.id,
-                        upgraded_at: new Date().toISOString()
+                        upgraded_from: account.id
                     }
                 })
                 .select()
@@ -207,11 +206,7 @@ router.post('/upgrade-account', authenticate, requireRole(['super_admin', 'admin
                     challenge_type: nextType,
                     group: mt5Group,
                     status: 'active',
-                    updated_at: new Date().toISOString(),
-                    metadata: {
-                        ...(account.metadata || {}),
-                        last_upgrade_at: new Date().toISOString()
-                    }
+                    updated_at: new Date().toISOString()
                 })
                 .eq('id', accountId)
                 .select()
@@ -250,6 +245,147 @@ router.post('/upgrade-account', authenticate, requireRole(['super_admin', 'admin
 
     } catch (error: any) {
         console.error('Upgrade error:', error);
+        res.status(500).json({ error: 'Internal server error', details: error.message });
+    }
+});
+
+router.post('/breach-account', authenticate, requireRole(['super_admin', 'admin', 'risk_admin']), async (req: AuthRequest, res: Response) => {
+    try {
+        const { accountId, reason, comment } = req.body;
+
+        if (!req.user) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        if (!accountId) {
+            return res.status(400).json({ error: 'Account ID is required' });
+        }
+
+        // Fetch the account
+        const { data: account, error: fetchError } = await supabase
+            .from('challenges')
+            .select('*')
+            .eq('id', accountId)
+            .single();
+
+        if (fetchError || !account) {
+            return res.status(404).json({ error: 'Account not found' });
+        }
+
+        // 1. Update status in Supabase
+        const { error: updateError } = await supabase
+            .from('challenges')
+            .update({
+                status: 'breached',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', accountId);
+
+        if (updateError) {
+            throw new Error(`Failed to update account status: ${updateError.message}`);
+        }
+
+        // 2. Disable MT5 account
+        if (account.login) {
+            disableMT5Account(account.login).catch(err => {
+                console.error(`❌ Bridge failed to disable account ${account.login}:`, err.message);
+            });
+        }
+
+        // 3. Send Email
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('email, full_name')
+            .eq('id', account.user_id)
+            .single();
+
+        if (profile?.email) {
+            EmailService.sendBreachNotification(
+                profile.email,
+                profile.full_name || 'Trader',
+                String(account.login),
+                reason || 'Manual Breach',
+                'Account has been manually breached by administrator.',
+                comment
+            ).catch(err => console.error("Async Email Error in Breach:", err));
+        }
+
+        AuditLogger.warn(req.user.email, `Manually breached account ${account.login}`, { accountId, reason, comment, category: 'Account' });
+
+        res.json({ success: true, message: 'Account breached successfully' });
+
+    } catch (error: any) {
+        console.error('Breach error:', error);
+        res.status(500).json({ error: 'Internal server error', details: error.message });
+    }
+});
+
+router.post('/reject-account', authenticate, requireRole(['super_admin', 'admin', 'risk_admin']), async (req: AuthRequest, res: Response) => {
+    try {
+        const { accountId, reason, comment } = req.body;
+
+        if (!req.user) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        if (!accountId) {
+            return res.status(400).json({ error: 'Account ID is required' });
+        }
+
+        // Fetch the account
+        const { data: account, error: fetchError } = await supabase
+            .from('challenges')
+            .select('*')
+            .eq('id', accountId)
+            .single();
+
+        if (fetchError || !account) {
+            return res.status(404).json({ error: 'Account not found' });
+        }
+
+        // 1. Update status in Supabase
+        const { error: updateError } = await supabase
+            .from('challenges')
+            .update({
+                status: 'disabled', // Rejection of a pass leads to terminal 'disabled' state
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', accountId);
+
+        if (updateError) {
+            throw new Error(`Failed to update account status: ${updateError.message}`);
+        }
+
+        // 2. Disable MT5 account
+        if (account.login) {
+            disableMT5Account(account.login).catch(err => {
+                console.error(`❌ Bridge failed to disable account ${account.login}:`, err.message);
+            });
+        }
+
+        // 3. Send Email
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('email, full_name')
+            .eq('id', account.user_id)
+            .single();
+
+        if (profile?.email) {
+            EmailService.sendRejectNotification(
+                profile.email,
+                profile.full_name || 'Trader',
+                String(account.login),
+                reason || 'Upgrade Rejected',
+                comment
+            ).catch(err => console.error("Async Email Error in Reject:", err));
+        }
+
+        AuditLogger.warn(req.user.email, `Rejected upgrade for account ${account.login}`, { accountId, reason, comment, category: 'Account' });
+
+        res.json({ success: true, message: 'Account upgrade rejected successfully' });
+
+    } catch (error: any) {
+        console.error('Reject error:', error);
         res.status(500).json({ error: 'Internal server error', details: error.message });
     }
 });

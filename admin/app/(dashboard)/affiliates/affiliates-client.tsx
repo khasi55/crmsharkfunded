@@ -29,6 +29,15 @@ interface Account {
     current_equity: number;
 }
 
+interface SaleDetail {
+    order_id: string;
+    amount: number;
+    currency: string;
+    account_size: number | null;
+    account_type_name: string | null;
+    created_at: string;
+}
+
 interface ReferredUser {
     id: string;
     email: string;
@@ -36,6 +45,7 @@ interface ReferredUser {
     created_at: string;
     coupon_used?: string | null;
     account_count: number;
+    sales_details?: SaleDetail[];
     accounts: Account[];
     loadingAccounts?: boolean;
 }
@@ -64,6 +74,7 @@ export default function AdminAffiliatesClient() {
     // Tree State
     const [affiliateTree, setAffiliateTree] = useState<AffiliateNode[]>([]);
     const [loadingTree, setLoadingTree] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [expandedAffiliates, setExpandedAffiliates] = useState<Set<string>>(new Set());
     const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
     const [searchQuery, setSearchQuery] = useState("");
@@ -121,7 +132,9 @@ export default function AdminAffiliatesClient() {
     };
 
     const fetchTree = async () => {
-        setLoadingTree(true);
+        if (affiliateTree.length === 0) setLoadingTree(true);
+        else setIsRefreshing(true);
+
         try {
             const params = new URLSearchParams({
                 page: page.toString(),
@@ -138,6 +151,7 @@ export default function AdminAffiliatesClient() {
             console.error("Error fetching tree:", error);
         } finally {
             setLoadingTree(false);
+            setIsRefreshing(false);
         }
     };
 
@@ -462,7 +476,13 @@ export default function AdminAffiliatesClient() {
                             </div>
 
                             {/* Tree Display */}
-                            <div className="space-y-4">
+                            <div className={cn("space-y-4 transition-opacity duration-200", isRefreshing && "opacity-50 pointer-events-none")}>
+                                {isRefreshing && (
+                                    <div className="flex items-center justify-center py-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium animate-pulse">
+                                        <Loader2 size={12} className="animate-spin mr-2" />
+                                        Updating results...
+                                    </div>
+                                )}
                                 {loadingTree ? (
                                     <div className="flex items-center justify-center p-12">
                                         <Loader2 className="h-6 w-6 animate-spin mr-3" />
@@ -554,13 +574,42 @@ export default function AdminAffiliatesClient() {
                                                                         <div className="flex items-center gap-4">
                                                                             <div className="text-right">
                                                                                 <div className="text-xs text-slate-400">{new Date(user.created_at).toLocaleDateString()}</div>
-                                                                                <div className="text-xs font-medium text-slate-600">
-                                                                                    {user.account_count || 0} Account(s)
+                                                                                <div className="text-xs font-semibold text-emerald-600">
+                                                                                    {(user.sales_details || []).length} Sale(s)
                                                                                 </div>
                                                                             </div>
                                                                             {expandedUsers.has(user.id) ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
                                                                         </div>
                                                                     </div>
+
+                                                                    {/* Sales Details (New Section) */}
+                                                                    {expandedUsers.has(user.id) && (user.sales_details || []).length > 0 && (
+                                                                        <div className="px-3 py-2 border-t border-slate-100 bg-emerald-50/20">
+                                                                            <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2">Detailed Sales</div>
+                                                                            <div className="space-y-2">
+                                                                                {(user.sales_details || []).map((sale, sIdx) => (
+                                                                                    <div key={sIdx} className="flex items-center justify-between text-xs bg-white p-2 rounded border border-emerald-100 shadow-sm">
+                                                                                        <div className="flex items-center gap-3">
+                                                                                            <div className="font-mono text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">
+                                                                                                {sale.order_id}
+                                                                                            </div>
+                                                                                            <div>
+                                                                                                <div className="font-bold text-slate-900">
+                                                                                                    {sale.account_size ? `${(sale.account_size / 1000)}k` : '---'} {sale.account_type_name}
+                                                                                                </div>
+                                                                                                <div className="text-[10px] text-slate-500">
+                                                                                                    {new Date(sale.created_at).toLocaleDateString()}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <div className="font-bold text-emerald-700">
+                                                                                            {sale.currency === 'INR' ? '₹' : '$'}{sale.amount}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
 
                                                                     {/* Accounts List */}
                                                                     {expandedUsers.has(user.id) && (

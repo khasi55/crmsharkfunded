@@ -2,7 +2,7 @@
 import { createAdminClient } from "@/utils/supabase/admin";
 import { SearchInput } from "@/components/admin/SearchInput";
 import { CheckCircle, Trophy } from "lucide-react";
-import UpgradeButton from "@/components/admin/UpgradeButton";
+import PassedAccountActions from "@/components/admin/PassedAccountActions";
 
 export default async function PassedAccountsPage({
     searchParams,
@@ -88,6 +88,7 @@ export default async function PassedAccountsPage({
                             <tr>
                                 <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Login</th>
                                 <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">User</th>
+                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Credentials</th>
                                 <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Type</th>
                                 <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase text-right">Target</th>
                                 <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase text-right">Initial Bal</th>
@@ -111,6 +112,22 @@ export default async function PassedAccountsPage({
                                             </div>
                                             <div className="text-xs text-gray-500 font-mono">
                                                 {account.profiles?.email}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex flex-col gap-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase w-14">Master</span>
+                                                <span className="font-mono text-xs text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                                                    {account.master_password || "-"}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase w-14">Investor</span>
+                                                <span className="font-mono text-xs text-gray-600 bg-gray-50 px-1.5 py-0.5 rounded">
+                                                    {account.investor_password || "-"}
+                                                </span>
                                             </div>
                                         </div>
                                     </td>
@@ -144,17 +161,18 @@ export default async function PassedAccountsPage({
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <UpgradeButton
+                                        <PassedAccountActions
                                             accountId={account.id}
                                             accountLogin={account.login}
                                             upgradedTo={account.upgraded_to}
+                                            currentStatus={account.status}
                                         />
                                     </td>
                                 </tr>
                             ))}
                             {eligibleAccounts?.length === 0 && (
                                 <tr>
-                                    <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan={10} className="px-6 py-12 text-center text-gray-500">
                                         No accounts pending upgrade.
                                     </td>
                                 </tr>

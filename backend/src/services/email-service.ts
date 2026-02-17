@@ -87,7 +87,7 @@ export class EmailService {
     /**
      * Send Breach Notification
      */
-    static async sendBreachNotification(email: string, name: string, login: string, reason: string, description: string) {
+    static async sendBreachNotification(email: string, name: string, login: string, reason: string, description: string, adminComment?: string) {
         const subject = `Account Breach Notification - Account ${login}`;
 
         const html = `
@@ -99,6 +99,7 @@ export class EmailService {
                 <div style="background-color: #fff0f0; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #cc0000;">
                     <p><strong>Violation Type:</strong> ${reason}</p>
                     <p><strong>Details:</strong> ${description}</p>
+                    ${adminComment ? `<p><strong>Admin Note:</strong> ${adminComment}</p>` : ''}
                 </div>
 
                 <p>As a result, your account has been disabled / closed according to our terms of service.</p>
@@ -106,7 +107,34 @@ export class EmailService {
             </div>
         `;
 
-        const text = `Dear ${name},\\n\\nAccount ${login} has breached risk rules.\\n\\nReason: ${reason}\\nDetails: ${description}\\n\\nYour account has been disabled. Contact support for inquiries.`;
+        const text = `Dear ${name},\\n\\nAccount ${login} has breached risk rules.\\n\\nReason: ${reason}\\nDetails: ${description}${adminComment ? `\\nAdmin Note: ${adminComment}` : ''}\\n\\nYour account has been disabled. Contact support for inquiries.`;
+
+        await this.sendEmail(email, subject, html, text);
+    }
+
+    /**
+     * Send Reject Notification
+     */
+    static async sendRejectNotification(email: string, name: string, login: string, reason: string, adminComment?: string) {
+        const subject = `Account Upgrade Rejected - Account ${login}`;
+
+        const html = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ffcccc; border-radius: 10px;">
+                <h2 style="color: #cc0000;">Upgrade Request Rejected</h2>
+                <p>Dear ${name},</p>
+                <p>We regret to inform you that your upgrade request for account <strong>${login}</strong> has been rejected following a review of your trading activity.</p>
+                
+                <div style="background-color: #fff0f0; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #cc0000;">
+                    <p><strong>Reason:</strong> ${reason}</p>
+                    ${adminComment ? `<p><strong>Details:</strong> ${adminComment}</p>` : ''}
+                </div>
+
+                <p>Consequently, your account has been marked as breached / ineligible for further trading.</p>
+                <p>If you have any questions, please contact our support team.</p>
+            </div>
+        `;
+
+        const text = `Dear ${name},\\n\\nYour upgrade request for account ${login} has been rejected.\\n\\nReason: ${reason}${adminComment ? `\\nDetails: ${adminComment}` : ''}\\n\\nYour account has been marked as breached. Contact support for inquiries.`;
 
         await this.sendEmail(email, subject, html, text);
     }

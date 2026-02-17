@@ -66,6 +66,7 @@ const PLATFORMS = [
 
 const PAYMENT_GATEWAYS = [
     { id: "sharkpay", label: "SharkPay", currency: "INR", desc: "Pay in Indian Rupees (₹)", icon: "🇮🇳" },
+    { id: "epay", label: "Card (Epay)", currency: "USD", desc: "Credit/Debit Card", icon: "💳" },
     { id: "cregis", label: "Crypto (Cregis)", currency: "USD", desc: "Pay with BTC, ETH, USDT", icon: "🏆" }
 ];
 

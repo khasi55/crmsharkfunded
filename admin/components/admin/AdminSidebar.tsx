@@ -44,6 +44,7 @@ const navigation = [
     { name: "KYC Requests", href: "/kyc", icon: FileText, roles: ['super_admin', 'admin', 'sub_admin', 'payouts_admin'] },
     { name: "Payouts", href: "/payouts", icon: CreditCard, roles: ['super_admin', 'admin', 'sub_admin', 'payouts_admin'] },
     { name: "Affiliate Payouts", href: "/affiliates", icon: Wallet, roles: ['super_admin', 'admin', 'payouts_admin', 'sub_admin'] },
+    { name: "Sales", href: "/sales", icon: List, roles: ['super_admin', 'admin', 'sub_admin', 'payouts_admin'] },
     { name: "Competitions", href: "/competitions", icon: Trophy, roles: ['super_admin', 'admin', 'sub_admin'] },
     { name: "Coupons", href: "/coupons", icon: Ticket, roles: ['super_admin', 'admin', 'sub_admin'] },
     { name: "System Health", href: "/system-health", icon: Activity, roles: ['super_admin', 'admin'] },
