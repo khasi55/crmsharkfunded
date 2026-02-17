@@ -72,12 +72,13 @@ async function getStats() {
     const oneYear = 365 * oneDay;
 
     // Calculate Start of Day in IST (UTC+5:30)
+    const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+    const getISTDate = (date: Date) => new Date(date.getTime() + IST_OFFSET);
+
     const getISTStartOfDay = () => {
-        const now = new Date();
-        const istOffset = 5.5 * 60 * 60 * 1000;
-        const istTime = new Date(now.getTime() + istOffset);
+        const istTime = getISTDate(new Date());
         istTime.setUTCHours(0, 0, 0, 0);
-        return new Date(istTime.getTime() - istOffset);
+        return new Date(istTime.getTime() - IST_OFFSET);
     };
     const startOfDayIST = getISTStartOfDay();
 
@@ -119,8 +120,8 @@ async function getStats() {
 
     // 5. Chart Data (Time Series)
     const dateMap = new Map<string, { date: string, rawDate: string, revenue: number, payouts: number }>();
-    const getDateKey = (d: Date) => d.toISOString().split('T')[0];
-    const getDisplayDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const getDateKey = (d: Date) => getISTDate(d).toISOString().split('T')[0];
+    const getDisplayDate = (d: Date) => getISTDate(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 
     // Populate with orders
     paidOrders?.forEach(order => {
