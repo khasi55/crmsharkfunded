@@ -114,12 +114,25 @@ router.get('/accounts', authenticate, requireRole(['super_admin', 'admin', 'sub_
                 if (o.order_id) orderMap.set(o.order_id, o);         // Secondary Link (Metadata key)
             });
 
-            const { data: profiles } = await supabase
-                .from('profiles')
-                .select('id, full_name, email')
-                .in('id', userIds);
+            // Batch fetch profiles to avoid HeadersOverflowError (limit is often ~8KB)
+            const BATCH_SIZE = 50;
+            let allProfiles: any[] = [];
 
-            const profileMap = new Map(profiles?.map((p: any) => [p.id, p]));
+            for (let i = 0; i < userIds.length; i += BATCH_SIZE) {
+                const chunk = userIds.slice(i, i + BATCH_SIZE);
+                const { data: profilesChunk, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, email')
+                    .in('id', chunk);
+
+                if (profileError) {
+                    console.error(`[MT5 List] Profile fetch error (chunk ${i}):`, profileError);
+                } else if (profilesChunk) {
+                    allProfiles = [...allProfiles, ...profilesChunk];
+                }
+            }
+
+            const profileMap = new Map(allProfiles.map((p: any) => [p.id, p]));
 
             accountsWithProfiles = challenges.map((c: any) => {
                 // Try to find order by challenge ID first, then by metadata order_id
@@ -136,9 +149,11 @@ router.get('/accounts', authenticate, requireRole(['super_admin', 'admin', 'sub_
                     metadata.payment_method = order.payment_method;     // e.g. 'upi'
                 }
 
+                const profile = profileMap.get(c.user_id);
+
                 return {
                     ...c,
-                    profiles: profileMap.get(c.user_id) || { full_name: 'Unknown', email: 'No email' },
+                    profiles: profile || { full_name: 'Unknown', email: 'No email' },
                     plan_type: metadata.plan_type || c.plan_type,
                     metadata: metadata
                 };

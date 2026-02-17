@@ -77,7 +77,7 @@ router.get('/tree', authenticate, requireRole(['super_admin', 'payouts_admin', '
         const limit = parseInt(req.query.limit as string) || 20;
         const search = (req.query.search as string || '').toLowerCase();
 
-        console.log(`🌳 Fetching Affiliate Tree (Page: ${page}, Limit: ${limit}, Search: ${search})...`);
+
 
         // 1. Fetch total count of potential affiliates
         let countQuery = supabase
@@ -319,7 +319,7 @@ router.get('/sales', authenticate, requireRole(['super_admin', 'payouts_admin', 
         const limit = parseInt(req.query.limit as string) || 20;
         const search = (req.query.search as string || '').toLowerCase();
 
-        console.log(`💰 Fetching Affiliate Sales (Page: ${page}, Limit: ${limit}, Search: ${search})...`);
+
 
         // 1. Fetch total count of paid orders with coupons or potentially associated with affiliates
         // Note: Narrowing down to orders with coupons for better performance, but ideally we check all paid orders if we check referral_code too.

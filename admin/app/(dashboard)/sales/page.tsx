@@ -4,7 +4,7 @@ import AffiliateSalesClient from "./sales-client";
 
 export const dynamic = 'force-dynamic';
 
-const ALLOWED_ROLES = ['super_admin', 'payouts_admin', 'sub_admin'];
+const ALLOWED_ROLES = ['super_admin'];
 
 export default async function SalesPage() {
     const user = await getAdminUser();
