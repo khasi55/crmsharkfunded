@@ -96,18 +96,14 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
 
         const payload = validChallenges.map(c => {
             const initialBalance = Number(c.initial_balance);
-
-            // Normalize challenge group name
             const normalizedGroup = (c.group || '').replace(/\\\\/g, '\\').toLowerCase();
             let rule = riskGroupMap.get(normalizedGroup);
 
             if (!rule) {
-                // Try literal match if normalized failed (just in case)
                 rule = riskGroups.find(g => g.group_name === c.group);
             }
 
             if (!rule) {
-                // Fallback rules
                 const typeStr = (c.challenge_type || '').toLowerCase();
                 if (typeStr.includes('competition')) {
                     rule = { max_drawdown_percent: 11, daily_drawdown_percent: 4 };
@@ -116,17 +112,16 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 }
             }
 
-            const currentBalance = Number(c.current_balance);
             const totalLimit = initialBalance * (1 - (rule.max_drawdown_percent / 100));
             const startOfDayEquity = Number((c as any).start_of_day_equity || initialBalance);
-            // Daily Drawdown: Limit is StartOfDay - (InitialBalance * Percent)
-            // This aligns with RulesService which calculates MaxDailyLoss based on InitialBalance
-            const dailyLimit = startOfDayEquity - (initialBalance * (rule.daily_drawdown_percent / 100));
+
+            // CORRECT FORMULA: Daily Drawdown is % of Start of Day Equity
+            // Limit = SOD Equity * (1 - Daily DD %)
+            // This matches the user's calculation: 10511.08 * 0.96 = 10090.64
+            const dailyLimit = startOfDayEquity * (1 - (rule.daily_drawdown_percent / 100));
 
             // EFFECTIVE LIMIT: stricter of the two (Higher equity value is stricter)
             const effectiveLimit = Math.max(totalLimit, dailyLimit);
-
-
 
             return {
                 login: Number(c.login),
