@@ -113,7 +113,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
             }
 
             const totalLimit = initialBalance * (1 - (rule.max_drawdown_percent / 100));
-            const startOfDayEquity = Number((c as any).start_of_day_equity || initialBalance);
+            const startOfDayEquity = Number((c as any).start_of_day_equity || (c as any).current_equity || initialBalance);
 
             // CORRECT FORMULA: Daily Drawdown is % of Start of Day Equity
             // Limit = SOD Equity * (1 - Daily DD %)
@@ -214,8 +214,8 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 // 1. Total Limit (Static)
                 const totalLimit = initialBalance * (1 - (rule.max_drawdown_percent / 100));
 
-                // 2. Daily Limit (Fixed Amount from Initial Balance)
-                const dailyLimit = startOfDayEquity - (initialBalance * (rule.daily_drawdown_percent / 100));
+                // 2. Daily Limit (Percentage of SOD Equity)
+                const dailyLimit = startOfDayEquity * (1 - (rule.daily_drawdown_percent / 100));
 
                 // Effective Limit
                 const effectiveLimit = Math.max(totalLimit, dailyLimit);

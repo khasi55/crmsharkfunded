@@ -1,7 +1,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
-import { RulesService } from '../services/rules-service';
+import path from 'path';
 
 dotenv.config();
 
@@ -9,77 +9,102 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-    console.error('Missing Supabase credentials');
+    console.error("Missing Supabase credentials");
     process.exit(1);
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function main() {
-    const login = 900909492949;
+async function debugBreachCause(logins: string[]) {
+    console.log(`\n🔍 Investigating Breach Cause for Logins: ${logins.join(', ')}`);
 
-    // 1. Fetch Challenge Details
-    const { data: challenge } = await supabase
-        .from('challenges')
-        .select('*')
-        .eq('login', login)
-        .single();
+    for (const login of logins) {
+        console.log(`\n--- Account: ${login} ---`);
 
-    if (!challenge) {
-        console.error('Challenge not found');
-        return;
+        // 1. Fetch Challenge Data
+        const { data: challenge, error: challengeError } = await supabase
+            .from('challenges')
+            .select('*')
+            .eq('login', login)
+            .single();
+
+        if (challengeError || !challenge) {
+            console.error(`❌ Error fetching challenge ${login}:`, challengeError?.message);
+            continue;
+        }
+
+        console.log(`Status: ${challenge.status}`);
+        console.log(`Group: ${challenge.group}`);
+        console.log(`Initial Balance: ${challenge.initial_balance}`);
+        console.log(`SOD Equity: ${challenge.start_of_day_equity}`);
+        console.log(`Current Equity: ${challenge.current_equity}`);
+        console.log(`Current Balance: ${challenge.current_balance}`);
+
+        // 2. Fetch Risk Group Rules
+        const normalizedGroup = (challenge.group || '').replace(/\\\\/g, '\\').toLowerCase();
+        const { data: riskGroups } = await supabase.from('mt5_risk_groups').select('*');
+        let rule = riskGroups?.find(g => g.group_name.replace(/\\\\/g, '\\').toLowerCase() === normalizedGroup);
+
+        if (!rule) {
+            console.warn(`⚠️ No specific risk group found for ${challenge.group}, using defaults.`);
+            rule = { max_drawdown_percent: 10, daily_drawdown_percent: 5 };
+        } else {
+            console.log(`Rule: Max DD ${rule.max_drawdown_percent}%, Daily DD ${rule.daily_drawdown_percent}%`);
+        }
+
+        // 3. Calculate Limits
+        const initialBalance = Number(challenge.initial_balance);
+        const sodEquity = Number(challenge.start_of_day_equity ?? initialBalance);
+
+        const totalLimit = initialBalance * (1 - (rule.max_drawdown_percent / 100));
+        const dailyLimit = sodEquity * (1 - (rule.daily_drawdown_percent / 100));
+        const effectiveLimit = Math.max(totalLimit, dailyLimit);
+
+        console.log(`Calculated Total Limit: ${totalLimit}`);
+        console.log(`Calculated Daily Limit: ${dailyLimit} (Based on SOD: ${sodEquity})`);
+        console.log(`Effective Limit (Stricter): ${effectiveLimit}`);
+        console.log(`Is Locally Breached? ${challenge.current_equity < effectiveLimit}`);
+
+        // 4. Check Violations
+        const { data: violations } = await supabase
+            .from('risk_violations')
+            .select('*')
+            .eq('challenge_id', challenge.id)
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+        if (violations && violations.length > 0) {
+            console.log(`\nRecent Violations:`);
+            violations.forEach(v => {
+                console.log(`- [${v.created_at}] ${v.violation_type}: ${JSON.stringify(v.details)}`);
+            });
+        } else {
+            console.log(`\nNo recent violations found in risk_violations.`);
+        }
+
+        // 5. Check System Logs
+        const { data: systemLogs } = await supabase
+            .from('system_logs')
+            .select('*')
+            .ilike('message', `%${login}%`)
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        if (systemLogs && systemLogs.length > 0) {
+            console.log(`\nRecent System Logs:`);
+            systemLogs.forEach(l => {
+                console.log(`- [${l.created_at}] [${l.level}] ${l.message}`);
+                if (l.details) {
+                    console.log(`  Details: ${JSON.stringify(l.details)}`);
+                }
+            });
+        }
     }
-
-    console.log('\n--- Challenge Details ---');
-    console.log('ID:', challenge.id);
-    console.log('Initial Balance:', challenge.initial_balance);
-    console.log('Current Equity:', challenge.current_equity);
-    console.log('Start of Day Equity:', challenge.start_of_day_equity);
-    console.log('Group:', challenge.group);
-
-    // 2. Fetch Risk Rules to Calculate Limits
-    console.log('\n--- Limit Calculation ---');
-
-    // Manual Calculation logic mirroring risk-scheduler.ts
-    const { data: riskGroups } = await supabase.from('mt5_risk_groups').select('*');
-    const riskGroupMap = new Map(riskGroups?.map(g => [g.group_name.replace(/\\\\/g, '\\').toLowerCase(), g]) || []);
-
-    let rule = riskGroupMap.get((challenge.group || '').replace(/\\\\/g, '\\').toLowerCase());
-    if (!rule) rule = riskGroups?.find(g => g.group_name === challenge.group);
-    if (!rule) {
-        rule = { max_drawdown_percent: 10, daily_drawdown_percent: 5 }; // Fallback
-        console.log('Using Fallback Rules');
-    } else {
-        console.log('Using Group Rules:', rule.mt5_group_name);
-    }
-
-    const initialBalance = Number(challenge.initial_balance);
-    const startOfDayEquity = Number(challenge.start_of_day_equity || initialBalance);
-
-    const totalLimit = initialBalance * (1 - (rule.max_drawdown_percent / 100));
-    const dailyLimit = startOfDayEquity - (initialBalance * (rule.daily_drawdown_percent / 100));
-    const effectiveLimit = Math.max(totalLimit, dailyLimit);
-
-    console.log('Max Drawdown %:', rule.max_drawdown_percent);
-    console.log('Daily Drawdown %:', rule.daily_drawdown_percent);
-    console.log('Total Limit:', totalLimit);
-    console.log('Daily Limit:', dailyLimit);
-    console.log('Effective Limit (Stricter):', effectiveLimit);
-
-    console.log('---------------------------');
-    if (Number(challenge.current_equity) < effectiveLimit) {
-        console.log(`🚨 BREACH CONFIRMED: Equity ${challenge.current_equity} < Limit ${effectiveLimit}`);
-        console.log(`Reason: ${effectiveLimit === totalLimit ? 'Max Drawdown' : 'Daily Drawdown'}`);
-    } else {
-        console.log(`✅ NO MAX LOSS BREACH: Equity ${challenge.current_equity} >= Limit ${effectiveLimit}`);
-    }
-
-    // 3. Check for Triggers
-    console.log('\n--- DB Triggers Check ---');
-    // Note: We can't query information_schema easily via Supabase JS client without rpc or raw query if permissions allow.
-    // We'll try to use a raw query if postgres function exists, otherwise relying on manual inspection or psql if available.
-    // For now, let's just inspect if there are any suspicious columns in advanced_risk_flags
-
 }
 
-main();
+const logins = process.argv.slice(2);
+if (logins.length === 0) {
+    debugBreachCause(['900909492933', '900909492934']);
+} else {
+    debugBreachCause(logins);
+}

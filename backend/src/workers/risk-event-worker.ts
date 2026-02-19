@@ -143,7 +143,7 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
 
     const totalLimit = initialBalance * (1 - (rule.max_drawdown_percent / 100));
     // Fallback to initial_balance since DB column is missing
-    const startOfDayEquity = Number((challenge as any).start_of_day_equity || initialBalance);
+    const startOfDayEquity = Number((challenge as any).start_of_day_equity || (challenge as any).current_equity || initialBalance);
     const dailyLimit = startOfDayEquity * (1 - (rule.daily_drawdown_percent / 100));
     const effectiveLimit = Math.max(totalLimit, dailyLimit);
 
