@@ -126,7 +126,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
             return {
                 login: Number(c.login),
                 min_equity_limit: effectiveLimit,
-                disable_account: true,
+                disable_account: false, // Maintain passive mode
                 close_positions: false
             };
         });
@@ -208,160 +208,8 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 const initialBalance = Number(challenge.initial_balance);
                 const currentBalance = Number(res.balance);
 
-                // --- LIMIT RECALCULATION (Local Validation) ---
-                const startOfDayEquity = Number((challenge as any).start_of_day_equity || initialBalance);
-
-                // 1. Total Limit (Static)
-                const totalLimit = initialBalance * (1 - (rule.max_drawdown_percent / 100));
-
-                // 2. Daily Limit (Percentage of SOD Equity)
-                const dailyLimit = startOfDayEquity * (1 - (rule.daily_drawdown_percent / 100));
-
-                // Effective Limit
-                const effectiveLimit = Math.max(totalLimit, dailyLimit);
-
-                // LOCAL BREACH OVERRIDE/VALIDATION
-                if (res.equity < effectiveLimit) {
-                    if (challenge.status !== 'breached' && challenge.status !== 'failed' && challenge.status !== 'disabled') {
-
-                        // FIX: FRESH DB CHECK to prevent duplicate emails (Race condition with Python Webhook)
-                        // If Webhook beat us to it, we should skip sending another email.
-                        const { data: freshStatus } = await supabase
-                            .from('challenges')
-                            .select('status')
-                            .eq('id', challenge.id)
-                            .single();
-
-                        if (freshStatus && (freshStatus.status === 'breached' || freshStatus.status === 'failed')) {
-                            if (DEBUG) console.log(`⏩ [RiskScheduler] Skipping breach action for ${res.login} - Already breached in DB.`);
-                            continue; // Skip processing this breach
-                        }
-
-                        updateData.status = 'breached';
-                        if (DEBUG) console.log(` LOCAL BREACH CONFIRMED: Account ${res.login}. Equity: ${res.equity} < Limit: ${effectiveLimit}`);
-
-                        systemLogs.push({
-                            source: 'RiskScheduler',
-                            level: 'ERROR',
-                            message: `Risk Breach (Local): Account ${res.login} disabled. Equity: ${res.equity}`,
-                            details: { login: res.login, violation: 'max_loss', limit: effectiveLimit }
-                        });
-
-                        violationLogs.push({
-                            challenge_id: challenge.id,
-                            user_id: challenge.user_id,
-                            violation_type: 'max_loss_breach',
-                            details: {
-                                equity: res.equity,
-                                balance: res.balance,
-                                limit: effectiveLimit,
-                                timestamp: new Date()
-                            }
-                        });
-
-                        // Async Email
-                        try {
-                            const { data: { user } } = await supabase.auth.admin.getUserById(challenge.user_id);
-                            if (user && user.email) {
-                                EmailService.sendBreachNotification(
-                                    user.email,
-                                    user.user_metadata?.full_name || 'Trader',
-                                    String(res.login),
-                                    'Max Loss Limit Exceeded',
-                                    `Equity (${res.equity}) dropped below Limit (${effectiveLimit})`
-                                ).catch(e => console.error(e));
-                            }
-                        } catch (e) { console.error(e) }
-                    }
-                }
-
-                // --- PROFIT TARGET CHECK ---
-                // Fetch dynamic rules for this challenge
-                const { RulesService } = await import('./rules-service');
-                const rules = await RulesService.getRules(challenge.group, challenge.challenge_type);
-                const normalizedType = (challenge.challenge_type || '').toLowerCase();
-                const maxTotalLossPercent = rules.max_total_loss_percent;
-                const maxDailyLossPercent = rules.max_daily_loss_percent;
-                const profitTargetPercent = rules.profit_target_percent;
-                if (DEBUG) console.log(`[RulesService] Resolved Rules for '${normalizedType}': Max=${maxTotalLossPercent}%, Daily=${maxDailyLossPercent}%, Profit=${profitTargetPercent}% (Source: DB)`);
-
-                if (profitTargetPercent > 0) {
-                    const initialBalance = Number(challenge.initial_balance);
-                    const targetEquity = initialBalance + (initialBalance * (profitTargetPercent / 100));
-
-                    if (res.equity >= targetEquity) {
-                        if (challenge.status === 'active' || challenge.status === 'ongoing') {
-                            updateData.status = 'passed';
-
-                            systemLogs.push({
-                                source: 'RiskScheduler',
-                                level: 'INFO',
-                                message: `Profit Target Met: Account ${res.login} passed. Equity: ${res.equity}`,
-                                details: { login: res.login, event: 'profit_target_reached', target_equity: targetEquity }
-                            });
-
-                            // Send Pass Email
-                            try {
-                                const { data: { user } } = await supabase.auth.admin.getUserById(challenge.user_id);
-                                if (user && user.email) {
-                                    if (DEBUG) console.log(` [RiskScheduler] Sending pass email to ${user.email} for account ${res.login}`);
-                                    EmailService.sendPassNotification(
-                                        user.email,
-                                        user.user_metadata?.full_name || 'Trader',
-                                        String(res.login),
-                                        challenge.challenge_type || 'Challenge Phase'
-                                    ).catch(e => console.error(e));
-                                }
-                            } catch (err) { console.error(err) }
-                        }
-                    }
-                }
-
-                // If breached, fail the account
-                const normalizedStatus = res.status?.toLowerCase();
-                if (normalizedStatus === 'breached' || normalizedStatus === 'failed') {
-                    updateData.status = 'breached';
-
-                    // Only log if it wasn't already failed/breached
-                    if (challenge.status !== 'breached' && challenge.status !== 'failed') {
-                        if (DEBUG) console.log(` BREACH CONFIRMED: Account ${res.login}. Equity: ${res.equity}`);
-
-                        systemLogs.push({
-                            source: 'RiskScheduler',
-                            level: 'ERROR',
-                            message: `Risk Breach: Account ${res.login} disabled. Equity: ${res.equity}`,
-                            details: { login: res.login, violation: 'max_loss' }
-                        });
-
-                        violationLogs.push({
-                            challenge_id: challenge.id,
-                            user_id: challenge.user_id,
-                            violation_type: 'max_loss_breach',
-                            details: {
-                                equity: res.equity,
-                                balance: res.balance,
-                                timestamp: new Date()
-                            }
-                        });
-
-                        // Send Breach Email (Injecting here to cover race condition)
-                        try {
-                            const { data: { user } } = await supabase.auth.admin.getUserById(challenge.user_id);
-                            if (user && user.email) {
-                                if (DEBUG) console.log(` [RiskScheduler] Sending breach email to ${user.email} for account ${res.login}`);
-                                await EmailService.sendBreachNotification(
-                                    user.email,
-                                    user.user_metadata?.full_name || 'Trader',
-                                    String(res.login),
-                                    'Max Loss Limit Exceeded',
-                                    `Equity (${res.equity}) dropped below Limit`
-                                );
-                            }
-                        } catch (emailErr) {
-                            console.error('[RiskScheduler] Failed to send breach email:', emailErr);
-                        }
-                    }
-                }
+                // (Passive Sync: We no longer perform local risk breach or profit target logic here)
+                // (This prevents false breaches and conflicting status updates with the Python Risk Engine)
 
                 updatesToUpsert.push(updateData);
             }
@@ -372,12 +220,15 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
             const equityUpdates = updatesToUpsert.filter(u => !u.status);
             const statusUpdates = updatesToUpsert.filter(u => u.status);
 
+            /* 
             if (statusUpdates.length > 0) {
                 if (DEBUG) console.log(` Committing ${statusUpdates.length} STATUS CHANGES to DB.`);
                 const { error } = await supabase.from('challenges').upsert(statusUpdates);
                 if (error) console.error(" Bulk status update failed:", error.message);
             }
+            */
 
+            /*
             if (equityUpdates.length > 0) {
                 // For equity updates, we MUST NOT include 'status' in the payload
                 // But upsert might require all fields depending on RLS/Constraints? 
@@ -388,10 +239,13 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 const { error } = await supabase.from('challenges').upsert(equityUpdates);
                 if (error) console.error(" Bulk equity update failed:", error.message);
             }
+            */
 
+            /*
             // 2. Bulk Insert Logs
             if (systemLogs.length > 0) await supabase.from('system_logs').insert(systemLogs);
             if (violationLogs.length > 0) await supabase.from('risk_violations').insert(violationLogs);
+            */
 
 
 
