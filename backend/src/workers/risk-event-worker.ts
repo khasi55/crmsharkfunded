@@ -153,9 +153,10 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
         current_equity: newEquity
     };
 
+    /*
     if (newEquity < effectiveLimit && challenge.status !== 'failed') {
-        console.log(`🛑 BREACH DETECTED (Event): Account ${login}. Equity: ${newEquity} < Limit: ${effectiveLimit}`);
-        updateData.status = 'failed';
+        if (DEBUG) console.log(`🛑 BREACH DETECTED (Event): Account ${login}. Equity: ${newEquity} < Limit: ${effectiveLimit}`);
+        // updateData.status = 'failed';
 
         // Log Violation
         await supabase.from('risk_violations').insert({
@@ -166,30 +167,35 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
         });
 
         // 🚨 CRITICAL: Immediately Disable Account on Bridge
+        // DISABLED: User requested bridge handle this autonomously (2026-02-20)
+        /*
         try {
             if (DEBUG) console.log(`🔌 [RiskEvent] Disabling account ${login} on MT5 Bridge...`);
             await disableMT5Account(login);
         } catch (bridgeErr) {
             console.error(`❌ [RiskEvent] Failed to disable account ${login} on Bridge:`, bridgeErr);
         }
+        */
 
-        // Send Breach Email
-        try {
-            const { data: { user } } = await supabase.auth.admin.getUserById(challenge.user_id);
-            if (user && user.email) {
-                if (DEBUG) console.log(`📧 Sending breach email to ${user.email} for account ${login}`);
-                await EmailService.sendBreachNotification(
-                    user.email,
-                    user.user_metadata?.full_name || 'Trader',
-                    String(login),
-                    'Max Loss Limit Exceeded',
-                    `Equity (${newEquity}) dropped below Limit (${effectiveLimit})`
-                );
-            }
-        } catch (emailError) {
-            console.error('🔥 Failed to send breach email:', emailError);
+    /*
+    // Send Breach Email
+    try {
+        const { data: { user } } = await supabase.auth.admin.getUserById(challenge.user_id);
+        if (user && user.email) {
+            if (DEBUG) console.log(`📧 Sending breach email to ${user.email} for account ${login}`);
+            await EmailService.sendBreachNotification(
+                user.email,
+                user.user_metadata?.full_name || 'Trader',
+                String(login),
+                'Max Loss Limit Exceeded',
+                `Equity (${newEquity}) dropped below Limit (${effectiveLimit})`
+            );
         }
+    } catch (emailError) {
+        console.error('🔥 Failed to send breach email:', emailError);
     }
+}
+*/
 
     // 6. Behavioral Risk Checks (Martingale, Hedging, Tick Scalping)
     try {
@@ -341,7 +347,8 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
     }
 
     // 7. Commit Updates
-    await supabase.from('challenges').update(updateData).eq('id', challenge.id);
+    // DISABLED: Let bridge handle equity/balance updates and use webhooks for breaches (2026-02-20)
+    // await supabase.from('challenges').update(updateData).eq('id', challenge.id);
 
     // console.log(`✅ Processed event for ${login} in ${Date.now() - startTime}ms`);
 }

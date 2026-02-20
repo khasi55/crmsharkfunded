@@ -8,6 +8,11 @@ import traceback
 import subprocess
 import os
 import json
+import requests
+
+# Webhook Config for CRM
+CRM_WEBHOOK_URL = os.environ.get("CRM_WEBHOOK_URL", "https://api.sharkfunded.co/api/mt5/webhook")
+MT5_WEBHOOK_SECRET = os.environ.get("MT5_WEBHOOK_SECRET", "")
 
 app = FastAPI()
 
@@ -932,6 +937,25 @@ def check_bulk(requests: List[StopOutRequest]):
                     "balance": balance,
                     "actions": actions
                 })
+
+                # 3. Webhook to CRM (Notify Breach)
+                try:
+                    webhook_payload = {
+                        "event": "account_breached",
+                        "login": req.login,
+                        "reason": f"System Enforcement Breach: Eq {equity} <= Limit {req.min_equity_limit}",
+                        "equity": equity,
+                        "balance": balance,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                    headers = {}
+                    if MT5_WEBHOOK_SECRET:
+                        headers['x-webhook-secret'] = MT5_WEBHOOK_SECRET
+                        
+                    requests.post(CRM_WEBHOOK_URL, json=webhook_payload, headers=headers, timeout=5)
+                    print(f"📧 Webhook sent for {req.login}")
+                except Exception as we:
+                    print(f"❌ Webhook Failed for {req.login}: {we}")
             else:
                 results.append({
                     "login": req.login,
