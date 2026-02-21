@@ -360,4 +360,88 @@ Shark Funded Team
             await this.sendEmail(email, subject, html, 'Your invite (QR generation failed, please contact support).');
         }
     }
+
+    /**
+     * Send Payout Requested Notification
+     */
+    static async sendPayoutRequestedNotice(email: string, name: string, amount: number, method: string) {
+        const subject = `Payout Request Received - ${this.FROM_NAME}`;
+
+        const html = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                <h2 style="color: #333;">Payout Request Received</h2>
+                <p>Dear ${name},</p>
+                <p>We have received your payout request. Our team will review it shortly. Here are the details:</p>
+                
+                <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                    <p><strong>Amount:</strong> $${amount.toFixed(2)}</p>
+                    <p><strong>Method:</strong> ${method}</p>
+                    <p><strong>Status:</strong> Pending Review</p>
+                </div>
+
+                <p>Review typically takes 24-48 business hours. You will receive another email once your request has been processed.</p>
+                
+                <p style="margin-top: 30px; font-size: 12px; color: #888;">
+                    If you did not request this payout, please contact our support team immediately.
+                </p>
+            </div>
+        `;
+
+        const text = `Dear ${name},\n\nWe have received your payout request for $${amount.toFixed(2)} via ${method}. Status: Pending Review.\n\nOur team will review your request within 24-48 business hours.`;
+
+        await this.sendEmail(email, subject, html, text);
+    }
+
+    /**
+     * Send Payout Approved Notification
+     */
+    static async sendPayoutApprovedNotice(email: string, name: string, amount: number, transactionId: string) {
+        const subject = `Payout Request Approved! - ${this.FROM_NAME}`;
+
+        const html = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #d4edda; border-radius: 10px;">
+                <h2 style="color: #155724;">Payout Approved</h2>
+                <p>Dear ${name},</p>
+                <p>Great news! Your payout request has been approved and processed.</p>
+                
+                <div style="background-color: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
+                    <p><strong>Amount:</strong> $${amount.toFixed(2)}</p>
+                    <p><strong>Transaction ID:</strong> ${transactionId}</p>
+                    <p><strong>Status:</strong> Approved & Processed ✅</p>
+                </div>
+
+                <p>The funds should reach your designated account shortly depending on the payment method's processing time.</p>
+                <p>Thank you for trading with SharkFunded!</p>
+            </div>
+        `;
+
+        const text = `Dear ${name},\n\nYour payout request for $${amount.toFixed(2)} has been approved and processed. Transaction ID: ${transactionId}.\n\nThank you for trading with SharkFunded!`;
+
+        await this.sendEmail(email, subject, html, text);
+    }
+
+    /**
+     * Send Payout Rejected Notification
+     */
+    static async sendPayoutRejectedNotice(email: string, name: string, amount: number, reason: string) {
+        const subject = `Payout Request Update - ${this.FROM_NAME}`;
+
+        const html = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ffcccc; border-radius: 10px;">
+                <h2 style="color: #cc0000;">Payout Request Rejected</h2>
+                <p>Dear ${name},</p>
+                <p>We regret to inform you that your payout request for <strong>$${amount.toFixed(2)}</strong> has been rejected following a review.</p>
+                
+                <div style="background-color: #fff0f0; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #cc0000;">
+                    <p><strong>Reason:</strong> ${reason}</p>
+                </div>
+
+                <p>If you believe this is an error or have any questions about the rejection reason, please contact our support team.</p>
+            </div>
+        `;
+
+        const text = `Dear ${name},\n\nYour payout request for $${amount.toFixed(2)} has been rejected.\n\nReason: ${reason}\n\nPlease contact support for more information.`;
+
+        await this.sendEmail(email, subject, html, text);
+    }
 }

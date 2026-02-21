@@ -60,11 +60,21 @@ export const walletUpdateSchema = z.object({
     }).strict()
 });
 
+export const bankDetailsUpdateSchema = z.object({
+    body: z.object({
+        account_holder_name: z.string().min(2).max(100),
+        bank_name: z.string().min(2).max(100),
+        account_number: z.string().min(5).max(50),
+        ifsc_code: z.string().min(4).max(20).optional().nullable(),
+        swift_code: z.string().min(4).max(20).optional().nullable(),
+    }).strict()
+});
+
 export const payoutRequestSchema = z.object({
     body: z.object({
         amount: z.number().positive('Amount must be positive'),
-        walletAddress: z.string().min(10, 'Inavlid wallet address').max(200).optional(),
-        method: z.string().optional().default('USDT_TRC20'),
+        walletAddress: z.string().min(10, 'Invalid wallet address').max(200).optional(),
+        method: z.enum(['crypto', 'bank']).optional().default('crypto'),
         challenge_id: z.string().uuid('Invalid challenge ID')
     }).strict()
 });
