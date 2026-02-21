@@ -1,27 +1,9 @@
 import { Router, Response } from 'express';
-import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
 import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
 import { AuditLogger } from '../lib/audit-logger';
-
-dotenv.config();
+import { supabase } from '../lib/supabase';
 
 const router = Router();
-
-// Admin Supabase Client (Service Role)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-    console.error("❌ Missing Supabase Admin Credentials in admin_users.ts");
-}
-
-const supabaseAdmin = createClient(supabaseUrl!, supabaseServiceKey!, {
-    auth: {
-        autoRefreshToken: false,
-        persistSession: false
-    }
-});
 
 // POST /api/admin/users/update-email
 router.post('/update-email', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
@@ -33,13 +15,13 @@ router.post('/update-email', authenticate, requireRole(['super_admin', 'admin', 
         }
 
         // Fetch user email for logging
-        const { data: userToUpdate } = await supabaseAdmin.from('profiles').select('email').eq('id', userId).single();
+        const { data: userToUpdate } = await supabase.from('profiles').select('email').eq('id', userId).single();
         const userEmail = userToUpdate?.email || userId;
 
         AuditLogger.info(req.user?.email || 'admin', `Updated user email for ${userEmail} to ${newEmail}`, { userId, newEmail, category: 'User' });
 
         // 1. Update in Supabase Auth
-        const { data: user, error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+        const { data: user, error: authError } = await supabase.auth.admin.updateUserById(
             userId,
             { email: newEmail, email_confirm: true }
         );
@@ -50,7 +32,7 @@ router.post('/update-email', authenticate, requireRole(['super_admin', 'admin', 
         }
 
         // 2. Update in Profiles Table
-        const { error: dbError } = await supabaseAdmin
+        const { error: dbError } = await supabase
             .from('profiles')
             .update({ email: newEmail })
             .eq('id', userId);
@@ -80,7 +62,7 @@ router.post('/create', authenticate, async (req: AuthRequest, res: Response) => 
         AuditLogger.info(req.user?.email || 'admin', `Created new user: ${email}`, { email, category: 'User' });
 
         // 1. Create User in Supabase Auth
-        const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
             email,
             password,
             email_confirm: true, // Auto-confirm email since admin created it
@@ -107,7 +89,7 @@ router.post('/create', authenticate, async (req: AuthRequest, res: Response) => 
             role: 'user' // Default role
         };
 
-        const { error: dbError } = await supabaseAdmin
+        const { error: dbError } = await supabase
             .from('profiles')
             .upsert(profileData);
 
@@ -128,7 +110,7 @@ router.get('/search', authenticate, requireRole(['super_admin', 'admin', 'sub_ad
     try {
         const query = req.query.q as string || '';
 
-        let dbQuery = supabaseAdmin
+        let dbQuery = supabase
             .from('profiles')
             .select('id, full_name, email, referral_code')
             .limit(100);
@@ -166,13 +148,13 @@ router.post('/update', authenticate, requireRole(['super_admin', 'admin', 'sub_a
         }
 
         // Fetch user email for logging
-        const { data: targetProfile } = await supabaseAdmin.from('profiles').select('email').eq('id', userId).single();
+        const { data: targetProfile } = await supabase.from('profiles').select('email').eq('id', userId).single();
         const targetEmail = targetProfile?.email || userId;
 
         AuditLogger.info(req.user?.email || 'admin', `Updated details for user ${targetEmail}`, { userId, category: 'User' });
 
         // 1. Update Profile in Public Table
-        const { error: dbError } = await supabaseAdmin
+        const { error: dbError } = await supabase
             .from('profiles')
             .update({ full_name, country, phone, phone_number: phone })
             .eq('id', userId);
@@ -183,7 +165,7 @@ router.post('/update', authenticate, requireRole(['super_admin', 'admin', 'sub_a
         }
 
         // 2. Update Supabase Auth Metadata (Best effort)
-        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+        const { error: authError } = await supabase.auth.admin.updateUserById(
             userId,
             { user_metadata: { full_name, country, phone } }
         );

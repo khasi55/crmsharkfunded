@@ -1,14 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
 import { syncQueue } from '../lib/queue';
-
-dotenv.config();
+import { supabase } from '../lib/supabase';
 
 const DEBUG = process.env.DEBUG === 'true'; // STRICT: Silence dispatcher logs in dev
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 

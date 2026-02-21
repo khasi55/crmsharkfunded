@@ -1,40 +1,5 @@
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
-import path from 'path';
-
-const getSupabaseClient = (): SupabaseClient | null => {
-    dotenv.config({ path: path.join(process.cwd(), '.env') });
-
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-        console.error("Missing Supabase credentials for EventEntryService - Operations will fail");
-        // console.trace("Trace for EventEntryService init"); // Uncomment to debug who calls this eagerly
-        return null;
-    }
-
-    try {
-        return createClient(supabaseUrl, supabaseKey);
-    } catch (error) {
-        console.error("Failed to create Supabase client:", error);
-        return null;
-    }
-};
-
-// Lazy initialization
-let supabaseInstance: SupabaseClient | null = null;
-
-function getSupabase(): SupabaseClient {
-    if (!supabaseInstance) {
-        supabaseInstance = getSupabaseClient();
-    }
-    if (!supabaseInstance) {
-        throw new Error("Supabase client not initialized (check credentials)");
-    }
-    return supabaseInstance;
-}
+import { supabase } from '../lib/supabase';
 
 export class EventEntryService {
 
@@ -46,7 +11,7 @@ export class EventEntryService {
         const uniqueSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
         const code = `SF-${uniqueSuffix}`;
 
-        const { error } = await getSupabase()
+        const { error } = await supabase
             .from('event_entry_passes')
             .insert({
                 code: code,
@@ -73,7 +38,7 @@ export class EventEntryService {
      */
     static async verifyPass(code: string): Promise<{ valid: boolean; message: string; data?: any }> {
         // 1. Fetch the pass
-        const { data, error } = await getSupabase()
+        const { data, error } = await supabase
             .from('event_entry_passes')
             .select('*')
             .eq('code', code)
@@ -93,7 +58,7 @@ export class EventEntryService {
         }
 
         // 3. Mark as used
-        const { error: updateError } = await getSupabase()
+        const { error: updateError } = await supabase
             .from('event_entry_passes')
             .update({
                 is_used: true,

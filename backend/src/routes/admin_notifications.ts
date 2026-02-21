@@ -1,23 +1,9 @@
 import express, { Router, Response } from 'express';
-import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
-import { SupabaseClient } from '@supabase/supabase-js';
 import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
 import { AuditLogger } from '../lib/audit-logger';
-
-dotenv.config();
+import { supabase } from '../lib/supabase';
 
 const router = Router();
-
-// Initialize Supabase Admin Client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-    console.error('Missing Supabase credentials in admin_notifications.ts');
-}
-
-const supabase: SupabaseClient = createClient(supabaseUrl!, supabaseKey!);
 
 // GET /api/admin/notifications
 router.get('/', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
