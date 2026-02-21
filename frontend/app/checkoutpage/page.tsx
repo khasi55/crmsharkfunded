@@ -220,7 +220,7 @@ function CheckoutContent() {
 
             // Call backend payment API
             const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.sharkfunded.co';
-            // Order ID requires alphanumeric (no hyphens or special chars)
+            // EPay requires alphanumeric orderID (no hyphens or special chars)
             const orderId = `SF${Date.now()}${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
             const response = await fetch(`${backendUrl}/api/payments/create-order`, {
                 method: 'POST',
@@ -253,7 +253,7 @@ function CheckoutContent() {
 
             if (data.paymentUrl) {
                 const gatewayLower = selectedGateway.toLowerCase();
-                if (gatewayLower === 'sharkpay' || gatewayLower === 'cregis') {
+                if (gatewayLower === 'epay' || gatewayLower === 'sharkpay' || gatewayLower === 'cregis') {
                     // Redirect directly for these gateways to avoid iframe issues
                     window.location.href = data.paymentUrl;
                 } else {
@@ -572,6 +572,28 @@ function CheckoutContent() {
                                 <p className="text-slate-500 text-sm mt-1">Instant local payments via SharkPay</p>
                                 <div className="mt-4 text-lg font-bold text-blue-600">
                                     ₹{Math.round(finalPriceUSD * EXCHANGE_RATE_INR).toLocaleString()}
+                                </div>
+                            </button>
+
+                            {/* EPay Option */}
+                            {/* EPay Option */}
+                            <button
+                                onClick={() => setSelectedGateway("epay")}
+                                className={cn(
+                                    "p-8 bg-white border rounded-2xl shadow-sm transition-all text-left",
+                                    selectedGateway === "epay" ? "border-blue-500 ring-2 ring-blue-500/20" : "border-slate-200 hover:border-slate-300"
+                                )}
+                            >
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className={cn("p-2 rounded-lg", selectedGateway === "epay" ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-400")}>
+                                        <Globe size={24} />
+                                    </div>
+                                    {selectedGateway === "epay" && <Check className="text-blue-500" size={20} />}
+                                </div>
+                                <h3 className="text-xl font-bold text-slate-800">Global Card</h3>
+                                <p className="text-slate-500 text-sm mt-1">International Credit/Debit via Paymentservice</p>
+                                <div className="mt-4 text-lg font-bold text-blue-600">
+                                    ${finalPriceUSD.toFixed(2)}
                                 </div>
                             </button>
 
