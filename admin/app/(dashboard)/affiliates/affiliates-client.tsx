@@ -399,8 +399,12 @@ export default function AdminAffiliatesClient() {
                                                             <CreditCard size={14} />
                                                             {item.payout_method.replace('_', ' ')}
                                                         </div>
-                                                        <div className="text-xs text-slate-500 font-mono mt-1 max-w-[200px] truncate" title={JSON.stringify(item.payout_details)}>
-                                                            {item.payout_method === 'crypto' ? item.payout_details?.address : 'Bank Details'}
+                                                        <div className="text-xs text-slate-500 font-mono mt-1 max-w-[200px] truncate" title={JSON.stringify(item.payout_details, null, 2)}>
+                                                            {item.payout_method === 'crypto'
+                                                                ? (item.payout_details?.address || "No address")
+                                                                : item.payout_details?.account_number
+                                                                    ? `${item.payout_details.bank_name || 'Bank'}: ${item.payout_details.account_number}`
+                                                                    : 'Bank Details'}
                                                         </div>
                                                     </div>
                                                 </td>

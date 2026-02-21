@@ -129,6 +129,12 @@ export default function AffiliatePage() {
     const [withdrawAmount, setWithdrawAmount] = useState("");
     const [withdrawMethod, setWithdrawMethod] = useState("crypto");
     const [withdrawDetails, setWithdrawDetails] = useState("");
+    const [bankDetails, setBankDetails] = useState({
+        accountHolder: "",
+        bankName: "",
+        accountNumber: "",
+        swiftCode: ""
+    });
     const [withdrawLoading, setWithdrawLoading] = useState(false);
     const [withdrawError, setWithdrawError] = useState("");
     const [withdrawSuccess, setWithdrawSuccess] = useState("");
@@ -179,18 +185,33 @@ export default function AffiliatePage() {
             if (isNaN(amount) || amount <= 0) throw new Error("Invalid amount");
             if (amount > stats.availableBalance) throw new Error("Insufficient balance");
 
+            const payout_details = withdrawMethod === 'crypto'
+                ? { address: withdrawDetails }
+                : {
+                    account_holder: bankDetails.accountHolder,
+                    bank_name: bankDetails.bankName,
+                    account_number: bankDetails.accountNumber,
+                    swift_code: bankDetails.swiftCode
+                };
+
             await fetchFromBackend('/api/affiliate/withdraw', {
                 method: 'POST',
                 body: JSON.stringify({
                     amount,
                     payout_method: withdrawMethod,
-                    payout_details: { address: withdrawDetails }
+                    payout_details
                 })
             });
 
             setWithdrawSuccess("Withdrawal requested successfully!");
             setWithdrawAmount("");
             setWithdrawDetails("");
+            setBankDetails({
+                accountHolder: "",
+                bankName: "",
+                accountNumber: "",
+                swiftCode: ""
+            });
 
             // Refresh Data
             await fetchAffiliateData();
@@ -543,18 +564,69 @@ export default function AffiliatePage() {
                                 </div>
 
                                 {/* Details */}
-                                <div className="space-y-2">
-                                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                                        {withdrawMethod === 'crypto' ? 'TRC20 Address' : 'Bank Details'}
-                                    </label>
-                                    <textarea
-                                        value={withdrawDetails}
-                                        onChange={(e) => setWithdrawDetails(e.target.value)}
-                                        placeholder={withdrawMethod === 'crypto' ? 'Enter your USDT TRC20 wallet address' : 'Account Number, SWIFT, Name'}
-                                        rows={3}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all resize-none text-sm placeholder:text-gray-600"
-                                        required
-                                    />
+                                <div className="space-y-4">
+                                    {withdrawMethod === 'crypto' ? (
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                                                TRC20 Address
+                                            </label>
+                                            <textarea
+                                                value={withdrawDetails}
+                                                onChange={(e) => setWithdrawDetails(e.target.value)}
+                                                placeholder="Enter your USDT TRC20 wallet address"
+                                                rows={3}
+                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all resize-none text-sm placeholder:text-gray-600"
+                                                required
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Account Holder Name</label>
+                                                <input
+                                                    type="text"
+                                                    value={bankDetails.accountHolder}
+                                                    onChange={(e) => setBankDetails({ ...bankDetails, accountHolder: e.target.value })}
+                                                    placeholder="Full legal name"
+                                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all text-sm placeholder:text-gray-600"
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Bank Name</label>
+                                                <input
+                                                    type="text"
+                                                    value={bankDetails.bankName}
+                                                    onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
+                                                    placeholder="Bank name"
+                                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all text-sm placeholder:text-gray-600"
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Account Number / IBAN</label>
+                                                <input
+                                                    type="text"
+                                                    value={bankDetails.accountNumber}
+                                                    onChange={(e) => setBankDetails({ ...bankDetails, accountNumber: e.target.value })}
+                                                    placeholder="Account number or IBAN"
+                                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all text-sm placeholder:text-gray-600"
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">SWIFT / BIC Code</label>
+                                                <input
+                                                    type="text"
+                                                    value={bankDetails.swiftCode}
+                                                    onChange={(e) => setBankDetails({ ...bankDetails, swiftCode: e.target.value })}
+                                                    placeholder="Bank SWIFT code"
+                                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all text-sm placeholder:text-gray-600"
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Feedback */}
