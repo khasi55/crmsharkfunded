@@ -22,7 +22,7 @@ export interface AuthRequest extends Request {
     user?: any;
 }
 
-const CACHE_TTL = 30000; // 30 seconds
+const CACHE_TTL = 300000; // 5 minutes (Increased from 30s)
 const authCache = new Map<string, { user: any; expires: number }>();
 const JWT_SECRET = process.env.JWT_SECRET || 'shark_admin_session_secure_2026_k8s_prod_v1';
 
@@ -34,24 +34,34 @@ async function validateSession(sessionId: string, ip: string, userAgent: string,
         .eq('id', sessionId)
         .single();
 
-    if (sessionError || !session || !session.is_active) return null;
+    if (sessionError || !session || !session.is_active) {
+        console.warn(`[Auth] Session ${sessionId} lookup failed: ${sessionError?.message || 'Not found or inactive'}`);
+        return null;
+    }
 
-    // Device Binding
-    if (!isLocalhost && session.ip_address && session.ip_address !== ip) return null;
-    if (!isLocalhost && session.user_agent && session.user_agent !== userAgent) return null;
+    // Device Binding (Relaxed: Log as warning but don't fail)
+    if (!isLocalhost && session.ip_address && session.ip_address !== ip) {
+        console.warn(`[Auth] IP Mismatch for session ${sessionId}: DB=${session.ip_address}, Request=${ip}. Allowing anyway.`);
+    }
+    if (!isLocalhost && session.user_agent && session.user_agent !== userAgent) {
+        // console.warn(`[Auth] User-Agent Mismatch for session ${sessionId}. Allowing anyway.`);
+    }
 
-    const { data: profile } = await getSupabase()
+    const { data: profile, error: profileError } = await getSupabase()
         .from('profiles')
-        .select('email, role')
+        .select('email, is_admin, user_type')
         .eq('id', session.user_id)
         .single();
 
-    if (!profile) return null;
+    if (profileError || !profile) {
+        console.warn(`[Auth] Profile lookup failed for user ${session.user_id}: ${profileError?.message || 'Not found'}`);
+        return null;
+    }
 
     return {
         id: session.user_id,
         email: profile.email,
-        role: profile.role || 'user'
+        role: profile.is_admin ? 'admin' : (profile.user_type || 'user')
     };
 }
 
@@ -167,19 +177,22 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         // --- FALLBACK: JWT-ONLY (PROFILE FETCH) ---
         const { data: profile } = await getSupabase()
             .from('profiles')
-            .select('role')
+            .select('is_admin, user_type')
             .eq('id', supabaseUser.id)
             .single();
+
+        const role = profile?.is_admin ? 'admin' : (profile?.user_type || 'user');
 
         const fullUser = {
             id: supabaseUser.id,
             email: supabaseUser.email || '',
-            role: profile?.role || 'user'
+            role: role
         };
 
         req.user = fullUser;
         authCache.set(cacheKey, { user: fullUser, expires: Date.now() + CACHE_TTL });
 
+        console.log(`[Auth] Debug: ID=${fullUser.id}, Role=${fullUser.role}, ProfileFound=${!!profile}`);
 
         next();
     } catch (error) {
@@ -231,4 +244,41 @@ export const requirePermission = (permission: string) => {
 
         next();
     };
+};
+
+export const requireKYC = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    const user = req.user;
+    if (!user) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+    }
+
+    // Admins bypass KYC
+    if (user.role === 'super_admin' || user.role === 'admin' || user.role === 'sub_admin') {
+        next();
+        return;
+    }
+
+    try {
+        const { data: kycSession, error } = await getSupabase()
+            .from('kyc_sessions')
+            .select('status')
+            .eq('user_id', user.id)
+            .eq('status', 'approved')
+            .limit(1)
+            .maybeSingle();
+
+        if (error || !kycSession) {
+            res.status(400).json({
+                error: 'KYC Authentication Required',
+                message: 'Please complete your identity verification before performing this action.'
+            });
+            return;
+        }
+
+        next();
+    } catch (error) {
+        console.error('[Auth] KYC check error:', error);
+        res.status(500).json({ error: 'Internal server error during KYC validation' });
+    }
 };

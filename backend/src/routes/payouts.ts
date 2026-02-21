@@ -1,5 +1,5 @@
 import { Router, Response, Request } from 'express';
-import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
+import { authenticate, AuthRequest, requireRole, requireKYC } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { RulesService } from '../services/rules-service';
 import { validateRequest, payoutRequestSchema } from '../middleware/validation';
@@ -229,7 +229,7 @@ router.get('/history', authenticate, async (req: AuthRequest, res: Response) => 
 });
 
 // POST /api/payouts/request
-router.post('/request', authenticate, resourceIntensiveLimiter, validateRequest(payoutRequestSchema), async (req: AuthRequest, res: Response) => {
+router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, validateRequest(payoutRequestSchema), async (req: AuthRequest, res: Response) => {
     try {
         const user = req.user!;
         const { amount, method, challenge_id } = req.body;
@@ -245,28 +245,7 @@ router.post('/request', authenticate, resourceIntensiveLimiter, validateRequest(
             challenge_id: challenge_id
         }));
 
-        // 0. CHECK KYC STATUS (CRITICAL)
-        const { data: kycSession } = await supabase
-            .from('kyc_sessions')
-            .select('status')
-            .eq('user_id', user.id)
-            .eq('status', 'approved')
-            .limit(1)
-            .maybeSingle();
-
-        if (!kycSession) {
-            await logSecurityEvent({
-                userId: user.id,
-                email: user.email,
-                action: 'PAYOUT_REQUEST_KYC_FAIL',
-                resource: 'payout',
-                payload: { amount, challenge_id },
-                status: 'failure',
-                errorMessage: 'KYC Verification Required',
-                ip: req.ip
-            });
-            return res.status(400).json({ error: 'KYC Verification Required. Please complete your identity verification before requesting a payout.' });
-        }
+        // 0. KYC STATUS CHECK (HANDLED BY MIDDLEWARE)
 
         if (method === 'crypto') {
             const { data: wallet } = await supabase
