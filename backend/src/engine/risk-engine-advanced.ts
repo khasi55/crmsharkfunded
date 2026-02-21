@@ -220,6 +220,9 @@ export class AdvancedRiskEngine {
         if (!trade.close_time) return null;
         const duration = (new Date(trade.close_time).getTime() - new Date(trade.open_time).getTime()) / 1000;
 
+        // Ignore 0-second trades as per user request
+        if (duration <= 0) return null;
+
         if (duration < minDuration) {
             return {
                 violation_type: 'tick_scalping',

@@ -1,22 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
-
-let supabaseClient: any = null;
-
-const getSupabase = () => {
-    if (supabaseClient) return supabaseClient;
-
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-        throw new Error('Supabase URL/Key missing in environment');
-    }
-
-    supabaseClient = createClient(supabaseUrl, supabaseKey);
-    return supabaseClient;
-};
+import { supabase } from '../lib/supabase';
 
 export interface AuthRequest extends Request {
     user?: any;
@@ -28,7 +12,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'shark_admin_session_secure_2026_k8
 
 // Helper to validate session and get profile
 async function validateSession(sessionId: string, ip: string, userAgent: string, isLocalhost: boolean) {
-    const { data: session, error: sessionError } = await getSupabase()
+    const { data: session, error: sessionError } = await supabase
         .from('api_sessions')
         .select('user_id, is_active, ip_address, user_agent')
         .eq('id', sessionId)
@@ -47,7 +31,7 @@ async function validateSession(sessionId: string, ip: string, userAgent: string,
         // console.warn(`[Auth] User-Agent Mismatch for session ${sessionId}. Allowing anyway.`);
     }
 
-    const { data: profile, error: profileError } = await getSupabase()
+    const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('email, is_admin, user_type')
         .eq('id', session.user_id)
@@ -93,7 +77,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
                     // 🛡️ Fallback: If email is missing in JWT (legacy session?), fetch from DB
                     if (!email) {
                         console.warn(`[Auth] Admin JWT missing email. Fetching from DB for ID: ${decoded.id}`);
-                        const { data: adminUser } = await getSupabase()
+                        const { data: adminUser } = await supabase
                             .from('admin_users')
                             .select('email')
                             .eq('id', decoded.id)
@@ -156,7 +140,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             return;
         }
 
-        const { data: { user: supabaseUser }, error: authError } = await getSupabase().auth.getUser(token);
+        const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser(token);
         if (authError || !supabaseUser) {
             console.warn(`[Auth] Supabase verification failed for ${req.originalUrl}: ${authError?.message || 'No user'}`);
             res.status(401).json({ error: 'Invalid or expired token' });
@@ -175,7 +159,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         }
 
         // --- FALLBACK: JWT-ONLY (PROFILE FETCH) ---
-        const { data: profile } = await getSupabase()
+        const { data: profile } = await supabase
             .from('profiles')
             .select('is_admin, user_type')
             .eq('id', supabaseUser.id)
@@ -260,7 +244,7 @@ export const requireKYC = async (req: AuthRequest, res: Response, next: NextFunc
     }
 
     try {
-        const { data: kycSession, error } = await getSupabase()
+        const { data: kycSession, error } = await supabase
             .from('kyc_sessions')
             .select('status')
             .eq('user_id', user.id)

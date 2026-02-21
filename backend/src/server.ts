@@ -122,15 +122,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// Supabase Setup
-
-
-if (!supabaseUrl || !supabaseKey) {
-    console.error("Missing Supabase credentials in .env");
-    process.exit(1);
-}
-
-const supabase = createClient(supabaseUrl!, supabaseKey!);
+import { supabase } from './lib/supabase';
 
 // Initialize Engines
 const coreEngine = new CoreRiskEngine(supabase);

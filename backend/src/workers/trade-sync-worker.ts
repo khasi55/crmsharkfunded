@@ -1,15 +1,9 @@
 import { Worker, Job } from 'bullmq';
 import { getRedis } from '../lib/redis';
-import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
 import { fetchMT5Trades } from '../lib/mt5-bridge';
 import { riskQueue } from '../lib/queue';
+import { supabase } from '../lib/supabase';
 
-dotenv.config();
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl!, supabaseKey!);
 const DEBUG = process.env.DEBUG === 'true'; // Strict: Only log if explicitly asked
 
 export async function startTradeSyncWorker() {
@@ -21,9 +15,15 @@ export async function startTradeSyncWorker() {
 
         try {
             // 1. Fetch Trades from Bridge (Active + History in one call)
+            // Use a specific timeout for the sync worker (faster than Cloudflare's 100s)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+
             const oneWeekAgo = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60);
             const { fetchMT5History } = await import('../lib/mt5-bridge');
-            const allBridgeTrades = await fetchMT5History(login, oneWeekAgo);
+            const allBridgeTrades = await fetchMT5History(login, oneWeekAgo, controller.signal);
+
+            clearTimeout(timeoutId);
 
             if (allBridgeTrades.length === 0) return { success: true, count: 0 };
 

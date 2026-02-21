@@ -5,7 +5,7 @@ import {
     WebhookData
 } from './types';
 import crypto from 'crypto';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../../lib/supabase';
 
 export class CregisGateway implements PaymentGateway {
     name = 'cregis';
@@ -17,25 +17,18 @@ export class CregisGateway implements PaymentGateway {
 
     private async getConfig() {
         try {
-            if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-                const supabase = createClient(
-                    process.env.SUPABASE_URL,
-                    process.env.SUPABASE_SERVICE_ROLE_KEY
-                );
+            const { data } = await supabase
+                .from('merchant_config')
+                .select('*')
+                .eq('gateway_name', 'Cregis')
+                .single();
 
-                const { data } = await supabase
-                    .from('merchant_config')
-                    .select('*')
-                    .eq('gateway_name', 'Cregis')
-                    .single();
-
-                if (data && data.is_active) {
-                    return {
-                        apiKey: data.api_key,
-                        projectId: data.metadata?.project_id || process.env.CREGIS_PROJECT_ID,
-                        webhookSecret: data.webhook_secret
-                    };
-                }
+            if (data && data.is_active) {
+                return {
+                    apiKey: data.api_key,
+                    projectId: data.metadata?.project_id || process.env.CREGIS_PROJECT_ID,
+                    webhookSecret: data.webhook_secret
+                };
             }
         } catch (e) {
             console.warn("Failed to fetch Cregis config from DB, falling back to ENV:", e);

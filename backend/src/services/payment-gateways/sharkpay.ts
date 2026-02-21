@@ -5,7 +5,7 @@ import {
     WebhookData
 } from './types';
 import crypto from 'crypto';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../../lib/supabase';
 
 export class SharkPayGateway implements PaymentGateway {
     name = 'sharkpay';
@@ -15,42 +15,23 @@ export class SharkPayGateway implements PaymentGateway {
         this.apiUrl = process.env.SHARKPAY_API_URL || 'https://sharkpay-o9zz.vercel.app';
     }
 
-    private async getSupabaseClient() {
-        if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-            try {
-                return createClient(
-                    process.env.SUPABASE_URL,
-                    process.env.SUPABASE_SERVICE_ROLE_KEY
-                );
-            } catch (error) {
-                console.warn("Failed to initialize Supabase client in SharkPay:", error);
-                return null;
-            }
-        }
-        return null;
-    }
-
     private async getConfig() {
-        // Fetch from DB first (only if Supabase credentials are available)
+        // Fetch from DB first 
         try {
-            const supabase = await this.getSupabaseClient();
+            const { data } = await supabase
+                .from('merchant_config')
+                .select('*')
+                .eq('gateway_name', 'SharkPay')
+                .single();
 
-            if (supabase) {
-                const { data } = await supabase
-                    .from('merchant_config')
-                    .select('*')
-                    .eq('gateway_name', 'SharkPay')
-                    .single();
-
-                if (data && data.is_active) {
-                    return {
-                        keyId: data.api_key,
-                        keySecret: data.api_secret,
-                        webhookSecret: data.webhook_secret,
-                        environment: data.environment,
-                        apiUrl: process.env.SHARKPAY_API_URL || 'https://payments.sharkfunded.com'
-                    };
-                }
+            if (data && data.is_active) {
+                return {
+                    keyId: data.api_key,
+                    keySecret: data.api_secret,
+                    webhookSecret: data.webhook_secret,
+                    environment: data.environment,
+                    apiUrl: process.env.SHARKPAY_API_URL || 'https://payments.sharkfunded.com'
+                };
             }
         } catch (e) {
             console.warn("Failed to fetch SharkPay config from DB, falling back to ENV:", e);

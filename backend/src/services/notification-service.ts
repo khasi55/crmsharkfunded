@@ -1,17 +1,5 @@
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-    console.error('Missing Supabase credentials for NotificationService');
-}
-
-const supabase: SupabaseClient = createClient(supabaseUrl!, supabaseKey!);
+import { supabase } from '../lib/supabase';
 
 export type NotificationType = 'info' | 'warning' | 'error' | 'success' | 'payout' | 'kyc' | 'risk';
 

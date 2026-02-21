@@ -1,9 +1,6 @@
 import cron from 'node-cron';
-import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
 import { supabase } from '../lib/supabase'; // Reuse existing client if possible, or create new one
 
-dotenv.config();
 
 // Ensure we have a robust client (using existing module or creating new)
 // Using imported 'supabase' from lib to share config
@@ -11,14 +8,14 @@ dotenv.config();
 const DEBUG = process.env.DEBUG === 'true'; // STRICT: Silence daily reset logs in dev
 
 export function startDailyEquityReset() {
-    if (DEBUG) console.log(" Daily Equity Reset Scheduler initialized. Schedule: '0 17 * * *' (5 PM EST / New York Close)");
+    if (DEBUG) console.log(" Daily Equity Reset Scheduler initialized. Schedule: '0 0 * * *' (00:00 UTC)");
 
-    // Schedule task to run at 17:00 (5 PM) New York Time every day
-    cron.schedule('0 17 * * *', async () => {
-        if (DEBUG) console.log(" [Daily Reset] Starting Daily Equity Reset (5 PM EST)...");
+
+    cron.schedule('0 0 * * *', async () => {
+        if (DEBUG) console.log(" [Daily Reset] Starting Daily Equity Reset (00:00 UTC)...");
         await performDailyReset();
     }, {
-        timezone: "America/New_York"
+        timezone: "UTC"
     });
 }
 
@@ -103,12 +100,12 @@ async function performDailyReset() {
     }
 }
 
-// Add strict retry for failed resets (e.g. 10 mins later)
-cron.schedule('10 17 * * *', async () => {
+// Add strict retry for failed resets (eleven minutes later)
+cron.schedule('11 0 * * *', async () => {
     const DEBUG = process.env.DEBUG === 'true';
     if (DEBUG) console.log("[Daily Reset Backup] Running backup verification...");
     // We could re-run or check specifically for non-updated accounts
     // For now, simpler to just rely on initial run, but logging is key.
 }, {
-    timezone: "America/New_York"
+    timezone: "UTC"
 });

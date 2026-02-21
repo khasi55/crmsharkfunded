@@ -1,18 +1,6 @@
-
-import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
 import { AdvancedRiskEngine } from '../engine/risk-engine-advanced';
+import { supabase } from '../lib/supabase';
 
-dotenv.config();
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-    console.error("Advanced Risk Scheduler: Missing Supabase credentials");
-}
-
-const supabase = createClient(supabaseUrl!, supabaseKey!);
 const advancedEngine = new AdvancedRiskEngine(supabase);
 
 const SCAN_INTERVAL_MS = 300000; // 5 minutes

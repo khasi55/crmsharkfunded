@@ -1,17 +1,10 @@
 import { Worker, Job } from 'bullmq';
 import { getRedis } from '../lib/redis';
-import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
 import { CoreRiskEngine } from '../engine/risk-engine-core';
 import { AdvancedRiskEngine } from '../engine/risk-engine-advanced';
 import { EmailService } from '../services/email-service';
 import { disableMT5Account } from '../lib/mt5-bridge';
-
-dotenv.config();
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl!, supabaseKey!);
+import { supabase } from '../lib/supabase';
 
 const coreEngine = new CoreRiskEngine(supabase);
 const advancedEngine = new AdvancedRiskEngine(supabase);
