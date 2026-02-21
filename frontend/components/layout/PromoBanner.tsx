@@ -10,7 +10,7 @@ const PromoBanner = () => {
         {[...Array(10)].map((_, i) => (
           <div key={i} className="flex items-center mx-8">
             <span className="text-white text-xs font-bold uppercase tracking-wider">
-              🔥 Limited Time Offer: USE "SHARK30" FOR 30% OFF<span className="bg-white/20 px-2 py-0.5 rounded text-white ml-1 border border-white/30">SHARK30</span>
+              🔥 Limited Time Offer: USE "RAMADAN" FOR 50% OFF<span className="bg-white/20 px-2 py-0.5 rounded text-white ml-1 border border-white/30">RAMADAN</span>
             </span>
             <span className="mx-8 text-blue-300/50">•</span>
           </div>
