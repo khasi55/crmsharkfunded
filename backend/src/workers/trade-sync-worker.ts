@@ -30,14 +30,14 @@ export async function startTradeSyncWorker() {
             // 2. Format & Filter (Ghost Trade Protection)
             const challengeStartTime = new Date(createdAt).getTime();
 
-            // 3. Fetch Existing Trades to Prevent Overwriting Fixes
+            // 3. Fetch Existing Trades to Prevent Overwriting Fixes & Calculate Delta
             const { data: existingTrades } = await supabase
                 .from('trades')
-                .select('ticket, type')
+                .select('ticket, type, close_time, profit_loss, commission, swap')
                 .eq('challenge_id', challengeId);
 
-            const existingTypeMap = new Map<string, string>();
-            existingTrades?.forEach((t: any) => existingTypeMap.set(String(t.ticket), t.type));
+            const existingTradesMap = new Map<string, any>();
+            existingTrades?.forEach((t: any) => existingTradesMap.set(String(t.ticket), t));
 
             const formattedTrades = allBridgeTrades.map((t: any) => {
                 const tradeTime = (t.close_time || t.time) * 1000;
@@ -46,7 +46,8 @@ export async function startTradeSyncWorker() {
                 if (tradeTime < (challengeStartTime - 60000)) return null;
 
                 // Check if we have a manual fix in DB
-                const existingType = existingTypeMap.get(String(t.ticket));
+                const existingTrade = existingTradesMap.get(String(t.ticket));
+                const existingType = existingTrade?.type;
 
                 // Determine Input Type (from Bridge)
                 let inputType = (t.type === 0 || String(t.type).toLowerCase() === 'buy') ? 'buy' : 'sell';
@@ -104,7 +105,7 @@ export async function startTradeSyncWorker() {
 
             if (formattedTrades.length === 0) return { success: true, count: 0 };
 
-            // 4. Deduplicate before Upsert
+            // 4. Deduplicate
             const uniqueTrades = Array.from(
                 formattedTrades.reduce((map: Map<string, any>, trade: any) => {
                     const key = `${trade.challenge_id}-${trade.ticket}`;
@@ -113,10 +114,37 @@ export async function startTradeSyncWorker() {
                 }, new Map()).values()
             );
 
-            // 5. Upsert to DB
+            // 4.5 DELTA VERIFICATION (Optimization to reduce DB load)
+            let hasOpenTrades = false;
+            const tradesToUpsert = uniqueTrades.filter((trade: any) => {
+                if (!trade.close_time) {
+                    hasOpenTrades = true;
+                    return true; // Always upsert open trades (floating profit changes)
+                }
+
+                const existing = existingTradesMap.get(String(trade.ticket));
+                if (!existing) return true; // New trade
+
+                if (!existing.close_time && trade.close_time) return true; // Newly closed trade
+
+                // If it was already closed, check if core metrics changed (retroactive broker adjustment)
+                const isModified =
+                    Math.abs(Number(existing.profit_loss || 0) - Number(trade.profit_loss || 0)) > 0.01 ||
+                    Math.abs(Number(existing.commission || 0) - Number(trade.commission || 0)) > 0.01 ||
+                    Math.abs(Number(existing.swap || 0) - Number(trade.swap || 0)) > 0.01;
+
+                return isModified;
+            });
+
+            if (tradesToUpsert.length === 0 && !hasOpenTrades) {
+                // No changes, no open trades = skip heavy DB writes and risk trigger
+                return { success: true, count: 0, skipped: true };
+            }
+
+            // 5. Upsert to DB ONLY the delta
             const { error } = await supabase
                 .from('trades')
-                .upsert(uniqueTrades, { onConflict: 'challenge_id, ticket' });
+                .upsert(tradesToUpsert, { onConflict: 'challenge_id, ticket' });
 
             if (error) throw error;
 
@@ -130,11 +158,11 @@ export async function startTradeSyncWorker() {
             await riskQueue.add('process-risk', eventPayload);
 
             const duration = (Date.now() - startTime) / 1000;
-            if (DEBUG && (uniqueTrades.length > 0 || duration > 15)) {
-                console.log(`✅ [Sync] ${login}: +${uniqueTrades.length} trades (${duration.toFixed(1)}s)`);
+            if (DEBUG && (tradesToUpsert.length > 0 || duration > 15)) {
+                console.log(`✅ [Sync] ${login}: +${tradesToUpsert.length} trades (${duration.toFixed(1)}s)`);
             }
 
-            return { success: true, count: uniqueTrades.length };
+            return { success: true, count: tradesToUpsert.length };
 
         } catch (e: any) {
             if (e.name === 'AbortError') {
