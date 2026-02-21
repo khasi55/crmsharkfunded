@@ -27,6 +27,15 @@ interface PayoutRequest {
         full_name: string;
         email: string;
     };
+    metadata?: {
+        bank_details?: {
+            bank_name: string;
+            account_number: string;
+            account_holder_name: string;
+            ifsc_code?: string;
+            swift_code?: string;
+        };
+    };
 }
 
 export default function AdminPayoutDetailsPage() {
@@ -248,6 +257,50 @@ export default function AdminPayoutDetailsPage() {
                                         <dd className="text-xs text-gray-600">${request.account_info.account_size?.toLocaleString()}</dd>
                                     </div>
                                 </div>
+                            </div>
+                        )}
+
+                        {request.payout_method === 'bank' && request.metadata?.bank_details && (
+                            <div className="border-t pt-4 border-gray-100">
+                                <dt className="mb-4 text-gray-500 font-semibold flex items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600"><rect width="20" height="14" x="2" y="5" rx="2" /><line x1="2" x2="22" y1="10" y2="10" /></svg>
+                                    Bank Transfer Details
+                                </dt>
+                                <dd className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 space-y-3">
+                                    <div className="grid grid-cols-2 gap-4 text-xs">
+                                        <div>
+                                            <p className="text-[10px] font-bold text-emerald-700/50 uppercase tracking-widest">Bank Name</p>
+                                            <p className="font-bold text-gray-900 mt-1">{request.metadata.bank_details.bank_name}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-bold text-emerald-700/50 uppercase tracking-widest">Account Holder</p>
+                                            <p className="font-bold text-gray-900 mt-1">{request.metadata.bank_details.account_holder_name}</p>
+                                        </div>
+                                        <div className="col-span-2">
+                                            <p className="text-[10px] font-bold text-emerald-700/50 uppercase tracking-widest">Account Number</p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <p className="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded select-all">
+                                                    {request.metadata.bank_details.account_number}
+                                                </p>
+                                                <button onClick={() => copyToClipboard(request.metadata!.bank_details!.account_number, 'Account Number')} className="text-gray-400 hover:text-gray-600">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        {request.metadata.bank_details.ifsc_code && (
+                                            <div>
+                                                <p className="text-[10px] font-bold text-emerald-700/50 uppercase tracking-widest">IFSC Code</p>
+                                                <p className="font-mono font-bold text-gray-700 mt-1">{request.metadata.bank_details.ifsc_code}</p>
+                                            </div>
+                                        )}
+                                        {request.metadata.bank_details.swift_code && (
+                                            <div>
+                                                <p className="text-[10px] font-bold text-emerald-700/50 uppercase tracking-widest">SWIFT Code</p>
+                                                <p className="font-mono font-bold text-gray-700 mt-1">{request.metadata.bank_details.swift_code}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </dd>
                             </div>
                         )}
 

@@ -5,6 +5,7 @@ import { RulesService } from '../services/rules-service';
 import { validateRequest, payoutRequestSchema } from '../middleware/validation';
 import { resourceIntensiveLimiter } from '../middleware/rate-limit';
 import { logSecurityEvent } from '../utils/security-logger';
+import { EmailService } from '../services/email-service';
 
 const router = Router();
 
@@ -139,6 +140,16 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
             }
         };
 
+        // Fetch bank details
+        const { data: bankDetails } = await supabase
+            .from('bank_details')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+        (responsePayload as any).bankDetails = bankDetails || null;
+        (responsePayload.eligibility as any).bankDetailsConnected = !!bankDetails;
+
         // if (DEBUG) console.log("Payouts Response Payload:", JSON.stringify(responsePayload, null, 2));
         res.json(responsePayload);
 
@@ -257,16 +268,31 @@ router.post('/request', authenticate, resourceIntensiveLimiter, validateRequest(
             return res.status(400).json({ error: 'KYC Verification Required. Please complete your identity verification before requesting a payout.' });
         }
 
-        // 1. Fetch & Validate Wallet Address
-        const { data: wallet } = await supabase
-            .from('wallet_addresses')
-            .select('wallet_address')
-            .eq('user_id', user.id)
-            .eq('is_locked', true)
-            .maybeSingle();
+        if (method === 'crypto') {
+            const { data: wallet } = await supabase
+                .from('wallet_addresses')
+                .select('wallet_address')
+                .eq('user_id', user.id)
+                .eq('is_locked', true)
+                .maybeSingle();
 
-        if (!wallet || !wallet.wallet_address) {
-            return res.status(400).json({ error: 'No active/locked wallet address found. Please update your settings.' });
+            if (!wallet || !wallet.wallet_address) {
+                return res.status(400).json({ error: 'No active/locked wallet address found. Please update your settings.' });
+            }
+            (req as any).payoutDestination = wallet.wallet_address;
+        } else if (method === 'bank') {
+            const { data: bankDetails } = await supabase
+                .from('bank_details')
+                .select('*')
+                .eq('user_id', user.id)
+                .eq('is_locked', true)
+                .maybeSingle();
+
+            if (!bankDetails) {
+                return res.status(400).json({ error: 'No active/locked bank details found. Please update your settings.' });
+            }
+            (req as any).payoutDestination = `${bankDetails.bank_name} - ${bankDetails.account_number}`;
+            (req as any).fullBankDetails = bankDetails;
         }
 
         // if (DEBUG) console.log(`[Payout Request] Using Wallet: ${wallet.wallet_address}`);
@@ -459,7 +485,32 @@ router.post('/request', authenticate, resourceIntensiveLimiter, validateRequest(
             }
         }
 
-        // 3. Create Payout Request
+        // 3. Perform MT5 Balance Deduction (IMMEDIATE & PERMANENT)
+        const { adjustMT5Balance } = await import('../lib/mt5-bridge');
+
+        let mt5Ticket = null;
+        if (account.login) {
+            try {
+                const bridgeResponse = await adjustMT5Balance(
+                    account.login,
+                    -amount,
+                    `Payout Request: $${amount}`
+                ) as any;
+                mt5Ticket = bridgeResponse?.ticket || 'processed';
+                // if (DEBUG) console.log(`✅ MT5 Balance Adjusted. Ticket: ${mt5Ticket}`);
+            } catch (bridgeErr: any) {
+                console.error(`❌ MT5 Deduction Failed for login ${account.login}:`, bridgeErr.message);
+                return res.status(500).json({
+                    error: 'Failed to adjust MT5 balance. Payout request aborted.',
+                    details: bridgeErr.message
+                });
+            }
+        } else {
+            console.error(`❌ Cannot deduct balance: Account ${account.id} has no MT5 login.`);
+            return res.status(400).json({ error: 'Associated MT5 account login not found. Payout denied.' });
+        }
+
+        // 4. Create Payout Request
         // if (DEBUG) console.log(`[Payout Request] Creating payout request record...`);
         const { error: insertError } = await supabase
             .from('payout_requests')
@@ -468,10 +519,13 @@ router.post('/request', authenticate, resourceIntensiveLimiter, validateRequest(
                 amount: amount,
                 status: 'pending',
                 payout_method: method || 'crypto',
-                wallet_address: wallet.wallet_address,
+                wallet_address: (req as any).payoutDestination,
                 metadata: {
                     challenge_id: account.id,
-                    request_date: new Date().toISOString()
+                    mt5_login: account.login,
+                    mt5_ticket: mt5Ticket,
+                    request_date: new Date().toISOString(),
+                    bank_details: (req as any).fullBankDetails || null
                 }
             });
         if (insertError) {
@@ -508,6 +562,17 @@ router.post('/request', authenticate, resourceIntensiveLimiter, validateRequest(
             ip: req.ip
         });
 
+
+
+        // Notify User via Email
+        try {
+            const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
+            const userName = profile?.full_name || 'User';
+            await EmailService.sendPayoutRequestedNotice(user.email!, userName, amount, method || 'crypto');
+        } catch (emailErr) {
+            console.error('Failed to send payout requested email (non-blocking):', emailErr);
+        }
+
         res.json({ success: true, message: 'Payout request submitted successfully' });
 
     } catch (error: any) {
@@ -525,15 +590,29 @@ router.post('/request', authenticate, resourceIntensiveLimiter, validateRequest(
 // GET /api/payouts/admin - Get all payout requests (admin only)
 router.get('/admin', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
-        // Fetch all payout requests with user profiles
+        // Fetch all payout requests
         const { data: requests, error } = await supabase
             .from('payout_requests')
-            .select('*, profiles(full_name, email)')
+            .select('*')
             .order('created_at', { ascending: false });
 
         if (error) {
-            // console.error('Error fetching admin payouts:', error);
+            console.error('Error fetching admin payouts:', error);
             throw error;
+        }
+
+        // Manual fetch for profiles
+        let profilesMap: Record<string, any> = {};
+        if (requests && requests.length > 0) {
+            const userIds = [...new Set(requests.map((r: any) => r.user_id).filter(Boolean))];
+            const { data: profiles } = await supabase
+                .from('profiles')
+                .select('id, full_name, email')
+                .in('id', userIds);
+
+            profiles?.forEach((p: any) => {
+                profilesMap[p.id] = p;
+            });
         }
 
         // Fetch account details for each payout
@@ -546,9 +625,7 @@ router.get('/admin', authenticate, requireRole(['super_admin', 'payouts_admin', 
                 try {
                     const parsed = JSON.parse(req.metadata);
                     challengeId = parsed.challenge_id;
-                } catch (e) {
-                    // console.log(`[Admin Payouts] Failed to parse metadata for ${req.id}:`, req.metadata);
-                }
+                } catch (e) { }
             }
 
             if (challengeId) {
@@ -570,13 +647,176 @@ router.get('/admin', authenticate, requireRole(['super_admin', 'payouts_admin', 
 
             return {
                 ...req,
+                profiles: profilesMap[req.user_id] || { full_name: 'Unknown', email: 'Unknown' },
                 account_info: accountInfo
             };
         }));
 
         res.json({ payouts: requestsWithAccount });
     } catch (error: any) {
-        // console.error('Admin payouts error:', error);
+        console.error('❌ [Admin Payouts List Error]:', error);
+        res.status(500).json({
+            error: 'Internal server error',
+            details: error.message,
+            code: error.code || 'UNKNOWN'
+        });
+    }
+});
+
+
+// GET /api/payouts/admin/wallets - Get all user wallets (admin only)
+router.get('/admin/wallets', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
+    try {
+        const { data: wallets, error } = await supabase
+            .from('wallet_addresses')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching admin wallets:', error);
+            throw error;
+        }
+
+        // Manual fetch for profiles since there is no direct FK to profiles table
+        if (wallets && wallets.length > 0) {
+            const userIds = [...new Set(wallets.map((w: any) => w.user_id).filter(Boolean))];
+
+            const { data: profiles } = await supabase
+                .from('profiles')
+                .select('id, full_name, email')
+                .in('id', userIds);
+
+            const profilesMap: Record<string, any> = {};
+            profiles?.forEach((p: any) => {
+                profilesMap[p.id] = p;
+            });
+
+            const walletsWithProfiles = wallets.map((w: any) => ({
+                ...w,
+                profiles: profilesMap[w.user_id] || { full_name: 'Unknown', email: 'Unknown' }
+            }));
+
+            res.json({ wallets: walletsWithProfiles });
+            return;
+        }
+
+        res.json({ wallets: [] });
+    } catch (error: any) {
+        console.error('❌ [Admin Wallets Error]:', error);
+        res.status(500).json({
+            error: 'Internal server error',
+            details: error.message,
+            code: error.code || 'UNKNOWN'
+        });
+    }
+});
+
+// PUT /api/payouts/admin/wallets/:id - Update user wallet (admin only)
+router.put('/admin/wallets/:id', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
+    try {
+        if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+        const { id } = req.params;
+        const { wallet_address, wallet_type, is_locked } = req.body;
+
+        if (!wallet_address) {
+            return res.status(400).json({ error: 'Wallet address is required' });
+        }
+
+        const { error } = await supabase
+            .from('wallet_addresses')
+            .update({
+                wallet_address,
+                wallet_type: wallet_type || 'USDT_TRC20',
+                is_locked: is_locked !== undefined ? is_locked : true,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', id);
+
+        if (error) {
+            console.error('Error updating wallet:', error);
+            throw error;
+        }
+
+        res.json({ success: true, message: 'Wallet updated successfully' });
+    } catch (error: any) {
+        console.error('Update wallet error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// GET /api/payouts/admin/bank-details - Get all user bank details (admin only)
+router.get('/admin/bank-details', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
+    try {
+        const { data: banks, error } = await supabase
+            .from('bank_details')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching admin bank details:', error);
+            throw error;
+        }
+
+        if (banks && banks.length > 0) {
+            const userIds = [...new Set(banks.map((b: any) => b.user_id).filter(Boolean))];
+
+            const { data: profiles } = await supabase
+                .from('profiles')
+                .select('id, full_name, email')
+                .in('id', userIds);
+
+            const profilesMap: Record<string, any> = {};
+            profiles?.forEach((p: any) => {
+                profilesMap[p.id] = p;
+            });
+
+            const banksWithProfiles = banks.map((b: any) => ({
+                ...b,
+                profiles: profilesMap[b.user_id] || { full_name: 'Unknown', email: 'Unknown' }
+            }));
+
+            res.json({ bankDetails: banksWithProfiles });
+            return;
+        }
+
+        res.json({ bankDetails: [] });
+    } catch (error: any) {
+        console.error('❌ [Admin Bank Details Error]:', error);
+        res.status(500).json({
+            error: 'Internal server error',
+            details: error.message,
+            code: error.code || 'UNKNOWN'
+        });
+    }
+});
+
+// PUT /api/payouts/admin/bank-details/:id - Update user bank details (admin only)
+router.put('/admin/bank-details/:id', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
+    try {
+        if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+        const { id } = req.params;
+        const updates = req.body;
+
+        const { error } = await supabase
+            .from('bank_details')
+            .update({
+                ...updates,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', id);
+
+        if (error) {
+            console.error('Error updating bank details:', error);
+            throw error;
+        }
+
+        // Log Admin Action
+        const { AuditLogger } = await import('../lib/audit-logger');
+        AuditLogger.info(req.user.email, `Updated Bank Details for ID: ${id}`, { bank_detail_id: id, updates });
+
+        res.json({ success: true, message: 'Bank details updated successfully' });
+    } catch (error: any) {
+        console.error('Update bank details error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -588,12 +828,12 @@ router.get('/admin/:id', authenticate, requireRole(['super_admin', 'payouts_admi
 
         const { data: request, error } = await supabase
             .from('payout_requests')
-            .select('*, profiles(*)')
+            .select('*')
             .eq('id', id)
             .single();
 
         if (error) {
-            // console.error('Error fetching payout details:', error);
+            console.error('Error fetching payout details:', error);
             throw error;
         }
 
@@ -602,13 +842,32 @@ router.get('/admin/:id', authenticate, requireRole(['super_admin', 'payouts_admi
             return;
         }
 
+        // Manual fetch for profile
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', request.user_id)
+            .single();
+
+        request.profiles = profile;
+
         // Fetch related challenge/account information if metadata contains challenge_id
         let accountInfo = null;
-        if (request.metadata && request.metadata.challenge_id) {
+        let challengeId = request.metadata?.challenge_id;
+
+        // Handle metadata as string edge case
+        if (typeof request.metadata === 'string') {
+            try {
+                const parsed = JSON.parse(request.metadata);
+                challengeId = parsed.challenge_id;
+            } catch (e) { }
+        }
+
+        if (challengeId) {
             const { data: challenge } = await supabase
                 .from('challenges')
                 .select('id, login, investor_password, current_equity, current_balance, initial_balance, account_types(name, mt5_group_name)')
-                .eq('id', request.metadata.challenge_id)
+                .eq('id', challengeId)
                 .single();
 
             if (challenge) {
@@ -627,8 +886,12 @@ router.get('/admin/:id', authenticate, requireRole(['super_admin', 'payouts_admi
 
         res.json({ payout: { ...request, account_info: accountInfo } });
     } catch (error: any) {
-        // console.error('Admin payout details error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        console.error('❌ [Admin Payout Details Error]:', error);
+        res.status(500).json({
+            error: 'Internal server error',
+            details: error.message,
+            code: error.code || 'UNKNOWN'
+        });
     }
 });
 
@@ -677,6 +940,21 @@ router.put('/admin/:id/approve', authenticate, requireRole(['super_admin', 'payo
         const { AuditLogger } = await import('../lib/audit-logger');
         AuditLogger.info(req.user.email, `Approved Payout Request: ${id}`, { payout_id: id, transaction_id: finalTransactionId });
 
+
+
+        // Notify User via Email
+        try {
+            const { data: payout } = await supabase.from('payout_requests').select('user_id, amount').eq('id', id).single();
+            if (payout) {
+                const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', payout.user_id).single();
+                if (profile && profile.email) {
+                    await EmailService.sendPayoutApprovedNotice(profile.email, profile.full_name || 'User', payout.amount, finalTransactionId);
+                }
+            }
+        } catch (emailErr) {
+            console.error('Failed to send payout approved email (non-blocking):', emailErr);
+        }
+
         res.json({
             success: true,
             message: 'Payout approved successfully',
@@ -719,10 +997,25 @@ router.put('/admin/:id/reject', authenticate, requireRole(['super_admin', 'payou
         AuditLogger.info(req.user.email, `Rejected Payout Request: ${id}`, { payout_id: id, reason });
 
         res.json({ success: true, message: 'Payout rejected successfully' });
+
+        // Notify User via Email
+        try {
+            const { data: payout } = await supabase.from('payout_requests').select('user_id, amount').eq('id', id).single();
+            if (payout) {
+                const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', payout.user_id).single();
+                if (profile && profile.email) {
+                    await EmailService.sendPayoutRejectedNotice(profile.email, profile.full_name || 'User', payout.amount, reason);
+                }
+            }
+        } catch (emailErr) {
+            console.error('Failed to send payout rejected email (non-blocking):', emailErr);
+        }
     } catch (error: any) {
         // console.error('Reject payout error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+
 
 export default router;

@@ -1,7 +1,8 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Wallet, AlertTriangle, CheckCircle, Loader2, ChevronDown } from "lucide-react";
+import { ArrowRight, Wallet, AlertTriangle, CheckCircle, Loader2, ChevronDown, MapPin } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 export interface AccountOption {
     id: string;
@@ -25,12 +26,17 @@ interface RequestPayoutCardProps {
     onRequestPayout: (amount: number, method: string, accountId?: string) => Promise<boolean>;
     accounts?: AccountOption[];
     isKycVerified: boolean;
+    bankDetails?: {
+        bank_name: string;
+        account_number: string;
+        is_locked: boolean;
+    } | null;
 }
 
-export default function RequestPayoutCard({ availablePayout: globalAvailable, walletAddress, isLoading, onRequestPayout, accounts = [], isKycVerified }: RequestPayoutCardProps) {
+export default function RequestPayoutCard({ availablePayout: globalAvailable, walletAddress, isLoading, onRequestPayout, accounts = [], isKycVerified, bankDetails }: RequestPayoutCardProps) {
     console.log("RequestPayoutCard received accounts:", accounts);
     const [amount, setAmount] = useState("");
-    const [method, setMethod] = useState<"crypto">("crypto");
+    const [method, setMethod] = useState<"crypto" | "bank">("crypto");
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
     const [selectedAccountId, setSelectedAccountId] = useState<string>("");
@@ -66,8 +72,12 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
             setError("Minimum withdrawal is $50");
             return;
         }
-        if (!walletAddress) {
+        if (method === 'crypto' && !walletAddress) {
             setError("No wallet address found");
+            return;
+        }
+        if (method === 'bank' && (!bankDetails || !bankDetails.is_locked)) {
+            setError("No locked bank details found");
             return;
         }
         if (accounts.length > 0 && !selectedAccountId) {
@@ -79,7 +89,8 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
 
     const confirmAndPay = async () => {
         const currentAmount = amount;
-        const isSuccess = await onRequestPayout(parseFloat(currentAmount), "USDT (TRC20)", selectedAccountId);
+        const payoutMethodName = method === 'crypto' ? "USDT (TRC20)" : "Bank Transfer";
+        const isSuccess = await onRequestPayout(parseFloat(currentAmount), method, selectedAccountId);
 
         if (isSuccess) {
             setSubmittedAmount(currentAmount);
@@ -181,8 +192,12 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                             </div>
 
                             <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 shadow-inner">
-                                <span className="text-[10px] text-blue-400 uppercase font-black tracking-widest mb-2 block opacity-90">Destination Wallet</span>
-                                <p className="text-xs text-gray-200 font-mono break-all leading-relaxed bg-black/20 p-2 rounded-lg border border-white/5">{walletAddress}</p>
+                                <span className="text-[10px] text-blue-400 uppercase font-black tracking-widest mb-2 block opacity-90">
+                                    {method === 'crypto' ? 'Destination Wallet' : 'Bank Destination'}
+                                </span>
+                                <p className="text-xs text-gray-200 font-mono break-all leading-relaxed bg-black/20 p-2 rounded-lg border border-white/5">
+                                    {method === 'crypto' ? walletAddress : `${bankDetails?.bank_name} - ${bankDetails?.account_number}`}
+                                </p>
                             </div>
                         </div>
 
@@ -210,9 +225,36 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                         exit={{ opacity: 0 }}
                     >
                         <h2 className="text-xl font-bold text-white mb-2 tracking-tight">Request Withdrawal</h2>
-                        <p className="text-gray-300 font-medium text-sm mb-6 opacity-80">Withdraw your verified profits to your saved wallet.</p>
+                        <p className="text-gray-300 font-medium text-sm mb-6 opacity-80">Choose your preferred withdrawal method and account.</p>
 
                         <div className="space-y-6">
+                            {/* Method Selection */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    onClick={() => setMethod("crypto")}
+                                    className={cn(
+                                        "p-3 rounded-lg border flex flex-col items-center gap-2 transition-all",
+                                        method === "crypto"
+                                            ? "bg-shark-blue/20 border-shark-blue text-white"
+                                            : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+                                    )}
+                                >
+                                    <Wallet size={18} />
+                                    <span className="text-xs font-bold uppercase tracking-wider">Crypto</span>
+                                </button>
+                                <button
+                                    onClick={() => setMethod("bank")}
+                                    className={cn(
+                                        "p-3 rounded-lg border flex flex-col items-center gap-2 transition-all",
+                                        method === "bank"
+                                            ? "bg-shark-blue/20 border-shark-blue text-white"
+                                            : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+                                    )}
+                                >
+                                    <MapPin size={18} />
+                                    <span className="text-xs font-bold uppercase tracking-wider">Bank</span>
+                                </button>
+                            </div>
                             {/* Account Selection */}
                             {accounts.length > 0 && (
                                 <div>
@@ -278,25 +320,47 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                                 </div>
                             </div>
 
-                            {/* Wallet Info */}
-                            {walletAddress ? (
-                                <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-start gap-3">
-                                    <CheckCircle className="text-green-500 shrink-0 mt-0.5" size={16} />
-                                    <div>
-                                        <p className="text-xs text-green-400 font-medium">Wallet Connected</p>
-                                        <p className="text-xs text-gray-400 font-mono mt-1 break-all">{walletAddress}</p>
+                            {/* Destination Info */}
+                            {method === "crypto" ? (
+                                walletAddress ? (
+                                    <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-start gap-3">
+                                        <CheckCircle className="text-green-500 shrink-0 mt-0.5" size={16} />
+                                        <div>
+                                            <p className="text-xs text-green-400 font-medium">Wallet Connected</p>
+                                            <p className="text-xs text-gray-400 font-mono mt-1 break-all">{walletAddress}</p>
+                                        </div>
                                     </div>
-                                </div>
+                                ) : (
+                                    <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-start gap-3">
+                                        <AlertTriangle className="text-yellow-500 shrink-0 mt-0.5" size={16} />
+                                        <div>
+                                            <p className="text-xs text-yellow-500 font-medium">No Wallet Address</p>
+                                            <Link href="/settings" className="text-xs text-white underline hover:text-blue-400 mt-1 block">
+                                                Add payout wallet in Settings
+                                            </Link>
+                                        </div>
+                                    </div>
+                                )
                             ) : (
-                                <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-start gap-3">
-                                    <AlertTriangle className="text-yellow-500 shrink-0 mt-0.5" size={16} />
-                                    <div>
-                                        <p className="text-xs text-yellow-500 font-medium">No Wallet Address</p>
-                                        <Link href="/settings" className="text-xs text-white underline hover:text-blue-400 mt-1 block">
-                                            Add payout wallet in Settings
-                                        </Link>
+                                bankDetails?.is_locked ? (
+                                    <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-start gap-3">
+                                        <CheckCircle className="text-green-500 shrink-0 mt-0.5" size={16} />
+                                        <div>
+                                            <p className="text-xs text-green-400 font-medium">Bank Details Connected</p>
+                                            <p className="text-xs text-gray-400 font-mono mt-1 break-all">{bankDetails.bank_name} - {bankDetails.account_number}</p>
+                                        </div>
                                     </div>
-                                </div>
+                                ) : (
+                                    <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-start gap-3">
+                                        <AlertTriangle className="text-yellow-500 shrink-0 mt-0.5" size={16} />
+                                        <div>
+                                            <p className="text-xs text-yellow-500 font-medium">No Bank Details</p>
+                                            <Link href="/settings" className="text-xs text-white underline hover:text-blue-400 mt-1 block">
+                                                Add bank details in Settings
+                                            </Link>
+                                        </div>
+                                    </div>
+                                )
                             )}
 
                             {/* KYC Warning */}

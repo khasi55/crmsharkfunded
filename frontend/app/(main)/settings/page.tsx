@@ -105,6 +105,16 @@ export default function SettingsPage() {
         isLocked: false
     });
 
+    const [bank, setBank] = useState({
+        id: "",
+        accountHolderName: "",
+        bankName: "",
+        accountNumber: "",
+        ifscCode: "",
+        swiftCode: "",
+        isLocked: false
+    });
+
     const [isKycVerified, setIsKycVerified] = useState(false);
 
     // Fetch User Data on Mount
@@ -134,6 +144,20 @@ export default function SettingsPage() {
                         address: walletData.wallet.wallet_address || "",
                         network: walletData.wallet.wallet_type || "USDT_TRC20",
                         isLocked: walletData.wallet.is_locked || false
+                    });
+                }
+
+                // Fetch bank details from API
+                const bankData = await fetchFromBackend('/api/user/bank-details');
+                if (bankData.bankDetails) {
+                    setBank({
+                        id: bankData.bankDetails.id || "",
+                        accountHolderName: bankData.bankDetails.account_holder_name || "",
+                        bankName: bankData.bankDetails.bank_name || "",
+                        accountNumber: bankData.bankDetails.account_number || "",
+                        ifscCode: bankData.bankDetails.ifsc_code || "",
+                        swiftCode: bankData.bankDetails.swift_code || "",
+                        isLocked: bankData.bankDetails.is_locked || false
                     });
                 }
 
@@ -505,68 +529,184 @@ export default function SettingsPage() {
                             <div className="space-y-8">
                                 <SectionHeader title="Payout Methods" sub="Manage your withdrawal destinations" />
 
-                                {/* Locked Wallet Notice */}
-                                {wallet.isLocked && (
-                                    <div className="p-4 rounded-xl border border-green-500/20 bg-green-500/10 flex items-start gap-4">
-                                        <div className="mt-1 p-2 bg-green-500/10 rounded text-green-500"><CheckCircle size={18} /></div>
-                                        <div>
-                                            <h4 className="font-bold text-sm text-green-500">Wallet Address Saved & Locked</h4>
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                                Your withdrawal wallet is securely locked. Contact support if you need to change it.
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
+                                {/* Wallet Section */}
+                                <div className="space-y-6 max-w-2xl mb-12">
+                                    <h4 className="text-sm font-bold text-primary flex items-center gap-2">
+                                        <Wallet size={16} /> Crypto Wallet (USDT TRC-20)
+                                    </h4>
 
-                                {!wallet.isLocked && (
-                                    <div className="p-4 rounded-xl border border-yellow-500/20 bg-yellow-500/10 flex items-start gap-4">
-                                        <div className="mt-1 p-2 bg-yellow-500/10 rounded text-yellow-500"><AlertTriangle size={18} /></div>
-                                        <div>
-                                            <h4 className="font-bold text-sm text-yellow-500">Important: Wallet Cannot Be Changed</h4>
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                                Once saved, your wallet address will be permanently locked for security. Make sure it's correct!
-                                            </p>
+                                    {wallet.isLocked && (
+                                        <div className="p-4 rounded-xl border border-green-500/20 bg-green-500/10 flex items-start gap-4">
+                                            <div className="mt-1 p-2 bg-green-500/10 rounded text-green-500"><CheckCircle size={18} /></div>
+                                            <div>
+                                                <h4 className="font-bold text-sm text-green-500">Wallet Address Saved & Locked</h4>
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                    Your withdrawal wallet is securely locked. Contact support if you need to change it.
+                                                </p>
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
+                                    )}
 
-                                <div className="space-y-6 max-w-2xl">
-                                    <div className="space-y-3">
-                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Withdrawal Network</label>
-                                        <div className="grid grid-cols-1 gap-4">
-                                            <div
-                                                className={cn(
-                                                    "p-4 rounded-xl border flex items-center gap-3",
-                                                    "bg-primary/10 border-primary",
-                                                    wallet.isLocked ? "opacity-60 cursor-not-allowed" : ""
-                                                )}
-                                            >
-                                                <div className="w-4 h-4 rounded-full border border-primary bg-primary flex items-center justify-center">
-                                                    <div className="w-1.5 h-1.5 bg-white rounded-full" />
-                                                </div>
-                                                <div>
-                                                    <span className="font-bold text-sm">USDT (TRC-20)</span>
-                                                    <p className="text-xs text-muted-foreground">TRON Network - Low fees, fast transfers</p>
+                                    {!wallet.isLocked && (
+                                        <div className="p-4 rounded-xl border border-yellow-500/20 bg-yellow-500/10 flex items-start gap-4">
+                                            <div className="mt-1 p-2 bg-yellow-500/10 rounded text-yellow-500"><AlertTriangle size={18} /></div>
+                                            <div>
+                                                <h4 className="font-bold text-sm text-yellow-500">Important: Wallet Cannot Be Changed</h4>
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                    Once saved, your wallet address will be permanently locked for security.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-6">
+                                        <div className="space-y-3">
+                                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Withdrawal Network</label>
+                                            <div className="grid grid-cols-1 gap-4">
+                                                <div
+                                                    className={cn(
+                                                        "p-4 rounded-xl border flex items-center gap-3",
+                                                        "bg-primary/10 border-primary",
+                                                        wallet.isLocked ? "opacity-60 cursor-not-allowed" : ""
+                                                    )}
+                                                >
+                                                    <div className="w-4 h-4 rounded-full border border-primary bg-primary flex items-center justify-center">
+                                                        <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                                                    </div>
+                                                    <div>
+                                                        <span className="font-bold text-sm">USDT (TRC-20)</span>
+                                                        <p className="text-xs text-muted-foreground">TRON Network - Low fees, fast transfers</p>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
+
+                                        <TerminalInput
+                                            label="USDT TRC-20 Wallet Address"
+                                            value={wallet.address}
+                                            onChange={(e: any) => !wallet.isLocked && setWallet({ ...wallet, address: e.target.value })}
+                                            readOnly={wallet.isLocked}
+                                            icon={Wallet}
+                                            placeholder="T... (TRON wallet address)"
+                                        />
+
+                                        {!wallet.isLocked && (
+                                            <div className="flex justify-end pt-4">
+                                                <button
+                                                    onClick={async () => {
+                                                        if (!wallet.address || wallet.address.length < 30) {
+                                                            setSaveMessage({ type: 'error', text: 'Please enter a valid TRON wallet address' });
+                                                            return;
+                                                        }
+
+                                                        setIsLoading(true);
+                                                        setSaveMessage(null);
+
+                                                        try {
+                                                            await fetchFromBackend('/api/user/wallet', {
+                                                                method: 'POST',
+                                                                body: JSON.stringify({ walletAddress: wallet.address }),
+                                                            });
+
+                                                            setWallet({ ...wallet, isLocked: true });
+                                                            setSaveMessage({ type: 'success', text: 'Wallet saved and locked successfully!' });
+                                                        } catch (err: any) {
+                                                            console.error("Wallet save error:", err);
+                                                            setSaveMessage({ type: 'error', text: err.message || 'Failed to save wallet' });
+                                                        } finally {
+                                                            setIsLoading(false);
+                                                        }
+                                                    }}
+                                                    disabled={isLoading || !wallet.address}
+                                                    className="px-6 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-lg text-sm flex items-center gap-2 disabled:opacity-50"
+                                                >
+                                                    {isLoading ? (
+                                                        <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+                                                    ) : (
+                                                        <><Lock size={16} /> Save & Lock Wallet</>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Bank Details Section */}
+                                <div className="pt-8 border-t border-border mt-8 space-y-6 max-w-2xl">
+                                    <h4 className="text-sm font-bold text-primary flex items-center gap-2">
+                                        <MapPin size={16} /> Bank Wire Details
+                                    </h4>
+
+                                    {bank.isLocked && (
+                                        <div className="p-4 rounded-xl border border-green-500/20 bg-green-500/10 flex items-start gap-4">
+                                            <div className="mt-1 p-2 bg-green-500/10 rounded text-green-500"><CheckCircle size={18} /></div>
+                                            <div>
+                                                <h4 className="font-bold text-sm text-green-500">Bank Details Saved & Locked</h4>
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                    Your bank details are securely locked. Contact support if you need to change them.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {!bank.isLocked && (
+                                        <div className="p-4 rounded-xl border border-yellow-500/20 bg-yellow-500/10 flex items-start gap-4">
+                                            <div className="mt-1 p-2 bg-yellow-500/10 rounded text-yellow-500"><AlertTriangle size={18} /></div>
+                                            <div>
+                                                <h4 className="font-bold text-sm text-yellow-500">Important: Details Cannot Be Changed</h4>
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                    Once saved, your bank details will be permanently locked for security.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <TerminalInput
+                                            label="Account Holder Name"
+                                            value={bank.accountHolderName}
+                                            onChange={(e: any) => !bank.isLocked && setBank({ ...bank, accountHolderName: e.target.value })}
+                                            readOnly={bank.isLocked}
+                                            placeholder="Full name as per bank records"
+                                        />
+                                        <TerminalInput
+                                            label="Bank Name"
+                                            value={bank.bankName}
+                                            onChange={(e: any) => !bank.isLocked && setBank({ ...bank, bankName: e.target.value })}
+                                            readOnly={bank.isLocked}
+                                            placeholder="e.g. HDFC, Chase, HSBC"
+                                        />
+                                        <TerminalInput
+                                            label="Account Number"
+                                            value={bank.accountNumber}
+                                            onChange={(e: any) => !bank.isLocked && setBank({ ...bank, accountNumber: e.target.value })}
+                                            readOnly={bank.isLocked}
+                                            placeholder="Your bank account number"
+                                        />
+                                        <TerminalInput
+                                            label="IFSC Code (for Indian Banks)"
+                                            value={bank.ifscCode}
+                                            onChange={(e: any) => !bank.isLocked && setBank({ ...bank, ifscCode: e.target.value })}
+                                            readOnly={bank.isLocked}
+                                            placeholder="e.g. HDFC0001234"
+                                        />
+                                        <div className="md:col-span-2">
+                                            <TerminalInput
+                                                label="SWIFT / BIC Code (for International Transfers)"
+                                                value={bank.swiftCode}
+                                                onChange={(e: any) => !bank.isLocked && setBank({ ...bank, swiftCode: e.target.value })}
+                                                readOnly={bank.isLocked}
+                                                placeholder="e.g. CHASUS33"
+                                            />
+                                        </div>
                                     </div>
 
-                                    <TerminalInput
-                                        label="USDT TRC-20 Wallet Address"
-                                        value={wallet.address}
-                                        onChange={(e: any) => !wallet.isLocked && setWallet({ ...wallet, address: e.target.value })}
-                                        readOnly={wallet.isLocked}
-                                        icon={Wallet}
-                                        placeholder="T... (TRON wallet address)"
-                                    />
-
-                                    {!wallet.isLocked && (
+                                    {!bank.isLocked && (
                                         <div className="flex justify-end pt-4">
                                             <button
                                                 onClick={async () => {
-                                                    if (!wallet.address || wallet.address.length < 30) {
-                                                        setSaveMessage({ type: 'error', text: 'Please enter a valid TRON wallet address' });
+                                                    if (!bank.accountHolderName || !bank.bankName || !bank.accountNumber) {
+                                                        setSaveMessage({ type: 'error', text: 'Please fill in required bank details' });
                                                         return;
                                                     }
 
@@ -574,33 +714,33 @@ export default function SettingsPage() {
                                                     setSaveMessage(null);
 
                                                     try {
-                                                        const data = await fetchFromBackend('/api/user/wallet', {
+                                                        await fetchFromBackend('/api/user/bank-details', {
                                                             method: 'POST',
-                                                            headers: {
-                                                                'Content-Type': 'application/json',
-                                                            },
-                                                            body: JSON.stringify({ walletAddress: wallet.address }),
+                                                            body: JSON.stringify({
+                                                                account_holder_name: bank.accountHolderName,
+                                                                bank_name: bank.bankName,
+                                                                account_number: bank.accountNumber,
+                                                                ifsc_code: bank.ifscCode,
+                                                                swift_code: bank.swiftCode
+                                                            }),
                                                         });
 
-                                                        // fetchFromBackend throws on error, so we don't need manual ok check
-                                                        // if (!response.ok) ... is handled inside fetchFromBackend
-
-                                                        setWallet({ ...wallet, isLocked: true });
-                                                        setSaveMessage({ type: 'success', text: 'Wallet saved and locked successfully!' });
+                                                        setBank({ ...bank, isLocked: true });
+                                                        setSaveMessage({ type: 'success', text: 'Bank details saved and locked successfully!' });
                                                     } catch (err: any) {
-                                                        console.error("Wallet save error:", err);
-                                                        setSaveMessage({ type: 'error', text: err.message || 'Failed to save wallet' });
+                                                        console.error("Bank details save error:", err);
+                                                        setSaveMessage({ type: 'error', text: err.message || 'Failed to save bank details' });
                                                     } finally {
                                                         setIsLoading(false);
                                                     }
                                                 }}
-                                                disabled={isLoading || !wallet.address}
+                                                disabled={isLoading || !bank.accountNumber}
                                                 className="px-6 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-lg text-sm flex items-center gap-2 disabled:opacity-50"
                                             >
                                                 {isLoading ? (
                                                     <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
                                                 ) : (
-                                                    <><Lock size={16} /> Save & Lock Wallet</>
+                                                    <><Lock size={16} /> Save & Lock Bank Details</>
                                                 )}
                                             </button>
                                         </div>

@@ -332,4 +332,90 @@ router.post('/wallet', authenticate, sensitiveLimiter, validateRequest(walletUpd
     }
 });
 
+// GET /api/user/bank-details - Get user bank details
+router.get('/bank-details', authenticate, async (req: AuthRequest, res: Response) => {
+    try {
+        const user = req.user;
+        if (!user) {
+            res.status(401).json({ error: 'Not authenticated' });
+            return;
+        }
+
+        const { data: bankDetails, error } = await supabase
+            .from('bank_details')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+        if (error) {
+            console.error('Error fetching bank details:', error);
+            res.status(500).json({ error: 'Failed to fetch bank details' });
+            return;
+        }
+
+        res.json({
+            bankDetails: bankDetails || null
+        });
+
+    } catch (error: any) {
+        console.error('BankDetails GET error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// POST /api/user/bank-details - Save user bank details
+import { bankDetailsUpdateSchema } from '../middleware/validation';
+router.post('/bank-details', authenticate, sensitiveLimiter, validateRequest(bankDetailsUpdateSchema), async (req: AuthRequest, res: Response) => {
+    try {
+        const user = req.user!;
+        const updates = req.body;
+
+        // Check if already locked
+        const { data: existing } = await supabase
+            .from('bank_details')
+            .select('is_locked')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+        if (existing?.is_locked) {
+            res.status(400).json({ error: 'Bank details are locked and cannot be changed.' });
+            return;
+        }
+
+        // Upsert bank details
+        const { data, error } = await supabase
+            .from('bank_details')
+            .upsert({
+                user_id: user.id,
+                ...updates,
+                is_locked: true, // Auto-lock on save
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' })
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error saving bank details:', error);
+            res.status(500).json({ error: 'Failed to save bank details' });
+            return;
+        }
+
+        await logSecurityEvent({
+            userId: user.id,
+            email: user.email,
+            action: 'SAVE_BANK_DETAILS',
+            resource: 'bank_details',
+            payload: updates,
+            status: 'success',
+            ip: req.ip
+        });
+
+        res.json({ success: true, bankDetails: data });
+
+    } catch (error: any) {
+        console.error('BankDetails POST error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 export default router;

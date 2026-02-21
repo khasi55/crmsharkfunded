@@ -365,6 +365,93 @@ router.post('/update-status', async (req: Request, res: Response) => {
     }
 });
 
+// POST /api/kyc/submit-manual - Submit manual KYC documents
+router.post('/submit-manual', authenticate, async (req: AuthRequest, res: Response) => {
+    try {
+        const user = req.user!;
+        console.log(`[KYC] Submitting manual for user ID: ${user.id}`);
+        const { front_id_url, back_id_url, selfie_url, firstName, lastName, dateOfBirth, nationality, documentType, documentNumber } = req.body;
+
+        if (!front_id_url || !selfie_url) {
+            res.status(400).json({ error: 'Front ID and Selfie are required' });
+            return;
+        }
+
+        // Check for existing active session
+        const { data: existingSession } = await supabase
+            .from('kyc_sessions')
+            .select('*')
+            .eq('user_id', user.id)
+            .in('status', ['pending', 'in_progress', 'requires_review'])
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        const updateData = {
+            user_id: user.id,
+            status: 'requires_review',
+            kyc_mode: 'manual',
+            front_id_url,
+            back_id_url,
+            selfie_url,
+            first_name: firstName,
+            last_name: lastName,
+            date_of_birth: dateOfBirth,
+            nationality,
+            document_type: documentType,
+            document_number: documentNumber,
+            updated_at: new Date().toISOString()
+        };
+
+        let result;
+        if (existingSession) {
+            const { data, error } = await supabase
+                .from('kyc_sessions')
+                .update(updateData)
+                .eq('id', existingSession.id)
+                .select()
+                .single();
+            if (error) throw error;
+            result = data;
+        } else {
+            const { data, error } = await supabase
+                .from('kyc_sessions')
+                .insert({
+                    ...updateData,
+                    created_at: new Date().toISOString()
+                })
+                .select()
+                .single();
+            if (error) throw error;
+            result = data;
+        }
+
+        // Notify Admins
+        import('../services/notification-service').then(({ NotificationService }) => {
+            NotificationService.createNotification(
+                'Manual KYC Submitted',
+                `User ${user.email} has submitted KYC documents for manual review.`,
+                'info',
+                user.id,
+                { session_id: result.id, mode: 'manual' }
+            );
+        });
+
+        AuditLogger.info(user.email, `Submitted manual KYC documents`, { session_id: result.id });
+
+        res.json({
+            success: true,
+            message: 'KYC documents submitted successfully. They are now under review.',
+            status: result.status,
+            session: result
+        });
+
+    } catch (error: any) {
+        console.error('KYC submit-manual error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error' });
+    }
+});
+
 // ============================================
 // ADMIN ENDPOINTS
 // ============================================
@@ -597,6 +684,68 @@ router.post('/admin/:id/reject', authenticate, requireRole(['super_admin', 'admi
         AuditLogger.warn(req.user?.email || 'admin', `Manually rejected KYC for ${kycUserEmail}. Reason: ${reason}`, { id, reason, category: 'KYC' });
     } catch (error: any) {
         console.error('Reject KYC error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+
+// PATCH /api/kyc/admin/:id - Update KYC session details (admin only)
+router.patch('/admin/:id', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const updateData = req.body;
+
+        // Whitelist allowed fields for update
+        const allowedFields = [
+            'first_name', 'last_name', 'date_of_birth', 'nationality',
+            'document_type', 'document_number', 'document_country',
+            'address_line1', 'address_line2', 'city', 'state', 'postal_code', 'country'
+        ];
+
+        const filteredUpdateData: any = {};
+        allowedFields.forEach(field => {
+            if (updateData[field] !== undefined) {
+                filteredUpdateData[field] = updateData[field];
+            }
+        });
+
+        if (Object.keys(filteredUpdateData).length === 0) {
+            res.status(400).json({ error: 'No valid fields provided for update' });
+            return;
+        }
+
+        filteredUpdateData.updated_at = new Date().toISOString();
+
+        const { data, error } = await supabase
+            .from('kyc_sessions')
+            .update(filteredUpdateData)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error updating KYC session details:', error);
+            throw error;
+        }
+
+        // Fetch user email for logging
+        const { data: userProfile } = data.user_id ? await supabase.from('profiles').select('email').eq('id', data.user_id).single() : { data: null };
+        const kycUserEmail = userProfile?.email || id;
+
+        AuditLogger.info(req.user?.email || 'admin', `Updated KYC details for ${kycUserEmail}`, {
+            id,
+            updates: filteredUpdateData,
+            category: 'KYC'
+        });
+
+        res.json({
+            success: true,
+            message: 'KYC session details updated successfully',
+            session: data
+        });
+
+    } catch (error: any) {
+        console.error('Update KYC details error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

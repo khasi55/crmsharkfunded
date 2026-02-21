@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
     ShieldCheck,
     ExternalLink,
@@ -11,7 +11,12 @@ import {
     Loader2,
     AlertTriangle,
     UserCheck,
-    FileCheck
+    FileCheck,
+    Upload,
+    Camera,
+    Image as ImageIcon,
+    ChevronRight,
+    ChevronLeft
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
@@ -35,6 +40,35 @@ export default function KYCPage() {
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Manual Flow State
+    const [showManualFlow, setShowManualFlow] = useState(false);
+    const [step, setStep] = useState(1);
+    const [files, setFiles] = useState<{
+        front: File | null;
+        back: File | null;
+        selfie: File | null;
+    }>({
+        front: null,
+        back: null,
+        selfie: null
+    });
+    const [previews, setPreviews] = useState<{
+        front: string | null;
+        back: string | null;
+        selfie: string | null;
+    }>({
+        front: null,
+        back: null,
+        selfie: null
+    });
+    const [submitting, setSubmitting] = useState(false);
+
+    // Camera State
+    const [isCameraActive, setIsCameraActive] = useState(false);
+    const [cameraError, setCameraError] = useState<string | null>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const streamRef = useRef<MediaStream | null>(null);
 
     useEffect(() => {
         fetchStatus();
@@ -82,25 +116,132 @@ export default function KYCPage() {
         }
     };
 
-    const startVerification = async () => {
+    const handleFileChange = (type: 'front' | 'back' | 'selfie', file: File | null) => {
+        if (!file) return;
+
+        setFiles(prev => ({ ...prev, [type]: file }));
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setPreviews(prev => ({ ...prev, [type]: reader.result as string }));
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const uploadToSupabase = async (file: File | Blob, path: string) => {
+        const supabase = createClient();
+        const fileExt = file instanceof File ? file.name.split('.').pop() : 'jpg';
+        const fileName = `${Math.random()}.${fileExt}`;
+        const filePath = `${path}/${fileName}`;
+
+        const { error: uploadError, data } = await supabase.storage
+            .from('kyc-documents')
+            .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+            .from('kyc-documents')
+            .getPublicUrl(filePath);
+
+        return publicUrl;
+    };
+
+    useEffect(() => {
+        if (isCameraActive && videoRef.current && streamRef.current) {
+            videoRef.current.srcObject = streamRef.current;
+        }
+    }, [isCameraActive]);
+
+    const startCamera = async () => {
         try {
-            setCreating(true);
+            setCameraError(null);
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
+            });
+            streamRef.current = stream;
+            setIsCameraActive(true);
+        } catch (err: any) {
+            console.error('Camera error:', err);
+            setCameraError('Unable to access camera. Please check permissions or upload a file instead.');
+        }
+    };
+
+    const stopCamera = () => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+        }
+        setIsCameraActive(false);
+    };
+
+    const capturePhoto = () => {
+        if (!videoRef.current) return;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = videoRef.current.videoWidth;
+        canvas.height = videoRef.current.videoHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        ctx.drawImage(videoRef.current, 0, 0);
+
+        canvas.toBlob((blob) => {
+            if (blob) {
+                const file = new File([blob], 'selfie.jpg', { type: 'image/jpeg' });
+                setFiles(prev => ({ ...prev, selfie: file }));
+                setPreviews(prev => ({ ...prev, selfie: canvas.toDataURL('image/jpeg') }));
+                stopCamera();
+            }
+        }, 'image/jpeg', 0.9);
+    };
+
+    const handleSubmitManual = async () => {
+        try {
+            setSubmitting(true);
             setError(null);
-            const res = await fetch('/api/kyc/create-session', { method: 'POST' });
+
+            if (!files.front || !files.selfie) {
+                throw new Error('Front ID and Selfie are required');
+            }
+
+            const supabase = createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('Not authenticated');
+
+            const userId = user.id;
+
+            // 1. Upload files
+            const frontUrl = await uploadToSupabase(files.front, `${userId}/front`);
+            let backUrl = null;
+            if (files.back) {
+                backUrl = await uploadToSupabase(files.back, `${userId}/back`);
+            }
+            const selfieUrl = await uploadToSupabase(files.selfie, `${userId}/selfie`);
+
+            // 2. Submit to backend
+            const res = await fetch('/api/kyc/submit-manual', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    front_id_url: frontUrl,
+                    back_id_url: backUrl,
+                    selfie_url: selfieUrl,
+                    // Optionally add more fields here if you want to collect them in the UI
+                }),
+            });
+
             const data = await res.json();
-
             if (!res.ok) {
-                throw new Error(data.error || 'Failed to start verification');
+                throw new Error(data.error || 'Failed to submit KYC');
             }
 
-            if (data.verificationUrl) {
-                window.open(data.verificationUrl, '_blank');
-                await fetchStatus();
-            }
+            setShowManualFlow(false);
+            await fetchStatus();
+
         } catch (err: any) {
             setError(err.message);
         } finally {
-            setCreating(false);
+            setSubmitting(false);
         }
     };
 
@@ -178,6 +319,275 @@ export default function KYCPage() {
     const config = getStatusConfig(currentStatus);
     const StatusIcon = config.icon;
 
+    if (showManualFlow) {
+        return (
+            <div className="max-w-2xl mx-auto space-y-6 pt-4 px-4 sm:px-0">
+                <div className="flex items-center justify-between mb-6">
+                    <button
+                        onClick={() => setShowManualFlow(false)}
+                        className="text-slate-500 hover:text-black flex items-center gap-1 text-sm font-medium"
+                    >
+                        <ChevronLeft size={16} />
+                        Back
+                    </button>
+                    <div className="flex items-center gap-2">
+                        {[1, 2, 3].map(s => (
+                            <div
+                                key={s}
+                                className={cn(
+                                    "w-8 h-1.5 rounded-full transition-all duration-300",
+                                    step >= s ? "bg-blue-500" : "bg-slate-200"
+                                )}
+                            />
+                        ))}
+                    </div>
+                </div>
+
+                <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-sm"
+                >
+                    {step === 1 && (
+                        <div className="space-y-6">
+                            <div className="text-center">
+                                <h2 className="text-xl font-bold text-black mb-2">Step 1: ID Card (Front)</h2>
+                                <p className="text-slate-500 text-sm">Please upload a clear photo of the front of your government-issued ID.</p>
+                            </div>
+
+                            <div
+                                className={cn(
+                                    "relative aspect-[3/2] rounded-xl border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-colors",
+                                    previews.front ? "border-blue-500/50" : "border-slate-300 hover:border-blue-500/50"
+                                )}
+                            >
+                                {previews.front ? (
+                                    <>
+                                        <img src={previews.front} alt="Front ID" className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <p className="text-white text-sm font-medium">Click to Change</p>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="text-center p-6">
+                                        <ImageIcon className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                                        <p className="text-slate-500 text-sm font-medium">ID Card Front Photo</p>
+                                        <p className="text-slate-400 text-xs mt-1">PNG, JPG or WebP (Max 10MB)</p>
+                                    </div>
+                                )}
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                    onChange={(e) => handleFileChange('front', e.target.files?.[0] || null)}
+                                />
+                            </div>
+
+                            <button
+                                onClick={() => setStep(2)}
+                                disabled={!files.front}
+                                className="w-full btn-primary py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Next Step
+                                <ChevronRight size={18} />
+                            </button>
+                        </div>
+                    )}
+
+                    {step === 2 && (
+                        <div className="space-y-6">
+                            <div className="text-center">
+                                <h2 className="text-xl font-bold text-black mb-2">Step 2: ID Card (Back)</h2>
+                                <p className="text-slate-500 text-sm">Please upload a clear photo of the back of your government-issued ID.</p>
+                            </div>
+
+                            <div
+                                className={cn(
+                                    "relative aspect-[3/2] rounded-xl border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-colors",
+                                    previews.back ? "border-blue-500/50" : "border-slate-300 hover:border-blue-500/50"
+                                )}
+                            >
+                                {previews.back ? (
+                                    <>
+                                        <img src={previews.back} alt="Back ID" className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <p className="text-white text-sm font-medium">Click to Change</p>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="text-center p-6">
+                                        <ImageIcon className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                                        <p className="text-slate-500 text-sm font-medium">ID Card Back Photo</p>
+                                        <p className="text-slate-400 text-xs mt-1">PNG, JPG or WebP (Optional)</p>
+                                    </div>
+                                )}
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                    onChange={(e) => handleFileChange('back', e.target.files?.[0] || null)}
+                                />
+                            </div>
+
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setStep(1)}
+                                    className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors"
+                                >
+                                    Previous
+                                </button>
+                                <button
+                                    onClick={() => setStep(3)}
+                                    className="flex-[2] btn-primary py-3 rounded-xl flex items-center justify-center gap-2"
+                                >
+                                    Next Step
+                                    <ChevronRight size={18} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {step === 3 && (
+                        <div className="space-y-6">
+                            <div className="text-center">
+                                <h2 className="text-xl font-bold text-black mb-2">Step 3: Live Selfie</h2>
+                                <p className="text-slate-500 text-sm">Please upload a clear selfie of yourself holding your ID card (if possible).</p>
+                            </div>
+
+                            <div
+                                className={cn(
+                                    "relative aspect-[3/2] rounded-xl border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-all duration-300",
+                                    previews.selfie || isCameraActive ? "border-blue-500/50" : "border-slate-300 hover:border-blue-500/50",
+                                    isCameraActive && "border-solid bg-black"
+                                )}
+                            >
+                                {isCameraActive ? (
+                                    <div className="relative w-full h-full">
+                                        <video
+                                            ref={videoRef}
+                                            autoPlay
+                                            playsInline
+                                            muted
+                                            className="w-full h-full object-cover mirror"
+                                            style={{ transform: 'scaleX(-1)' }} // Mirror the selfie feed
+                                        />
+                                        <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-3 px-4">
+                                            <button
+                                                onClick={stopCamera}
+                                                className="bg-white/20 hover:bg-white/30 backdrop-blur-md text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={capturePhoto}
+                                                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg transition-all active:scale-95 flex items-center gap-2"
+                                            >
+                                                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                                                Capture Photo
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : previews.selfie ? (
+                                    <>
+                                        <img src={previews.selfie} alt="Selfie" className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
+                                            <button
+                                                onClick={startCamera}
+                                                className="bg-white text-blue-600 px-4 py-2 rounded-lg text-sm font-bold shadow-lg flex items-center gap-2 hover:bg-blue-50"
+                                            >
+                                                <Camera size={16} />
+                                                Retake Photo
+                                            </button>
+                                            <p className="text-white text-xs">Or click to upload different file</p>
+                                        </div>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="absolute inset-0 opacity-0 cursor-pointer"
+                                            onChange={(e) => handleFileChange('selfie', e.target.files?.[0] || null)}
+                                        />
+                                    </>
+                                ) : (
+                                    <div className="relative w-full h-full flex flex-col items-center justify-center group">
+                                        <div className="text-center p-6 mb-2">
+                                            <Camera className="w-10 h-10 text-slate-300 mx-auto mb-3 group-hover:text-blue-400 transition-colors" />
+                                            <p className="text-slate-500 text-sm font-medium">Capture or Upload Selfie</p>
+                                            <p className="text-slate-400 text-xs mt-1">Make sure your face is clearly visible</p>
+                                        </div>
+
+                                        <div className="flex flex-col gap-2 w-full max-w-[200px] px-4">
+                                            <button
+                                                onClick={startCamera}
+                                                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2"
+                                            >
+                                                <Camera size={16} />
+                                                Use Camera
+                                            </button>
+                                            <div className="relative">
+                                                <button className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 py-2 rounded-lg text-sm font-medium transition-all">
+                                                    Upload File
+                                                </button>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                                    onChange={(e) => handleFileChange('selfie', e.target.files?.[0] || null)}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {cameraError && (
+                                <p className="text-red-500 text-xs text-center mt-2">{cameraError}</p>
+                            )}
+
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setStep(2)}
+                                    disabled={submitting}
+                                    className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors disabled:opacity-50"
+                                >
+                                    Previous
+                                </button>
+                                <button
+                                    onClick={handleSubmitManual}
+                                    disabled={!files.selfie || submitting}
+                                    className="flex-[2] btn-primary py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {submitting ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Submitting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <FileCheck size={18} />
+                                            Submit for Review
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </motion.div>
+
+                {error && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-center gap-3"
+                    >
+                        <AlertTriangle className="text-red-400 flex-shrink-0" size={18} />
+                        <p className="text-red-400 text-sm">{error}</p>
+                    </motion.div>
+                )
+                }
+            </div>
+        );
+    }
+
     return (
         <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6 pt-2 sm:pt-4 px-4 sm:px-0">
             {/* Header */}
@@ -202,7 +612,7 @@ export default function KYCPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className={cn(
-                    "rounded-xl sm:rounded-2xl p-6 sm:p-8 border",
+                    "rounded-xl sm:rounded-2xl p-6 sm:p-8 border shadow-sm",
                     config.bgColor,
                     config.borderColor
                 )}
@@ -231,38 +641,36 @@ export default function KYCPage() {
 
                     {/* Action Buttons based on status */}
                     {(currentStatus === 'not_started' || currentStatus === 'declined' || currentStatus === 'expired') && (
-                        <button
-                            onClick={startVerification}
-                            disabled={creating}
-                            className="btn-primary px-6 sm:px-8 py-2.5 sm:py-3 flex items-center gap-2 touch-manipulation text-sm sm:text-base active:scale-95"
-                        >
-                            {creating ? (
-                                <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    <span className="hidden sm:inline">Starting Verification...</span>
-                                    <span className="sm:hidden">Starting...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <UserCheck size={16} className="sm:w-[18px] sm:h-[18px]" />
-                                    <span className="hidden sm:inline">Start Verification</span>
-                                    <span className="sm:hidden">Start KYC</span>
-                                </>
-                            )}
-                        </button>
+                        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                            <button
+                                onClick={() => setShowManualFlow(true)}
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-blue-500/20"
+                            >
+                                <Upload size={18} />
+                                Upload Documents Manually
+                            </button>
+                        </div>
                     )}
 
                     {currentStatus === 'pending' && status?.verificationUrl && (
-                        <a
-                            href={status.verificationUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn-primary px-6 sm:px-8 py-2.5 sm:py-3 flex items-center gap-2 touch-manipulation text-sm sm:text-base active:scale-95"
-                        >
-                            <ExternalLink size={16} className="sm:w-[18px] sm:h-[18px]" />
-                            <span className="hidden sm:inline">Continue Verification</span>
-                            <span className="sm:hidden">Continue</span>
-                        </a>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <a
+                                href={status.verificationUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn-primary px-6 sm:px-8 py-2.5 sm:py-3 flex items-center gap-2 touch-manipulation text-sm sm:text-base active:scale-95"
+                            >
+                                <ExternalLink size={16} className="sm:w-[18px] sm:h-[18px]" />
+                                <span className="hidden sm:inline">Continue Didit Verification</span>
+                                <span className="sm:hidden">Continue</span>
+                            </a>
+                            <button
+                                onClick={() => setShowManualFlow(true)}
+                                className="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors"
+                            >
+                                Switch to Manual Upload
+                            </button>
+                        </div>
                     )}
                 </div>
             </motion.div>
@@ -299,19 +707,28 @@ export default function KYCPage() {
                     transition={{ delay: 0.2 }}
                     className="bg-[#050B24] border border-slate-700 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-sm"
                 >
-                    <h3 className="text-base sm:text-lg font-bold text-white mb-3 sm:mb-4">What You'll Need</h3>
-                    <div className="space-y-2 sm:space-y-3">
-                        <div className="flex items-start gap-2 sm:gap-3">
-                            <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-xs font-bold flex-shrink-0">1</div>
-                            <p className="text-slate-100 text-xs sm:text-sm">Government-Issued ID (Passport, License, or National ID)</p>
+                    <h3 className="text-base sm:text-lg font-bold text-white mb-3 sm:mb-4">Manual KYC Requirements</h3>
+                    <div className="space-y-4">
+                        <div className="flex items-start gap-3">
+                            <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-xs font-bold flex-shrink-0">1</div>
+                            <div>
+                                <p className="text-white text-sm font-medium">Front & Back of ID</p>
+                                <p className="text-slate-400 text-xs mt-0.5">Passport, National ID, or Driver's License.</p>
+                            </div>
                         </div>
-                        <div className="flex items-start gap-2 sm:gap-3">
-                            <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-xs font-bold flex-shrink-0">2</div>
-                            <p className="text-slate-100 text-xs sm:text-sm">Selfie for face verification</p>
+                        <div className="flex items-start gap-3">
+                            <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-xs font-bold flex-shrink-0">2</div>
+                            <div>
+                                <p className="text-white text-sm font-medium">Live Selfie</p>
+                                <p className="text-slate-400 text-xs mt-0.5">Selfie of yourself with clear lighting.</p>
+                            </div>
                         </div>
-                        <div className="flex items-start gap-2 sm:gap-3">
-                            <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-xs font-bold flex-shrink-0">3</div>
-                            <p className="text-slate-100 text-xs sm:text-sm">Good lighting for clear photos</p>
+                        <div className="flex items-start gap-3">
+                            <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-xs font-bold flex-shrink-0">3</div>
+                            <div>
+                                <p className="text-white text-sm font-medium">Manual Review</p>
+                                <p className="text-slate-400 text-xs mt-0.5">Our team will manually verify your documents within 24-48 hours.</p>
+                            </div>
                         </div>
                     </div>
                 </motion.div>
@@ -320,7 +737,7 @@ export default function KYCPage() {
             {/* Footer Note - Only show when not verified */}
             {currentStatus !== 'approved' && (
                 <p className="text-center text-slate-400 text-xs">
-                    Your data is encrypted and processed securely. Verification typically completes within 2-5 minutes.
+                    Your data is encrypted and processed securely according to our privacy policy.
                 </p>
             )}
         </div>

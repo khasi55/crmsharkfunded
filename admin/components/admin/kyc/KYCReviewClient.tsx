@@ -7,7 +7,7 @@ import Link from "next/link";
 import {
     ChevronLeft, User, MapPin, FileText, Shield,
     CheckCircle, XCircle, AlertTriangle, Download,
-    Maximize2, ExternalLink, Calendar, Mail
+    Maximize2, ExternalLink, Calendar, Mail, Upload
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -46,6 +46,10 @@ interface KYCSession {
     // Manual Document Upload
     manual_document_url?: string;
     manual_document_type?: string;
+    front_id_url?: string;
+    back_id_url?: string;
+    selfie_url?: string;
+    kyc_mode?: string;
     rejection_reason?: string;
     approved_by?: string;
     approved_at?: string;
@@ -61,6 +65,9 @@ export function KYCReviewClient({ id }: { id: string }) {
     const [session, setSession] = useState<KYCSession | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editedData, setEditedData] = useState<Partial<KYCSession>>({});
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         if (!id) return;
@@ -136,7 +143,73 @@ export function KYCReviewClient({ id }: { id: string }) {
                     </div>
                 </div>
 
-                {/* Header Actions (Optional) */}
+                {/* Header Actions */}
+                <div className="flex items-center gap-3">
+                    {!isEditing ? (
+                        <button
+                            onClick={() => {
+                                setIsEditing(true);
+                                setEditedData({
+                                    first_name: session.first_name,
+                                    last_name: session.last_name,
+                                    date_of_birth: session.date_of_birth,
+                                    nationality: session.nationality,
+                                    address_line1: session.address_line1,
+                                    address_line2: session.address_line2,
+                                    city: session.city,
+                                    state: session.state,
+                                    postal_code: session.postal_code,
+                                    country: session.country,
+                                    document_type: session.document_type,
+                                    document_number: session.document_number,
+                                    document_country: session.document_country,
+                                });
+                            }}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 shadow-sm transition-all"
+                        >
+                            Edit Details
+                        </button>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={async () => {
+                                    setSaving(true);
+                                    try {
+                                        const response = await fetch(`/api/kyc/admin/${id}`, {
+                                            method: 'PATCH',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify(editedData),
+                                        });
+
+                                        if (!response.ok) {
+                                            const data = await response.json();
+                                            throw new Error(data.error || 'Failed to update details');
+                                        }
+
+                                        const data = await response.json();
+                                        setSession({ ...session, ...data.session });
+                                        setIsEditing(false);
+                                        alert('Details updated successfully');
+                                    } catch (err: any) {
+                                        alert(err.message);
+                                    } finally {
+                                        setSaving(false);
+                                    }
+                                }}
+                                disabled={saving}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm transition-all disabled:opacity-50"
+                            >
+                                {saving ? 'Saving...' : 'Save Changes'}
+                            </button>
+                            <button
+                                onClick={() => setIsEditing(false)}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 shadow-sm transition-all"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -242,10 +315,35 @@ export function KYCReviewClient({ id }: { id: string }) {
                                 Personal Information
                             </h3>
                             <div className="space-y-3">
-                                <InfoRow label="First Name" value={session.first_name} />
-                                <InfoRow label="Last Name" value={session.last_name} />
-                                <InfoRow label="Date of Birth" value={session.date_of_birth ? format(new Date(session.date_of_birth), 'PPP') : undefined} />
-                                <InfoRow label="Nationality" value={session.nationality} />
+                                <InfoRow
+                                    label="First Name"
+                                    value={session.first_name}
+                                    isEditing={isEditing}
+                                    editedValue={editedData.first_name}
+                                    onChange={(val) => setEditedData({ ...editedData, first_name: val })}
+                                />
+                                <InfoRow
+                                    label="Last Name"
+                                    value={session.last_name}
+                                    isEditing={isEditing}
+                                    editedValue={editedData.last_name}
+                                    onChange={(val) => setEditedData({ ...editedData, last_name: val })}
+                                />
+                                <InfoRow
+                                    label="Date of Birth"
+                                    value={session.date_of_birth ? format(new Date(session.date_of_birth), 'PPP') : undefined}
+                                    isEditing={isEditing}
+                                    editedValue={editedData.date_of_birth}
+                                    onChange={(val) => setEditedData({ ...editedData, date_of_birth: val })}
+                                    type="date"
+                                />
+                                <InfoRow
+                                    label="Nationality"
+                                    value={session.nationality}
+                                    isEditing={isEditing}
+                                    editedValue={editedData.nationality}
+                                    onChange={(val) => setEditedData({ ...editedData, nationality: val })}
+                                />
                             </div>
                         </div>
 
@@ -256,15 +354,51 @@ export function KYCReviewClient({ id }: { id: string }) {
                                 Address Details
                             </h3>
                             <div className="space-y-3">
-                                <InfoRow label="Street" value={session.address_line1} />
-                                <InfoRow label="Apt / Suite" value={session.address_line2} />
+                                <InfoRow
+                                    label="Street"
+                                    value={session.address_line1}
+                                    isEditing={isEditing}
+                                    editedValue={editedData.address_line1}
+                                    onChange={(val) => setEditedData({ ...editedData, address_line1: val })}
+                                />
+                                <InfoRow
+                                    label="Apt / Suite"
+                                    value={session.address_line2}
+                                    isEditing={isEditing}
+                                    editedValue={editedData.address_line2}
+                                    onChange={(val) => setEditedData({ ...editedData, address_line2: val })}
+                                />
                                 <div className="grid grid-cols-2 gap-2">
-                                    <InfoRow label="City" value={session.city} />
-                                    <InfoRow label="State" value={session.state} />
+                                    <InfoRow
+                                        label="City"
+                                        value={session.city}
+                                        isEditing={isEditing}
+                                        editedValue={editedData.city}
+                                        onChange={(val) => setEditedData({ ...editedData, city: val })}
+                                    />
+                                    <InfoRow
+                                        label="State"
+                                        value={session.state}
+                                        isEditing={isEditing}
+                                        editedValue={editedData.state}
+                                        onChange={(val) => setEditedData({ ...editedData, state: val })}
+                                    />
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
-                                    <InfoRow label="Postal Code" value={session.postal_code} />
-                                    <InfoRow label="Country" value={session.country} />
+                                    <InfoRow
+                                        label="Postal Code"
+                                        value={session.postal_code}
+                                        isEditing={isEditing}
+                                        editedValue={editedData.postal_code}
+                                        onChange={(val) => setEditedData({ ...editedData, postal_code: val })}
+                                    />
+                                    <InfoRow
+                                        label="Country"
+                                        value={session.country}
+                                        isEditing={isEditing}
+                                        editedValue={editedData.country}
+                                        onChange={(val) => setEditedData({ ...editedData, country: val })}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -278,9 +412,29 @@ export function KYCReviewClient({ id }: { id: string }) {
                         <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-4">
                                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100 pb-2">Document Details</h4>
-                                <InfoRow label="Type" value={session.document_type} capitalize />
-                                <InfoRow label="Number" value={session.document_number} mono />
-                                <InfoRow label="Issuing Country" value={session.document_country} />
+                                <InfoRow
+                                    label="Type"
+                                    value={session.document_type}
+                                    capitalize
+                                    isEditing={isEditing}
+                                    editedValue={editedData.document_type}
+                                    onChange={(val) => setEditedData({ ...editedData, document_type: val })}
+                                />
+                                <InfoRow
+                                    label="Number"
+                                    value={session.document_number}
+                                    mono
+                                    isEditing={isEditing}
+                                    editedValue={editedData.document_number}
+                                    onChange={(val) => setEditedData({ ...editedData, document_number: val })}
+                                />
+                                <InfoRow
+                                    label="Issuing Country"
+                                    value={session.document_country}
+                                    isEditing={isEditing}
+                                    editedValue={editedData.document_country}
+                                    onChange={(val) => setEditedData({ ...editedData, document_country: val })}
+                                />
                             </div>
 
                             <div className="space-y-4">
@@ -319,7 +473,7 @@ export function KYCReviewClient({ id }: { id: string }) {
                             <div className="rounded-xl border border-blue-200 bg-blue-50/30 p-4 shadow-sm mt-4">
                                 <div className="flex items-center gap-2 mb-3">
                                     <Shield className="h-4 w-4 text-blue-600" />
-                                    <h4 className="font-semibold text-blue-900">Manually Uploaded Document</h4>
+                                    <h4 className="font-semibold text-blue-900">Admin-Uploaded Verification Document</h4>
                                 </div>
                                 <div className="bg-white rounded-lg p-3 border border-blue-100">
                                     <div className="flex items-start gap-4">
@@ -343,6 +497,33 @@ export function KYCReviewClient({ id }: { id: string }) {
                             </div>
                         )}
 
+                        {/* Manual KYC Uploads (User Side) */}
+                        {(session.front_id_url || session.back_id_url || session.selfie_url) && (
+                            <div className="rounded-xl border border-amber-200 bg-amber-50/10 p-5 shadow-sm mt-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-2">
+                                        <Upload className="h-5 w-5 text-amber-600" />
+                                        <h4 className="font-bold text-gray-900">User Manual KYC Submissions</h4>
+                                    </div>
+                                    <div className="px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wider">
+                                        Manual Mode
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    {session.front_id_url && (
+                                        <ManualDocCard url={session.front_id_url} label="Front ID" />
+                                    )}
+                                    {session.back_id_url && (
+                                        <ManualDocCard url={session.back_id_url} label="Back ID" />
+                                    )}
+                                    {session.selfie_url && (
+                                        <ManualDocCard url={session.selfie_url} label="Selfie" />
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         <RawDataViewer data={session.raw_response} />
                     </div>
 
@@ -354,13 +535,40 @@ export function KYCReviewClient({ id }: { id: string }) {
 
 // Sub-components
 
-function InfoRow({ label, value, mono = false, capitalize = false }: { label: string, value?: string, mono?: boolean, capitalize?: boolean }) {
+function InfoRow({
+    label,
+    value,
+    mono = false,
+    capitalize = false,
+    isEditing = false,
+    editedValue = '',
+    onChange,
+    type = 'text'
+}: {
+    label: string,
+    value?: string,
+    mono?: boolean,
+    capitalize?: boolean,
+    isEditing?: boolean,
+    editedValue?: string,
+    onChange?: (val: string) => void,
+    type?: string
+}) {
     return (
         <div>
             <p className="text-xs text-gray-500 mb-0.5">{label}</p>
-            <p className={`text-sm font-medium text-gray-900 ${mono ? 'font-mono' : ''} ${capitalize ? 'capitalize' : ''}`}>
-                {value || '-'}
-            </p>
+            {isEditing ? (
+                <input
+                    type={type}
+                    value={editedValue || ''}
+                    onChange={(e) => onChange?.(e.target.value)}
+                    className={`w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none ${mono ? 'font-mono' : ''}`}
+                />
+            ) : (
+                <p className={`text-sm font-medium text-gray-900 ${mono ? 'font-mono' : ''} ${capitalize ? 'capitalize' : ''}`}>
+                    {value || '-'}
+                </p>
+            )}
         </div>
     );
 }
@@ -678,3 +886,33 @@ function ManualKYCActions({ sessionId }: { sessionId: string }) {
 // Helpers
 const isClean = (status?: string) => ['clear', 'passed', 'approved'].includes(status?.toLowerCase() || '');
 const isHit = (status?: string) => ['hit', 'failed', 'rejected', 'suspicious'].includes(status?.toLowerCase() || '');
+
+function ManualDocCard({ url, label }: { url: string, label: string }) {
+    return (
+        <div className="bg-white rounded-lg p-3 border border-gray-200 overflow-hidden group">
+            <p className="text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-tight">{label}</p>
+            <div className="relative aspect-[4/3] rounded bg-gray-50 overflow-hidden border border-gray-100">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt={label} className="h-full w-full object-contain group-hover:scale-110 transition-transform duration-300" />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white p-2 rounded-full shadow-lg text-gray-900 hover:scale-110 transition-transform"
+                    >
+                        <ExternalLink size={14} />
+                    </a>
+                </div>
+            </div>
+            <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 text-[10px] text-blue-600 hover:underline flex items-center gap-1 font-medium"
+            >
+                Open Full Size <Maximize2 size={10} />
+            </a>
+        </div>
+    );
+}

@@ -20,10 +20,12 @@ export default function PayoutsPage() {
         fundedAccountActive: false,
         walletConnected: false,
         profitTargetMet: false,
-        kycVerified: false
+        kycVerified: false,
+        bankDetailsConnected: false
     });
     const [eligibleAccounts, setEligibleAccounts] = useState<any[]>([]);
     const [walletAddress, setWalletAddress] = useState<string | null>(null);
+    const [bankDetails, setBankDetails] = useState<any | null>(null);
     const [history, setHistory] = useState<any[]>([]);
     const [requesting, setRequesting] = useState(false);
     const [debugInfo, setDebugInfo] = useState<any>(null); // State for debug info
@@ -58,6 +60,7 @@ export default function PayoutsPage() {
             }
 
             setWalletAddress(balanceData.walletAddress || null);
+            setBankDetails(balanceData.bankDetails || null);
 
             // Fetch payout history from API
             const historyData = await fetchFromBackend('/api/payouts/history');
@@ -74,8 +77,13 @@ export default function PayoutsPage() {
         try {
             setRequesting(true);
 
-            if (!walletAddress) {
+            if (method === 'crypto' && !walletAddress) {
                 alert("Please set up a wallet address first.");
+                return false;
+            }
+
+            if (method === 'bank' && !bankDetails) {
+                alert("Please set up your bank details first.");
                 return false;
             }
 
@@ -154,6 +162,7 @@ export default function PayoutsPage() {
                         onRequestPayout={handleRequestPayout}
                         accounts={eligibleAccounts}
                         isKycVerified={eligibility.kycVerified}
+                        bankDetails={bankDetails}
                     />
 
                     {/* Eligibility / Rules Card */}
@@ -168,6 +177,7 @@ export default function PayoutsPage() {
                             {[
                                 { label: "Funded Account Active", status: eligibility.fundedAccountActive },
                                 { label: "Wallet Connected", status: eligibility.walletConnected },
+                                { label: "Bank Details Connected", status: eligibility.bankDetailsConnected },
                                 { label: "Profit Target Met", status: eligibility.profitTargetMet },
                                 { label: "KYC Verified", status: eligibility.kycVerified },
                             ].map((item, i) => (
