@@ -2,7 +2,7 @@ import { Worker, Job } from 'bullmq';
 import { getRedis } from '../lib/redis';
 import { fetchMT5Trades } from '../lib/mt5-bridge';
 import { riskQueue } from '../lib/queue';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseAdmin } from '../lib/supabase';
 
 const DEBUG = process.env.DEBUG === 'true'; // Strict: Only log if explicitly asked
 
@@ -31,7 +31,7 @@ export async function startTradeSyncWorker() {
             const challengeStartTime = new Date(createdAt).getTime();
 
             // 3. Fetch Existing Trades to Prevent Overwriting Fixes & Calculate Delta
-            const { data: existingTrades } = await supabase
+            const { data: existingTrades } = await supabaseAdmin
                 .from('trades')
                 .select('ticket, type, close_time, profit_loss, commission, swap')
                 .eq('challenge_id', challengeId);
@@ -142,7 +142,7 @@ export async function startTradeSyncWorker() {
             }
 
             // 5. Upsert to DB ONLY the delta
-            const { error } = await supabase
+            const { error } = await supabaseAdmin
                 .from('trades')
                 .upsert(tradesToUpsert, { onConflict: 'challenge_id, ticket' });
 

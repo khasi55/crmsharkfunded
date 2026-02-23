@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { paymentGatewayRegistry } from '../services/payment-gateways';
 import { authenticate, AuthRequest } from '../middleware/auth';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseAdmin } from '../lib/supabase';
 
 const router = Router();
 
@@ -110,7 +110,7 @@ router.post('/create-order', async (req: Request, res: Response) => {
         }
 
         // Insert into database (Handle optional user_id)
-        const { error: dbError } = await supabase.from('payment_orders').insert({
+        const { error: dbError } = await supabaseAdmin.from('payment_orders').insert({
             user_id: user?.id || null, // Allow null for guest checkout
             order_id: orderId,
             amount: amount,

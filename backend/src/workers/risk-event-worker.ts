@@ -4,7 +4,7 @@ import { CoreRiskEngine } from '../engine/risk-engine-core';
 import { AdvancedRiskEngine } from '../engine/risk-engine-advanced';
 import { EmailService } from '../services/email-service';
 import { disableMT5Account } from '../lib/mt5-bridge';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseAdmin } from '../lib/supabase';
 
 const coreEngine = new CoreRiskEngine(supabase);
 const advancedEngine = new AdvancedRiskEngine(supabase);
@@ -41,22 +41,70 @@ export async function startRiskEventWorker() {
     return worker;
 }
 
-async function processTradeEvent(data: { login: number, trades: any[], timestamp: number }) {
-    const { login, trades } = data;
-
+async function processTradeEvent(data: { login: number, trades: any[], event?: string, timestamp: number, reason?: string, equity?: number }) {
+    const { login, trades, event } = data;
     let meaningfulTrades: any[] = [];
 
     // 1. Fetch Challenge
-    const { data: challenge } = await supabase
+    const { data: challenge } = await supabaseAdmin
         .from('challenges')
         .select('id, user_id, initial_balance, start_of_day_equity, status, created_at, group, challenge_type')
         .eq('login', login)
         .single();
 
-    if (!challenge || challenge.status !== 'active') {
-        // if (DEBUG) console.warn(`⚠️ [RiskEvent] Early Exit for ${login}: Challenge found? ${!!challenge}, Status: ${challenge?.status}`);
-        return;
+    if (!challenge) return;
+
+    // --- NEW: EVENT-DRIVEN STATUS UPDATES (From Python Bridge) ---
+    if (event === 'account_passed' || event === 'account_breached') {
+        const newStatus = event === 'account_passed' ? 'passed' : 'failed';
+
+        if (challenge.status === newStatus) return; // Skip redundant updates
+
+        console.log(`🚀 [RiskWorker] Processing ${event} for ${login}. Status will be: ${newStatus}`);
+
+        // Update Status
+        const { error: uError } = await supabaseAdmin
+            .from('challenges')
+            .update({
+                status: newStatus,
+                ...(data.equity && { current_equity: data.equity }), // Sync equity if provided
+                updated_at: new Date()
+            })
+            .eq('id', challenge.id);
+
+        if (uError) {
+            console.error(`❌ [RiskWorker] Failed to update challenge status for ${login}:`, uError.message);
+            return;
+        }
+
+        // Send Email Notifications
+        try {
+            const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(challenge.user_id);
+            const fullName = user?.user_metadata?.full_name || 'Trader';
+            const email = user?.email;
+
+            if (email) {
+                if (event === 'account_passed') {
+                    await EmailService.sendPassNotification(email, fullName, String(login), challenge.challenge_type || 'Challenge');
+                } else if (event === 'account_breached') {
+                    await EmailService.sendBreachNotification(
+                        email,
+                        fullName,
+                        String(login),
+                        data.reason || 'Drawdown Breach',
+                        `Your account equity was recorded at $${data.equity || 'N/A'}`
+                    );
+                }
+            }
+        } catch (e) {
+            console.error('📧 [RiskWorker] Notification failed:', e);
+        }
+
+        return; // Exit early for status events
     }
+    // --- END STATUS UPDATES ---
+
+    if (challenge.status !== 'active') return;
 
     // 2. Filter Trades for behavioral checks (Ghost Trade Protection)
     const validIncomingTrades = trades.filter((t: any) => t.volume > 0 && ['0', '1', 'buy', 'sell'].includes(String(t.type).toLowerCase()));
@@ -105,7 +153,7 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
     // 3. Recalculate Equity (In-Memory if possible, or simple query)
     // 3. Recalculate Equity (In-Memory if possible, or simple query)
     // Query DB for verified calculation, but strictly filter out 0-lot trades (deposits)
-    const { data: dbTrades } = await supabase.from('trades')
+    const { data: dbTrades } = await supabaseAdmin.from('trades')
         .select('profit_loss, commission, swap, close_time')
         .eq('challenge_id', challenge.id)
         .gt('lots', 0); // Strict filter: Real trades must have lots > 0
@@ -129,7 +177,7 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
 
     // 4. Check Risk Rules (Immediate)
     // Fetch Rules (Cache this in Redis later!)
-    const { data: riskGroups } = await supabase.from('mt5_risk_groups').select('*');
+    const { data: riskGroups } = await supabaseAdmin.from('mt5_risk_groups').select('*');
     // Default rule since we don't have 'group' column in challenges table
     const rule = { max_drawdown_percent: 10, daily_drawdown_percent: 5 };
     // Optimization: If we had group, we would do: riskGroups?.find(g => g.group_name === challenge.group)
@@ -152,7 +200,7 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
         // updateData.status = 'failed';
 
         // Log Violation
-        await supabase.from('risk_violations').insert({
+        await supabaseAdmin.from('risk_violations').insert({
             challenge_id: challenge.id,
             user_id: challenge.user_id,
             violation_type: 'max_loss_breach',
@@ -173,7 +221,7 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
     /*
     // Send Breach Email
     try {
-        const { data: { user } } = await supabase.auth.admin.getUserById(challenge.user_id);
+        const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(challenge.user_id);
         if (user && user.email) {
             if (DEBUG) console.log(`📧 Sending breach email to ${user.email} for account ${login}`);
             await EmailService.sendBreachNotification(
@@ -196,7 +244,7 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
         let rulesConfig;
 
         if (challenge.group) {
-            const { data: groupConfig } = await supabase
+            const { data: groupConfig } = await supabaseAdmin
                 .from('risk_rules_config')
                 .select('*')
                 .eq('mt5_group_name', challenge.group)
@@ -207,7 +255,7 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
 
         // Fallback if no specific group config found
         if (!rulesConfig) {
-            const { data: defaultConfig } = await supabase
+            const { data: defaultConfig } = await supabaseAdmin
                 .from('risk_rules_config')
                 .select('*')
                 .limit(1)
@@ -239,14 +287,14 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
         const yesterday = new Date(Date.now() - 86400000).toISOString();
 
         // Fetch Today's Trades (for daily stats)
-        const { data: todaysTrades } = await supabase.from('trades')
+        const { data: todaysTrades } = await supabaseAdmin.from('trades')
             .select('*')
             .eq('challenge_id', challenge.id)
             .gte('open_time', today);
 
         // Fetch ALL Closed Trades (As requested: Full history for Martingale)
         // Optimization: Select only necessary columns to reduce payload
-        const { data: recentHistory } = await supabase.from('trades')
+        const { data: recentHistory } = await supabaseAdmin.from('trades')
             .select('ticket, close_time, profit_loss, lots, type, symbol, open_time')
             .eq('challenge_id', challenge.id)
             .not('close_time', 'is', null)
@@ -262,7 +310,7 @@ async function processTradeEvent(data: { login: number, trades: any[], timestamp
 
         // Fetch "Concurrent" trades for Hedging check
         // Must include currently OPEN trades AND recently CLOSED trades (to catch historical overlaps during sync)
-        const { data: concurrentTrades } = await supabase.from('trades')
+        const { data: concurrentTrades } = await supabaseAdmin.from('trades')
             .select('*')
             .eq('challenge_id', challenge.id)
             .or(`close_time.is.null,close_time.gte.${yesterday}`);

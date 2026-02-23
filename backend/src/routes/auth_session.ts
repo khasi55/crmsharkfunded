@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseAdmin } from '../lib/supabase';
 import crypto from 'crypto';
 import { authenticate, AuthRequest } from '../middleware/auth';
 
@@ -34,7 +34,7 @@ router.post('/session', async (req, res) => {
         const isLocalhost = req.headers.host?.includes('localhost') || req.headers.host?.includes('127.0.0.1');
 
         if (existingSessionId) {
-            const { data: existingSession } = await supabase
+            const { data: existingSession } = await supabaseAdmin
                 .from('api_sessions')
                 .select('id, is_active, ip_address, user_agent')
                 .eq('id', existingSessionId)
@@ -58,7 +58,7 @@ router.post('/session', async (req, res) => {
         // 3. Create Session in DB (Only if missing or invalid)
         const sessionId = crypto.randomUUID();
 
-        const { error: sessionError } = await supabase
+        const { error: sessionError } = await supabaseAdmin
             .from('api_sessions')
             .insert({
                 id: sessionId,
@@ -112,7 +112,7 @@ router.get('/session', authenticate, async (req: AuthRequest, res: Response) => 
 router.post('/logout', async (req, res) => {
     const sessionId = req.cookies.sf_session;
     if (sessionId) {
-        await supabase
+        await supabaseAdmin
             .from('api_sessions')
             .update({ is_active: false })
             .eq('id', sessionId);
