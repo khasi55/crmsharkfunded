@@ -216,7 +216,6 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
             }
             */
 
-            /*
             if (equityUpdates.length > 0) {
                 // For equity updates, we MUST NOT include 'status' in the payload
                 // But upsert might require all fields depending on RLS/Constraints? 
@@ -227,7 +226,6 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 const { error } = await supabase.from('challenges').upsert(equityUpdates);
                 if (error) console.error(" Bulk equity update failed:", error.message);
             }
-            */
 
             /*
             // 2. Bulk Insert Logs

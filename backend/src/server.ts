@@ -299,7 +299,7 @@ import { startRiskEventWorker } from './workers/risk-event-worker';
 import { startTradeSyncWorker } from './workers/trade-sync-worker';
 import { closeRedisConnections } from './lib/redis';
 
-startRiskMonitor(5);
+startRiskMonitor(300);
 startAdvancedRiskMonitor();
 startDailyEquityReset();
 startTradeSyncScheduler();

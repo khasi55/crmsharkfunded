@@ -187,6 +187,6 @@ export async function startTradeSyncWorker() {
         // console.error(`❌ Sync Job ${job?.id} failed: ${err.message}`);
     });
 
-    if (DEBUG) console.log('✅ Trade Sync Worker Initialized with concurrency: 40');
+    if (DEBUG) console.log('✅ Trade Sync Worker Initialized with concurrency: 20');
     return worker;
 }
