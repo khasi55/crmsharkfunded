@@ -271,25 +271,28 @@ export default function AdminMT5Client() {
     );
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="space-y-8 animate-in fade-in duration-500">
+            {/* Header Section */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-gray-100">
                 <div>
-                    <h1 className="text-2xl font-semibold text-gray-900">MT5 Accounts</h1>
-                    <p className="text-sm text-gray-600 mt-1">Manage all MT5 trading accounts</p>
+                    <h1 className="text-3xl font-bold tracking-tight text-gray-900">MT5 Accounts</h1>
+                    <p className="mt-2 text-gray-500 max-w-2xl text-base">
+                        Comprehensive management and oversight of all meta-trader 5 institutional trading accounts.
+                    </p>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex items-center gap-3">
                     <button
                         onClick={handleExport}
-                        className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        className="inline-flex items-center px-4 py-2.5 bg-white border border-gray-200 text-sm font-semibold text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm active:scale-95"
                     >
-                        <svg className="mr-2 h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="mr-2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
-                        Export CSV
+                        Export Data
                     </button>
                     <Link
                         href="/mt5/assign"
-                        className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        className="inline-flex items-center px-4 py-2.5 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-all shadow-md active:scale-95 ring-offset-2 focus:ring-2 focus:ring-gray-900"
                     >
                         <Plus className="mr-2 h-4 w-4" />
                         Assign Account
@@ -297,227 +300,223 @@ export default function AdminMT5Client() {
                 </div>
             </div>
 
-            <div className="border-b border-gray-200">
-                <nav className="flex gap-6">
-                    {(["first", "second", "funded", "instant"] as const).map((tab) => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors capitalize ${activeTab === tab
-                                ? "border-indigo-600 text-indigo-600"
-                                : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-                                }`}
-                        >
-                            {tab === "first" ? "First Assessment" : tab === "second" ? "Second Assessment" : tab === "funded" ? "Funded Accounts" : "Instant Funding"}
-                        </button>
-                    ))}
-                </nav>
-            </div>
-
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <div className="flex flex-col gap-4">
-                    <div className="flex flex-wrap items-center gap-4">
-                        <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                            <Filter className="h-4 w-4" />
-                            Filters:
-                        </div>
-                        <div className="relative">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search accounts..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 w-64"
-                            />
-                        </div>
-                        <select
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
-                        >
-                            <option value="all">All Status</option>
-                            <option value="active">Active</option>
-                            <option value="passed">Passed</option>
-                            <option value="disabled">Disabled</option>
-                            <option value="breached">Breached</option>
-                            <option value="failed">Failed</option>
-                        </select>
-                        <select
-                            value={sizeFilter}
-                            onChange={(e) => setSizeFilter(e.target.value)}
-                            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
-                        >
-                            <option value="all">All Sizes</option>
-                            {uniqueSizes.map(size => (
-                                <option key={size} value={size}>${size.toLocaleString()}</option>
-                            ))}
-                        </select>
-                        <select
-                            value={groupFilter}
-                            onChange={(e) => setGroupFilter(e.target.value)}
-                            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
-                        >
-                            <option value="all">All MT5 Groups</option>
-                            {MT5_GROUP_FILTERS.map(group => (
-                                <option key={group.value} value={group.value}>{group.label}</option>
-                            ))}
-                        </select>
-                        <select
-                            value={sourceFilter}
-                            onChange={(e) => setSourceFilter(e.target.value)}
-                            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
-                        >
-                            <option value="all">All Sources</option>
-                            <option value="admin">Admin Assigned</option>
-                            <option value="checkout">Checkout / Payment Gateway</option>
-                        </select>
-                    </div>
-
-                    <div className="flex items-center gap-4 pt-2 border-t border-gray-100">
-                        <span className="text-sm font-medium text-gray-700">Created Between:</span>
-                        <div className="flex items-center gap-2">
-                            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 px-3 py-1.5" />
-                            <span className="text-gray-400">to</span>
-                            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 px-3 py-1.5" />
-                        </div>
-                        {(dateFrom || dateTo || statusFilter !== "all" || sizeFilter !== "all" || groupFilter !== "all" || sourceFilter !== "all" || searchQuery) && (
-                            <button
-                                onClick={() => {
-                                    setDateFrom(""); setDateTo(""); setStatusFilter("all"); setSizeFilter("all"); setGroupFilter("all"); setSourceFilter("all"); setSearchQuery("");
-                                }}
-                                className="ml-auto text-sm text-red-600 hover:text-red-700 font-medium"
-                            >
-                                Clear All Filters
-                            </button>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+            {/* Metrics Overview - Bento Style */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                    { label: "Total", value: filteredAccounts.length, color: "indigo" },
-                    { label: "Active", value: filteredAccounts.filter(a => a.status === 'active').length, color: "emerald" },
-                    { label: "Passed", value: filteredAccounts.filter(a => a.status === 'passed').length, color: "blue" },
-                    { label: "Breached", value: filteredAccounts.filter(a => a.status === 'breached' || a.status === 'failed' || a.status === 'disabled').length, color: "red" },
+                    { label: "Total Accounts", value: filteredAccounts.length, icon: Server, color: "gray", trend: "Live Tracking" },
+                    { label: "Active Trading", value: filteredAccounts.filter(a => a.status === 'active').length, icon: Server, color: "emerald", trend: "Compliant" },
+                    { label: "Phase Completed", value: filteredAccounts.filter(a => a.status === 'passed').length, icon: Server, color: "blue", trend: "Upgradable" },
+                    { label: "Breached/Failed", value: filteredAccounts.filter(a => a.status === 'breached' || a.status === 'failed' || a.status === 'disabled').length, icon: Server, color: "rose", trend: "Action Required" },
                 ].map((stat) => (
-                    <div key={stat.label} className="bg-white rounded-lg border border-gray-200 p-5">
-                        <div className="flex items-center justify-between">
+                    <div key={stat.label} className="relative group overflow-hidden bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all duration-300">
+                        <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
+                            <stat.icon className="h-24 w-24 text-gray-900" />
+                        </div>
+                        <div className="flex items-start justify-between relative z-10">
                             <div>
-                                <p className="text-sm text-gray-600">{stat.label}</p>
-                                <p className="text-2xl font-semibold text-gray-900 mt-1">{stat.value}</p>
+                                <p className="text-xs font-bold uppercase tracking-wider text-gray-400">{stat.label}</p>
+                                <h3 className="text-3xl font-bold text-gray-900 mt-2">{stat.value.toLocaleString()}</h3>
+                                <div className="mt-3 flex items-center gap-1.5">
+                                    <span className={`inline-block h-1.5 w-1.5 rounded-full bg-${stat.color}-500 animate-pulse`} />
+                                    <span className="text-[10px] font-bold text-gray-500 uppercase">{stat.trend}</span>
+                                </div>
                             </div>
-                            <div className={`h-10 w-10 rounded-lg bg-${stat.color}-50 flex items-center justify-center`}>
-                                <Server className={`h-5 w-5 text-${stat.color}-600`} />
+                            <div className={`p-3 rounded-xl bg-gray-50 text-gray-600 group-hover:bg-${stat.color}-50 group-hover:text-${stat.color}-600 transition-colors`}>
+                                <stat.icon className="h-5 w-5" />
                             </div>
                         </div>
                     </div>
                 ))}
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            {/* Navigation Tabs */}
+            <div className="flex flex-wrap items-center gap-2 p-1.5 bg-gray-100/80 rounded-2xl w-fit">
+                {(["first", "second", "funded", "instant"] as const).map((tab) => (
+                    <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === tab
+                            ? "bg-white text-gray-900 shadow-sm"
+                            : "text-gray-500 hover:text-gray-900"
+                            }`}
+                    >
+                        {tab === "first" ? "Phase 1" : tab === "second" ? "Phase 2" : tab === "funded" ? "Funded" : "Instant"}
+                    </button>
+                ))}
+            </div>
+
+            {/* Filters Bar - Refined */}
+            <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm space-y-6">
+                <div className="flex flex-wrap items-center gap-4">
+                    <div className="relative flex-1 min-w-[300px]">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder="Universal search (Name, Login, ID, Email)..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-11 pr-4 py-3 bg-gray-50 border-none rounded-2xl text-sm text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-gray-900/5 transition-all"
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="px-4 py-3 bg-gray-50 border-none rounded-2xl text-sm font-semibold text-gray-700 focus:ring-2 focus:ring-gray-900/5 cursor-pointer appearance-none min-w-[140px]"
+                        >
+                            <option value="all">Status: All</option>
+                            <option value="active">Active Only</option>
+                            <option value="passed">Passed</option>
+                            <option value="disabled">Disabled</option>
+                            <option value="breached">Breached</option>
+                        </select>
+
+                        <select
+                            value={sizeFilter}
+                            onChange={(e) => setSizeFilter(e.target.value)}
+                            className="px-4 py-3 bg-gray-50 border-none rounded-2xl text-sm font-semibold text-gray-700 focus:ring-2 focus:ring-gray-900/5 cursor-pointer appearance-none min-w-[120px]"
+                        >
+                            <option value="all">Size: All</option>
+                            {uniqueSizes.map(size => (
+                                <option key={size} value={size}>${(size / 1000).toFixed(0)}k</option>
+                            ))}
+                        </select>
+
+                        <select
+                            value={groupFilter}
+                            onChange={(e) => setGroupFilter(e.target.value)}
+                            className="px-4 py-3 bg-gray-50 border-none rounded-2xl text-sm font-semibold text-gray-700 focus:ring-2 focus:ring-gray-900/5 cursor-pointer appearance-none max-w-[200px]"
+                        >
+                            <option value="all">Server Group: All</option>
+                            {MT5_GROUP_FILTERS.map(group => (
+                                <option key={group.value} value={group.value}>{group.label}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {(dateFrom || dateTo || statusFilter !== "all" || sizeFilter !== "all" || groupFilter !== "all" || sourceFilter !== "all" || searchQuery) && (
+                        <button
+                            onClick={() => {
+                                setDateFrom(""); setDateTo(""); setStatusFilter("all"); setSizeFilter("all"); setGroupFilter("all"); setSourceFilter("all"); setSearchQuery("");
+                            }}
+                            className="text-sm font-bold text-rose-600 hover:text-rose-700 px-4"
+                        >
+                            Reset
+                        </button>
+                    )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-6 pt-6 border-t border-gray-50">
+                    <div className="flex items-center gap-3">
+                        <span className="text-xs font-bold uppercase text-gray-400">Date Origin</span>
+                        <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-xl">
+                            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="bg-transparent border-none text-xs font-bold focus:ring-0 p-2" />
+                            <span className="text-gray-300">→</span>
+                            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="bg-transparent border-none text-xs font-bold focus:ring-0 p-2" />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <span className="text-xs font-bold uppercase text-gray-400">Merchant Source</span>
+                        <div className="flex p-0.5 bg-gray-50 rounded-xl">
+                            {['all', 'admin', 'checkout'].map(src => (
+                                <button
+                                    key={src}
+                                    onClick={() => setSourceFilter(src)}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${sourceFilter === src ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'}`}
+                                >
+                                    {src === 'admin' ? 'Manual' : src}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Main Content Table - Institutional Density */}
+            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">User</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Account ID</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Package</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Size</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">MT5 Login</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Group</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Source</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Status</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Actions</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Created</th>
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-gray-50/50">
+                                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100">Beneficiary</th>
+                                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100">Asset Profile</th>
+                                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100">MT5 Credentials</th>
+                                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100">Network Group</th>
+                                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100 text-center">Protocol</th>
+                                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100 text-right">Operational Status</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-200">
+                        <tbody className="divide-y divide-gray-50">
                             {loading ? (
-                                <tr><td colSpan={10} className="px-6 py-12 text-center text-gray-500">Loading accounts...</td></tr>
+                                <tr><td colSpan={6} className="px-6 py-20 text-center"><div className="animate-pulse flex flex-col items-center gap-3"><div className="h-8 w-8 rounded-full border-2 border-gray-200 border-t-gray-900 animate-spin" /><span className="text-sm font-bold text-gray-400 uppercase tracking-widest">Compiling Records...</span></div></td></tr>
                             ) : paginatedAccounts.length === 0 ? (
-                                <tr><td colSpan={10} className="px-6 py-12 text-center text-gray-500">No accounts found matching your filters.</td></tr>
+                                <tr><td colSpan={6} className="px-6 py-20 text-center text-gray-400 font-medium italic">No accounts identified under current protocol.</td></tr>
                             ) : (
                                 paginatedAccounts.map((account) => (
-                                    <tr key={account.id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div>
-                                                <div className="font-medium text-gray-900">{account.profiles?.full_name || "Unknown"}</div>
-                                                <div className="text-xs text-gray-700">{account.profiles?.email || "No email"}</div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 font-mono text-gray-900 text-xs">{account.challenge_number || `SF-${account.id.slice(0, 8)}`}</td>
-                                        <td className="px-6 py-4 text-gray-900">
-                                            <div className="flex flex-col">
-                                                <span className="font-semibold text-xs text-indigo-700">
-                                                    {(() => {
-                                                        const typeStr = (account.challenge_type || '').toLowerCase();
-                                                        const groupStr = (account.mt5_group || account.group || '').toLowerCase();
-
-                                                        // 1. Type-First Detection: Trust the database challenge_type IF explicit
-                                                        if (typeStr.includes('prime')) return 'Prime';
-                                                        if (typeStr.includes('lite')) return 'Lite';
-
-                                                        // 2. Fallback to MT5 Group path for legacy/generic types
-                                                        if (groupStr.includes('\\sf\\') || groupStr.includes('pro')) return 'Prime';
-                                                        if (groupStr.includes('-sf') || (groupStr.includes('\\s\\') && !groupStr.includes('\\sf\\'))) return 'Lite';
-
-                                                        if (typeStr.includes('instant') || groupStr.includes('instant')) return 'Instant';
-
-                                                        return account.plan_type || "Standard";
-                                                    })()}
-                                                </span>
-                                                <span className="text-[10px] text-gray-500 capitalize">{account.challenge_type.replace(/_/g, ' ')}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 font-medium text-gray-900">${account.initial_balance?.toLocaleString()}</td>
-                                        <td className="px-6 py-4 font-mono text-gray-900">{account.login || "-"}</td>
-                                        <td className="px-6 py-4 font-medium text-xs text-gray-700 font-mono">
-                                            <div className="flex flex-col">
-                                                <div className="flex items-center gap-1.5">
-                                                    <span>{account.mt5_group || account.group || "-"}</span>
-                                                    {(() => {
-                                                        const typeStr = (account.challenge_type || '').toLowerCase();
-                                                        const groupStr = (account.mt5_group || account.group || '').toLowerCase();
-
-                                                        const isTypePrime = typeStr.includes('prime');
-                                                        const isTypeLite = typeStr.includes('lite');
-                                                        const isGroupPrime = groupStr.includes('\\sf\\') || groupStr.includes('pro');
-                                                        const isGroupLite = (groupStr.includes('\\s\\') && !groupStr.includes('\\sf\\')) || groupStr.includes('-sf');
-
-                                                        if ((isTypePrime && isGroupLite) || (isTypeLite && isGroupPrime)) {
-                                                            return (
-                                                                <span title="Type/Group Mismatch: This account may have incorrect risk rules applied." className="text-amber-500">
-                                                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                                                    </svg>
-                                                                </span>
-                                                            );
-                                                        }
-                                                        return null;
-                                                    })()}
+                                    <tr key={account.id} className="hover:bg-gray-50/80 transition-colors group">
+                                        <td className="px-6 py-5">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-9 w-9 rounded-xl bg-gray-100 flex items-center justify-center font-bold text-gray-900 shrink-0 capitalize">
+                                                    {(account.profiles?.full_name || "U")[0]}
                                                 </div>
-                                                {account.server && <span className="text-[9px] text-gray-400">{account.server}</span>}
+                                                <div>
+                                                    <div className="font-bold text-gray-900 leading-none">{account.profiles?.full_name || "Restricted Access"}</div>
+                                                    <div className="text-xs text-gray-500 mt-1.5 font-medium">{account.profiles?.email || "No identifier"}</div>
+                                                </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-xs">
-                                            {account.metadata?.assigned_via === 'admin_manual' ? (
-                                                <span className="inline-flex items-center px-2 py-1 rounded bg-purple-50 text-purple-700 font-medium">Admin Assigned</span>
-                                            ) : (
-                                                <span className="inline-flex items-center px-2 py-1 rounded bg-gray-100 text-gray-700 font-medium capitalize">{account.metadata?.payment_provider || "Checkout"}</span>
-                                            )}
+                                        <td className="px-6 py-5">
+                                            <div className="flex flex-col">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase">
+                                                        {(() => {
+                                                            const typeStr = (account.challenge_type || '').toLowerCase();
+                                                            const groupStr = (account.mt5_group || account.group || '').toLowerCase();
+                                                            if (typeStr.includes('prime') || groupStr.includes('pro')) return 'Prime';
+                                                            if (typeStr.includes('lite') || groupStr.includes('-sf')) return 'Lite';
+                                                            return 'Standard';
+                                                        })()}
+                                                    </span>
+                                                    <span className="font-bold text-gray-900">${account.initial_balance?.toLocaleString()}</span>
+                                                </div>
+                                                <div className="text-[10px] text-gray-400 mt-1.5 font-bold uppercase tracking-tight">ID: {account.challenge_number || `SF-${account.id.slice(0, 8)}`}</div>
+                                            </div>
                                         </td>
-                                        <td className="px-6 py-4"><StatusBadge status={account.status} upgradedTo={account.upgraded_to} /></td>
-                                        <td className="px-6 py-4">
-                                            <AccountActions
-                                                accountId={account.id} login={account.login || 0} currentStatus={account.status}
-                                                challengeType={account.challenge_type} upgradedTo={account.upgraded_to}
-                                                userId={account.user_id} currentEmail={account.profiles?.email || undefined}
-                                                onRefresh={fetchAccounts}
-                                            />
+                                        <td className="px-6 py-5">
+                                            <div className="font-mono text-gray-900 font-bold bg-gray-50 px-2 py-1 rounded-lg w-fit">
+                                                {account.login || "UNSPECIFIED"}
+                                            </div>
+                                            <div className="text-[10px] text-gray-400 mt-1.5 font-bold">{account.server || "INSTITUTIONAL BRIDGE"}</div>
                                         </td>
-                                        <td className="px-6 py-4 text-gray-900">{new Date(account.created_at).toLocaleDateString()}</td>
+                                        <td className="px-6 py-5">
+                                            <div className="text-xs font-bold text-gray-700 max-w-[150px] truncate" title={account.mt5_group || account.group}>
+                                                {account.mt5_group || account.group || "---"}
+                                            </div>
+                                            <div className="flex items-center gap-1.5 mt-1.5">
+                                                <span className={`h-1 w-1 rounded-full ${account.metadata?.assigned_via === 'admin_manual' ? 'bg-purple-500' : 'bg-gray-400'}`} />
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase">
+                                                    {account.metadata?.assigned_via === 'admin_manual' ? 'Auth: Manual' : 'Auth: System'}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-5">
+                                            <div className="flex flex-col items-center">
+                                                <AccountActions
+                                                    accountId={account.id} login={account.login || 0} currentStatus={account.status}
+                                                    challengeType={account.challenge_type} upgradedTo={account.upgraded_to}
+                                                    userId={account.user_id} currentEmail={account.profiles?.email || undefined}
+                                                    onRefresh={fetchAccounts}
+                                                />
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-5 text-right">
+                                            <div className="flex flex-col items-end gap-2">
+                                                <StatusBadge status={account.status} upgradedTo={account.upgraded_to} />
+                                                <span className="text-[10px] font-bold text-gray-400 tabular-nums">Logged: {new Date(account.created_at).toLocaleDateString()}</span>
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))
                             )}
@@ -525,67 +524,46 @@ export default function AdminMT5Client() {
                     </table>
                 </div>
 
-                <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                    <div className="flex-1 flex justify-between sm:hidden">
-                        <button
-                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                            disabled={currentPage === 1}
-                            className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
-                        >
-                            Previous
-                        </button>
-                        <button
-                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                            disabled={currentPage === totalPages || totalPages === 0}
-                            className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
-                        >
-                            Next
-                        </button>
+                {/* Pagination Section */}
+                <div className="bg-gray-50/50 px-8 py-4 flex items-center justify-between">
+                    <div className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                        Records {filteredAccounts.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} — {Math.min(currentPage * itemsPerPage, filteredAccounts.length)} of {filteredAccounts.length}
                     </div>
-                    <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                        <div>
-                            <p className="text-sm text-gray-700">
-                                Showing <span className="font-medium">{filteredAccounts.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredAccounts.length)}</span> of{' '}
-                                <span className="font-medium">{filteredAccounts.length}</span> results
-                            </p>
-                        </div>
-                        {totalPages > 1 && (
-                            <div>
-                                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                                    <button
-                                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                                        disabled={currentPage === 1}
-                                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
-                                    >
-                                        <ChevronLeft className="h-5 w-5" aria-hidden="true" />
-                                    </button>
-                                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                        const pageNum = i + 1;
-                                        return (
-                                            <button
-                                                key={pageNum}
-                                                onClick={() => setCurrentPage(pageNum)}
-                                                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === pageNum
-                                                    ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
-                                                    : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                                                    }`}
-                                            >
-                                                {pageNum}
-                                            </button>
-                                        );
-                                    })}
-                                    {totalPages > 5 && <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">...</span>}
-                                    <button
-                                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                        disabled={currentPage === totalPages}
-                                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
-                                    >
-                                        <ChevronRight className="h-5 w-5" aria-hidden="true" />
-                                    </button>
-                                </nav>
+                    {totalPages > 1 && (
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                                className="p-2 rounded-lg hover:bg-white hover:shadow-sm disabled:opacity-30 transition-all"
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                            </button>
+                            <div className="flex items-center gap-1 px-2">
+                                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                    const pageNum = i + 1;
+                                    return (
+                                        <button
+                                            key={pageNum}
+                                            onClick={() => setCurrentPage(pageNum)}
+                                            className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${currentPage === pageNum
+                                                ? 'bg-gray-900 text-white shadow-md'
+                                                : 'text-gray-500 hover:bg-white hover:shadow-sm hover:text-gray-900'
+                                                }`}
+                                        >
+                                            {pageNum}
+                                        </button>
+                                    );
+                                })}
                             </div>
-                        )}
-                    </div>
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                                className="p-2 rounded-lg hover:bg-white hover:shadow-sm disabled:opacity-30 transition-all"
+                            >
+                                <ChevronRight className="h-4 w-4" />
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

@@ -31,6 +31,7 @@ export default async function AdminUserDetailsPage({
         { data: kycRequests },
         { data: payoutRequests },
         { data: paymentOrders },
+        { data: bankDetails },
     ] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", id).single(),
         supabase.from("challenges").select("*").eq("user_id", id).order('created_at', { ascending: false }),
@@ -38,6 +39,7 @@ export default async function AdminUserDetailsPage({
         supabase.from("kyc_requests").select("*").eq("user_id", id),
         supabase.from("payout_requests").select("*").eq("user_id", id),
         supabase.from("payment_orders").select("*").eq("user_id", id).eq("status", "paid"),
+        supabase.from("bank_details").select("*").eq("user_id", id).maybeSingle(),
     ]);
 
     const totalPaid = (paymentOrders || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
@@ -264,6 +266,70 @@ export default async function AdminUserDetailsPage({
                                 <div className="flex flex-col items-center justify-center opacity-40">
                                     <FileText className="h-10 w-10 mb-2 text-gray-300" />
                                     <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">No KYC records</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Bank Details */}
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-emerald-50 rounded-lg">
+                                <CreditCard className="h-5 w-5 text-emerald-600" />
+                            </div>
+                            <h2 className="text-lg font-black text-gray-900 tracking-tight">Bank Details</h2>
+                        </div>
+                        {bankDetails?.is_locked && (
+                            <span className="text-[10px] font-bold bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                                Locked
+                            </span>
+                        )}
+                    </div>
+                    <div>
+                        {bankDetails ? (
+                            <div className="p-6 space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Account Holder</p>
+                                        <p className="text-sm font-bold text-gray-900 mt-1">{bankDetails.account_holder_name}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Bank Name</p>
+                                        <p className="text-sm font-bold text-gray-900 mt-1">{bankDetails.bank_name}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Account Number</p>
+                                        <p className="text-sm font-mono font-bold text-indigo-600 mt-1 bg-indigo-50 px-2 py-1 rounded select-all w-fit">
+                                            {bankDetails.account_number}
+                                        </p>
+                                    </div>
+                                    <div className="flex gap-4">
+                                        {bankDetails.ifsc_code && (
+                                            <div>
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">IFSC</p>
+                                                <p className="text-sm font-mono font-bold text-gray-700 mt-1">{bankDetails.ifsc_code}</p>
+                                            </div>
+                                        )}
+                                        {bankDetails.swift_code && (
+                                            <div>
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">SWIFT</p>
+                                                <p className="text-sm font-mono font-bold text-gray-700 mt-1">{bankDetails.swift_code}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="pt-4 border-t border-gray-50 flex justify-between items-center text-[10px] text-gray-400">
+                                    <span>Last Updated: {new Date(bankDetails.updated_at).toLocaleString()}</span>
+                                    <span className="font-mono">ID: {bankDetails.id.slice(0, 8)}</span>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="py-12 text-center">
+                                <div className="flex flex-col items-center justify-center opacity-40">
+                                    <CreditCard className="h-10 w-10 mb-2 text-gray-300" />
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">No bank details saved</p>
                                 </div>
                             </div>
                         )}

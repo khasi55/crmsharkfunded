@@ -118,6 +118,34 @@ export async function verifyTOTPLogin(tempToken: string, code: string) {
 }
 
 async function establishAdminSession(user: any) {
+    const supabase = createAdminClient();
+
+    // Fetch current tracking data to handle daily reset
+    const { data: dbUser } = await supabase
+        .from("admin_users")
+        .select("daily_login_count, last_login_date")
+        .eq("id", user.id)
+        .single();
+
+    const today = new Date().toISOString().split('T')[0];
+    let newCount = 1;
+
+    if (dbUser) {
+        if (dbUser.last_login_date === today) {
+            newCount = (dbUser.daily_login_count || 0) + 1;
+        }
+    }
+
+    // Update tracking data
+    await supabase
+        .from("admin_users")
+        .update({
+            last_seen: new Date().toISOString(),
+            daily_login_count: newCount,
+            last_login_date: today
+        })
+        .eq("id", user.id);
+
     const token = jwt.sign(
         {
             id: user.id,

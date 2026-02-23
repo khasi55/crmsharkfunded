@@ -194,24 +194,26 @@ export function AccountActions({ accountId, login, currentStatus, userId, curren
 
     return (
         <>
-            <div className="flex items-center justify-end gap-1.5 py-1">
+            <div className="flex flex-wrap items-center justify-start gap-2.5 w-full">
                 {/* 1. Sync */}
                 <button
                     onClick={handleSync}
                     disabled={loading}
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all active:scale-95 disabled:opacity-50 border border-transparent hover:border-blue-200"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-800 rounded-xl font-semibold transition-all active:scale-[0.98] disabled:opacity-50 border border-indigo-100/50"
                     title="Sync Trades"
                 >
                     {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                    <span className="whitespace-nowrap">Sync</span>
                 </button>
 
                 {/* 2. Adjust Balance */}
                 <button
                     onClick={() => setShowBalanceModal(true)}
-                    className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-all active:scale-95 border border-transparent hover:border-orange-200"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 rounded-xl font-semibold transition-all active:scale-[0.98] border border-amber-100/50"
                     title="Adjust Balance"
                 >
                     <DollarSign size={16} />
+                    <span className="whitespace-nowrap">Balance</span>
                 </button>
 
                 {/* 3. Disable/Enable */}
@@ -219,30 +221,32 @@ export function AccountActions({ accountId, login, currentStatus, userId, curren
                     <button
                         onClick={() => handleAction('disable')}
                         disabled={loading}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all active:scale-95 disabled:opacity-50 border border-transparent hover:border-red-200"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 rounded-xl font-semibold transition-all active:scale-[0.98] disabled:opacity-50 border border-red-100/50"
                         title="Disable Account"
                     >
                         {loading ? <Loader2 size={16} className="animate-spin" /> : <Ban size={16} />}
+                        <span className="whitespace-nowrap">Disable</span>
                     </button>
                 ) : (
                     <button
                         onClick={() => handleAction('enable')}
                         disabled={loading}
-                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all active:scale-95 disabled:opacity-50 border border-transparent hover:border-emerald-200"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 rounded-xl font-semibold transition-all active:scale-[0.98] disabled:opacity-50 border border-emerald-100/50"
                         title="Enable Account"
                     >
                         {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                        <span className="whitespace-nowrap">Enable</span>
                     </button>
                 )}
 
                 {/* 4. More Actions Dropdown */}
-                <div className="relative">
+                <div className="relative flex-none">
                     <button
                         onClick={() => setShowMoreActions(!showMoreActions)}
-                        className={`p-2 rounded-lg transition-all active:scale-95 border ${showMoreActions ? 'bg-gray-100 border-gray-300 text-gray-900' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                        className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold transition-all active:scale-[0.98] border ${showMoreActions ? 'bg-gray-100 border-gray-300 text-gray-900 shadow-inner' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm'}`}
                         title="More Actions"
                     >
-                        <MoreHorizontal size={16} />
+                        <MoreHorizontal size={18} />
                     </button>
 
                     {showMoreActions && (
@@ -251,30 +255,36 @@ export function AccountActions({ accountId, login, currentStatus, userId, curren
                                 className="fixed inset-0 z-10"
                                 onClick={() => setShowMoreActions(false)}
                             />
-                            <div className="absolute right-0 mt-2 w-52 bg-white border border-gray-200 rounded-xl shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in duration-150 origin-top-right">
-                                <div className="p-1">
+                            <div className="absolute right-0 bottom-full mb-2 w-56 bg-white border border-gray-200 rounded-2xl shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in duration-150 origin-bottom-right">
+                                <div className="p-1.5 space-y-0.5">
                                     <button
                                         onClick={() => { setShowLeverageModal(true); setShowMoreActions(false); }}
-                                        className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-indigo-600 rounded-lg transition-colors"
+                                        className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-xl transition-colors"
                                     >
-                                        <Zap size={16} className="text-indigo-500" />
+                                        <div className="flex items-center justify-center w-6 h-6 rounded-md bg-indigo-100 text-indigo-600">
+                                            <Zap size={14} />
+                                        </div>
                                         <span>Change Leverage</span>
                                     </button>
 
                                     <button
                                         onClick={() => { fetchTrades(); setShowMoreActions(false); }}
-                                        className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-blue-600 rounded-lg transition-colors"
+                                        className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-xl transition-colors"
                                     >
-                                        <ScrollText size={16} className="text-blue-500" />
+                                        <div className="flex items-center justify-center w-6 h-6 rounded-md bg-blue-100 text-blue-600">
+                                            <ScrollText size={14} />
+                                        </div>
                                         <span>Trade History</span>
                                     </button>
 
                                     {userId && (
                                         <button
                                             onClick={() => { setShowEmailModal(true); setShowMoreActions(false); }}
-                                            className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-lg transition-colors"
+                                            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-colors"
                                         >
-                                            <Pencil size={16} className="text-gray-500" />
+                                            <div className="flex items-center justify-center w-6 h-6 rounded-md bg-gray-200 text-gray-600">
+                                                <Pencil size={14} />
+                                            </div>
                                             <span>Edit Email</span>
                                         </button>
                                     )}
@@ -293,22 +303,26 @@ export function AccountActions({ accountId, login, currentStatus, userId, curren
                                         return canUpgrade && (
                                             <button
                                                 onClick={() => { handleUpgrade(); setShowMoreActions(false); }}
-                                                className="w-full flex items-center gap-3 px-3 py-2 text-sm font-bold text-green-700 hover:bg-green-50 rounded-lg transition-colors"
+                                                className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-50 rounded-xl transition-colors mt-1 border border-emerald-100"
                                             >
-                                                <Zap size={16} className="text-green-600" />
-                                                <span>UPGRADE</span>
+                                                <div className="flex items-center justify-center w-6 h-6 rounded-md bg-emerald-100 text-emerald-600">
+                                                    <Zap size={14} />
+                                                </div>
+                                                <span>UPGRADE ACCOUNT</span>
                                             </button>
                                         );
                                     })()}
 
-                                    <div className="border-t border-gray-100 my-1 mx-2" />
+                                    <div className="border-t border-gray-100 my-1.5 mx-2" />
 
                                     <button
                                         onClick={() => { handleAction('stop-out'); setShowMoreActions(false); }}
-                                        className="w-full flex items-center gap-3 px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                        className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors"
                                     >
-                                        <AlertOctagon size={16} />
-                                        <span>STOP OUT</span>
+                                        <div className="flex items-center justify-center w-6 h-6 rounded-md bg-red-100 text-red-600">
+                                            <AlertOctagon size={14} />
+                                        </div>
+                                        <span>STOP OUT EXECUTED</span>
                                     </button>
                                 </div>
                             </div>
@@ -374,39 +388,39 @@ export function AccountActions({ accountId, login, currentStatus, userId, curren
             )}
             {/* Email Modal */}
             {showEmailModal && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-sm">
-                        <div className="flex justify-between items-center p-4 border-b">
-                            <h3 className="font-semibold text-lg">Update Email</h3>
-                            <button onClick={() => setShowEmailModal(false)} className="text-gray-500 hover:text-gray-700">
+                <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm animate-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center p-5 border-b border-gray-100">
+                            <h3 className="font-bold text-lg text-gray-900">Update Email</h3>
+                            <button onClick={() => setShowEmailModal(false)} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
                                 <X size={20} />
                             </button>
                         </div>
-                        <form onSubmit={handleUpdateEmail} className="p-4 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">New Email Address</label>
+                        <form onSubmit={handleUpdateEmail} className="p-6 space-y-5">
+                            <div className="space-y-1.5">
+                                <label className="block text-sm font-bold text-gray-700">New Email Address</label>
                                 <input
                                     type="email"
                                     required
                                     value={newEmail}
                                     onChange={(e) => setNewEmail(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded-md focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-medium text-gray-900"
                                 />
                             </div>
-                            <div className="flex justify-end gap-2 pt-2">
+                            <div className="flex justify-end gap-3 pt-2">
                                 <button
                                     type="button"
                                     onClick={() => setShowEmailModal(false)}
-                                    className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
+                                    className="px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={updatingEmail}
-                                    className="px-3 py-2 text-sm text-white bg-indigo-600 hover:bg-indigo-700 rounded-md flex items-center gap-2"
+                                    className="px-5 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl flex items-center gap-2 transition-colors shadow-sm disabled:opacity-50"
                                 >
-                                    {updatingEmail && <Loader2 size={14} className="animate-spin" />}
+                                    {updatingEmail && <Loader2 size={16} className="animate-spin" />}
                                     Save Changes
                                 </button>
                             </div>
@@ -416,50 +430,55 @@ export function AccountActions({ accountId, login, currentStatus, userId, curren
             )}
             {/* Balance Modal */}
             {showBalanceModal && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-sm">
-                        <div className="flex justify-between items-center p-4 border-b">
-                            <h3 className="font-semibold text-lg">Adjust Balance - {login}</h3>
-                            <button onClick={() => setShowBalanceModal(false)} className="text-gray-500 hover:text-gray-700">
+                <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm animate-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center p-5 border-b border-gray-100">
+                            <h3 className="font-bold text-lg text-gray-900">Adjust Balance - {login}</h3>
+                            <button onClick={() => setShowBalanceModal(false)} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
                                 <X size={20} />
                             </button>
                         </div>
-                        <form onSubmit={handleAdjustBalance} className="p-4 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Adjustment Amount (e.g. 500 or -500)</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    required
-                                    value={adjustAmount}
-                                    onChange={(e) => setAdjustAmount(e.target.value)}
-                                    placeholder="Enter amount..."
-                                    className="w-full px-3 py-2 border rounded-md focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-                                />
+                        <form onSubmit={handleAdjustBalance} className="p-6 space-y-5">
+                            <div className="space-y-1.5">
+                                <label className="block text-sm font-bold text-gray-700">Adjustment Amount <span className="text-gray-400 font-normal ml-1">e.g. 500 or -500</span></label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                        <DollarSign className="h-5 w-5 text-gray-400" />
+                                    </div>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        required
+                                        value={adjustAmount}
+                                        onChange={(e) => setAdjustAmount(e.target.value)}
+                                        placeholder="Enter amount..."
+                                        className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 outline-none transition-all font-mono font-bold text-gray-900 placeholder:font-sans placeholder:font-medium placeholder:text-gray-400"
+                                    />
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Comment</label>
+                            <div className="space-y-1.5">
+                                <label className="block text-sm font-bold text-gray-700">Comment / Reason</label>
                                 <input
                                     type="text"
                                     value={adjustComment}
                                     onChange={(e) => setAdjustComment(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded-md focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 outline-none transition-all font-medium text-gray-900"
                                 />
                             </div>
-                            <div className="flex justify-end gap-2 pt-2">
+                            <div className="flex justify-end gap-3 pt-2">
                                 <button
                                     type="button"
                                     onClick={() => setShowBalanceModal(false)}
-                                    className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
+                                    className="px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={adjustingBalance}
-                                    className="px-3 py-2 text-sm text-white bg-amber-600 hover:bg-amber-700 rounded-md flex items-center gap-2"
+                                    className="px-5 py-2.5 text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl flex items-center gap-2 transition-colors shadow-sm disabled:opacity-50"
                                 >
-                                    {adjustingBalance && <Loader2 size={14} className="animate-spin" />}
+                                    {adjustingBalance && <Loader2 size={16} className="animate-spin" />}
                                     Adjust Balance
                                 </button>
                             </div>
@@ -470,39 +489,44 @@ export function AccountActions({ accountId, login, currentStatus, userId, curren
 
             {/* Leverage Modal */}
             {showLeverageModal && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-sm">
-                        <div className="flex justify-between items-center p-4 border-b">
-                            <h3 className="font-semibold text-lg">Change Leverage - {login}</h3>
-                            <button onClick={() => setShowLeverageModal(false)} className="text-gray-500 hover:text-gray-700">
+                <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm animate-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center p-5 border-b border-gray-100">
+                            <h3 className="font-bold text-lg text-gray-900">Change Leverage - {login}</h3>
+                            <button onClick={() => setShowLeverageModal(false)} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
                                 <X size={20} />
                             </button>
                         </div>
-                        <form onSubmit={handleChangeLeverage} className="p-4 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">New Leverage (e.g. 100)</label>
-                                <input
-                                    type="number"
-                                    required
-                                    value={newLeverage}
-                                    onChange={(e) => setNewLeverage(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded-md focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-                                />
+                        <form onSubmit={handleChangeLeverage} className="p-6 space-y-5">
+                            <div className="space-y-1.5">
+                                <label className="block text-sm font-bold text-gray-700">New Leverage <span className="text-gray-400 font-normal ml-1">e.g. 100</span></label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                        <span className="text-gray-400 font-bold">1:</span>
+                                    </div>
+                                    <input
+                                        type="number"
+                                        required
+                                        value={newLeverage}
+                                        onChange={(e) => setNewLeverage(e.target.value)}
+                                        className="w-full pl-9 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-mono font-bold text-gray-900"
+                                    />
+                                </div>
                             </div>
-                            <div className="flex justify-end gap-2 pt-2">
+                            <div className="flex justify-end gap-3 pt-2">
                                 <button
                                     type="button"
                                     onClick={() => setShowLeverageModal(false)}
-                                    className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
+                                    className="px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={adjustingLeverage}
-                                    className="px-3 py-2 text-sm text-white bg-indigo-600 hover:bg-indigo-700 rounded-md flex items-center gap-2"
+                                    className="px-5 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl flex items-center gap-2 transition-colors shadow-sm disabled:opacity-50"
                                 >
-                                    {adjustingLeverage && <Loader2 size={14} className="animate-spin" />}
+                                    {adjustingLeverage && <Loader2 size={16} className="animate-spin" />}
                                     Change Leverage
                                 </button>
                             </div>

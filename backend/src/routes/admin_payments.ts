@@ -71,6 +71,22 @@ router.get('/', authenticate, requireRole(['super_admin', 'payouts_admin', 'admi
         const formattedPayments = payments.map(p => {
             const profile = profilesMap[p.user_id];
 
+            // Robust extraction for older rows
+            let determinedModel = p.model;
+            if (!determinedModel && p.metadata) {
+                if (p.metadata.model) determinedModel = p.metadata.model;
+                else if (p.metadata.account_type) {
+                    const at = String(p.metadata.account_type).toLowerCase();
+                    if (at.includes('prime')) determinedModel = 'prime';
+                    else if (at.includes('lite')) determinedModel = 'lite';
+                }
+            }
+            if (!determinedModel && p.account_type_name) {
+                const atn = String(p.account_type_name).toLowerCase();
+                if (atn.includes('prime')) determinedModel = 'prime';
+                else if (atn.includes('lite')) determinedModel = 'lite';
+            }
+
             return {
                 id: p.id,
                 order_id: p.order_id,
@@ -80,6 +96,7 @@ router.get('/', authenticate, requireRole(['super_admin', 'payouts_admin', 'admi
                 payment_method: p.payment_method || 'gateway',
                 payment_gateway: p.payment_gateway || 'Unknown',
                 account_size: parseInt(String(p.account_size || 0).replace(/[^0-9]/g, '')) || 0,
+                account_type: determinedModel ? determinedModel : (p.account_type_name !== 'Challenge' ? p.account_type_name : 'Challenge'),
                 coupon_code: p.coupon_code || '-',
                 created_at: p.created_at,
                 paid_at: p.paid_at,

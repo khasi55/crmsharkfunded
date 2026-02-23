@@ -87,7 +87,7 @@ router.get('/calendar', authenticate, async (req: AuthRequest, res: Response) =>
                 return !isNonTrade;
             });
 
-            const totalPnL = tradingTrades.reduce((sum, t) => sum + (Number(t.profit_loss) || 0) + (Number(t.commission || 0) * 2) + (Number(t.swap) || 0), 0);
+            const totalPnL = tradingTrades.reduce((sum, t) => sum + (Number(t.profit_loss) || 0) + (Number(t.commission || 0)) + (Number(t.swap) || 0), 0);
             return {
                 date,
                 trades: tradingTrades.length,
@@ -190,7 +190,7 @@ router.get('/trades', authenticate, tradesLimiter, async (req: AuthRequest, res:
 
                 const openTradesVal = tradingStatsTrades.filter((t: any) => !t.close_time).length;
                 const closedTradesVal = tradingStatsTrades.filter((t: any) => t.close_time).length;
-                const totalPnLVal = tradingStatsTrades.reduce((sum: number, t: any) => sum + (Number(t.profit_loss) || 0) + ((Number(t.commission) || 0) * 2) + (Number(t.swap) || 0), 0);
+                const totalPnLVal = tradingStatsTrades.reduce((sum: number, t: any) => sum + (Number(t.profit_loss) || 0) + ((Number(t.commission) || 0)) + (Number(t.swap) || 0), 0);
 
                 return { totalTrades: totalTradesVal, openTrades: openTradesVal, closedTrades: closedTradesVal, totalPnL: totalPnLVal };
             };
@@ -244,7 +244,7 @@ router.get('/trades', authenticate, tradesLimiter, async (req: AuthRequest, res:
                 open_time: t.open_time,
                 close_time: t.close_time,
                 profit_loss: t.profit_loss,
-                commission: (Number(t.commission) || 0) * 2, // Return full commission cost
+                commission: (Number(t.commission) || 0), // Return full commission cost
                 swap: t.swap
             }));
 
@@ -819,7 +819,7 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
 
             totalTrades++;
             const profit = Number(trade.profit_loss) || 0;
-            const comm = (Number(trade.commission) || 0) * 2;
+            const comm = (Number(trade.commission) || 0);
             const swap = Number(trade.swap) || 0;
             const tradeNet = profit + comm + swap;
 
@@ -879,7 +879,7 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
                     symbol === 'BALANCE' || Number(t.lots) === 0;
                 return !isNonTrade;
             });
-            const totalPnL = tradingTrades.reduce((sum, t) => sum + (Number(t.profit_loss) || 0) + (Number(t.commission || 0) * 2) + (Number(t.swap) || 0), 0);
+            const totalPnL = tradingTrades.reduce((sum, t) => sum + (Number(t.profit_loss) || 0) + (Number(t.commission || 0)) + (Number(t.swap) || 0), 0);
             return {
                 date,
                 trades: tradingTrades.length,
@@ -888,8 +888,20 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
             };
         });
 
-        const bullishCount = allAnalyticsTrades.filter(t => String(t.type).toLowerCase().includes('buy') || String(t.type) === '0').length;
-        const bearishCount = allAnalyticsTrades.filter(t => String(t.type).toLowerCase().includes('sell') || String(t.type) === '1').length;
+        const validTradingTrades = allAnalyticsTrades.filter(trade => {
+            const comment = (trade.comment || '').toLowerCase();
+            const symbol = (trade.symbol || '');
+            const isNonTrade = comment.includes('deposit') ||
+                comment.includes('balance') ||
+                comment.includes('initial') ||
+                symbol.trim() === '' ||
+                symbol === '#N/A' ||
+                symbol === 'BALANCE' || Number(trade.lots) === 0;
+            return !isNonTrade;
+        });
+
+        const bullishCount = validTradingTrades.filter(t => String(t.type).toLowerCase().includes('buy') || String(t.type) === '0').length;
+        const bearishCount = validTradingTrades.filter(t => String(t.type).toLowerCase().includes('sell') || String(t.type) === '1').length;
 
         let longWins = 0, longLosses = 0, longProfit = 0, longLossCost = 0, longCount = 0;
         let shortWins = 0, shortLosses = 0, shortProfit = 0, shortLossCost = 0, shortCount = 0;
@@ -907,7 +919,7 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
             if (isNonTrade) return;
 
             const profit = Number(trade.profit_loss) || 0;
-            const comm = (Number(trade.commission) || 0) * 2;
+            const comm = (Number(trade.commission) || 0);
             const swap = Number(trade.swap) || 0;
             const tradeNet = profit + comm + swap;
             const tType = String(trade.type).toLowerCase();
@@ -934,6 +946,27 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
                 }
             }
         });
+
+        // DYNAMIC CONSISTENCY CALCULATION
+        const cons_tradingTrades = allAnalyticsTrades.filter(t => t.symbol && t.symbol !== '#N/A' && t.symbol !== 'BALANCE' && Number(t.lots) > 0 && !(t.comment || '').toLowerCase().includes('deposit'));
+        const cons_winningTrades = cons_tradingTrades.filter(t => Number(t.profit_loss) > 0);
+        const cons_totalProfit = cons_winningTrades.reduce((sum, t) => sum + Number(t.profit_loss), 0);
+        const cons_largestWin = cons_winningTrades.reduce((max, t) => Math.max(max, Number(t.profit_loss)), 0);
+
+        let calculatedConsistencyScore = 100;
+        let calculatedConcentration = 0;
+
+        if (cons_totalProfit > 0) {
+            calculatedConcentration = (cons_largestWin / cons_totalProfit) * 100;
+            calculatedConsistencyScore = Math.max(0, 100 - calculatedConcentration);
+        }
+
+        let displayHistory = consistencyHistory;
+        if (displayHistory.length === 0) {
+            displayHistory = [{ date: new Date().toISOString().split('T')[0], score: calculatedConsistencyScore }];
+        } else {
+            displayHistory[0].score = calculatedConsistencyScore;
+        }
 
         const bulkData = {
             objectives: {
@@ -964,14 +997,14 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
                     max_total_loss_percent: rules.max_total_loss_percent,
                     profit_target_percent: rules.profit_target_percent
                 },
+                challenge: challengeResponse.data,
                 stats: {
                     total_trades: totalTrades,
                     total_lots: Number(totalLots.toFixed(2)),
                     biggest_win: biggestWin,
                     biggest_loss: biggestLoss,
-                    net_pnl: netPnL
-                },
-                challenge: challengeResponse.data
+                    net_pnl: currentEquity - initialBalance
+                }
             },
             risk: {
                 violations: combinedViolations,
@@ -981,8 +1014,8 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
                 }
             },
             consistency: {
-                history: consistencyHistory,
-                score: consistencyHistory[0]?.score || 0
+                history: displayHistory,
+                score: calculatedConsistencyScore
             },
             calendar: {
                 stats: dailyStats

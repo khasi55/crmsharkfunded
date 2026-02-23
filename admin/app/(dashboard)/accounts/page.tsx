@@ -155,24 +155,27 @@ export default async function AccountsListPage({
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            {/* Header Bento Card */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white rounded-2xl border border-gray-100 p-6 shadow-sm gap-4">
                 <div>
-                    <h1 className="text-2xl font-semibold text-gray-900">All MT5 Accounts</h1>
-                    <p className="text-sm text-gray-600 mt-1">Master list of all created trading accounts</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-gray-900">All MT5 Accounts</h1>
+                    <p className="text-[14px] text-gray-500 font-medium mt-1">Master list of all created trading accounts</p>
                 </div>
-                <div className="bg-white border border-gray-200 rounded-lg px-4 py-2 shadow-sm">
-                    <p className="text-xs text-gray-500 uppercase font-semibold">Total Accounts</p>
-                    <p className="text-2xl font-bold text-indigo-600">{count || 0}</p>
+                <div className="bg-gray-50/80 border border-gray-100 rounded-xl px-5 py-3 shadow-sm flex flex-col items-end sm:items-center">
+                    <p className="text-[11px] text-gray-500 uppercase font-semibold tracking-wider">Total Accounts</p>
+                    <p className="text-2xl font-bold text-gray-900 mt-0.5">{count || 0}</p>
                 </div>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <div className="w-full max-w-md">
+            {/* Search Bento Card */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <div className="w-full max-w-lg">
                     <SearchInput placeholder="Search by Email, Login, or ID..." />
                 </div>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            {/* Table Bento Card */}
+            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
                 <AccountsTable
                     accounts={accountsWithProfiles}
                     groups={uniqueGroups}

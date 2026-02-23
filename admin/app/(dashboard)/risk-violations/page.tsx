@@ -2,15 +2,17 @@ import { createAdminClient } from "@/utils/supabase/admin";
 import { AlertTriangle, ShieldAlert, RefreshCw, Scale, Zap, Newspaper } from "lucide-react";
 import ViolationsFilters from "@/components/admin/ViolationsFilters";
 import ViolationDetailsRow from "@/components/admin/ViolationDetailsRow";
+import AllViolationsClient from "@/components/admin/AllViolationsClient";
 
 export default async function RiskViolationsPage({
     searchParams,
 }: {
-    searchParams: { type?: string; severity?: string; page?: string };
+    searchParams: { type?: string; severity?: string; page?: string; search?: string };
 }) {
     const supabase = createAdminClient();
     const violationType = (await searchParams)?.type || "";
     const severity = (await searchParams)?.severity || "";
+    const searchQuery = (await searchParams)?.search || "";
     const page = parseInt((await searchParams)?.page || "1");
     const PAGE_SIZE = 50;
 
@@ -167,132 +169,10 @@ export default async function RiskViolationsPage({
             )}
 
             {/* Filters */}
-            <ViolationsFilters violationType={violationType} severity={severity} />
+            <ViolationsFilters violationType={violationType} severity={severity} searchQuery={searchQuery} />
 
             {/* Violations Table - Grouped by Account */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Account</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">User</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Total Violations</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Violation Types</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Latest</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                            {enrichedAccounts?.map((account: any) => (
-                                <tr key={account.challengeId} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-6 py-4">
-                                        <a
-                                            href={`/mt5?account=${account.challenge?.login}`}
-                                            className="font-mono text-indigo-600 font-medium hover:text-indigo-800 hover:underline"
-                                        >
-                                            {account.challenge?.login || 'N/A'}
-                                        </a>
-                                        <div className="text-xs text-gray-500 capitalize">
-                                            {account.challenge?.challenge_type}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="font-medium text-gray-900">
-                                            {account.profile?.full_name || 'Unknown'}
-                                        </div>
-                                        <div className="text-xs text-gray-500 font-mono">
-                                            {account.profile?.email}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-red-100 text-red-800">
-                                            {account.totalViolations}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex flex-wrap gap-1">
-                                            {Object.entries(account.violationCounts).map(([type, count]: [string, any]) => (
-                                                <span
-                                                    key={type}
-                                                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700"
-                                                >
-                                                    {type.replace('_', ' ')}: {count}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-gray-500 text-xs whitespace-nowrap">
-                                        {new Date(account.latestViolation.created_at).toLocaleDateString()}
-                                        <div className="text-[10px] opacity-70">
-                                            {new Date(account.latestViolation.created_at).toLocaleTimeString()}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <a
-                                            href={`/risk-violations/${account.challengeId}`}
-                                            className="text-xs text-indigo-600 hover:text-indigo-800 hover:underline font-medium"
-                                        >
-                                            View Details →
-                                        </a>
-                                    </td>
-                                </tr>
-                            ))}
-                            {enrichedAccounts?.length === 0 && (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                                        No risk violations found.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Pagination Controls */}
-                {totalPages > 1 && (
-                    <div className="border-t border-gray-200 px-6 py-4 flex items-center justify-between">
-                        <div className="text-sm text-gray-700">
-                            Showing page {page} of {totalPages} ({totalAccounts} accounts)
-                        </div>
-                        <div className="flex gap-2">
-                            {page > 1 && (
-                                <a
-                                    href={`?${new URLSearchParams({ ...Object.fromEntries(new URLSearchParams()), page: String(page - 1) }).toString()}`}
-                                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                                >
-                                    Previous
-                                </a>
-                            )}
-                            <div className="flex gap-1">
-                                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                    const pageNum = i + 1;
-                                    return (
-                                        <a
-                                            key={pageNum}
-                                            href={`?${new URLSearchParams({ ...Object.fromEntries(new URLSearchParams()), page: String(pageNum) }).toString()}`}
-                                            className={`px-3 py-2 text-sm font-medium rounded-lg ${pageNum === page
-                                                ? 'bg-indigo-600 text-white'
-                                                : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-                                                }`}
-                                        >
-                                            {pageNum}
-                                        </a>
-                                    );
-                                })}
-                            </div>
-                            {page < totalPages && (
-                                <a
-                                    href={`?${new URLSearchParams({ ...Object.fromEntries(new URLSearchParams()), page: String(page + 1) }).toString()}`}
-                                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                                >
-                                    Next
-                                </a>
-                            )}
-                        </div>
-                    </div>
-                )}
-            </div>
+            <AllViolationsClient enrichedAccounts={enrichedAccounts} />
 
             {/* Summary Stats */}
             {typeCounts && Object.keys(typeCounts).length > 0 && (

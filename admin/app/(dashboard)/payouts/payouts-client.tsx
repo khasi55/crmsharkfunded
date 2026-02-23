@@ -21,6 +21,7 @@ interface PayoutRequest {
         investor_password?: string;
         equity?: number;
         balance?: number;
+        account_type?: string;
     };
 }
 
@@ -209,34 +210,37 @@ export default function AdminPayoutsClient() {
     }
 
     return (
-        <div className="space-y-8">
-            <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Payouts Management</h1>
+        <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white rounded-2xl border border-gray-100 p-6 shadow-sm gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-gray-900">Payouts Management</h1>
+                    <p className="text-[14px] text-gray-500 font-medium mt-1">Manage withdrawal requests, wallets, and bank details</p>
+                </div>
 
-                <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+                <div className="inline-flex rounded-xl border border-gray-100 bg-gray-50/80 p-1.5 shadow-sm">
                     <button
                         onClick={() => setActiveTab('requests')}
-                        className={`rounded-md px-4 py-1.5 text-sm font-medium transition-all ${activeTab === 'requests'
-                            ? 'bg-white text-slate-900 shadow-sm'
-                            : 'text-slate-500 hover:text-slate-700'
+                        className={`rounded-lg px-5 py-2 text-[14px] font-semibold transition-all ${activeTab === 'requests'
+                            ? 'bg-white text-gray-900 shadow-sm border border-gray-100/50'
+                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
                             }`}
                     >
                         Requests
                     </button>
                     <button
                         onClick={() => setActiveTab('wallets')}
-                        className={`rounded-md px-4 py-1.5 text-sm font-medium transition-all ${activeTab === 'wallets'
-                            ? 'bg-white text-slate-900 shadow-sm'
-                            : 'text-slate-500 hover:text-slate-700'
+                        className={`rounded-lg px-5 py-2 text-[14px] font-semibold transition-all ${activeTab === 'wallets'
+                            ? 'bg-white text-gray-900 shadow-sm border border-gray-100/50'
+                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
                             }`}
                     >
                         Wallets
                     </button>
                     <button
                         onClick={() => setActiveTab('banks')}
-                        className={`rounded-md px-4 py-1.5 text-sm font-medium transition-all ${activeTab === 'banks'
-                            ? 'bg-white text-slate-900 shadow-sm'
-                            : 'text-slate-500 hover:text-slate-700'
+                        className={`rounded-lg px-5 py-2 text-[14px] font-semibold transition-all ${activeTab === 'banks'
+                            ? 'bg-white text-gray-900 shadow-sm border border-gray-100/50'
+                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
                             }`}
                     >
                         Bank Details
@@ -245,116 +249,133 @@ export default function AdminPayoutsClient() {
             </div>
 
             {activeTab === 'requests' ? (
-                <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 text-slate-500">
+                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto w-full">
+                        <table className="w-full text-left text-[14px]">
+                            <thead className="bg-gray-50/80 border-b border-gray-100">
                                 <tr>
-                                    <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">User</th>
-                                    <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Account</th>
-                                    <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Metrics</th>
-                                    <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Inv. Password</th>
-                                    <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Amount</th>
-                                    <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Method</th>
-                                    <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Status</th>
-                                    <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Date</th>
-                                    <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs text-right">Actions</th>
+                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">User</th>
+                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Account</th>
+                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Metrics</th>
+                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Inv. Password</th>
+                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Amount</th>
+                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Method</th>
+                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Status</th>
+                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Date</th>
+                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap text-right">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-gray-100 bg-white">
                                 {requests?.map((req) => (
-                                    <tr key={req.id} className="group hover:bg-slate-50/50 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div className="font-medium text-slate-900">
-                                                {req.profiles?.full_name || "Unknown User"}
+                                    <tr key={req.id} className="group hover:bg-gray-50/80 transition-colors duration-200">
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex flex-col">
+                                                <span className="text-[14px] font-semibold text-gray-900">
+                                                    {req.profiles?.full_name || "Unknown User"}
+                                                </span>
+                                                <span className="text-[12px] text-gray-500">{req.profiles?.email}</span>
                                             </div>
-                                            <div className="text-xs text-slate-500">{req.profiles?.email}</div>
                                         </td>
 
                                         {/* Account ID */}
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-4 whitespace-nowrap">
                                             {req.account_info?.login ? (
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-mono text-slate-700">{req.account_info.login}</span>
-                                                    <button
-                                                        onClick={() => copyToClipboard(req.account_info!.login, 'Login ID')}
-                                                        className="text-slate-400 hover:text-slate-600"
-                                                    >
-                                                        <Copy size={12} />
-                                                    </button>
+                                                <div className="flex flex-col gap-1.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[13px] font-mono font-semibold text-gray-900">{req.account_info.login}</span>
+                                                        <button
+                                                            onClick={() => copyToClipboard(req.account_info!.login, 'Login ID')}
+                                                            className="text-gray-400 hover:text-blue-600 transition-colors"
+                                                        >
+                                                            <Copy size={14} />
+                                                        </button>
+                                                    </div>
+                                                    {req.account_info.account_type && (
+                                                        <div className="flex items-center">
+                                                            <span className="inline-flex py-0.5 px-2 rounded font-semibold text-[10px] uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-100">
+                                                                {req.account_info.account_type}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ) : (
-                                                <span className="text-slate-400 italic">N/A</span>
+                                                <span className="text-gray-400 italic text-[13px]">N/A</span>
                                             )}
                                         </td>
 
                                         {/* Metrics (Equity / Balance) */}
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-4 whitespace-nowrap">
                                             {req.account_info ? (
-                                                <div className="flex flex-col text-xs">
+                                                <div className="flex flex-col text-[12px]">
                                                     <div className="flex justify-between gap-2">
-                                                        <span className="text-slate-500">Eq:</span>
-                                                        <span className="font-medium text-slate-900">{formatCurrency(req.account_info.equity)}</span>
+                                                        <span className="text-gray-500 font-medium">Eq:</span>
+                                                        <span className="font-semibold text-blue-600">{formatCurrency(req.account_info.equity)}</span>
                                                     </div>
                                                     <div className="flex justify-between gap-2">
-                                                        <span className="text-slate-500">Bal:</span>
-                                                        <span className="text-slate-700">{formatCurrency(req.account_info.balance)}</span>
+                                                        <span className="text-gray-500 font-medium">Bal:</span>
+                                                        <span className="font-semibold text-gray-900">{formatCurrency(req.account_info.balance)}</span>
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <span className="text-slate-400">-</span>
+                                                <span className="text-gray-400">-</span>
                                             )}
                                         </td>
 
                                         {/* Investor Password */}
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-4 whitespace-nowrap">
                                             {req.account_info?.investor_password ? (
                                                 <div className="flex items-center gap-2 group/pass">
-                                                    <code className="bg-slate-100 px-1.5 py-0.5 rounded text-xs text-slate-600 font-mono">
+                                                    <code className="bg-gray-100 px-2 py-1 rounded-md text-[12px] text-gray-600 font-mono font-medium border border-gray-200">
                                                         {req.account_info.investor_password}
                                                     </code>
                                                     <button
                                                         onClick={() => copyToClipboard(req.account_info!.investor_password!, 'Investor Password')}
-                                                        className="opacity-0 group-hover/pass:opacity-100 text-slate-400 hover:text-slate-600 transition-opacity"
+                                                        className="opacity-0 group-hover/pass:opacity-100 text-gray-400 hover:text-blue-600 transition-all"
                                                     >
-                                                        <Copy size={12} />
+                                                        <Copy size={14} />
                                                     </button>
                                                 </div>
                                             ) : (
-                                                <span className="text-slate-400 italic text-xs">Not found</span>
+                                                <span className="text-gray-400 italic text-[13px]">Not found</span>
                                             )}
                                         </td>
 
-                                        <td className="px-6 py-4 font-medium text-slate-900">${req.amount}</td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-4 whitespace-nowrap font-bold text-gray-900 text-[14px]">${req.amount?.toLocaleString()}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex flex-col">
-                                                <span className="capitalize text-slate-600">{req.payout_method}</span>
+                                                <span className="capitalize text-[13px] font-medium text-gray-700">{req.payout_method}</span>
                                                 {req.payout_method === 'bank' && (
-                                                    <span className="text-[10px] text-slate-400 font-mono italic">Direct Transfer</span>
+                                                    <span className="text-[11px] text-gray-500 font-mono italic mt-0.5">Direct Transfer</span>
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-4 whitespace-nowrap">
                                             <StatusBadge status={req.status} />
                                         </td>
-                                        <td className="px-6 py-4 text-slate-500 text-xs">
-                                            {new Date(req.created_at).toLocaleDateString()}
+                                        <td className="px-6 py-4 whitespace-nowrap text-gray-500 font-medium text-[12px]">
+                                            {new Date(req.created_at).toLocaleDateString(undefined, {
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: 'numeric'
+                                            })}
                                         </td>
-                                        <td className="px-6 py-4 text-right">
+                                        <td className="px-6 py-4 whitespace-nowrap text-right">
                                             <Link
                                                 href={`/payouts/${req.id}`}
-                                                className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                                className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-[13px] font-semibold text-gray-700 shadow-sm hover:bg-gray-50 hover:text-blue-600 hover:border-blue-200 transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/10"
                                             >
                                                 Process
-                                                <ChevronRight className="ml-2 h-4 w-4" />
+                                                <ChevronRight className="ml-1.5 h-4 w-4 opacity-70" />
                                             </Link>
                                         </td>
                                     </tr>
                                 ))}
                                 {requests?.length === 0 && (
                                     <tr key="no-requests">
-                                        <td colSpan={9} className="px-6 py-12 text-center text-slate-500">
-                                            No payout requests found
+                                        <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
+                                            <div className="flex flex-col items-center justify-center">
+                                                <p className="text-[14px] font-medium text-gray-900 mb-1">No requests found</p>
+                                            </div>
                                         </td>
                                     </tr>
                                 )}
@@ -363,246 +384,254 @@ export default function AdminPayoutsClient() {
                     </div>
                 </div>
             ) : activeTab === 'wallets' ? (
-                <div className="space-y-4">
-                    <div className="flex items-center gap-4">
-                        <div className="relative flex-1 max-w-sm">
+                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                    <div className="p-4 border-b border-gray-100 bg-gray-50/50">
+                        <div className="max-w-md w-full">
                             <input
                                 type="text"
-                                placeholder="Search by email or wallet..."
+                                placeholder="Search by email or wallet address..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full bg-white border border-gray-200 text-[14px] font-medium text-gray-700 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 px-4 py-2.5 transition-all shadow-sm outline-none"
                             />
                         </div>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-50 text-slate-500">
-                                    <tr>
-                                        <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">User</th>
-                                        <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Wallet Address</th>
-                                        <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Type</th>
-                                        <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Status</th>
-                                        <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Created</th>
-                                        <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {filteredWallets.map((wallet) => (
-                                        <tr key={wallet.id} className="group hover:bg-slate-50/50 transition-colors">
-                                            <td className="px-6 py-4">
-                                                <div className="font-medium text-slate-900">
+                    <div className="overflow-x-auto w-full">
+                        <table className="w-full text-left text-[14px]">
+                            <thead className="bg-gray-50/80 border-b border-gray-100">
+                                <tr>
+                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">User</th>
+                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Wallet Address</th>
+                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Type</th>
+                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Status</th>
+                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Created</th>
+                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 bg-white">
+                                {filteredWallets.map((wallet) => (
+                                    <tr key={wallet.id} className="group hover:bg-gray-50/80 transition-colors duration-200">
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex flex-col">
+                                                <span className="text-[14px] font-semibold text-gray-900">
                                                     {wallet.profiles?.full_name || "Unknown User"}
-                                                </div>
-                                                <div className="text-xs text-slate-500">{wallet.profiles?.email}</div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-mono text-slate-700 bg-slate-50 px-2 py-1 rounded border border-slate-100">
-                                                        {wallet.wallet_address}
-                                                    </span>
-                                                    <button
-                                                        onClick={() => copyToClipboard(wallet.wallet_address, 'Wallet Address')}
-                                                        className="text-slate-400 hover:text-slate-600"
-                                                    >
-                                                        <Copy size={12} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
-                                                    {wallet.wallet_type}
                                                 </span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {wallet.is_locked ? (
-                                                    <span className="inline-flex items-center gap-1 text-xs text-amber-600 font-medium">
-                                                        <StatusBadge status="Locked" />
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium">
-                                                        <StatusBadge status="Active" />
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 text-slate-500 text-xs">
-                                                {new Date(wallet.created_at).toLocaleDateString()}
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
+                                                <span className="text-[12px] text-gray-500">{wallet.profiles?.email}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[13px] font-mono font-medium text-gray-700 bg-gray-50 px-2.5 py-1 rounded-md border border-gray-200">
+                                                    {wallet.wallet_address}
+                                                </span>
                                                 <button
-                                                    onClick={() => {
-                                                        setEditingWallet(wallet);
-                                                        setNewAddress(wallet.wallet_address);
-                                                    }}
-                                                    className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                                                    onClick={() => copyToClipboard(wallet.wallet_address, 'Wallet Address')}
+                                                    className="text-gray-400 hover:text-blue-600 transition-colors"
                                                 >
-                                                    Edit
+                                                    <Copy size={16} />
                                                 </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {filteredWallets.length === 0 && (
-                                        <tr>
-                                            <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                                                {loading ? "Loading wallets..." : "No wallet addresses found"}
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700 uppercase tracking-wide">
+                                                {wallet.wallet_type}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            {wallet.is_locked ? (
+                                                <span className="inline-flex items-center gap-1 text-[12px] text-amber-600 font-semibold">
+                                                    <StatusBadge status="Locked" />
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 text-[12px] text-emerald-600 font-semibold">
+                                                    <StatusBadge status="Active" />
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-[12px] text-gray-500 font-medium">
+                                            {new Date(wallet.created_at).toLocaleDateString(undefined, {
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: 'numeric'
+                                            })}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                                            <button
+                                                onClick={() => {
+                                                    setEditingWallet(wallet);
+                                                    setNewAddress(wallet.wallet_address);
+                                                }}
+                                                className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-[13px] font-semibold text-gray-700 shadow-sm hover:bg-gray-50 hover:text-blue-600 hover:border-blue-200 transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+                                            >
+                                                Edit
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {filteredWallets.length === 0 && (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-12 text-center text-gray-500 text-[14px]">
+                                            {loading ? "Loading wallets..." : "No wallet addresses found"}
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             ) : (
-                <div className="space-y-4">
-                    <div className="flex items-center gap-4">
-                        <div className="relative flex-1 max-w-sm">
+                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                    <div className="p-4 border-b border-gray-100 bg-gray-50/50">
+                        <div className="max-w-md w-full">
                             <input
                                 type="text"
                                 placeholder="Search by name, email, bank or account..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full bg-white border border-gray-200 text-[14px] font-medium text-gray-700 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 px-4 py-2.5 transition-all shadow-sm outline-none"
                             />
                         </div>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-50 text-slate-500">
-                                    <tr>
-                                        <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">User</th>
-                                        <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Bank Details</th>
-                                        <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Account Numbers</th>
-                                        <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Status</th>
-                                        <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs text-right">Created</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {filteredBanks.map((bank) => (
-                                        <tr key={bank.id} className="group hover:bg-slate-50/50 transition-colors">
-                                            <td className="px-6 py-4">
-                                                <div className="font-medium text-slate-900">
+                    <div className="overflow-x-auto w-full">
+                        <table className="w-full text-left text-[14px]">
+                            <thead className="bg-gray-50/80 border-b border-gray-100">
+                                <tr>
+                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">User</th>
+                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Bank Details</th>
+                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Account Numbers</th>
+                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Status</th>
+                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap text-right">Created</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 bg-white">
+                                {filteredBanks.map((bank) => (
+                                    <tr key={bank.id} className="group hover:bg-gray-50/80 transition-colors duration-200">
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex flex-col">
+                                                <span className="text-[14px] font-semibold text-gray-900">
                                                     {bank.profiles?.full_name || "Unknown User"}
+                                                </span>
+                                                <span className="text-[12px] text-gray-500">{bank.profiles?.email}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-gray-900">{bank.bank_name}</span>
+                                                <span className="text-[12px] text-gray-500">{bank.account_holder_name}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex flex-col gap-1.5">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] text-gray-400 font-bold uppercase w-12 tracking-wide">ACC:</span>
+                                                    <span className="font-mono font-medium text-[13px] text-gray-800 bg-gray-50 border border-gray-200 px-1.5 rounded">{bank.account_number}</span>
                                                 </div>
-                                                <div className="text-xs text-slate-500">{bank.profiles?.email}</div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-slate-900">{bank.bank_name}</span>
-                                                    <span className="text-xs text-slate-500">{bank.account_holder_name}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-col gap-1">
+                                                {bank.ifsc_code && (
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-[10px] text-slate-400 font-bold uppercase w-12">ACC:</span>
-                                                        <span className="font-mono text-slate-700">{bank.account_number}</span>
+                                                        <span className="text-[10px] text-gray-400 font-bold uppercase w-12 tracking-wide">IFSC:</span>
+                                                        <span className="font-mono font-medium text-[13px] text-gray-800">{bank.ifsc_code}</span>
                                                     </div>
-                                                    {bank.ifsc_code && (
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-[10px] text-slate-400 font-bold uppercase w-12">IFSC:</span>
-                                                            <span className="font-mono text-slate-700">{bank.ifsc_code}</span>
-                                                        </div>
-                                                    )}
-                                                    {bank.swift_code && (
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-[10px] text-slate-400 font-bold uppercase w-12">SWIFT:</span>
-                                                            <span className="font-mono text-slate-700">{bank.swift_code}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {bank.is_locked ? (
-                                                    <span className="inline-flex items-center gap-1 text-xs text-amber-600 font-medium whitespace-nowrap">
-                                                        <StatusBadge status="Locked" />
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium whitespace-nowrap">
-                                                        <StatusBadge status="Active" />
-                                                    </span>
                                                 )}
-                                            </td>
-                                            <td className="px-6 py-4 text-slate-500 text-xs text-right">
-                                                {new Date(bank.created_at).toLocaleDateString()}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {filteredBanks.length === 0 && (
-                                        <tr>
-                                            <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
-                                                {loading ? "Loading bank details..." : "No bank details found"}
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                                {bank.swift_code && (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] text-gray-400 font-bold uppercase w-12 tracking-wide">SWIFT:</span>
+                                                        <span className="font-mono font-medium text-[13px] text-gray-800">{bank.swift_code}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            {bank.is_locked ? (
+                                                <span className="inline-flex items-center gap-1 text-[12px] text-amber-600 font-semibold whitespace-nowrap">
+                                                    <StatusBadge status="Locked" />
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 text-[12px] text-emerald-600 font-semibold whitespace-nowrap">
+                                                    <StatusBadge status="Active" />
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-gray-500 text-[12px] font-medium text-right">
+                                            {new Date(bank.created_at).toLocaleDateString(undefined, {
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: 'numeric'
+                                            })}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {filteredBanks.length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-12 text-center text-gray-500 text-[14px]">
+                                            {loading ? "Loading bank details..." : "No bank details found"}
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             )}
 
             {/* Edit Modal */}
             {editingWallet && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
-                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-                            <h3 className="font-semibold text-slate-900">Edit Wallet Address</h3>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-4">
+                    <div className="w-full max-w-md bg-white rounded-[24px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 border border-gray-100">
+                        <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                            <h3 className="font-bold text-gray-900">Edit Wallet Address</h3>
                             <button
                                 onClick={() => setEditingWallet(null)}
-                                className="text-slate-400 hover:text-slate-600"
+                                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
                             >
                                 <EyeOff size={18} />
                             </button>
                         </div>
-                        <div className="p-6 space-y-4">
+                        <div className="p-6 space-y-5">
                             <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
+                                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
                                     User
                                 </label>
-                                <div className="text-sm font-medium text-slate-900">
-                                    {editingWallet.profiles.full_name} ({editingWallet.profiles.email})
+                                <div className="text-[14px] font-semibold text-gray-900">
+                                    {editingWallet.profiles.full_name} <span className="text-gray-500 font-normal">({editingWallet.profiles.email})</span>
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
+                                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
                                     Wallet Type
                                 </label>
-                                <div className="text-sm text-slate-700">
+                                <div className="inline-flex items-center rounded-md bg-blue-50 px-2.5 py-1 text-[12px] font-bold text-blue-700 uppercase tracking-wide">
                                     {editingWallet.wallet_type}
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
+                                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">
                                     New Wallet Address
                                 </label>
                                 <textarea
-                                    className="w-full min-h-[80px] rounded-lg border border-slate-200 p-3 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                    className="w-full min-h-[100px] rounded-xl border border-gray-200 p-3 text-[14px] font-mono focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all resize-none shadow-sm"
                                     value={newAddress}
                                     onChange={(e) => setNewAddress(e.target.value)}
                                     placeholder="Enter new wallet address..."
                                 />
                             </div>
 
-                            <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 text-xs text-amber-800">
+                            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-[13px] text-amber-800 shadow-sm">
                                 <strong>Warning:</strong> Changing a user's wallet address is a sensitive operation. Ensure you have verified the new address.
                             </div>
                         </div>
-                        <div className="px-6 py-4 bg-slate-50 flex justify-end gap-3">
+                        <div className="px-6 py-4 bg-gray-50/80 border-t border-gray-100 flex justify-end gap-3">
                             <button
                                 onClick={() => setEditingWallet(null)}
-                                className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900"
+                                className="px-5 py-2.5 text-[14px] font-semibold text-gray-600 hover:text-gray-900 hover:bg-white border border-transparent hover:border-gray-200 rounded-xl transition-all"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleUpdateWallet}
                                 disabled={isUpdating || !newAddress || newAddress === editingWallet.wallet_address}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                                className="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-[14px] font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-all focus:ring-4 focus:ring-blue-500/20 outline-none"
                             >
                                 {isUpdating ? "Updating..." : "Save Changes"}
                             </button>

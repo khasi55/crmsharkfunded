@@ -12,7 +12,7 @@ router.get('/', authenticate, requireRole(['super_admin']), async (req: AuthRequ
     try {
         const { data: admins, error } = await supabase
             .from('admin_users')
-            .select('id, email, full_name, role, permissions, created_at')
+            .select('id, email, full_name, role, permissions, last_seen, daily_login_count, last_login_date, created_at')
             .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -98,6 +98,31 @@ router.delete('/:id', authenticate, requireRole(['super_admin']), async (req: Au
         res.json({ success: true });
     } catch (error: any) {
         console.error('Error deleting admin:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// DELETE /api/admins/risk-violations/:id - Delete a risk violation
+router.delete('/risk-violations/:id', authenticate, requireRole(['super_admin', 'admin', 'risk_admin']), async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        if (!id) {
+            res.status(400).json({ error: 'Violation ID is required' });
+            return;
+        }
+
+        const { error } = await supabase
+            .from('advanced_risk_flags')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+
+        AuditLogger.warn(req.user?.email || 'admin', `Deleted risk violation ID: ${id}`, { id, category: 'RiskManagement' });
+        res.json({ success: true });
+    } catch (error: any) {
+        console.error('Error deleting risk violation:', error);
         res.status(500).json({ error: error.message });
     }
 });

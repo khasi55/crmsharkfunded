@@ -159,15 +159,17 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
     };
 
     return (
-        <div className="space-y-4">
+        <div className="flex flex-col h-full">
             {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-gray-50 p-3 rounded-lg border border-gray-200">
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <Filter size={16} className="text-gray-500" />
+            <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-gray-50/50 p-4 border-b border-gray-100">
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white border border-gray-200 shadow-sm">
+                        <Filter size={14} className="text-gray-500" />
+                    </div>
                     <select
                         value={currentGroupFilter}
                         onChange={(e) => handleGroupFilterChange(e.target.value)}
-                        className="bg-white border border-gray-300 text-gray-700 text-sm rounded-md focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:w-64 p-2"
+                        className="bg-white border border-gray-200 text-[14px] font-medium text-gray-700 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 block w-full sm:w-64 p-2.5 transition-all shadow-sm outline-none cursor-pointer"
                     >
                         <option value="">All Groups</option>
                         {groups.map(g => (
@@ -177,63 +179,65 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
                 </div>
             </div>
 
-            <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                    <thead className="bg-gray-50 border-b border-gray-200">
+            <div className="overflow-x-auto w-full">
+                <table className="w-full text-left text-[14px]">
+                    <thead className="bg-gray-50/80 border-b border-gray-100">
                         <tr>
-                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Account ID</th>
-                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">User</th>
-                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Login</th>
-                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Password</th>
-                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Type</th>
-                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Plan / Group</th>
-                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Balance</th>
-                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Equity</th>
-                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Status</th>
-                            <th className="px-6 py-3 font-bold text-gray-900 text-xs uppercase">Created</th>
+                            <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Account ID</th>
+                            <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">User</th>
+                            <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Login</th>
+                            <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Password</th>
+                            <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Type</th>
+                            <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Plan / Group</th>
+                            <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Balance</th>
+                            <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Equity</th>
+                            <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Status</th>
+                            <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Created</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
+                    <tbody className="divide-y divide-gray-100 bg-white">
                         {accounts.map((account) => {
                             const isSelected = selectedIds.has(account.login);
                             return (
                                 <tr
                                     key={account.id}
-                                    className={`transition-colors ${isSelected ? 'bg-indigo-50/50 hover:bg-indigo-50' : 'hover:bg-gray-50'}`}
+                                    className={`transition-colors duration-200 ${isSelected ? 'bg-blue-50/30' : 'hover:bg-gray-50/80'}`}
                                 >
-                                    <td className="px-6 py-4 font-mono text-xs text-gray-600">
-                                        <div className="text-indigo-600 font-bold">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="text-[13px] font-mono font-semibold text-gray-900">
                                             {account.challenge_number || `SF-${account.id.slice(0, 8)}`}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4">
-                                        <div>
-                                            <div className="font-bold text-gray-900">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex flex-col">
+                                            <span className="text-[14px] font-semibold text-gray-900">
                                                 {account.profile?.full_name || "Unknown"}
-                                            </div>
-                                            <div className="text-xs text-gray-500 font-mono">
+                                            </span>
+                                            <span className="text-[12px] text-gray-500">
                                                 {account.profile?.email || "No email"}
-                                            </div>
+                                            </span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 font-bold font-mono text-gray-900">
-                                        {account.login || "-"}
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className="text-[13px] font-mono font-semibold text-gray-900">
+                                            {account.login || "-"}
+                                        </span>
                                     </td>
-                                    <td className="px-6 py-4 font-mono text-gray-900">
-                                        <div className="flex flex-col">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="text-[13px] font-mono text-gray-600">
                                             <span title="Master Password">{account.master_password || "-"}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-gray-900 capitalize">
-                                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-semibold bg-gray-100 text-gray-700 capitalize tracking-wide">
                                             {account.challenge_type}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4">
-                                        <div className="text-gray-900 font-medium text-xs break-words max-w-[150px]">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                        <div className="text-gray-900 font-medium text-[13px]">
                                             {getPlanDisplay(account)}
                                         </div>
-                                        <div className="flex items-center gap-1.5 text-[10px] text-gray-500 font-mono truncate max-w-[150px]">
+                                        <div className="flex items-center gap-1.5 text-[11px] text-gray-500 truncate max-w-[150px] mt-0.5">
                                             <span title={account.server}>{account.group || account.mt5_group || "-"}</span>
                                             {(() => {
                                                 const typeStr = (account.challenge_type || '').toLowerCase();
@@ -257,58 +261,73 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
                                             })()}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 font-bold text-gray-900">
-                                        ${account.initial_balance?.toLocaleString()}
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className="text-[13px] font-semibold text-gray-900">
+                                            ${account.initial_balance?.toLocaleString()}
+                                        </span>
                                     </td>
-                                    <td className="px-6 py-4 font-bold text-blue-600">
-                                        ${account.current_equity?.toLocaleString() ?? '-'}
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className="text-[13px] font-semibold text-blue-600">
+                                            ${account.current_equity?.toLocaleString() ?? '-'}
+                                        </span>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4 whitespace-nowrap">
                                         <StatusBadge status={account.status} upgradedTo={account.upgraded_to} />
                                     </td>
-                                    <td className="px-6 py-4 text-gray-600 text-xs">
-                                        {new Date(account.created_at).toLocaleDateString()}
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className="text-[12px] text-gray-500 font-medium">
+                                            {new Date(account.created_at).toLocaleDateString(undefined, {
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: 'numeric'
+                                            })}
+                                        </span>
                                     </td>
                                 </tr>
                             );
                         })}
                         {accounts.length === 0 && (
                             <tr>
-                                <td colSpan={12} className="px-6 py-12 text-center text-gray-500">
-                                    No accounts found.
+                                <td colSpan={10} className="px-6 py-12 text-center">
+                                    <div className="flex flex-col items-center justify-center text-gray-500">
+                                        <p className="text-[14px] font-medium text-gray-900 mb-1">No accounts found</p>
+                                        <p className="text-[13px]">Try adjusting your search or filters to find what you're looking for.</p>
+                                    </div>
                                 </td>
                             </tr>
                         )}
                     </tbody>
                 </table>
             </div>
+
             {/* Pagination Controls */}
             {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 sm:px-6">
+                <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50/50">
                     <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                         <div>
-                            <p className="text-xs text-gray-700">
-                                Page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
+                            <p className="text-[13px] font-medium text-gray-500">
+                                Page <span className="font-semibold text-gray-900">{currentPage}</span> of <span className="font-semibold text-gray-900">{totalPages}</span>
                             </p>
                         </div>
                         <div>
-                            <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                            <nav className="relative z-0 inline-flex rounded-xl shadow-sm space-x-2" aria-label="Pagination">
                                 <button
                                     onClick={() => handlePageChange(currentPage - 1)}
                                     disabled={currentPage <= 1}
-                                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+                                    className="relative inline-flex items-center px-2 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none transition-colors"
                                 >
                                     <span className="sr-only">Previous</span>
                                     <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                                 </button>
-                                {/* Simple pagination: Show current page */}
-                                <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+
+                                <span className="relative inline-flex items-center px-4 py-2 rounded-lg border border-gray-200 bg-white text-[13px] font-semibold text-gray-900">
                                     {currentPage}
                                 </span>
+
                                 <button
                                     onClick={() => handlePageChange(currentPage + 1)}
                                     disabled={currentPage >= totalPages}
-                                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+                                    className="relative inline-flex items-center px-2 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none transition-colors"
                                 >
                                     <span className="sr-only">Next</span>
                                     <ChevronRight className="h-4 w-4" aria-hidden="true" />

@@ -13,6 +13,7 @@ interface PaymentOrder {
     payment_method: string;
     payment_gateway: string;
     account_size: number;
+    account_type: string;
     coupon_code: string;
     created_at: string;
     paid_at: string;
@@ -62,7 +63,7 @@ export function PaymentReportsClient() {
     );
 
     const handleExport = () => {
-        const headers = ["Date", "Order ID", "User Name", "User Email", "Gateway", "Method", "Amount", "Account Size", "Coupon", "Currency", "Status"];
+        const headers = ["Date", "Order ID", "User Name", "User Email", "Gateway", "Method", "Amount", "Account Size", "Account Type", "Coupon", "Currency", "Status"];
         const csvContent = [
             headers.join(","),
             ...filteredPayments.map(p => [
@@ -74,6 +75,7 @@ export function PaymentReportsClient() {
                 p.payment_method,
                 p.amount,
                 p.account_size || 'N/A',
+                p.account_type || 'Challenge',
                 p.coupon_code || 'None',
                 p.currency,
                 p.status
@@ -103,8 +105,8 @@ export function PaymentReportsClient() {
                             key={status}
                             onClick={() => { setStatusFilter(status); setPage(1); }}
                             className={`px-4 py-2 rounded-lg text-sm font-medium capitalize whitespace-nowrap transition-colors ${statusFilter === status
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                 }`}
                         >
                             {status}
@@ -191,8 +193,19 @@ export function PaymentReportsClient() {
                                                 <span className="text-xs text-gray-500 uppercase">{payment.payment_method || 'Unknown'}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                            {payment.account_size > 0 ? `$${(payment.account_size / 1000).toLocaleString()}k` : '-'}
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm text-gray-900 font-medium">
+                                                    {payment.account_size > 0 ? `$${(payment.account_size / 1000).toLocaleString()}k` : '-'}
+                                                </span>
+                                                <span className="text-xs text-gray-500 uppercase font-semibold">
+                                                    {payment.account_type?.toLowerCase().includes('lite')
+                                                        ? 'LITE'
+                                                        : payment.account_type?.toLowerCase().includes('prime')
+                                                            ? 'PRIME'
+                                                            : payment.account_type || 'Challenge'}
+                                                </span>
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-mono">
                                             {payment.coupon_code && payment.coupon_code !== '-' ? payment.coupon_code : '-'}

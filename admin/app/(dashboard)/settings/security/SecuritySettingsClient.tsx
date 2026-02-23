@@ -13,19 +13,18 @@ import { QRCodeSVG } from "qrcode.react";
 import { startRegistration } from "@simplewebauthn/browser";
 import { toast } from "sonner";
 
-export function SecuritySettingsClient() {
-    const [is2FAEnabled, setIs2FAEnabled] = useState(false);
+interface SecuritySettingsProps {
+    initial2FAEnabled: boolean;
+    initialWebAuthnEnabled: boolean;
+}
+
+export function SecuritySettingsClient({ initial2FAEnabled, initialWebAuthnEnabled }: SecuritySettingsProps) {
+    const [is2FAEnabled, setIs2FAEnabled] = useState(initial2FAEnabled);
     const [showSetup, setShowSetup] = useState(false);
     const [setupData, setSetupData] = useState<{ secret: string; qrCodeUrl: string } | null>(null);
     const [verificationCode, setVerificationCode] = useState("");
     const [loading, setLoading] = useState(false);
-    const [webauthnEnabled, setWebauthnEnabled] = useState(false);
-
-    // In a real app, we'd fetch the current status on mount
-    useEffect(() => {
-        // Assume we fetch this from the user object or a specific endpoint
-        // For now, it's managed by the actions
-    }, []);
+    const [webauthnEnabled, setWebauthnEnabled] = useState(initialWebAuthnEnabled);
 
     const handleStartSetup = async () => {
         setLoading(true);

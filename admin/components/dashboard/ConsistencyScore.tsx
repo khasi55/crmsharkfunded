@@ -63,8 +63,8 @@ export default function ConsistencyScore() {
 
             const c = result.consistency;
             setData({
-                consistencyScore: c.consistencyScore || 0,
-                isPayoutEligible: c.isPayoutEligible || false,
+                consistencyScore: c.score || 0,
+                isPayoutEligible: c.eligible || false,
                 totalProfit: c.totalProfit || 0,
                 largestTrade: c.largestTrade || 0,
                 totalWinningTrades: c.totalWinningTrades || 0,

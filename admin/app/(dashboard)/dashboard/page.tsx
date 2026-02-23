@@ -1,7 +1,31 @@
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { createAdminClient } from "@/utils/supabase/admin";
 import Link from "next/link";
 import { Users, FileText, CreditCard, DollarSign, TrendingUp, AlertCircle, ChevronRight, AlertTriangle } from "lucide-react";
 import { FinancialChart } from "@/components/admin/FinancialChart";
+
+async function fetchAllRows(supabase: any, table: string, selectFields: string, queryModifier?: (q: any) => any) {
+    let allData: any[] = [];
+    let start = 0;
+    const limit = 1000;
+
+    while (true) {
+        let q = supabase.from(table).select(selectFields).range(start, start + limit - 1);
+        if (queryModifier) q = queryModifier(q);
+        const { data, error } = await q;
+        if (error) {
+            console.error(`Error fetching ${table}:`, error);
+            break;
+        }
+        if (!data || data.length === 0) break;
+        allData = allData.concat(data);
+        if (data.length < limit) break;
+        start += limit;
+    }
+    return { data: allData };
+}
 
 async function getStats() {
     // Use admin client to bypass RLS
@@ -12,20 +36,25 @@ async function getStats() {
         { count: usersCount },
         { count: kycCount },
         { count: payoutsCount },
+        { count: violationsCount }
+    ] = await Promise.all([
+        supabase.from("profiles").select("*", { count: "exact", head: true }),
+        supabase.from("kyc_sessions").select("*", { count: "exact", head: true }).in("status", ["pending", "requires_review"]),
+        supabase.from("payout_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("advanced_risk_flags").select("*", { count: "exact", head: true }) // Count all violations
+    ]);
+
+    // 1.5 Fetch Paginated Data Sets
+    const [
         { data: paidOrders },
         { data: allChallenges },
         { data: processedPayouts },
         { data: pendingUpgrades }, // Accounts waiting for upgrade
-        { count: violationsCount } // Risk violations count
     ] = await Promise.all([
-        supabase.from("profiles").select("*", { count: "exact", head: true }),
-        supabase.from("kyc_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("payout_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("payment_orders").select("amount, created_at").eq("status", "paid"),
-        supabase.from("challenges").select("challenge_type, status, upgraded_to"),
-        supabase.from("payout_requests").select("amount, processed_at, created_at").in("status", ["approved", "processed"]),
-        supabase.from("challenges").select("id, challenge_type, status").eq("status", "passed"), // Passed accounts waiting for upgrade
-        supabase.from("advanced_risk_flags").select("*", { count: "exact", head: true }) // Count all violations
+        fetchAllRows(supabase, "payment_orders", "amount, created_at", q => q.eq("status", "paid")),
+        fetchAllRows(supabase, "challenges", "challenge_type, status, upgraded_to"),
+        fetchAllRows(supabase, "payout_requests", "amount, processed_at, created_at", q => q.in("status", ["approved", "processed"])),
+        fetchAllRows(supabase, "challenges", "id, challenge_type, status", q => q.eq("status", "passed"))
     ]);
 
     // 2. Calculate Revenue
