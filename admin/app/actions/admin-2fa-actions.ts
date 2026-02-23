@@ -17,15 +17,22 @@ import jwt from "jsonwebtoken";
 const JWT_SECRET = process.env.JWT_SECRET || 'shark_admin_session_secure_2026_k8s_prod_v1';
 
 const RP_NAME = "SharkFunded Admin";
-const ORIGIN = process.env.NEXT_PUBLIC_ADMIN_URL || "http://localhost:3002";
 
-// Dynamically extract RP_ID from ORIGIN if NEXT_PUBLIC_RP_ID isn't explicitly set
-let parsedHostname = "localhost";
-try {
-    parsedHostname = new URL(ORIGIN).hostname;
-} catch (e) { }
+// Helper to dynamically get RP_ID and ORIGIN per request avoiding cached "localhost"
+async function getDynamicConfig() {
+    const headersList = await cookies(); // In server actions we can just get origin headers securely, but simple string match is fine
+    const origin = process.env.NEXT_PUBLIC_ADMIN_URL || "https://admin.sharkfunded.com";
 
-const RP_ID = process.env.NEXT_PUBLIC_RP_ID || parsedHostname;
+    let rpId = "localhost";
+    try {
+        rpId = new URL(origin).hostname;
+    } catch (e) { }
+
+    // Explicit override if set
+    rpId = process.env.NEXT_PUBLIC_RP_ID || rpId || "localhost";
+
+    return { RP_ID: rpId, ORIGIN: origin };
+}
 
 // --- TOTP Actions ---
 
@@ -184,6 +191,8 @@ export async function getWebAuthnRegistrationOptionsForSetup(tempToken: string) 
 
     const existingCredentials = (user.webauthn_credentials as any[]) || [];
 
+    const { RP_ID, ORIGIN } = await getDynamicConfig();
+
     const options = await generateRegistrationOptions({
         rpName: RP_NAME,
         rpID: RP_ID,
@@ -221,6 +230,8 @@ export async function verifyWebAuthnRegistrationForSetup(tempToken: string, atte
     const cookieStore = await cookies();
     const expectedChallenge = cookieStore.get("webauthn_registration_challenge")?.value;
     if (!expectedChallenge) return { error: "Registration challenge expired" };
+
+    const { RP_ID, ORIGIN } = await getDynamicConfig();
 
     const verification = await verifyRegistrationResponse({
         response: attestationResponse,
@@ -282,6 +293,8 @@ export async function getWebAuthnRegistrationOptions() {
 
     const existingCredentials = (adminUser?.webauthn_credentials as any[]) || [];
 
+    const { RP_ID, ORIGIN } = await getDynamicConfig();
+
     const options = await generateRegistrationOptions({
         rpName: RP_NAME,
         rpID: RP_ID,
@@ -317,6 +330,8 @@ export async function verifyWebAuthnRegistration(attestationResponse: any) {
     const cookieStore = await cookies();
     const expectedChallenge = cookieStore.get("webauthn_registration_challenge")?.value;
     if (!expectedChallenge) throw new Error("Registration challenge expired");
+
+    const { RP_ID, ORIGIN } = await getDynamicConfig();
 
     const verification = await verifyRegistrationResponse({
         response: attestationResponse,
@@ -381,6 +396,8 @@ export async function getWebAuthnAuthenticationOptions(tempToken: string) {
             throw new Error("No WebAuthn credentials found");
         }
 
+        const { RP_ID, ORIGIN } = await getDynamicConfig();
+
         const options = await generateAuthenticationOptions({
             rpID: RP_ID,
             allowCredentials: (user.webauthn_credentials as any[]).map((cred) => ({
@@ -432,6 +449,8 @@ export async function verifyWebAuthnLogin(tempToken: string, authResponse: any) 
         );
 
         if (!credential) return { error: "Credential not found" };
+
+        const { RP_ID, ORIGIN } = await getDynamicConfig();
 
         const verification = await verifyAuthenticationResponse({
             response: authResponse,
