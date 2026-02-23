@@ -68,7 +68,7 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
 
         const eligibleAccountsDetail = fundedAccounts.map((acc: any) => {
             const profit = Number(acc.current_balance) - Number(acc.initial_balance);
-            let available = Math.max(0, profit * 0.8);
+            let available = Math.max(0, profit); // Allow 100% of profit
 
             // Deduct payouts associated with this account
             const accountPayouts = (allPayouts || []).filter((p: any) =>
@@ -77,7 +77,7 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
 
             const paidOrPending = accountPayouts.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
 
-            // Subtract paid amount from 80% share
+            // Subtract paid amount from profit share
             available = Math.max(0, available - paidOrPending);
 
             if (profit > 0) {
@@ -317,7 +317,7 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
 
         if (targetAccount) {
             const profit = Number(targetAccount.current_balance) - Number(targetAccount.initial_balance);
-            maxPayout = Math.max(0, profit * 0.8);
+            maxPayout = Math.max(0, profit); // Allow 100%
         } else {
             // Legacy global calculation (sum of all)
             let totalProfit = 0;
@@ -327,7 +327,7 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
                     totalProfit += profit;
                 }
             });
-            maxPayout = totalProfit * 0.8;
+            maxPayout = totalProfit; // Allow 100%
         }
 
         // if (DEBUG) console.log(`[Payout Request] Max Payout: ${maxPayout}`);
@@ -610,7 +610,7 @@ router.get('/admin', authenticate, requireRole(['super_admin', 'payouts_admin', 
             if (challengeId) {
                 const { data: challenge } = await supabase
                     .from('challenges')
-                    .select('login, investor_password, current_equity, current_balance')
+                    .select('login, investor_password, current_equity, current_balance, challenge_type')
                     .eq('id', challengeId)
                     .maybeSingle();
 
@@ -619,7 +619,8 @@ router.get('/admin', authenticate, requireRole(['super_admin', 'payouts_admin', 
                         login: challenge.login,
                         investor_password: challenge.investor_password,
                         equity: challenge.current_equity,
-                        balance: challenge.current_balance
+                        balance: challenge.current_balance,
+                        account_type: challenge.challenge_type
                     };
                 }
             }
@@ -957,6 +958,58 @@ router.put('/admin/:id/reject', authenticate, requireRole(['super_admin', 'payou
             return;
         }
 
+        // 1. Fetch original payout details to calculate refund amount
+        const { data: payout, error: fetchError } = await supabase
+            .from('payout_requests')
+            .select('user_id, amount, metadata, status')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !payout) {
+            return res.status(404).json({ error: 'Payout request not found' });
+        }
+
+        if (payout.status !== 'pending') {
+            return res.status(400).json({ error: 'Only pending payouts can be rejected' });
+        }
+
+        // 2. Perform MT5 Refund (80% of requested amount, 20% penalty)
+        const requestedAmount = Number(payout.amount) || 0;
+        const refundAmount = requestedAmount * 0.8; // Refund 80%
+
+        let challengeId = payout.metadata?.challenge_id;
+        let mt5Login = payout.metadata?.mt5_login;
+
+        if (typeof payout.metadata === 'string') {
+            try {
+                const parsed = JSON.parse(payout.metadata);
+                challengeId = parsed.challenge_id;
+                mt5Login = parsed.mt5_login;
+            } catch (e) { }
+        }
+
+        // Fallback to fetch MT5 login if not in metadata but challenge_id is
+        if (!mt5Login && challengeId) {
+            const { data: challenge } = await supabase.from('challenges').select('login').eq('id', challengeId).maybeSingle();
+            if (challenge) mt5Login = challenge.login;
+        }
+
+        if (mt5Login && refundAmount > 0) {
+            try {
+                const { adjustMT5Balance } = await import('../lib/mt5-bridge');
+                await adjustMT5Balance(
+                    mt5Login,
+                    refundAmount, // Positive amount for refund
+                    `Payout Rejected Refund 80% (Penalty 20%)`
+                );
+                console.log(`[Payout Rejected] Refunded $${refundAmount} (80%) back to MT5 account ${mt5Login}`);
+            } catch (bridgeErr: any) {
+                console.error(`[Payout Rejected] Failed to refund MT5 account ${mt5Login}:`, bridgeErr.message);
+                return res.status(500).json({ error: 'Failed to refund MT5 balance. Rejection aborted.', details: bridgeErr.message });
+            }
+        }
+
+        // 3. Mark the payout as rejected in DB
         const { error } = await supabase
             .from('payout_requests')
             .update({
@@ -973,18 +1026,16 @@ router.put('/admin/:id/reject', authenticate, requireRole(['super_admin', 'payou
 
         // Log Admin Action
         const { AuditLogger } = await import('../lib/audit-logger');
-        AuditLogger.info(req.user.email, `Rejected Payout Request: ${id}`, { payout_id: id, reason });
+        AuditLogger.info(req.user.email, `Rejected Payout Request: ${id}. Penalized 20%, Refunded $${refundAmount}`, { payout_id: id, reason, penalty: requestedAmount * 0.2, refunded: refundAmount });
 
-        res.json({ success: true, message: 'Payout rejected successfully' });
+        res.json({ success: true, message: `Payout rejected. 20% penalty applied. $${refundAmount} refunded to MT5 account.` });
 
         // Notify User via Email
         try {
-            const { data: payout } = await supabase.from('payout_requests').select('user_id, amount').eq('id', id).single();
-            if (payout) {
-                const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', payout.user_id).single();
-                if (profile && profile.email) {
-                    await EmailService.sendPayoutRejectedNotice(profile.email, profile.full_name || 'User', payout.amount, reason);
-                }
+            const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', payout.user_id).single();
+            if (profile && profile.email) {
+                const detailedReason = `${reason}. Note: A 20% penalty has been applied. The remaining $${refundAmount.toFixed(2)} has been credited back to your trading account.`;
+                await EmailService.sendPayoutRejectedNotice(profile.email, profile.full_name || 'User', payout.amount, detailedReason);
             }
         } catch (emailErr) {
             console.error('Failed to send payout rejected email (non-blocking):', emailErr);
