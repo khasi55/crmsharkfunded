@@ -65,8 +65,8 @@ export const bankDetailsUpdateSchema = z.object({
         account_holder_name: z.string().min(2).max(100),
         bank_name: z.string().min(2).max(100),
         account_number: z.string().min(5).max(50),
-        ifsc_code: z.string().min(4).max(20).optional().nullable(),
-        swift_code: z.string().min(4).max(20).optional().nullable(),
+        ifsc_code: z.string().min(4).max(20).optional().nullable().or(z.literal('')),
+        swift_code: z.string().min(4).max(20).optional().nullable().or(z.literal('')),
     }).strict()
 });
 

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
+import { fetchFromBackend } from "@/lib/backend-api";
 
 type KycStatus = 'not_started' | 'pending' | 'in_progress' | 'approved' | 'declined' | 'expired' | 'requires_review';
 
@@ -101,13 +102,7 @@ export default function KYCPage() {
         try {
             setLoading(true);
             setError(null);
-            const res = await fetch('/api/kyc/status');
-            const data = await res.json();
-
-            if (!res.ok) {
-                throw new Error(data.error || 'Failed to fetch status');
-            }
-
+            const data = await fetchFromBackend('/api/kyc/status');
             setStatus(data);
         } catch (err: any) {
             setError(err.message);
@@ -218,10 +213,12 @@ export default function KYCPage() {
             }
             const selfieUrl = await uploadToSupabase(files.selfie, `${userId}/selfie`);
 
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+
             // 2. Submit to backend
-            const res = await fetch('/api/kyc/submit-manual', {
+            const data = await fetchFromBackend('/api/kyc/submit-manual', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     front_id_url: frontUrl,
                     back_id_url: backUrl,
@@ -229,11 +226,6 @@ export default function KYCPage() {
                     // Optionally add more fields here if you want to collect them in the UI
                 }),
             });
-
-            const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data.error || 'Failed to submit KYC');
-            }
 
             setShowManualFlow(false);
             await fetchStatus();

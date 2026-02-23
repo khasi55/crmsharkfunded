@@ -46,7 +46,16 @@ export async function fetchFromBackend(endpoint: string, options: RequestInit & 
     }
 
     if (!response.ok) {
-        throw new Error(`Backend error: ${response.statusText}`);
+        let errorMsg = `Backend error: ${response.statusText}`;
+        try {
+            const errData = await response.json();
+            if (errData.error || errData.message) {
+                errorMsg = errData.message || errData.error;
+            }
+        } catch (e) {
+            // ignore JSON parse error
+        }
+        throw new Error(errorMsg);
     }
 
     return response.json();
