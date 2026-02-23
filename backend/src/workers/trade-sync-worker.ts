@@ -128,10 +128,12 @@ export async function startTradeSyncWorker() {
                 if (!existing.close_time && trade.close_time) return true; // Newly closed trade
 
                 // If it was already closed, check if core metrics changed (retroactive broker adjustment)
+                // THRESHOLD INCREASE: Don't write to DB/Trigger Risk unless moving by at least $1.00 
+                // This prevents micro-fluctuations in swap/profit from causing thousands of DB queries/minute.
                 const isModified =
-                    Math.abs(Number(existing.profit_loss || 0) - Number(trade.profit_loss || 0)) > 0.01 ||
-                    Math.abs(Number(existing.commission || 0) - Number(trade.commission || 0)) > 0.01 ||
-                    Math.abs(Number(existing.swap || 0) - Number(trade.swap || 0)) > 0.01;
+                    Math.abs(Number(existing.profit_loss || 0) - Number(trade.profit_loss || 0)) > 1.00 ||
+                    Math.abs(Number(existing.commission || 0) - Number(trade.commission || 0)) > 1.00 ||
+                    Math.abs(Number(existing.swap || 0) - Number(trade.swap || 0)) > 1.00;
 
                 return isModified;
             });

@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase';
 
 const DEBUG = process.env.DEBUG === 'true'; // STRICT: Silence dispatcher logs in dev
 
-const SYNC_INTERVAL_MS = 1 * 60 * 1000; // 1 minute
+// Increase SYNC_INTERVAL_MS from 1 minute to 5 minutes to reduce DB reads/writes
+const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 export function startTradeSyncScheduler() {
     if (DEBUG) console.log(`🚀 [Trade Sync] Dispatcher started. Scalability: Enabled. Interval: ${SYNC_INTERVAL_MS / 1000}s`);

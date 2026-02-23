@@ -29,6 +29,7 @@ export const config = {
         /*
          * Match all request paths except for the ones starting with:
          * - _next/static (static files)
+         * - _next/data (data fetching files)
          * - _next/image (image optimization files)
          * - favicon.ico (favicon file)
          * - checkoutpage (public landing)
@@ -36,6 +37,6 @@ export const config = {
          * - api (backend routes)
          * - auth (supabase auth callback)
          */
-        '/((?!_next/static|_next/image|favicon.ico|checkoutpage|login|api|auth|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+        '/((?!_next/static|_next/data|_next/image|favicon.ico|checkoutpage|login|api|auth|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 }
