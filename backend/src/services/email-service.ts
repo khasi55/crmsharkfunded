@@ -53,6 +53,34 @@ export class EmailService {
     }
 
     /**
+     * Send Custom HTML Email (e.g., for Promotional Campaigns)
+     */
+    static async sendCustomEmail(email: string, name: string, subject: string, customHtml: string) {
+        // Optional: Wrap customHtml in a branded standard template box for professionalism
+        const html = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                <h2 style="color: #333; border-bottom: 2px solid #0d47a1; padding-bottom: 10px; margin-bottom: 20px;">
+                    ${subject}
+                </h2>
+                
+                <div style="color: #444; font-size: 15px; line-height: 1.6;">
+                    ${customHtml}
+                </div>
+
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #888; text-align: center;">
+                    <p>Sent by <strong>SharkFunded</strong></p>
+                    <p>If you no longer wish to receive these emails, you can update your preferences in your dashboard.</p>
+                </div>
+            </div>
+        `;
+
+        // Create a basic text fallback by stripping HTML tags
+        const textFallback = customHtml.replace(/<[^>]*>?/gm, '');
+
+        await this.sendEmail(email, subject, html, textFallback);
+    }
+
+    /**
      * Send Account Credentials (Login, Password, Server)
      */
     static async sendAccountCredentials(email: string, name: string, login: string, password: string, server: string, investorPassword?: string) {
