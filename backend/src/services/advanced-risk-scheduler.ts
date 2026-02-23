@@ -69,14 +69,35 @@ async function runMartingaleScan() {
             const batch = targetChallenges.slice(i, i + BATCH_SIZE);
             const batchIds = batch.map(c => c.id);
 
-            // Fetch trades for ENTIRE batch (One Query)
+            // OPTIMIZATION: Instead of fetching ALL trades from the last 24h for every account every 5 minutes,
+            // we first check if the account even had ANY activity in the last 10 minutes (2x scan interval).
+
+            const recentLookback = new Date();
+            recentLookback.setMinutes(recentLookback.getMinutes() - 15);
+
+            const { data: recentTrades } = await supabase
+                .from('trades')
+                .select('challenge_id')
+                .in('challenge_id', batchIds)
+                .or(`open_time.gte.${recentLookback.toISOString()},close_time.gte.${recentLookback.toISOString()}`);
+
+            // Get unique challenge IDs that actually had recent trade activity
+            const activeChallengeIds = Array.from(new Set((recentTrades || []).map(t => t.challenge_id)));
+
+            if (activeChallengeIds.length === 0) {
+                // Yield and continue if no one traded recently
+                await new Promise(resolve => setTimeout(resolve, 50));
+                continue;
+            }
+
+            // Fetch full trades ONLY for those active challenges
             const lookback = new Date();
             lookback.setHours(lookback.getHours() - 24);
 
             const { data: allTrades } = await supabase
                 .from('trades')
                 .select('*')
-                .in('challenge_id', batchIds)
+                .in('challenge_id', activeChallengeIds)
                 .gte('open_time', lookback.toISOString())
                 .order('open_time', { ascending: true });
 

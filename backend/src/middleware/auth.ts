@@ -158,7 +158,16 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
                 console.warn(`[Auth] Local JWT verification failed for ${req.originalUrl}: ${jwtErr.message}`);
             }
 
-            // Fallback to Supabase API strictly if JWT secret check fails (maybe revoked or just missing secret)
+            // CRITICAL OPTIMIZATION: Do not use supabase.auth.getUser as a fallback if the secret is missing.
+            // This causes a massive volume of Auth Network Requests (108k+/day) which depletes the DB budget.
+            if (!supabaseJwtSecret) {
+                console.error(`[Auth] Authentication rejected. Cannot verify securely without SUPABASE_JWT_SECRET.`);
+                res.status(401).json({ error: 'System configuration error: Missing JWT secret' });
+                return;
+            }
+
+            // Fallback strictly ONLY if local verification failed but we actually had a secret (maybe revoked token)
+            // Still, this is a heavy operation.
             const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser(token);
             if (authError || !supabaseUser) {
                 console.warn(`[Auth] Supabase API fallback also failed: ${authError?.message || 'No user'}`);
