@@ -132,8 +132,7 @@ export default function PayoutsPage() {
                 <PayoutStats
                     title="Available for Payout"
                     value={`$${stats.available.toFixed(2)}`}
-                    secondaryValue={stats.available > 0 ? `(Gross: $${(stats.available / 0.8).toFixed(2)})` : ""}
-                    description="80% Profit Split"
+                    description="Withdraw your earned profit"
                     icon={Wallet}
                     trend={{ value: "Ready", isPositive: true }}
                 />

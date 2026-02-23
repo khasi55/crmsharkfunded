@@ -17,8 +17,15 @@ import jwt from "jsonwebtoken";
 const JWT_SECRET = process.env.JWT_SECRET || 'shark_admin_session_secure_2026_k8s_prod_v1';
 
 const RP_NAME = "SharkFunded Admin";
-const RP_ID = process.env.NEXT_PUBLIC_RP_ID || "localhost";
 const ORIGIN = process.env.NEXT_PUBLIC_ADMIN_URL || "http://localhost:3002";
+
+// Dynamically extract RP_ID from ORIGIN if NEXT_PUBLIC_RP_ID isn't explicitly set
+let parsedHostname = "localhost";
+try {
+    parsedHostname = new URL(ORIGIN).hostname;
+} catch (e) { }
+
+const RP_ID = process.env.NEXT_PUBLIC_RP_ID || parsedHostname;
 
 // --- TOTP Actions ---
 
@@ -115,7 +122,27 @@ export async function enableTOTPForSetup(tempToken: string, secret: string, code
 
     if (!user) return { error: "User not found after update" };
 
-    // 3. Establish final session
+    // Note: We intentionally do NOT establish a session here anymore.
+    // This allows the UI to proceed to the "Setup Biometrics?" step. 
+    // The UI must explicitly call a new function to finalize login if they skip it.
+    return { success: true, pendingWebAuthnSetup: true };
+}
+
+export async function finalizeLoginFromSetup(tempToken: string) {
+    const decoded = jwt.verify(tempToken, JWT_SECRET) as any;
+    if (!decoded || decoded.purpose !== '2fa_verification') {
+        return { error: "Invalid or expired session" };
+    }
+
+    const supabase = createAdminClient();
+    const { data: user } = await supabase
+        .from("admin_users")
+        .select("id, email, full_name, role, permissions")
+        .eq("id", decoded.id)
+        .single();
+
+    if (!user) return { error: "User not found" };
+
     return await establishAdminSession(user);
 }
 
@@ -138,6 +165,109 @@ export async function disable2FA() {
 }
 
 // --- WebAuthn Actions ---
+
+// WebAuthn Setup during initial login flow
+export async function getWebAuthnRegistrationOptionsForSetup(tempToken: string) {
+    const decoded = jwt.verify(tempToken, JWT_SECRET) as any;
+    if (!decoded || decoded.purpose !== '2fa_verification') {
+        throw new Error("Invalid or expired session");
+    }
+
+    const supabase = createAdminClient();
+    const { data: user } = await supabase
+        .from("admin_users")
+        .select("id, email, webauthn_credentials")
+        .eq("id", decoded.id)
+        .single();
+
+    if (!user) throw new Error("User not found");
+
+    const existingCredentials = (user.webauthn_credentials as any[]) || [];
+
+    const options = await generateRegistrationOptions({
+        rpName: RP_NAME,
+        rpID: RP_ID,
+        userID: isoUint8Array.fromUTF8String(user.id),
+        userName: user.email,
+        attestationType: "none",
+        excludeCredentials: existingCredentials.map((cred) => ({
+            id: cred.id,
+            type: "public-key",
+        })),
+        authenticatorSelection: {
+            residentKey: "preferred",
+            userVerification: "preferred",
+            authenticatorAttachment: "platform", // Encourages FaceID/TouchID
+        },
+    });
+
+    // Store challenge in cookie/session for verification
+    const cookieStore = await cookies();
+    cookieStore.set("webauthn_registration_challenge", options.challenge, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 60 * 5, // 5 minutes
+    });
+
+    return options;
+}
+
+export async function verifyWebAuthnRegistrationForSetup(tempToken: string, attestationResponse: any) {
+    const decoded = jwt.verify(tempToken, JWT_SECRET) as any;
+    if (!decoded || decoded.purpose !== '2fa_verification') {
+        return { error: "Invalid or expired session" };
+    }
+
+    const cookieStore = await cookies();
+    const expectedChallenge = cookieStore.get("webauthn_registration_challenge")?.value;
+    if (!expectedChallenge) return { error: "Registration challenge expired" };
+
+    const verification = await verifyRegistrationResponse({
+        response: attestationResponse,
+        expectedChallenge,
+        expectedOrigin: ORIGIN,
+        expectedRPID: RP_ID,
+    });
+
+    if (verification.verified && verification.registrationInfo) {
+        const { credential } = verification.registrationInfo;
+        const supabase = createAdminClient();
+
+        const { data: user } = await supabase
+            .from("admin_users")
+            .select("id, email, full_name, role, permissions, webauthn_credentials")
+            .eq("id", decoded.id)
+            .single();
+
+        if (!user) return { error: "User not found" };
+
+        const credentials = (user.webauthn_credentials as any[]) || [];
+
+        // Add new credential
+        credentials.push({
+            id: credential.id,
+            publicKey: Buffer.from(credential.publicKey).toString("base64"),
+            counter: credential.counter,
+            deviceType: "platform", // Simplified for now
+            transports: attestationResponse.response.transports,
+        });
+
+        await supabase
+            .from("admin_users")
+            .update({
+                webauthn_credentials: credentials,
+                is_webauthn_enabled: true
+            })
+            .eq("id", user.id);
+
+        cookieStore.delete("webauthn_registration_challenge");
+
+        // Finalize login now that WebAuthn is set up
+        return await establishAdminSession(user);
+    }
+
+    return { error: "Registration verification failed" };
+}
 
 export async function getWebAuthnRegistrationOptions() {
     const user = await getAdminUser();
@@ -344,6 +474,34 @@ export async function verifyWebAuthnLogin(tempToken: string, authResponse: any) 
 }
 
 async function establishAdminSession(user: any) {
+    const supabase = createAdminClient();
+
+    // Fetch current tracking data to handle daily reset
+    const { data: dbUser } = await supabase
+        .from("admin_users")
+        .select("daily_login_count, last_login_date")
+        .eq("id", user.id)
+        .single();
+
+    const today = new Date().toISOString().split('T')[0];
+    let newCount = 1;
+
+    if (dbUser) {
+        if (dbUser.last_login_date === today) {
+            newCount = (dbUser.daily_login_count || 0) + 1;
+        }
+    }
+
+    // Update tracking data
+    await supabase
+        .from("admin_users")
+        .update({
+            last_seen: new Date().toISOString(),
+            daily_login_count: newCount,
+            last_login_date: today
+        })
+        .eq("id", user.id);
+
     const token = jwt.sign(
         {
             id: user.id,
@@ -353,14 +511,14 @@ async function establishAdminSession(user: any) {
             permissions: user.permissions || []
         },
         JWT_SECRET,
-        { expiresIn: '24h' }
+        { expiresIn: '15m' }
     );
 
     const cookieStore = await cookies();
     cookieStore.set("admin_session", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        maxAge: 60 * 60 * 24,
+        maxAge: 60 * 15, // 15 minutes
         path: "/",
         sameSite: "lax"
     });
@@ -368,10 +526,11 @@ async function establishAdminSession(user: any) {
     cookieStore.set("admin_email", user.email, {
         httpOnly: false,
         secure: process.env.NODE_ENV === "production",
-        maxAge: 60 * 60 * 24,
+        maxAge: 60 * 15, // 15 minutes
         path: "/",
         sameSite: "lax"
     });
 
     return { success: true };
 }
+

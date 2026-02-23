@@ -6,7 +6,7 @@ import { AuditLogger } from '../lib/audit-logger';
 const router = Router();
 
 // GET / - List all coupons (admin only)
-router.get('/', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         // Fetch coupons
         const { data: coupons, error: couponsError } = await supabase
@@ -54,7 +54,7 @@ router.get('/', authenticate, requireRole(['super_admin', 'admin']), async (req:
 });
 
 // POST / - Create a new coupon
-router.post('/', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
+router.post('/', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const {
             code,
@@ -116,7 +116,7 @@ router.post('/', authenticate, requireRole(['super_admin', 'admin']), async (req
 });
 
 // PUT /:id - Update a coupon
-router.put('/:id', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
+router.put('/:id', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const updates = req.body;
@@ -146,7 +146,7 @@ router.put('/:id', authenticate, requireRole(['super_admin', 'admin']), async (r
 });
 
 // DELETE /:id - Delete a coupon (or deactivate)
-router.delete('/:id', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
+router.delete('/:id', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
 

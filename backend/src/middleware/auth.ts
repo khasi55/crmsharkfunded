@@ -244,13 +244,14 @@ export const requireKYC = async (req: AuthRequest, res: Response, next: NextFunc
     }
 
     try {
-        const { data: kycSession, error } = await supabase
+        const { data: kycSessions, error } = await supabase
             .from('kyc_sessions')
             .select('status')
             .eq('user_id', user.id)
             .eq('status', 'approved')
-            .limit(1)
-            .maybeSingle();
+            .limit(1);
+
+        const kycSession = kycSessions?.[0];
 
         if (error || !kycSession) {
             res.status(400).json({

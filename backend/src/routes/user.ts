@@ -289,7 +289,8 @@ router.post('/wallet', authenticate, requireKYC, sensitiveLimiter, validateReque
         }
 
         // Upsert wallet address
-        const { data, error } = await supabase
+        const { supabaseAdmin } = await import('../lib/supabase');
+        const { data, error } = await supabaseAdmin
             .from('wallet_addresses')
             .upsert({
                 user_id: user.id,
@@ -391,7 +392,8 @@ router.post('/bank-details', authenticate, requireKYC, sensitiveLimiter, validat
         }
 
         // Upsert bank details
-        const { data, error } = await supabase
+        const { supabaseAdmin } = await import('../lib/supabase');
+        const { data, error } = await supabaseAdmin
             .from('bank_details')
             .upsert({
                 user_id: user.id,
