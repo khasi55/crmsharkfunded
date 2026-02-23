@@ -140,17 +140,44 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             return;
         }
 
-        const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser(token);
-        if (authError || !supabaseUser) {
-            console.warn(`[Auth] Supabase verification failed for ${req.originalUrl}: ${authError?.message || 'No user'}`);
-            res.status(401).json({ error: 'Invalid or expired token' });
+        // Local JWT Verification (Replaces external supabase.auth.getUser)
+        let decodedToken: any;
+
+        const supabaseJwtSecret = process.env.SUPABASE_JWT_SECRET;
+        if (!supabaseJwtSecret) {
+            console.error('[Auth] CRITICAL ERROR: SUPABASE_JWT_SECRET is missing from environment variables!');
+            console.error('[Auth] You MUST set this to your Supabase Project JWT Secret (Settings -> API -> JWT Settings) to prevent connection timeouts.');
+            console.error('[Auth] WARNING: Do NOT use the anon key or service role key here.');
+        }
+
+        try {
+            if (!supabaseJwtSecret) throw new Error("Missing SUPABASE_JWT_SECRET");
+            decodedToken = jwt.verify(token, supabaseJwtSecret);
+        } catch (jwtErr: any) {
+            if (supabaseJwtSecret) {
+                console.warn(`[Auth] Local JWT verification failed for ${req.originalUrl}: ${jwtErr.message}`);
+            }
+
+            // Fallback to Supabase API strictly if JWT secret check fails (maybe revoked or just missing secret)
+            const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser(token);
+            if (authError || !supabaseUser) {
+                console.warn(`[Auth] Supabase API fallback also failed: ${authError?.message || 'No user'}`);
+                res.status(401).json({ error: 'Invalid or expired token' });
+                return;
+            }
+            decodedToken = { sub: supabaseUser.id, email: supabaseUser.email };
+        }
+
+        const supabaseUserId = decodedToken.sub;
+        if (!supabaseUserId) {
+            res.status(401).json({ error: 'Invalid token payload' });
             return;
         }
 
         // --- ENRICH WITH SESSION IF AVAILABLE ---
         if (sessionId) {
             const userFromSession = await validateSession(sessionId, ip, userAgent, isLocalhost);
-            if (userFromSession && userFromSession.id === supabaseUser.id) {
+            if (userFromSession && userFromSession.id === supabaseUserId) {
                 req.user = userFromSession;
                 authCache.set(cacheKey, { user: userFromSession, expires: Date.now() + CACHE_TTL });
                 next();
@@ -162,14 +189,14 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         const { data: profile } = await supabase
             .from('profiles')
             .select('is_admin, user_type')
-            .eq('id', supabaseUser.id)
+            .eq('id', supabaseUserId)
             .single();
 
         const role = profile?.is_admin ? 'admin' : (profile?.user_type || 'user');
 
         const fullUser = {
-            id: supabaseUser.id,
-            email: supabaseUser.email || '',
+            id: supabaseUserId,
+            email: decodedToken?.email || '',
             role: role
         };
 
