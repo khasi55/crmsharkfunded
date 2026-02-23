@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { authenticate, AuthRequest, requireKYC } from '../middleware/auth';
-import { supabase } from '../lib/supabase';
+import { supabase, createEphemeralClient } from '../lib/supabase';
 import { validateRequest, profileUpdateSchema, passwordUpdateSchema, emailUpdateSchema, walletUpdateSchema } from '../middleware/validation';
 import { sensitiveLimiter } from '../middleware/rate-limit';
 import { logSecurityEvent } from '../utils/security-logger';
@@ -100,7 +100,8 @@ router.put('/update-email', authenticate, sensitiveLimiter, validateRequest(emai
         const { currentPassword, newEmail } = req.body;
 
         // 🛡️ SECURITY LAYER: Verify current password
-        const { error: authError } = await supabase.auth.signInWithPassword({
+        const tempClient = createEphemeralClient();
+        const { error: authError } = await tempClient.auth.signInWithPassword({
             email: user.email,
             password: currentPassword
         });
@@ -118,6 +119,9 @@ router.put('/update-email', authenticate, sensitiveLimiter, validateRequest(emai
             res.status(401).json({ error: 'Invalid current password' });
             return;
         }
+
+        // Cleanup temp session
+        await tempClient.auth.signOut();
 
         // Update email via Supabase Auth
         const { error } = await supabase.auth.admin.updateUserById(
@@ -166,7 +170,8 @@ router.put('/update-password', authenticate, sensitiveLimiter, validateRequest(p
         const { currentPassword, newPassword } = req.body;
 
         // 🛡️ SECURITY LAYER: Verify current password
-        const { error: authError } = await supabase.auth.signInWithPassword({
+        const tempClient = createEphemeralClient();
+        const { error: authError } = await tempClient.auth.signInWithPassword({
             email: user.email,
             password: currentPassword
         });
@@ -184,6 +189,9 @@ router.put('/update-password', authenticate, sensitiveLimiter, validateRequest(p
             res.status(401).json({ error: 'Invalid current password' });
             return;
         }
+
+        // Cleanup temp session
+        await tempClient.auth.signOut();
 
         // Update password via Supabase Auth
         const { error } = await supabase.auth.admin.updateUserById(
