@@ -1,51 +1,42 @@
-
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
-import { resolve } from 'path';
+import path from 'path';
 
-dotenv.config({ path: resolve(__dirname, '../../.env') });
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl!, supabaseKey!);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-async function check() {
-    const login = '900909491201';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { data: challenge } = await supabase
-        .from('challenges')
-        .select('id, group')
-        .eq('login', login)
-        .single();
+const groupName = 'demo\\SF\\2-Pro';
 
-    console.log('Account Group:', challenge?.group);
+async function checkRules() {
+    console.log(`Checking rules for group: ${groupName}...`);
 
-    const { data: rules } = await supabase
+    // Check mt5_risk_groups
+    const { data: riskGroups, error: rgError } = await supabase
+        .from('mt5_risk_groups')
+        .select('*')
+        .ilike('group_name', groupName.replace(/\\/g, '\\\\'));
+
+    if (rgError) {
+        console.error('Error fetching mt5_risk_groups:', rgError);
+    } else {
+        console.log('MT5 Risk Groups:', JSON.stringify(riskGroups, null, 2));
+    }
+
+    // Check risk_rules_config
+    const { data: riskRules, error: rrError } = await supabase
         .from('risk_rules_config')
-        .select('*');
+        .select('*')
+        .ilike('mt5_group_name', groupName.replace(/\\/g, '\\\\'));
 
-    console.log('All Risk Rules:');
-    rules?.forEach(r => {
-        console.log(`- ${r.mt5_group_name}: allow_hedging=${r.allow_hedging}, min_duration=${r.min_trade_duration_seconds}s`);
-    });
-
-    // Check advanced_risk_flags
-    if (challenge) {
-        const { data: flags } = await supabase
-            .from('advanced_risk_flags')
-            .select('*')
-            .eq('challenge_id', challenge.id);
-
-        console.log('\nAdvanced Risk Flags for Account:');
-        if (flags && flags.length > 0) {
-            flags.forEach(f => {
-                console.log(`- Type: ${f.flag_type}, Ticket: ${f.trade_ticket}, Severity: ${f.severity}`);
-                console.log(`  Description: ${f.description}`);
-            });
-        } else {
-            console.log('No advanced risk flags found.');
-        }
+    if (rrError) {
+        console.error('Error fetching risk_rules_config:', rrError);
+    } else {
+        console.log('\nRisk Rules Config:', JSON.stringify(riskRules, null, 2));
     }
 }
 
-check();
+checkRules();

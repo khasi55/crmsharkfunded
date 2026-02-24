@@ -75,7 +75,10 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
                 p.metadata?.challenge_id === acc.id
             );
 
-            const paidOrPending = accountPayouts.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+            const paidOrPending = accountPayouts.reduce((sum: number, p: any) => {
+                const reqVal = p.metadata?.requested_amount ? Number(p.metadata.requested_amount) : Number(p.amount);
+                return sum + reqVal;
+            }, 0);
 
             // Subtract paid amount from profit share
             available = Math.max(0, available - paidOrPending);
@@ -349,9 +352,15 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
         if (targetAccount) {
             // Filter by metadata.challenge_id matching target
             alreadyRequested = previousPayouts?.filter((p: any) => p.metadata?.challenge_id === targetAccount.id)
-                .reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+                .reduce((sum, p) => {
+                    const reqVal = p.metadata?.requested_amount ? Number(p.metadata.requested_amount) : Number(p.amount);
+                    return sum + reqVal;
+                }, 0) || 0;
         } else {
-            alreadyRequested = previousPayouts?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+            alreadyRequested = previousPayouts?.reduce((sum, p) => {
+                const reqVal = p.metadata?.requested_amount ? Number(p.metadata.requested_amount) : Number(p.amount);
+                return sum + reqVal;
+            }, 0) || 0;
         }
 
         // if (DEBUG) console.log(`[Payout Request] Already Requested: ${alreadyRequested}`);
@@ -491,15 +500,19 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
 
         // 4. Create Payout Request
         // if (DEBUG) console.log(`[Payout Request] Creating payout request record...`);
+        const actualPayoutAmount = amount * 0.8; // 80% profit share
+
         const { error: insertError } = await supabase
             .from('payout_requests')
             .insert({
                 user_id: user.id,
-                amount: amount,
+                amount: actualPayoutAmount, // User gets 80%
                 status: 'pending',
                 payout_method: method || 'crypto',
                 wallet_address: (req as any).payoutDestination,
                 metadata: {
+                    requested_amount: amount, // Full amount deducted from MT5
+                    profit_split_deduction: amount * 0.2, // The 20% cut
                     challenge_id: account.id,
                     mt5_login: account.login,
                     mt5_ticket: mt5Ticket,
@@ -522,10 +535,10 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
 
             await NotificationService.createNotification(
                 'New Payout Request',
-                `${userName} requested a payout of $${amount} via ${method || 'crypto'}.`,
+                `${userName} requested a payout of $${actualPayoutAmount} (80% of $${amount} profit) via ${method || 'crypto'}.`,
                 'payout',
                 user.id,
-                { payout_request_id: 'pending', amount, challenge_id: account.id }
+                { payout_request_id: 'pending', amount: actualPayoutAmount, challenge_id: account.id }
             );
         } catch (notifError) {
             // console.error('Failed to send notification (non-blocking):', notifError);
@@ -536,7 +549,7 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
             email: user.email,
             action: 'PAYOUT_REQUEST',
             resource: 'payout',
-            payload: { amount, challenge_id },
+            payload: { amount: actualPayoutAmount, requested_amount: amount, challenge_id },
             status: 'success',
             ip: req.ip
         });
@@ -547,7 +560,7 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
         try {
             const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
             const userName = profile?.full_name || 'User';
-            await EmailService.sendPayoutRequestedNotice(user.email!, userName, amount, method || 'crypto');
+            await EmailService.sendPayoutRequestedNotice(user.email!, userName, actualPayoutAmount, method || 'crypto');
         } catch (emailErr) {
             console.error('Failed to send payout requested email (non-blocking):', emailErr);
         }

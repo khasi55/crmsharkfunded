@@ -182,4 +182,42 @@ router.post('/update', authenticate, requireRole(['super_admin', 'admin', 'sub_a
     }
 });
 
+// POST /api/admin/users/update-password - Reset user password
+router.post('/update-password', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
+    try {
+        const { userId, newPassword } = req.body;
+
+        if (!userId || !newPassword) {
+            return res.status(400).json({ error: 'Missing required fields: userId, newPassword' });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+        }
+
+        // Fetch user email for logging
+        const { data: targetProfile } = await supabase.from('profiles').select('email').eq('id', userId).single();
+        const targetEmail = targetProfile?.email || userId;
+
+        AuditLogger.info(req.user?.email || 'admin', `Reset password for user ${targetEmail}`, { userId, category: 'User' });
+
+        // Update Supabase Auth password
+        const { error: authError } = await supabase.auth.admin.updateUserById(
+            userId,
+            { password: newPassword }
+        );
+
+        if (authError) {
+            console.error('Password Reset Failed:', authError);
+            return res.status(500).json({ error: 'Password Reset Failed: ' + authError.message });
+        }
+
+        res.json({ success: true, message: 'Password updated successfully' });
+
+    } catch (error: any) {
+        console.error('Admin Reset Password Error:', error);
+        res.status(500).json({ error: 'Internal server error: ' + error.message });
+    }
+});
+
 export default router;

@@ -201,13 +201,13 @@ class DynamicTradePoller:
                             }
                             # Simple way to run async from sync if loop exists
                             try:
-                                loop = asyncio.get_event_loop()
-                                if loop.is_running():
-                                    loop.create_task(self.ws_manager.broadcast(login, payload))
-                                else:
-                                    asyncio.run(self.ws_manager.broadcast(login, payload))
+                                if getattr(self.ws_manager, 'main_loop', None):
+                                    import asyncio
+                                    asyncio.run_coroutine_threadsafe(
+                                        self.ws_manager.broadcast(login, payload), 
+                                        self.ws_manager.main_loop
+                                    )
                             except Exception as ws_err:
-                                # Fallback or silent fail
                                 pass
                         except Exception as e:
                             print(f"⚠️ WS Broadcast Error (Trades): {e}")

@@ -51,7 +51,7 @@ async function getStats() {
         { data: processedPayouts },
         { data: pendingUpgrades }, // Accounts waiting for upgrade
     ] = await Promise.all([
-        fetchAllRows(supabase, "payment_orders", "amount, created_at", q => q.eq("status", "paid")),
+        fetchAllRows(supabase, "payment_orders", "amount, created_at, payment_gateway", q => q.eq("status", "paid")),
         fetchAllRows(supabase, "challenges", "challenge_type, status, upgraded_to"),
         fetchAllRows(supabase, "payout_requests", "amount, processed_at, created_at", q => q.in("status", ["approved", "processed"])),
         fetchAllRows(supabase, "challenges", "id, challenge_type, status", q => q.eq("status", "passed"))
@@ -59,6 +59,14 @@ async function getStats() {
 
     // 2. Calculate Revenue
     const totalRevenue = paidOrders?.reduce((sum, order) => sum + (Number(order.amount) || 0), 0) || 0;
+
+    // 2.5 Calculate Revenue by Gateway
+    const revenueByGateway: Record<string, number> = {};
+    paidOrders?.forEach(order => {
+        const gateway = order.payment_gateway || 'Other';
+        const displayGateway = gateway.charAt(0).toUpperCase() + gateway.slice(1);
+        revenueByGateway[displayGateway] = (revenueByGateway[displayGateway] || 0) + (Number(order.amount) || 0);
+    });
 
     // 3. Calculate Account Categories
     let phase1Count = 0;
@@ -245,6 +253,7 @@ async function getStats() {
             payouts: payoutStats,
             equity: equityStats
         },
+        revenueByGateway,
         chartData: last30Days
     };
 }
@@ -378,143 +387,156 @@ export default async function AdminDashboardPage() {
     const formatCurrency = (amount: number) => `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     return (
-        <div className="space-y-8">
-            <div>
-                <h1 className="text-2xl font-semibold text-gray-900">Dashboard Overview</h1>
-                <p className="text-sm text-gray-600 mt-1">Monitor your platform's key metrics</p>
+        <div className="space-y-8 bg-[#FAFAFA] min-h-screen pb-12">
+            {/* Header Area */}
+            <div className="bg-white border-b border-gray-200 px-8 py-8 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] text-left mb-8 -mx-8 -mt-8">
+                <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Dashboard Overview</h1>
+                <p className="text-sm text-gray-500 mt-2 font-medium">Monitor your platform's key performance metrics</p>
             </div>
 
-            {/* Main Stat Cards */}
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
-                {statCards.map((stat) => {
-                    const CardContent = () => (
-                        <div className={`bg-white rounded-lg border border-gray-200 p-6 flex flex-col justify-between h-full ${stat.href ? 'hover:shadow-md transition-shadow' : ''}`}>
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                                    <p className="text-2xl font-semibold text-gray-900 mt-2">{stat.value}</p>
+            <div className="px-8 max-w-[1920px] mx-auto space-y-8">
+                {/* Main Stat Cards */}
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {statCards.map((stat) => {
+                        const CardContent = () => (
+                            <div className={`bg-white rounded-2xl border border-gray-100 p-6 flex flex-col justify-between h-full shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group/card`}>
+                                {/* Decorative background glow */}
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-white/50 to-transparent blur-xl rounded-full opacity-0 group-hover/card:opacity-100 transition-opacity"></div>
+
+                                <div className="flex items-start justify-between relative z-10">
+                                    <div className="space-y-2">
+                                        <p className="text-[13px] font-semibold text-gray-500 uppercase tracking-wider">{stat.title}</p>
+                                        <p className="text-3xl font-bold text-gray-900 tracking-tight">{stat.value}</p>
+                                    </div>
+                                    <div className={`flex h-12 w-12 items-center justify-center rounded-xl shadow-inner ${stat.bgColor}`}>
+                                        <stat.icon className={`h-6 w-6 ${stat.iconColor} group-hover/card:scale-110 transition-transform duration-300`} strokeWidth={2.5} />
+                                    </div>
                                 </div>
-                                <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${stat.bgColor}`}>
-                                    <stat.icon className={`h-6 w-6 ${stat.iconColor}`} />
-                                </div>
+                                {stat.href && (
+                                    <div className="mt-6 pt-4 border-t border-gray-50 flex items-center text-sm text-indigo-600 font-bold group-hover/link:text-indigo-700 transition-colors">
+                                        <span className="group-hover/card:underline decoration-2 underline-offset-4">View Report</span>
+                                        <ChevronRight className="ml-1 h-4 w-4 group-hover/card:translate-x-1.5 transition-transform duration-300" strokeWidth={3} />
+                                    </div>
+                                )}
                             </div>
-                            {stat.href && (
-                                <div className="mt-4 pt-4 border-t border-gray-100 flex items-center text-sm text-indigo-600 font-medium group">
-                                    <span className="group-hover:underline">View more</span>
-                                    <ChevronRight className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                                </div>
-                            )}
-                        </div>
-                    );
+                        );
 
-                    return stat.href ? (
-                        <Link key={stat.title} href={stat.href} className="block h-full">
-                            <CardContent />
-                        </Link>
-                    ) : (
-                        <div key={stat.title} className="block h-full">
-                            <CardContent />
-                        </div>
-                    );
-                })}
-            </div>
+                        return stat.href ? (
+                            <Link key={stat.title} href={stat.href} className="block h-full">
+                                <CardContent />
+                            </Link>
+                        ) : (
+                            <div key={stat.title} className="block h-full">
+                                <CardContent />
+                            </div>
+                        );
+                    })}
+                </div>
 
-            {/* Financial Performance */}
-            <div className="space-y-6">
-                <FinancialChart data={stats.chartData} />
+                {/* Financial Performance */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                    <div className="lg:col-span-12 xl:col-span-7 bg-white p-6 rounded-2xl border border-gray-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] h-full">
+                        <FinancialChart data={stats.chartData} />
+                    </div>
 
-                {/* Metrics Table */}
-                <div>
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Detailed Breakdown</h2>
-                    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm whitespace-nowrap">
-                                <thead className="bg-gray-50 border-b border-gray-200">
-                                    <tr>
-                                        <th className="px-6 py-3 font-semibold text-gray-700">Metric</th>
-                                        <th className="px-6 py-3 font-semibold text-gray-700 text-right">Daily (IST)</th>
-                                        <th className="px-6 py-3 font-semibold text-gray-700 text-right">Weekly (7d)</th>
-                                        <th className="px-6 py-3 font-semibold text-gray-700 text-right">Monthly (30d)</th>
-                                        <th className="px-6 py-3 font-semibold text-gray-700 text-right">Yearly (365d)</th>
-                                        <th className="px-6 py-3 font-semibold text-gray-700 text-right">All Time</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200">
-                                    <tr className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 font-medium text-gray-900 flex items-center gap-2">
-                                            <div className="p-1 bg-emerald-100 rounded text-emerald-600"><DollarSign size={16} /></div>
-                                            Payments Received
-                                        </td>
-                                        <td className="px-6 py-4 text-right text-gray-900">{formatCurrency(stats.financials.payments.daily)}</td>
-                                        <td className="px-6 py-4 text-right text-gray-900">{formatCurrency(stats.financials.payments.weekly)}</td>
-                                        <td className="px-6 py-4 text-right text-gray-900">{formatCurrency(stats.financials.payments.monthly)}</td>
-                                        <td className="px-6 py-4 text-right text-gray-900">{formatCurrency(stats.financials.payments.yearly)}</td>
-                                        <td className="px-6 py-4 text-right font-bold text-gray-900">{formatCurrency(stats.financials.payments.total)}</td>
-                                    </tr>
-                                    <tr className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 font-medium text-gray-900 flex items-center gap-2">
-                                            <div className="p-1 bg-red-100 rounded text-red-600"><CreditCard size={16} /></div>
-                                            Payouts Sent
-                                        </td>
-                                        <td className="px-6 py-4 text-right text-gray-900">{formatCurrency(stats.financials.payouts.daily)}</td>
-                                        <td className="px-6 py-4 text-right text-gray-900">{formatCurrency(stats.financials.payouts.weekly)}</td>
-                                        <td className="px-6 py-4 text-right text-gray-900">{formatCurrency(stats.financials.payouts.monthly)}</td>
-                                        <td className="px-6 py-4 text-right text-gray-900">{formatCurrency(stats.financials.payouts.yearly)}</td>
-                                        <td className="px-6 py-4 text-right font-bold text-gray-900">{formatCurrency(stats.financials.payouts.total)}</td>
-                                    </tr>
-                                    <tr className="bg-gray-50/50 hover:bg-gray-50 font-semibold">
-                                        <td className="px-6 py-4 text-gray-900 flex items-center gap-2">
-                                            <div className="p-1 bg-indigo-100 rounded text-indigo-600"><TrendingUp size={16} /></div>
-                                            Net Equity
-                                        </td>
-                                        <td className={`px-6 py-4 text-right ${stats.financials.equity.daily >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                            {formatCurrency(stats.financials.equity.daily)}
-                                        </td>
-                                        <td className={`px-6 py-4 text-right ${stats.financials.equity.weekly >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                            {formatCurrency(stats.financials.equity.weekly)}
-                                        </td>
-                                        <td className={`px-6 py-4 text-right ${stats.financials.equity.monthly >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                            {formatCurrency(stats.financials.equity.monthly)}
-                                        </td>
-                                        <td className={`px-6 py-4 text-right ${stats.financials.equity.yearly >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                            {formatCurrency(stats.financials.equity.yearly)}
-                                        </td>
-                                        <td className={`px-6 py-4 text-right ${stats.financials.equity.total >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                            {formatCurrency(stats.financials.equity.total)}
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                    {/* Metrics Table */}
+                    <div className="lg:col-span-12 xl:col-span-5 h-full">
+                        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] flex flex-col h-full">
+                            <div className="px-6 py-5 border-b border-gray-100 bg-gray-50/50">
+                                <h2 className="text-[15px] font-bold text-gray-900 tracking-tight flex items-center gap-2">
+                                    <DollarSign size={18} className="text-emerald-500" />
+                                    Financial Details
+                                </h2>
+                            </div>
+                            <div className="overflow-x-auto flex-1">
+                                <table className="w-full text-left text-[13px] whitespace-nowrap">
+                                    <thead className="bg-[#FCFCFC] border-b border-gray-100">
+                                        <tr>
+                                            <th className="px-6 py-4 font-bold text-gray-500 uppercase tracking-widest text-[10px]">Metric</th>
+                                            <th className="px-6 py-4 font-bold text-gray-500 uppercase tracking-widest text-[10px] text-right">Daily</th>
+                                            <th className="px-6 py-4 font-bold text-gray-500 uppercase tracking-widest text-[10px] text-right">All Time</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        <tr className="hover:bg-gray-50">
+                                            <td className="px-6 py-5 font-semibold text-gray-900 flex items-center gap-3">
+                                                <div className="p-1.5 bg-emerald-50 rounded-lg text-emerald-600 shadow-sm border border-emerald-100/50"><DollarSign size={14} strokeWidth={3} /></div>
+                                                Gross Revenue
+                                            </td>
+                                            <td className="px-6 py-5 text-right font-medium text-gray-700">{formatCurrency(stats.financials.payments.daily)}</td>
+                                            <td className="px-6 py-5 text-right font-bold text-emerald-600">{formatCurrency(stats.financials.payments.total)}</td>
+                                        </tr>
+                                        <tr className="hover:bg-[#FAFAFA] transition-colors group">
+                                            <td className="px-6 py-5 font-semibold text-gray-900 flex items-center gap-3">
+                                                <div className="p-1.5 bg-red-50 rounded-lg text-red-600 shadow-sm border border-red-100/50"><CreditCard size={14} strokeWidth={3} /></div>
+                                                Payouts Sent
+                                            </td>
+                                            <td className="px-6 py-5 text-right font-medium text-gray-700">{formatCurrency(stats.financials.payouts.daily)}</td>
+                                            <td className="px-6 py-5 text-right font-bold text-red-500">{formatCurrency(stats.financials.payouts.total)}</td>
+                                        </tr>
+                                        <tr className="bg-[#F8FAFF] border-y border-indigo-100/50 font-semibold group/equity hover:bg-indigo-50/50 transition-colors">
+                                            <td className="px-6 py-5 text-indigo-900 flex items-center gap-3">
+                                                <div className="p-1.5 bg-indigo-100 rounded-lg text-indigo-600 shadow-sm border border-indigo-200/50 group-hover/equity:scale-110 transition-transform"><TrendingUp size={14} strokeWidth={3} /></div>
+                                                Net Profit
+                                            </td>
+                                            <td className={`px-6 py-5 text-right font-bold ${stats.financials.equity.daily >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                {formatCurrency(stats.financials.equity.daily)}
+                                            </td>
+                                            <td className={`px-6 py-5 text-right font-extrabold ${stats.financials.equity.total >= 0 ? 'text-emerald-600' : 'text-rose-600'} text-[15px]`}>
+                                                {formatCurrency(stats.financials.equity.total)}
+                                            </td>
+                                        </tr>
+                                        {Object.entries(stats.revenueByGateway).map(([gateway, amount]) => (
+                                            <tr key={gateway} className="hover:bg-[#FAFAFA] transition-colors group">
+                                                <td className="px-6 py-4 font-medium text-gray-600 flex items-center gap-3 pl-12 text-xs">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 group-hover:scale-150 transition-transform"></div>
+                                                    {gateway}
+                                                </td>
+                                                <td className="px-6 py-4 text-right text-gray-400">-</td>
+                                                <td className="px-6 py-4 text-right font-semibold text-gray-700">{formatCurrency(amount as number)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Quick Actions */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Link href="/users" className="flex items-center gap-3 p-4 rounded-lg border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-colors">
-                        <Users className="h-5 w-5 text-indigo-600" />
-                        <div>
-                            <p className="font-medium text-gray-900">Manage Users</p>
-                            <p className="text-sm text-gray-600">View all users</p>
-                        </div>
-                    </Link>
-                    <Link href="/kyc" className="flex items-center gap-3 p-4 rounded-lg border border-gray-200 hover:border-amber-300 hover:bg-amber-50 transition-colors">
-                        <FileText className="h-5 w-5 text-amber-600" />
-                        <div>
-                            <p className="font-medium text-gray-900">Review KYC</p>
-                            <p className="text-sm text-gray-600">Pending requests</p>
-                        </div>
-                    </Link>
-                    <Link href="/payouts" className="flex items-center gap-3 p-4 rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-colors">
-                        <CreditCard className="h-5 w-5 text-purple-600" />
-                        <div>
-                            <p className="font-medium text-gray-900">Process Payouts</p>
-                            <p className="text-sm text-gray-600">Manage withdrawals</p>
-                        </div>
-                    </Link>
+                {/* Quick Actions */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-8 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)]">
+                    <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-[17px] font-bold text-gray-900 tracking-tight">Quick Actions</h2>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                        <Link href="/users" className="group flex items-center gap-4 p-5 rounded-2xl border border-gray-100 hover:border-indigo-200 bg-[#FAFAFA] hover:bg-white hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.08)] transition-all duration-300">
+                            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300 shadow-sm">
+                                <Users className="h-6 w-6" strokeWidth={2} />
+                            </div>
+                            <div>
+                                <p className="font-bold text-gray-900 group-hover:text-indigo-900 transition-colors">Manage Users</p>
+                                <p className="text-xs text-gray-500 font-medium">View and edit user profiles</p>
+                            </div>
+                        </Link>
+                        <Link href="/kyc" className="group flex items-center gap-4 p-5 rounded-2xl border border-gray-100 hover:border-amber-200 bg-[#FAFAFA] hover:bg-white hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.08)] transition-all duration-300">
+                            <div className="p-3 bg-amber-50 text-amber-600 rounded-xl group-hover:bg-amber-500 group-hover:text-white transition-colors duration-300 shadow-sm">
+                                <FileText className="h-6 w-6" strokeWidth={2} />
+                            </div>
+                            <div>
+                                <p className="font-bold text-gray-900 group-hover:text-amber-900 transition-colors">Review KYC</p>
+                                <p className="text-xs text-gray-500 font-medium">{stats.pendingKYC} pending requests</p>
+                            </div>
+                        </Link>
+                        <Link href="/payouts" className="group flex items-center gap-4 p-5 rounded-2xl border border-gray-100 hover:border-purple-200 bg-[#FAFAFA] hover:bg-white hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.08)] transition-all duration-300">
+                            <div className="p-3 bg-purple-50 text-purple-600 rounded-xl group-hover:bg-purple-600 group-hover:text-white transition-colors duration-300 shadow-sm">
+                                <CreditCard className="h-6 w-6" strokeWidth={2} />
+                            </div>
+                            <div>
+                                <p className="font-bold text-gray-900 group-hover:text-purple-900 transition-colors">Process Payouts</p>
+                                <p className="text-xs text-gray-500 font-medium">{stats.pendingPayouts} pending withdrawals</p>
+                            </div>
+                        </Link>
+                    </div>
                 </div>
             </div>
         </div>

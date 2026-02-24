@@ -16,8 +16,8 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function setUserPassword() {
-    const email = 'sahilali93237@gmail.com';
-    const password = '15March2006@';
+    const email = 'vikashkumarr482@gmail.com';
+    const password = 'Arti@#$_';
 
     console.log(`🔍 Looking for user: ${email}...`);
 

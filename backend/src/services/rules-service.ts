@@ -218,7 +218,7 @@ export class RulesService {
         // 5. Calculate Score
         const { data: trades } = await supabase
             .from('trades')
-            .select('profit_loss, ticket_number')
+            .select('profit_loss, ticket, commission, swap')
             .eq('challenge_id', challengeId)
             .gt('profit_loss', 0)
             .gt('lots', 0); // Exclude deposits
@@ -227,14 +227,22 @@ export class RulesService {
             return { enabled: true, passed: true, score: 0, maxAllowed: maxWinPercent, details: 'No winning trades' };
         }
 
-        const totalProfit = trades.reduce((sum, t) => sum + Number(t.profit_loss), 0);
+        const totalProfit = trades.reduce((sum, t) => {
+            const profit = Number(t.profit_loss) || 0;
+            const comm = Number(t.commission) || 0;
+            const swap = Number(t.swap) || 0;
+            return sum + profit + comm + swap;
+        }, 0);
         let highestWinPercent = 0;
         let violationTrade = null;
 
         if (totalProfit > 0) {
             for (const trade of trades) {
-                const profit = Number(trade.profit_loss);
-                const percent = (profit / totalProfit) * 100;
+                const profit = Number(trade.profit_loss) || 0;
+                const comm = Number(trade.commission) || 0;
+                const swap = Number(trade.swap) || 0;
+                const tradeNet = profit + comm + swap;
+                const percent = (tradeNet / totalProfit) * 100;
                 if (percent > highestWinPercent) {
                     highestWinPercent = percent;
                     if (percent > maxWinPercent) {
@@ -250,7 +258,7 @@ export class RulesService {
             score: highestWinPercent,
             maxAllowed: maxWinPercent,
             violationTrade,
-            details: violationTrade ? `Trade #${violationTrade.ticket_number} represents ${highestWinPercent.toFixed(1)}% of profit` : 'Passed'
+            details: violationTrade ? `Trade #${violationTrade.ticket} represents ${highestWinPercent.toFixed(1)}% of profit` : 'Passed'
         };
     }
 }

@@ -178,7 +178,7 @@ export async function startTradeSyncWorker() {
         }
     }, {
         connection: getRedis() as any,
-        concurrency: 20, // Toned down from 40 to avoid bridge congestion
+        concurrency: 5, // Toned down from 20 to 5 to avoid PostgREST connection starvation and 522s
         limiter: {
             max: 500,
             duration: 1000
@@ -189,6 +189,6 @@ export async function startTradeSyncWorker() {
         // console.error(`❌ Sync Job ${job?.id} failed: ${err.message}`);
     });
 
-    if (DEBUG) console.log('✅ Trade Sync Worker Initialized with concurrency: 20');
+    if (DEBUG) console.log('✅ Trade Sync Worker Initialized with concurrency: 5');
     return worker;
 }

@@ -56,6 +56,7 @@ interface BankDetail {
 
 export default function AdminPayoutsClient() {
     const [activeTab, setActiveTab] = useState<'requests' | 'wallets' | 'banks'>('requests');
+    const [requestStatusFilter, setRequestStatusFilter] = useState<'pending' | 'approved' | 'processed' | 'rejected' | 'all'>('pending');
     const [requests, setRequests] = useState<PayoutRequest[]>([]);
     const [wallets, setWallets] = useState<WalletAddress[]>([]);
     const [bankDetails, setBankDetails] = useState<BankDetail[]>([]);
@@ -63,12 +64,20 @@ export default function AdminPayoutsClient() {
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
 
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
+
     // Edit Wallet State
     const [editingWallet, setEditingWallet] = useState<WalletAddress | null>(null);
     const [newAddress, setNewAddress] = useState("");
     const [isUpdating, setIsUpdating] = useState(false);
 
     useEffect(() => {
+        // Reset page on tab change
+        setCurrentPage(1);
+        setSearchQuery('');
+
         if (activeTab === 'requests') {
             fetchPayouts();
         } else if (activeTab === 'wallets') {
@@ -77,6 +86,11 @@ export default function AdminPayoutsClient() {
             fetchBankDetails();
         }
     }, [activeTab]);
+
+    // Reset pagination when search query or filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, requestStatusFilter]);
 
     async function fetchPayouts() {
         setLoading(true);
@@ -180,11 +194,61 @@ export default function AdminPayoutsClient() {
         w.wallet_address?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    const filteredRequests = requests.filter(req => {
+        const matchesStatus = requestStatusFilter === 'all' || req.status?.toLowerCase() === requestStatusFilter;
+        const matchesSearch = !searchQuery ||
+            req.profiles?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            req.profiles?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            String(req.account_info?.login || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            req.payout_method?.toLowerCase().includes(searchQuery.toLowerCase());
+
+        return matchesStatus && matchesSearch;
+    });
+
     const filteredBanks = bankDetails.filter(b =>
         b.profiles?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         b.profiles?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         b.bank_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         b.account_number?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    // Pagination Calculations
+    const getPaginatedData = (data: any[]) => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return data.slice(startIndex, startIndex + itemsPerPage);
+    };
+
+    const paginatedRequests = getPaginatedData(filteredRequests);
+    const paginatedWallets = getPaginatedData(filteredWallets);
+    const paginatedBanks = getPaginatedData(filteredBanks);
+
+    const totalPagesRequests = Math.ceil(filteredRequests.length / itemsPerPage) || 1;
+    const totalPagesWallets = Math.ceil(filteredWallets.length / itemsPerPage) || 1;
+    const totalPagesBanks = Math.ceil(filteredBanks.length / itemsPerPage) || 1;
+
+    // Reusable Pagination Component inline
+    const PaginationControls = ({ totalPages }: { totalPages: number }) => (
+        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+            <span className="text-sm text-gray-500 font-medium">
+                Page {currentPage} of {totalPages}
+            </span>
+            <div className="flex gap-2">
+                <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                    Previous
+                </button>
+                <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                    Next
+                </button>
+            </div>
+        </div>
     );
 
     if (loading && requests.length === 0 && wallets.length === 0 && bankDetails.length === 0) {
@@ -250,6 +314,33 @@ export default function AdminPayoutsClient() {
 
             {activeTab === 'requests' ? (
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                    {/* Status Sub-Navigation & Search */}
+                    <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                        <div className="flex flex-wrap gap-2">
+                            {['pending', 'approved', 'processed', 'rejected', 'all'].map((status) => (
+                                <button
+                                    key={status}
+                                    onClick={() => setRequestStatusFilter(status as any)}
+                                    className={`px-4 py-1.5 rounded-full text-[13px] font-semibold transition-all ${requestStatusFilter === status
+                                        ? 'bg-blue-100 text-blue-700 shadow-sm border border-blue-200'
+                                        : 'bg-white text-gray-500 hover:bg-gray-100 border border-gray-200'
+                                        }`}
+                                >
+                                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="w-full md:max-w-xs">
+                            <input
+                                type="text"
+                                placeholder="Search by name, email or account..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full bg-white border border-gray-200 text-[14px] font-medium text-gray-700 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 px-4 py-2 transition-all shadow-sm outline-none"
+                            />
+                        </div>
+                    </div>
+
                     <div className="overflow-x-auto w-full">
                         <table className="w-full text-left text-[14px]">
                             <thead className="bg-gray-50/80 border-b border-gray-100">
@@ -266,7 +357,7 @@ export default function AdminPayoutsClient() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 bg-white">
-                                {requests?.map((req) => (
+                                {paginatedRequests.map((req) => (
                                     <tr key={req.id} className="group hover:bg-gray-50/80 transition-colors duration-200">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex flex-col">
@@ -370,7 +461,7 @@ export default function AdminPayoutsClient() {
                                         </td>
                                     </tr>
                                 ))}
-                                {requests?.length === 0 && (
+                                {filteredRequests.length === 0 && (
                                     <tr key="no-requests">
                                         <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                                             <div className="flex flex-col items-center justify-center">
@@ -382,6 +473,7 @@ export default function AdminPayoutsClient() {
                             </tbody>
                         </table>
                     </div>
+                    <PaginationControls totalPages={totalPagesRequests} />
                 </div>
             ) : activeTab === 'wallets' ? (
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
@@ -410,7 +502,7 @@ export default function AdminPayoutsClient() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 bg-white">
-                                {filteredWallets.map((wallet) => (
+                                {paginatedWallets.map((wallet) => (
                                     <tr key={wallet.id} className="group hover:bg-gray-50/80 transition-colors duration-200">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex flex-col">
@@ -479,6 +571,7 @@ export default function AdminPayoutsClient() {
                             </tbody>
                         </table>
                     </div>
+                    <PaginationControls totalPages={totalPagesWallets} />
                 </div>
             ) : (
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
@@ -506,7 +599,7 @@ export default function AdminPayoutsClient() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 bg-white">
-                                {filteredBanks.map((bank) => (
+                                {paginatedBanks.map((bank) => (
                                     <tr key={bank.id} className="group hover:bg-gray-50/80 transition-colors duration-200">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex flex-col">
@@ -572,6 +665,7 @@ export default function AdminPayoutsClient() {
                             </tbody>
                         </table>
                     </div>
+                    <PaginationControls totalPages={totalPagesBanks} />
                 </div>
             )}
 

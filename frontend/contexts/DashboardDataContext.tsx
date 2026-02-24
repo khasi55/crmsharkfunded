@@ -188,7 +188,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
         const pollInterval = setInterval(() => {
             console.log('[DashboardData] Periodic polling refresh (silent)...');
             fetchAllData(true); // Silent: No loading spinners
-        }, 30000); // Poll every 30s as fallback
+        }, 120000); // Poll every 120s as fallback (Reduced from 30s)
 
         return () => clearInterval(pollInterval);
     }, [selectedAccount?.id, fetchAllData]);

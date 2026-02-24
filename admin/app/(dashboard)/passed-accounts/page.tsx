@@ -4,6 +4,8 @@ import { SearchInput } from "@/components/admin/SearchInput";
 import { CheckCircle, Trophy } from "lucide-react";
 import PassedAccountActions from "@/components/admin/PassedAccountActions";
 
+import { AdminPagination } from "@/components/admin/AdminPagination";
+
 export default async function PassedAccountsPage({
     searchParams,
 }: {
@@ -11,14 +13,17 @@ export default async function PassedAccountsPage({
 }) {
     const supabase = createAdminClient();
     const query = (await searchParams)?.query || "";
+    const page = parseInt((await searchParams)?.page || "1");
+    const PAGE_SIZE = 50;
 
     // Build Query - Show active passed challenges (waiting for upgrade)
     let dbQuery = supabase
         .from("challenges")
-        .select("*")
+        .select("*", { count: "exact" })
         .eq("status", "passed") // Only show passed accounts waiting for upgrade
+        .or('challenge_type.ilike.%phase 1%,challenge_type.ilike.%phase 2%,challenge_type.ilike.%step 1%,challenge_type.ilike.%step 2%,challenge_type.ilike.%1_step%,challenge_type.ilike.%2_step%')
         .order("updated_at", { ascending: false })
-        .limit(100);
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
     // Apply Search
     if (query) {
@@ -31,136 +36,137 @@ export default async function PassedAccountsPage({
         }
     }
 
-    const { data: accounts, error } = await dbQuery;
+    const { data: accounts, count, error } = await dbQuery;
 
     if (error) {
         console.error("Error fetching passed accounts:", error);
     }
 
     // Fetch profiles separately
-    const userIds = [...new Set(accounts?.map(a => a.user_id).filter(Boolean))];
+    const userIds = [...new Set(accounts?.map((a: any) => a.user_id).filter(Boolean))];
     const { data: profiles } = await supabase
         .from('profiles')
         .select('id, full_name, email')
         .in('id', userIds);
 
-    const profilesMap = new Map(profiles?.map(p => [p.id, p]));
+    const profilesMap = new Map(profiles?.map((p: any) => [p.id, p]));
 
     // Enrich accounts with profile data
-    const enrichedAccounts = accounts?.map(account => ({
+    const eligibleAccounts = accounts?.map((account: any) => ({
         ...account,
         profiles: profilesMap.get(account.user_id)
-    }));
+    })) || [];
 
-    // Filter to only show Phase 1 and Phase 2 (accounts eligible for upgrade)
-    const eligibleAccounts = enrichedAccounts?.filter(account => {
-        const type = (account.challenge_type || '').toLowerCase();
-        return type.includes('phase 1') || type.includes('phase 2') ||
-            type.includes('step 1') || type.includes('step 2') ||
-            type.includes('1_step') || type.includes('2_step');
-    }) || [];
+    const totalPages = Math.ceil((count || 0) / PAGE_SIZE);
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            {/* Header Bento Card */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white rounded-2xl border border-gray-100 p-6 shadow-sm gap-4">
                 <div>
-                    <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
+                    <h1 className="text-2xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
                         <Trophy className="text-yellow-500" /> Pending Upgrades
                     </h1>
-                    <p className="text-sm text-gray-600 mt-1">Passed accounts waiting to be upgraded to next phase</p>
+                    <p className="text-[14px] text-gray-500 font-medium mt-1">Passed accounts waiting to be upgraded to next phase</p>
                 </div>
-                <div className="bg-white border border-gray-200 rounded-lg px-4 py-2 shadow-sm">
-                    <p className="text-xs text-gray-500 uppercase font-semibold">Pending Upgrades</p>
-                    <p className="text-2xl font-bold text-green-600">{eligibleAccounts?.length || 0}</p>
+                <div className="bg-gray-50/80 border border-gray-100 rounded-xl px-5 py-3 shadow-sm flex flex-col items-end sm:items-center">
+                    <p className="text-[11px] text-gray-500 uppercase font-semibold tracking-wider">Pending Upgrades</p>
+                    <p className="text-2xl font-bold text-green-600 mt-0.5">{eligibleAccounts?.length || 0}</p>
                 </div>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <div className="w-full max-w-md">
+            {/* Search Bento Card */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <div className="w-full max-w-lg">
                     <SearchInput placeholder="Search by Login ID..." />
                 </div>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-gray-50 border-b border-gray-200">
+            {/* Table Bento Card */}
+            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                <div className="overflow-x-auto w-full">
+                    <table className="w-full text-left text-[14px]">
+                        <thead className="bg-gray-50/80 border-b border-gray-100">
                             <tr>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Login</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">User</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Credentials</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Type</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase text-right">Target</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase text-right">Initial Bal</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase text-right">Final Bal</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase text-right">Final Equity</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Status</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Passed Date</th>
-                                <th className="px-6 py-3 font-semibold text-gray-700 text-xs uppercase">Actions</th>
+                                <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Login</th>
+                                <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Credentials</th>
+                                <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">User</th>
+                                <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Type</th>
+                                <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap text-right">Target</th>
+                                <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap text-right">Initial Bal</th>
+                                <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap text-right">Final Bal</th>
+                                <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap text-right">Final Equity</th>
+                                <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Status</th>
+                                <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Passed Date</th>
+                                <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-200">
+                        <tbody className="divide-y divide-gray-100 bg-white">
                             {eligibleAccounts?.map((account: any) => (
-                                <tr key={account.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-6 py-4 font-mono text-indigo-600 font-medium">
+                                <tr key={account.id} className="hover:bg-gray-50/80 transition-colors duration-200">
+                                    <td className="px-6 py-4 whitespace-nowrap font-mono text-indigo-600 font-semibold text-[13px]">
                                         {account.login}
                                     </td>
-                                    <td className="px-6 py-4">
-                                        <div>
-                                            <div className="font-medium text-gray-900">
-                                                {account.profiles?.full_name || "Unknown"}
-                                            </div>
-                                            <div className="text-xs text-gray-500 font-mono">
-                                                {account.profiles?.email}
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex flex-col gap-1">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase w-14">Master</span>
-                                                <span className="font-mono text-xs text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                                            <div className="flex items-center gap-2 text-[13px]">
+                                                <span className="font-bold text-gray-400 uppercase w-14 text-[10px]">Master</span>
+                                                <span className="font-mono text-indigo-600 font-semibold bg-indigo-50 px-1.5 py-0.5 rounded">
                                                     {account.master_password || "-"}
                                                 </span>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase w-14">Investor</span>
-                                                <span className="font-mono text-xs text-gray-600 bg-gray-50 px-1.5 py-0.5 rounded">
+                                            <div className="flex items-center gap-2 text-[13px]">
+                                                <span className="font-bold text-gray-400 uppercase w-14 text-[10px]">Investor</span>
+                                                <span className="font-mono text-gray-600 bg-gray-50 px-1.5 py-0.5 rounded">
                                                     {account.investor_password || "-"}
                                                 </span>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4">
-                                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 capitalize">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex flex-col">
+                                            <span className="text-[14px] font-semibold text-gray-900">
+                                                {account.profiles?.full_name || "Unknown"}
+                                            </span>
+                                            <span className="text-[12px] text-gray-500">
+                                                {account.profiles?.email}
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 capitalize tracking-wide">
                                             {account.challenge_type}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 text-right font-medium text-green-600">
+                                    <td className="px-6 py-4 whitespace-nowrap text-right font-medium text-green-600 text-[13px]">
                                         {account.profit_target ? `${account.profit_target}%` : '-'}
                                     </td>
-                                    <td className="px-6 py-4 text-right text-gray-600">
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-gray-600 text-[13px] font-medium">
                                         ${Number(account.initial_balance).toLocaleString()}
                                     </td>
-                                    <td className="px-6 py-4 text-right font-bold text-gray-900">
+                                    <td className="px-6 py-4 whitespace-nowrap text-right font-bold text-gray-900 text-[13px]">
                                         ${Number(account.current_balance || account.initial_balance).toLocaleString()}
                                     </td>
-                                    <td className="px-6 py-4 text-right text-gray-600">
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-blue-600 font-semibold text-[13px]">
                                         ${Number(account.current_equity || account.initial_balance).toLocaleString()}
                                     </td>
-                                    <td className="px-6 py-4">
-                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-yellow-100 text-yellow-800 tracking-wide uppercase">
                                             <CheckCircle size={12} />
-                                            PENDING UPGRADE
+                                            PENDING
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 text-gray-500 text-xs">
-                                        {new Date(account.updated_at).toLocaleDateString()}
-                                        <div className="text-[10px] opacity-70">
+                                    <td className="px-6 py-4 whitespace-nowrap text-gray-500 text-[12px] font-medium">
+                                        {new Date(account.updated_at).toLocaleDateString(undefined, {
+                                            year: 'numeric',
+                                            month: 'short',
+                                            day: 'numeric'
+                                        })}
+                                        <div className="text-[10px] opacity-70 mt-0.5">
                                             {new Date(account.updated_at).toLocaleTimeString()}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4 whitespace-nowrap">
                                         <PassedAccountActions
                                             accountId={account.id}
                                             accountLogin={account.login}
@@ -172,8 +178,10 @@ export default async function PassedAccountsPage({
                             ))}
                             {eligibleAccounts?.length === 0 && (
                                 <tr>
-                                    <td colSpan={10} className="px-6 py-12 text-center text-gray-500">
-                                        No accounts pending upgrade.
+                                    <td colSpan={11} className="px-6 py-12 text-center text-gray-500">
+                                        <div className="flex flex-col items-center justify-center">
+                                            <p className="text-[14px] font-medium text-gray-900 mb-1">No accounts pending upgrade.</p>
+                                        </div>
                                     </td>
                                 </tr>
                             )}
@@ -181,6 +189,8 @@ export default async function PassedAccountsPage({
                     </table>
                 </div>
             </div>
+
+            <AdminPagination currentPage={page} totalPages={totalPages} />
         </div>
     );
 }

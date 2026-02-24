@@ -11,7 +11,7 @@ import json
 import requests
 
 # Webhook Config for CRM
-CRM_WEBHOOK_URL = os.environ.get("CRM_WEBHOOK_URL", "https://api.sharkfunded.co/api/mt5/webhook")
+CRM_WEBHOOK_URL = os.environ.get("CRM_WEBHOOK_URL", "https://api.sharkfunded.co/api/webhooks/mt5")
 MT5_WEBHOOK_SECRET = os.environ.get("MT5_WEBHOOK_SECRET", "")
 
 app = FastAPI()
@@ -21,6 +21,7 @@ class ConnectionManager:
     def __init__(self):
         # login -> list or set of WebSockets
         self.rooms: Dict[int, List[WebSocket]] = {}
+        self.main_loop = None
 
     async def connect(self, login: int, websocket: WebSocket):
         await websocket.accept()
@@ -66,7 +67,22 @@ class ConnectionManager:
                 # Disconnect will handle cleanup
                 pass
 
+    def broadcast_threadsafe(self, login: int, message: dict):
+        if getattr(self, 'main_loop', None):
+            import asyncio
+            try:
+                asyncio.run_coroutine_threadsafe(self.broadcast(login, message), self.main_loop)
+            except Exception:
+                pass
+
+
 ws_manager = ConnectionManager()
+
+@app.on_event("startup")
+async def startup_event():
+    import asyncio
+    ws_manager.main_loop = asyncio.get_running_loop()
+    print("✅ Asyncio loop attached to WS Manager.")
 
 @app.websocket("/ws/stream/{login}")
 async def websocket_endpoint(websocket: WebSocket, login: int):
@@ -950,7 +966,7 @@ def check_bulk(requests: List[StopOutRequest]):
                     }
                     headers = {}
                     if MT5_WEBHOOK_SECRET:
-                        headers['x-webhook-secret'] = MT5_WEBHOOK_SECRET
+                        headers['x-mt5-secret'] = MT5_WEBHOOK_SECRET
                         
                     requests.post(CRM_WEBHOOK_URL, json=webhook_payload, headers=headers, timeout=5)
                     print(f"📧 Webhook sent for {req.login}")

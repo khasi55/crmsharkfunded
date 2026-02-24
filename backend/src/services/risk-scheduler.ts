@@ -1,5 +1,6 @@
 import { EmailService } from './email-service';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseAdmin } from '../lib/supabase';
+import { RulesService } from './rules-service';
 
 const BRIDGE_URL = process.env.BRIDGE_URL || 'https://bridge.sharkfunded.co';
 // console.log("🔍 [Risk Scheduler] Using BRIDGE_URL:", BRIDGE_URL);
@@ -196,8 +197,30 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 const initialBalance = Number(challenge.initial_balance);
                 const currentBalance = Number(res.balance);
 
-                // (Passive Sync: We no longer perform local risk breach or profit target logic here)
-                // (This prevents false breaches and conflicting status updates with the Python Risk Engine)
+                // --- RESTORED PROFIT TARGET LOGIC ---
+                if (challenge.status === 'active') {
+                    try {
+                        const rules = await RulesService.getRules(challenge.group, challenge.challenge_type);
+                        if (rules && rules.profit_target_percent > 0) {
+                            const targetEquity = initialBalance * (1 + (rules.profit_target_percent / 100));
+                            if (res.equity >= targetEquity) {
+                                console.log(`✅ [Risk Scheduler] PROFIT TARGET MET for ${res.login}. Equity: ${res.equity} >= Target: ${targetEquity}`);
+                                updateData.status = 'passed';
+
+                                // Send email asynchronously (using supabase admin to bypass RLS for auth.users)
+                                supabaseAdmin.auth.admin.getUserById(challenge.user_id).then(({ data }) => {
+                                    const email = data?.user?.email;
+                                    const fullName = data?.user?.user_metadata?.full_name || 'Trader';
+                                    if (email) {
+                                        EmailService.sendPassNotification(email, fullName, String(res.login), challenge.challenge_type || 'Challenge').catch(console.error);
+                                    }
+                                });
+                            }
+                        }
+                    } catch (targetErr) {
+                        console.error(`Error calculating profit target for ${res.login}:`, targetErr);
+                    }
+                }
 
                 updatesToUpsert.push(updateData);
             }
@@ -208,13 +231,11 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
             const equityUpdates = updatesToUpsert.filter(u => !u.status);
             const statusUpdates = updatesToUpsert.filter(u => u.status);
 
-            /* 
             if (statusUpdates.length > 0) {
                 if (DEBUG) console.log(` Committing ${statusUpdates.length} STATUS CHANGES to DB.`);
                 const { error } = await supabase.from('challenges').upsert(statusUpdates);
                 if (error) console.error(" Bulk status update failed:", error.message);
             }
-            */
 
             if (equityUpdates.length > 0) {
                 // For equity updates, we MUST NOT include 'status' in the payload

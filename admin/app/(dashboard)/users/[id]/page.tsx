@@ -14,6 +14,7 @@ import {
     ExternalLink
 } from "lucide-react";
 import { EditUserButton } from "@/components/users/EditUserButton";
+import { ResetPasswordButton } from "@/components/users/ResetPasswordButton";
 
 export default async function AdminUserDetailsPage({
     params,
@@ -63,7 +64,8 @@ export default async function AdminUserDetailsPage({
                     </Link>
                     <div className="flex items-center justify-between">
                         <h1 className="text-3xl font-bold text-gray-900 tracking-tight">{profile.full_name}</h1>
-                        <div className="ml-4">
+                        <div className="ml-4 flex items-center gap-2">
+                            <ResetPasswordButton user={profile} />
                             <EditUserButton user={profile} />
                         </div>
                     </div>

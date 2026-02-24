@@ -459,3 +459,11 @@
 [2026-02-12T09:04:34.919Z] Returning 69 leaderboard entries
 [2026-02-12T09:04:34.922Z] Found 148 trades
 [2026-02-12T09:04:34.923Z] Returning 69 leaderboard entries
+[2026-02-20T08:36:50.744Z] Fetching fresh ranking for accountSize: All
+[2026-02-20T08:36:51.398Z] Found 293 active challenges
+[2026-02-20T08:36:51.398Z] Fetching profiles for 209 users
+[2026-02-20T08:36:52.081Z] Mapped 209 profiles
+[2026-02-20T08:36:52.081Z] Fetching trades for 293 challenges
+[2026-02-20T08:36:52.784Z] Found 1000 trades
+[2026-02-20T08:36:52.790Z] Returning 100 leaderboard entries
+[2026-02-20T08:36:52.796Z] Serving 100 entries from cache

@@ -155,14 +155,14 @@ async function establishAdminSession(user: any) {
             permissions: user.permissions || []
         },
         JWT_SECRET,
-        { expiresIn: '15m' }
+        { expiresIn: '90m' }
     );
 
     const cookieStore = await cookies();
     cookieStore.set("admin_session", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        maxAge: 60 * 15, // 15 minutes
+        maxAge: 60 * 90, // 90 minutes
         path: "/",
         sameSite: "lax"
     });
@@ -170,7 +170,7 @@ async function establishAdminSession(user: any) {
     cookieStore.set("admin_email", user.email, {
         httpOnly: false,
         secure: process.env.NODE_ENV === "production",
-        maxAge: 60 * 15, // 15 minutes
+        maxAge: 60 * 90, // 90 minutes
         path: "/",
         sameSite: "lax"
     });

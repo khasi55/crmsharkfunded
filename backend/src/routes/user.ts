@@ -271,7 +271,7 @@ router.get('/wallet', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // POST /api/user/wallet - Save user wallet address
-router.post('/wallet', authenticate, sensitiveLimiter, validateRequest(walletUpdateSchema), async (req: AuthRequest, res: Response) => {
+router.post('/wallet', authenticate, requireKYC, sensitiveLimiter, validateRequest(walletUpdateSchema), async (req: AuthRequest, res: Response) => {
     try {
         const user = req.user!;
         const { walletAddress } = req.body;
@@ -374,7 +374,7 @@ router.get('/bank-details', authenticate, async (req: AuthRequest, res: Response
 
 // POST /api/user/bank-details - Save user bank details
 import { bankDetailsUpdateSchema } from '../middleware/validation';
-router.post('/bank-details', authenticate, sensitiveLimiter, validateRequest(bankDetailsUpdateSchema), async (req: AuthRequest, res: Response) => {
+router.post('/bank-details', authenticate, requireKYC, sensitiveLimiter, validateRequest(bankDetailsUpdateSchema), async (req: AuthRequest, res: Response) => {
     try {
         const user = req.user!;
         const updates = req.body;

@@ -24,7 +24,7 @@ export async function startRiskEventWorker() {
         }
     }, {
         connection: getRedis() as any, // Reuse singleton
-        concurrency: 50, // SCALABILITY FIX: Process 50 events in parallel
+        concurrency: 10, // SCALABILITY FIX: Lowered from 50 to 10 to stop Supabase 522 timeouts
         limiter: {
             max: 1000,
             duration: 1000 // Rate limit: max 1000 jobs per second
@@ -37,7 +37,7 @@ export async function startRiskEventWorker() {
         console.error(`❌ Risk Job ${job?.id} failed: ${err.message}`);
     });
 
-    if (DEBUG) console.log('✅ Risk Worker Initialized with concurrency: 50');
+    if (DEBUG) console.log('✅ Risk Worker Initialized with concurrency: 10');
     return worker;
 }
 

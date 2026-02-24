@@ -20,7 +20,8 @@ def load_rules():
         print(f"❌ [RiskEngine] Failed to load rules: {e}")
 
 # Webhook Config
-CRM_WEBHOOK_URL = os.environ.get("CRM_WEBHOOK_URL", "https://api.sharkfunded.co/api/mt5/webhook")
+CRM_WEBHOOK_URL = os.environ.get("CRM_WEBHOOK_URL", "https://api.sharkfunded.co/api/webhooks/mt5")
+MT5_WEBHOOK_SECRET = os.environ.get("MT5_WEBHOOK_SECRET", "")
 
 class RiskEngine:
     def __init__(self, mt5_worker, supabase_client=None, ws_manager=None):
@@ -76,7 +77,7 @@ class RiskEngine:
         
         try:
             response = self.supabase.table('challenges') \
-                .select('login, initial_balance, challenge_type, status') \
+                .select('login, initial_balance, challenge_type, status, start_of_day_equity, current_equity') \
                 .eq('status', 'active') \
                 .execute()
                 
@@ -88,7 +89,9 @@ class RiskEngine:
                         new_metadata[int(login)] = {
                             "initial_balance": float(row.get('initial_balance', 0)),
                             "type": row.get('challenge_type', ''),
-                            "status": row.get('status', 'active')
+                            "status": row.get('status', 'active'),
+                            "start_of_day_equity": row.get('start_of_day_equity'),
+                            "current_equity": row.get('current_equity')
                         }
                 self.account_metadata = new_metadata
                 # print(f"✅ [RiskEngine] Refreshed Metadata: {len(self.account_metadata)} accounts")
@@ -137,6 +140,12 @@ class RiskEngine:
                 max_dd_percent = rule.get("max_drawdown_percent", 10.0)
                 daily_dd_percent = rule.get("daily_drawdown_percent", 5.0)
                 profit_target_percent = rule.get("profit_target_percent", 0.0)
+                if profit_target_percent <= 0.0:
+                    ctype = meta.get('type', '').lower()
+                    if 'phase_2' in ctype or 'phase 2' in ctype:
+                        profit_target_percent = rule.get("profit_target_phase2_percent", 0.0)
+                    else:
+                        profit_target_percent = rule.get("profit_target_phase1_percent", 0.0)
 
         # --- ZERO EQUITY GLITCH PROTECTION ---
         # Sometimes MT5 Bridge returns 0 equity for a split second during sync or creation.
@@ -170,10 +179,14 @@ class RiskEngine:
                 "timestamp": datetime.now().isoformat()
             }
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running(): loop.create_task(self.ws_manager.broadcast(login, payload))
-                else: asyncio.run(self.ws_manager.broadcast(login, payload))
-            except: pass
+                if getattr(self.ws_manager, 'main_loop', None):
+                    import asyncio
+                    asyncio.run_coroutine_threadsafe(
+                        self.ws_manager.broadcast(login, payload), 
+                        self.ws_manager.main_loop
+                    )
+            except Exception as e: 
+                print(f"WS Broadcast error: {e}")
 
         # 2. OVERALL DRAWDOWN CHECK (Static Model vs Initial Balance)
         max_dd_limit = initial_balance * (1 - (max_dd_percent / 100.0))
@@ -182,18 +195,17 @@ class RiskEngine:
             return
 
         # 3. DAILY DRAWDOWN CHECK
-        now = datetime.now(timezone.utc)
-        today_str = now.strftime("%Y-%m-%d")
-        user_daily = self.daily_equity_map.get(login)
+        # Priority 1: CRM provide SOD Equity
+        # Priority 2: CRM provided Current Equity (Fallback for new accounts)
+        # Priority 3: Initial Balance (Last resort)
+        crm_sod = meta.get('start_of_day_equity')
+        crm_current = meta.get('current_equity')
         
-        if not user_daily or user_daily['date'] != today_str:
-            self.daily_equity_map[login] = { "date": today_str, "equity": equity }
-            start_equity = equity
-        else:
-            start_equity = user_daily['equity']
+        start_equity = float(crm_sod if crm_sod is not None else (crm_current if crm_current is not None else initial_balance))
 
-        # Daily limit is StartOfDayEquity - (InitialBalance * DailyPercent)
-        daily_limit = start_equity - (initial_balance * (daily_dd_percent / 100.0))
+        # Formula: Limit Equity = SOD Equity * (1 - Daily_Drawdown_Percent / 100)
+        daily_limit = start_equity * (1 - (daily_dd_percent / 100.0))
+        
         if equity <= daily_limit:
             self.trigger_breach(login, "Daily Drawdown", equity, balance, daily_limit, start_equity)
             return
@@ -206,23 +218,21 @@ class RiskEngine:
 
     def trigger_breach(self, login, risk_type, current_equity, current_balance, limit, reference_value):
         print(f"🛑 [RiskEngine] BREACH: {login} - {risk_type}. Eq: {current_equity} <= {limit}")
-        # 1. Disable Account in MT5
-        # self.worker.manager.UserAccountDisable(login) (Pseudocode)
-        
-        # 2. Close All Positions
-        # self.worker.close_all_positions(login)
         
         # 3. Webhook to CRM
         payload = {
             "event": "account_breached",
             "login": login,
-            "reason": f"{risk_type} Breach. Equity: {current_equity}, Limit: {limit}",
+            "reason": f"{risk_type} Breach: Eq {current_equity} <= Limit {limit} (SOD: {reference_value})",
             "equity": current_equity,
             "balance": current_balance,
             "timestamp": datetime.now().isoformat()
         }
+        
+        headers = {"x-mt5-secret": MT5_WEBHOOK_SECRET} if MT5_WEBHOOK_SECRET else {}
         try:
-            requests.post(CRM_WEBHOOK_URL, json=payload, timeout=5)
+            requests.post(CRM_WEBHOOK_URL, json=payload, headers=headers, timeout=5)
+            print(f"📧 Breach Webhook sent for {login}")
         except Exception as e:
             print(f"❌ Webhook Failed for {login}: {e}")
 
@@ -236,7 +246,10 @@ class RiskEngine:
             "target": target,
             "timestamp": datetime.now().isoformat()
         }
+        
+        headers = {"x-mt5-secret": MT5_WEBHOOK_SECRET} if MT5_WEBHOOK_SECRET else {}
         try:
-            requests.post(CRM_WEBHOOK_URL, json=payload, timeout=5)
+            requests.post(CRM_WEBHOOK_URL, json=payload, headers=headers, timeout=5)
+            print(f"📧 Pass Webhook sent for {login}")
         except Exception as e:
             print(f"❌ Webhook Failed for {login}: {e}")

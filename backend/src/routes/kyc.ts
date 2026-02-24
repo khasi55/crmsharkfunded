@@ -646,7 +646,7 @@ router.post('/admin/:id/reject', authenticate, requireRole(['super_admin', 'admi
         }
 
         const updateData: any = {
-            status: 'rejected',
+            status: 'declined', // Changed from 'rejected' to match the valid_status constraint
             rejection_reason: reason,
             updated_at: new Date().toISOString(),
         };

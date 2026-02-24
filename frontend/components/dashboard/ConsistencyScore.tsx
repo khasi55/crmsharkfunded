@@ -25,13 +25,12 @@ export default function ConsistencyScore() {
 
     useEffect(() => {
         if (dashboardData.consistency) {
-            const result = dashboardData.consistency;
-            const c = result.consistency;
+            const c = dashboardData.consistency;
             setData({
                 consistencyScore: c?.score || 0,
                 isPayoutEligible: c?.eligible || false,
-                totalProfit: result.stats?.avg_win || 0,
-                largestTrade: result.stats?.largest_win || 0,
+                totalProfit: dashboardData.stats?.avg_win || 0,
+                largestTrade: dashboardData.stats?.largest_win || 0,
                 totalWinningTrades: 0,
                 threshold: 15,
                 accountType: undefined,

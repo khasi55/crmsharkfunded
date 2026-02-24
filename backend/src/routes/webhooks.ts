@@ -1,5 +1,5 @@
 import { Router, Response, Request } from 'express';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseAdmin } from '../lib/supabase';
 import { createMT5Account } from '../lib/mt5-bridge';
 import { EmailService } from '../services/email-service';
 import fs from 'fs';
@@ -14,7 +14,7 @@ router.get('/test-path-123', (req, res) => {
 router.post('/mt5', async (req: Request, res: Response) => {
     // Security Check: Verify Shared Secret
     const authorizedSecret = process.env.MT5_WEBHOOK_SECRET;
-    const receivedSecret = req.headers['x-mt5-secret'];
+    const receivedSecret = req.headers['x-mt5-secret'] || req.headers['x-webhook-secret'];
 
     if (authorizedSecret && authorizedSecret !== 'your_mt5_webhook_secret_here' && receivedSecret !== authorizedSecret) {
         console.warn(`🛑 Blocked unauthorized MT5 webhook attempt from ${req.ip}`);
@@ -22,10 +22,11 @@ router.post('/mt5', async (req: Request, res: Response) => {
         return;
     }
     try {
-        const { login, trades } = req.body;
+        const { login, trades, event } = req.body;
 
-        if (!login || !trades) {
-            res.status(400).json({ error: 'Missing login or trades' });
+        // Use a more relaxed check: allow payload if it has trades OR a status event
+        if (!login || (!trades && !event)) {
+            res.status(400).json({ error: 'Missing login or trades/event' });
             return;
         }
 
@@ -37,8 +38,10 @@ router.post('/mt5', async (req: Request, res: Response) => {
 
         const eventData = {
             login,
-            trades,
-            timestamp: Date.now()
+            trades: trades || [], // Fallback to empty array if status update
+            event: event || 'trade_update', // Default to trade_update
+            timestamp: Date.now(),
+            ...req.body // Pass through all bridge metadata (equity, balance, reason, etc.)
         };
 
         // Publish to 'events:trade_update' channel
@@ -261,7 +264,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         }
 
         // 1. Log webhook for audit
-        await supabase.from('webhook_logs').insert({
+        await supabaseAdmin.from('webhook_logs').insert({
             event_type: body.event || 'unknown',
             gateway: body.gateway || (body.mid ? 'epay' : 'unknown'),
             order_id: internalOrderId,
@@ -287,7 +290,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             console.log('⚠️ Payment not successful:', status);
 
             // Fix: Explicitly mark order as failed in DB so it doesn't stay pending
-            await supabase.from('payment_orders')
+            await supabaseAdmin.from('payment_orders')
                 .update({ status: 'failed', metadata: { ...body, failure_reason: status } })
                 .eq('order_id', internalOrderId);
 
@@ -300,7 +303,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         // 3. Status Update (Atomic)
 
         // Fetch order first to validate amount
-        const { data: existingOrder, error: fetchError } = await supabase
+        const { data: existingOrder, error: fetchError } = await supabaseAdmin
             .from('payment_orders')
             .select('*')
             .eq('order_id', internalOrderId)
@@ -318,7 +321,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         if (!isNaN(receivedAmount) && !isNaN(orderAmount) && receivedAmount < orderAmount) {
             console.warn(`⚠️ Underpayment detected for ${internalOrderId}. Paid: ${receivedAmount}, Expected: ${orderAmount}`);
 
-            await supabase.from('payment_orders').update({
+            await supabaseAdmin.from('payment_orders').update({
                 status: 'partial_paid',
                 payment_id: body.paymentId || body.transaction_id || body.utr,
                 payment_method: body.paymentMethod || 'gateway',
@@ -328,7 +331,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             return res.json({ message: 'Payment partial, account not created' });
         }
 
-        const { data: order, error: updateError } = await supabase
+        const { data: order, error: updateError } = await supabaseAdmin
             .from('payment_orders')
             .update({
                 status: 'paid',
@@ -365,7 +368,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
                 console.log(`[Payment Webhook] Guest checkout detected. Searching for user with email: ${customerEmail}`);
 
                 // 1. Try to find existing profile
-                const { data: guestProfile } = await supabase
+                const { data: guestProfile } = await supabaseAdmin
                     .from('profiles')
                     .select('id')
                     .ilike('email', customerEmail)
@@ -380,13 +383,13 @@ async function handlePaymentWebhook(req: Request, res: Response) {
 
                     try {
                         // Check if auth user exists first (in case profile is just missing)
-                        const { data: { users: authUsers } } = await supabase.auth.admin.listUsers();
+                        const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers();
                         const existingAuthUser = authUsers.find(u => u.email?.toLowerCase() === customerEmail.toLowerCase());
 
                         let newUserId = existingAuthUser?.id;
 
                         if (!newUserId) {
-                            const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+                            const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
                                 email: customerEmail,
                                 password: Math.random().toString(36).slice(-12) + 'Aa1!', // Random secure password
                                 email_confirm: true
@@ -401,10 +404,12 @@ async function handlePaymentWebhook(req: Request, res: Response) {
 
                         // Ensure Profile Exists
                         const fullName = finalOrder.metadata?.customerName || customerEmail.split('@')[0];
-                        const { error: profError } = await supabase.from('profiles').upsert({
+                        const phone = finalOrder.metadata?.phone || finalOrder.metadata?.phone_number || body.phone || body.phone_number || body.customerPhone || null;
+                        const { error: profError } = await supabaseAdmin.from('profiles').upsert({
                             id: newUserId,
                             email: customerEmail,
                             full_name: fullName,
+                            phone: phone,
                             metadata: { source: 'guest_checkout_webhook' }
                         });
 
@@ -424,7 +429,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
                 }
 
                 if (finalOrder.user_id) {
-                    await supabase.from('payment_orders').update({ user_id: finalOrder.user_id }).eq('order_id', internalOrderId);
+                    await supabaseAdmin.from('payment_orders').update({ user_id: finalOrder.user_id }).eq('order_id', internalOrderId);
                 } else {
                     console.warn(`⚠️ [Payment Webhook] Guest checkout: Could not resolve or create user for ${customerEmail}.`);
                 }
@@ -449,7 +454,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
 
         // 4. Create MT5 Account via Bridge
 
-        const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', finalOrder.user_id).maybeSingle();
+        const { data: profile } = await supabaseAdmin.from('profiles').select('full_name, email').eq('id', finalOrder.user_id).maybeSingle();
 
         const fullName = profile?.full_name || 'Trader';
         const email = profile?.email || 'noemail@sharkfunded.com';
@@ -570,7 +575,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
 
             // If competition, also add to participants table
             if (isCompetition && challenge && order.metadata?.competition_id) {
-                await supabase.from('competition_participants').insert({
+                await supabaseAdmin.from('competition_participants').insert({
                     competition_id: order.metadata.competition_id,
                     user_id: finalOrder.user_id,
                     status: 'active',
@@ -580,7 +585,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
 
             // 6. Finalize Order
             if (challenge) {
-                await supabase.from('payment_orders').update({
+                await supabaseAdmin.from('payment_orders').update({
                     challenge_id: challenge.id,
                     is_account_created: true,
                 }).eq('order_id', internalOrderId);
@@ -620,7 +625,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
 
         // Final safe check: Look up the coupon itself in the database if not already flagged
         if (order.coupon_code) {
-            const { data: coupon, error: couponError } = await supabase
+            const { data: coupon, error: couponError } = await supabaseAdmin
                 .from('discount_coupons')
                 .select('id, uses_count, max_uses, discount_type') // Added discount_type to select
                 .ilike('code', order.coupon_code.trim())
@@ -653,7 +658,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
                     // Create MT5 Account (Free)
 
                     // Use same params as main account (which we now have reliably)
-                    const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', finalOrder.user_id).maybeSingle();
+                    const { data: profile } = await supabaseAdmin.from('profiles').select('full_name, email').eq('id', finalOrder.user_id).maybeSingle();
                     const fullName = profile?.full_name || 'Trader';
                     const email = profile?.email || 'noemail@sharkfunded.com';
 
@@ -756,7 +761,7 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
 
 
     // 0. Check if commission already exists for this order to avoid duplicates
-    const { data: existingComm } = await supabase
+    const { data: existingComm } = await supabaseAdmin
         .from('affiliate_earnings')
         .select('id')
         .contains('metadata', { order_id: orderId })
@@ -767,7 +772,7 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
 
         return;
     }
-    const { data: orderData } = await supabase
+    const { data: orderData } = await supabaseAdmin
         .from('payment_orders')
         .select('metadata, coupon_code')
         .eq('order_id', orderId)
@@ -777,7 +782,7 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
 
     // Fallback: Check Coupon Code
     if (!referrerId && orderData?.coupon_code) {
-        const { data: coupon } = await supabase
+        const { data: coupon } = await supabaseAdmin
             .from('discount_coupons')
             .select('affiliate_id')
             .ilike('code', orderData.coupon_code.trim())
@@ -791,7 +796,7 @@ async function processAffiliateCommission(userId: string, amount: number, orderI
 
     if (!referrerId) {
         // Fallback to profile referral
-        const { data: profile } = await supabase
+        const { data: profile } = await supabaseAdmin
             .from('profiles')
             .select('referred_by')
             .eq('id', userId)

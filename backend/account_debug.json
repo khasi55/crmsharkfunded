@@ -1,0 +1,84 @@
+Checking account with login 900909494337...
+Account Details: [
+  {
+    "id": "0b20796f-8d94-4ba3-9bd5-3625b9bc0899",
+    "user_id": "a65199f2-907e-4ed1-a4d0-929b72e125a5",
+    "challenge_number": null,
+    "challenge_type": "prime_2_step",
+    "initial_balance": 5000,
+    "current_balance": 5000,
+    "current_equity": 5000,
+    "status": "active",
+    "is_active": true,
+    "login": 900909494337,
+    "master_password": "mx6e%Fh6yp6x",
+    "investor_password": "kO76uO&jS0",
+    "server": "ALFX Limited",
+    "platform": "MT5",
+    "model": null,
+    "leverage": 100,
+    "created_at": "2026-02-19T21:05:09.12656+00:00",
+    "updated_at": "2026-02-19T21:05:09.12656+00:00",
+    "metadata": {
+      "plan_type": "Prime 2-Step Challenge",
+      "assigned_by": "viswanath@zenvestt.com",
+      "assigned_via": "admin_manual",
+      "assigned_by_id": "69d47096-96e2-4235-b2e0-fb5dc06cbe1d",
+      "is_competition": false,
+      "assignment_note": "mt5 error ",
+      "assignment_image_url": "https://qjshgyxbhjhpqaprfeob.supabase.co/storage/v1/object/public/proofs/1771535107109-uhjapv.png"
+    },
+    "account_type_id": null,
+    "group": "demo\\SF\\2-Pro",
+    "start_of_day_equity": 5000,
+    "upgraded_to": null,
+    "is_public": false,
+    "share_token": null
+  }
+]
+
+No core violation logs found.
+
+No advanced risk flags found.
+
+Recent Trades: [
+  {
+    "id": "f7802352-7d4b-482b-a820-8a7cf78dffc5",
+    "challenge_id": "0b20796f-8d94-4ba3-9bd5-3625b9bc0899",
+    "user_id": "a65199f2-907e-4ed1-a4d0-929b72e125a5",
+    "ticket": "6724314",
+    "symbol": "BALANCE",
+    "type": "sell",
+    "lots": 0,
+    "open_price": 0,
+    "close_price": null,
+    "open_time": "2026-02-19T23:05:04+00:00",
+    "close_time": "2026-02-19T23:05:04+00:00",
+    "profit_loss": 5000,
+    "commission": 0,
+    "swap": 0,
+    "comment": null,
+    "created_at": "2026-02-19T21:06:08.550334+00:00"
+  }
+]
+
+Recent System Logs: [
+  {
+    "id": "aeeb79ce-d5fd-48f2-8e63-a04496604912",
+    "source": "SecurityLogger",
+    "level": "INFO",
+    "message": "Security Event: MT5_ACCOUNT_ASSIGN on mt5 (900909494337)",
+    "details": {
+      "plan": "Prime 2-Step Challenge",
+      "email": "akshaynegi136@gmail.com",
+      "login": 900909494337,
+      "action": "MT5_ACCOUNT_ASSIGN",
+      "status": "success",
+      "user_id": "69d47096-96e2-4235-b2e0-fb5dc06cbe1d",
+      "resource": "mt5",
+      "ip_address": "172.69.179.87",
+      "resource_id": "900909494337"
+    },
+    "created_at": "2026-02-19T21:05:09.442959+00:00"
+  }
+]

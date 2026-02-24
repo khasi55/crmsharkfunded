@@ -88,7 +88,7 @@ export default function TradeHistory({ trades: initialTrades, isPublic }: TradeH
             // Calculate Stats Locally
             const openCount = tradingTrades.filter((t: Trade) => !t.close_time).length;
             const closedCount = tradingTrades.filter((t: Trade) => !!t.close_time).length;
-            const totalPnL = tradingTrades.reduce((acc: number, t: Trade) => acc + (Number(t.profit_loss) || 0) + (Number(t.commission || 0) * 2) + (Number(t.swap) || 0), 0);
+            const totalPnL = tradingTrades.reduce((acc: number, t: Trade) => acc + (Number(t.profit_loss) || 0) + (Number(t.commission || 0)) + (Number(t.swap) || 0), 0);
 
             setStats({
                 totalTrades: tradingTrades.length,
@@ -166,7 +166,8 @@ export default function TradeHistory({ trades: initialTrades, isPublic }: TradeH
             day: 'numeric',
             hour: '2-digit',
             minute: '2-digit',
-        });
+            timeZone: 'UTC'
+        }) + ' UTC';
     };
 
     const normalizeType = (type: any): string => {
@@ -283,7 +284,7 @@ export default function TradeHistory({ trades: initialTrades, isPublic }: TradeH
                                         </span>
                                     </td>
                                     <td className="px-4 py-3 text-right font-mono">
-                                        <span className="text-sm text-gray-300">{((trade.lots ?? 0) / 100).toFixed(2)}</span>
+                                        <span className="text-sm text-gray-300">{(trade.lots ?? 0).toFixed(2)}</span>
                                     </td>
                                     <td className="px-4 py-3 text-right">
                                         <div className="text-sm text-white font-bold">{(trade.open_price ?? 0).toFixed(5)}</div>

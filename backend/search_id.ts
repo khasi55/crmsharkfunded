@@ -2,7 +2,7 @@
 import { supabase } from './src/lib/supabase';
 
 async function search() {
-    const id = '900909492845';
+    const id = '900909493081';
     console.log(`Searching for ${id} in all tables...`);
 
     const tables = [

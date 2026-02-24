@@ -20,7 +20,10 @@ interface TradeMonthlyCalendarProps {
 
 export default function TradeMonthlyCalendar({ trades: initialTrades, isPublic }: TradeMonthlyCalendarProps = {}) {
     const { data: dashboardData, loading: dashboardLoading } = useDashboardData();
-    const [currentDate, setCurrentDate] = useState(new Date());
+    const [currentDate, setCurrentDate] = useState(() => {
+        const now = new Date();
+        return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    });
     const [calendarData, setCalendarData] = useState<DayData[]>([]);
     const [loading, setLoading] = useState(true);
     const [monthStats, setMonthStats] = useState({
@@ -48,16 +51,16 @@ export default function TradeMonthlyCalendar({ trades: initialTrades, isPublic }
     }, [currentDate, dashboardData.calendar, dashboardLoading.global, initialTrades, isPublic]);
 
     const processCalendarData = (stats: any[]) => {
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth();
-        const firstDay = new Date(year, month, 1);
-        const lastDay = new Date(year, month + 1, 0);
-        const daysInMonth = lastDay.getDate();
-        const startingDayOfWeek = firstDay.getDay();
+        const year = currentDate.getUTCFullYear();
+        const month = currentDate.getUTCMonth();
+        const firstDay = new Date(Date.UTC(year, month, 1));
+        const lastDay = new Date(Date.UTC(year, month + 1, 0));
+        const daysInMonth = lastDay.getUTCDate();
+        const startingDayOfWeek = firstDay.getUTCDay();
 
         const days: DayData[] = [];
         const today = new Date();
-        const isCurrentMonth = today.getMonth() === month && today.getFullYear() === year;
+        const isCurrentMonth = today.getUTCMonth() === month && today.getUTCFullYear() === year;
 
         // Add padding for start of month
         for (let i = 0; i < startingDayOfWeek; i++) {
@@ -67,8 +70,8 @@ export default function TradeMonthlyCalendar({ trades: initialTrades, isPublic }
         const tradesByDay: { [key: number]: { pnl: number; count: number } } = {};
         stats.forEach((s: any) => {
             const date = new Date(s.date);
-            if (date.getMonth() === month && date.getFullYear() === year) {
-                tradesByDay[date.getDate()] = { pnl: s.profit, count: s.trades };
+            if (date.getUTCMonth() === month && date.getUTCFullYear() === year) {
+                tradesByDay[date.getUTCDate()] = { pnl: s.profit, count: s.trades };
             }
         });
 
@@ -79,7 +82,7 @@ export default function TradeMonthlyCalendar({ trades: initialTrades, isPublic }
 
         for (let day = 1; day <= daysInMonth; day++) {
             const dayData = tradesByDay[day] || { pnl: 0, count: 0 };
-            const isToday = isCurrentMonth && today.getDate() === day;
+            const isToday = isCurrentMonth && today.getUTCDate() === day;
 
             if (dayData.pnl > 0) winningDays++;
             if (dayData.pnl < 0) losingDays++;
@@ -104,16 +107,16 @@ export default function TradeMonthlyCalendar({ trades: initialTrades, isPublic }
     };
 
     const processTrades = (tradeList: any[]) => {
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth();
-        const firstDay = new Date(year, month, 1);
-        const lastDay = new Date(year, month + 1, 0);
-        const daysInMonth = lastDay.getDate();
-        const startingDayOfWeek = firstDay.getDay();
+        const year = currentDate.getUTCFullYear();
+        const month = currentDate.getUTCMonth();
+        const firstDay = new Date(Date.UTC(year, month, 1));
+        const lastDay = new Date(Date.UTC(year, month + 1, 0));
+        const daysInMonth = lastDay.getUTCDate();
+        const startingDayOfWeek = firstDay.getUTCDay();
 
         const days: DayData[] = [];
         const today = new Date();
-        const isCurrentMonth = today.getMonth() === month && today.getFullYear() === year;
+        const isCurrentMonth = today.getUTCMonth() === month && today.getUTCFullYear() === year;
 
         for (let i = 0; i < startingDayOfWeek; i++) {
             days.push({ date: 0, pnl: 0, trades: 0, isProfit: false, isToday: false });
@@ -123,8 +126,8 @@ export default function TradeMonthlyCalendar({ trades: initialTrades, isPublic }
 
         tradeList.forEach((trade: any) => {
             const tradeDate = new Date(trade.close_time || trade.open_time);
-            const day = tradeDate.getDate();
-            if (tradeDate.getMonth() === month && tradeDate.getFullYear() === year) {
+            const day = tradeDate.getUTCDate();
+            if (tradeDate.getUTCMonth() === month && tradeDate.getUTCFullYear() === year) {
                 if (!tradesByDay[day]) {
                     tradesByDay[day] = { pnl: 0, count: 0 };
                 }
@@ -147,7 +150,7 @@ export default function TradeMonthlyCalendar({ trades: initialTrades, isPublic }
 
         for (let day = 1; day <= daysInMonth; day++) {
             const dayData = tradesByDay[day] || { pnl: 0, count: 0 };
-            const isToday = isCurrentMonth && today.getDate() === day;
+            const isToday = isCurrentMonth && today.getUTCDate() === day;
 
             if (dayData.pnl > 0) winningDays++;
             if (dayData.pnl < 0) losingDays++;
@@ -172,7 +175,7 @@ export default function TradeMonthlyCalendar({ trades: initialTrades, isPublic }
     };
 
     const changeMonth = (direction: number) => {
-        setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + direction, 1));
+        setCurrentDate(new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth() + direction, 1)));
     };
 
     const getDayColor = (day: DayData) => {
