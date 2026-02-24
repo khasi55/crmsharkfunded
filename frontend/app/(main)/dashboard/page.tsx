@@ -6,7 +6,7 @@ import TradingObjectives from "@/components/dashboard/TradingObjectives";
 import DetailedStats from "@/components/dashboard/DetailedStats";
 import AccountOverviewStats from "@/components/dashboard/AccountOverviewStats";
 import RiskAnalysis from "@/components/dashboard/RiskAnalysis";
-import ConsistencyScore from "@/components/dashboard/ConsistencyScore";
+
 import TradeMonthlyCalendar from "@/components/dashboard/TradeMonthlyCalendar";
 import EquityCurveChart from "@/components/dashboard/EquityCurveChart";
 import TradeHistory from "@/components/dashboard/TradeHistory";
@@ -445,10 +445,7 @@ function DashboardContent() {
                                         <RiskAnalysis />
                                     </div>
 
-                                    {/* Consistency Score */}
-                                    <div className="shrink-0">
-                                        <ConsistencyScore />
-                                    </div>
+
 
                                     {/* Detailed Stats */}
                                     <div className="shrink-0">
