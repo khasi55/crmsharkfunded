@@ -14,7 +14,11 @@ import { cookies } from "next/headers";
 import { createAdminClient } from "@/utils/supabase/admin";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || 'shark_admin_session_secure_2026_k8s_prod_v1';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+    console.error("CRITICAL: JWT_SECRET environment variable is missing!");
+}
 
 const RP_NAME = "SharkFunded Admin";
 
@@ -73,7 +77,7 @@ export async function enableTOTP(secret: string, code: string) {
 
 // Actions for mandatory setup during login (using tempToken)
 export async function generateTOTPSecretForSetup(tempToken: string) {
-    const decoded = jwt.verify(tempToken, JWT_SECRET) as any;
+    const decoded = jwt.verify(tempToken, JWT_SECRET!) as any;
     if (!decoded || decoded.purpose !== '2fa_verification') {
         throw new Error("Invalid or expired session");
     }
@@ -99,7 +103,7 @@ export async function generateTOTPSecretForSetup(tempToken: string) {
 }
 
 export async function enableTOTPForSetup(tempToken: string, secret: string, code: string) {
-    const decoded = jwt.verify(tempToken, JWT_SECRET) as any;
+    const decoded = jwt.verify(tempToken, JWT_SECRET!) as any;
     if (!decoded || decoded.purpose !== '2fa_verification') {
         return { error: "Invalid or expired session" };
     }
@@ -136,7 +140,7 @@ export async function enableTOTPForSetup(tempToken: string, secret: string, code
 }
 
 export async function finalizeLoginFromSetup(tempToken: string) {
-    const decoded = jwt.verify(tempToken, JWT_SECRET) as any;
+    const decoded = jwt.verify(tempToken, JWT_SECRET!) as any;
     if (!decoded || decoded.purpose !== '2fa_verification') {
         return { error: "Invalid or expired session" };
     }
@@ -175,7 +179,7 @@ export async function disable2FA() {
 
 // WebAuthn Setup during initial login flow
 export async function getWebAuthnRegistrationOptionsForSetup(tempToken: string) {
-    const decoded = jwt.verify(tempToken, JWT_SECRET) as any;
+    const decoded = jwt.verify(tempToken, JWT_SECRET!) as any;
     if (!decoded || decoded.purpose !== '2fa_verification') {
         throw new Error("Invalid or expired session");
     }
@@ -222,7 +226,7 @@ export async function getWebAuthnRegistrationOptionsForSetup(tempToken: string) 
 }
 
 export async function verifyWebAuthnRegistrationForSetup(tempToken: string, attestationResponse: any) {
-    const decoded = jwt.verify(tempToken, JWT_SECRET) as any;
+    const decoded = jwt.verify(tempToken, JWT_SECRET!) as any;
     if (!decoded || decoded.purpose !== '2fa_verification') {
         return { error: "Invalid or expired session" };
     }
@@ -380,7 +384,7 @@ export async function verifyWebAuthnRegistration(attestationResponse: any) {
 
 export async function getWebAuthnAuthenticationOptions(tempToken: string) {
     try {
-        const decoded = jwt.verify(tempToken, JWT_SECRET) as any;
+        const decoded = jwt.verify(tempToken, JWT_SECRET!) as any;
         if (!decoded || decoded.purpose !== '2fa_verification') {
             throw new Error("Invalid or expired session");
         }
@@ -424,7 +428,7 @@ export async function getWebAuthnAuthenticationOptions(tempToken: string) {
 
 export async function verifyWebAuthnLogin(tempToken: string, authResponse: any) {
     try {
-        const decoded = jwt.verify(tempToken, JWT_SECRET) as any;
+        const decoded = jwt.verify(tempToken, JWT_SECRET!) as any;
         if (!decoded || decoded.purpose !== '2fa_verification') {
             return { error: "Invalid or expired session" };
         }
@@ -529,15 +533,15 @@ async function establishAdminSession(user: any) {
             full_name: user.full_name,
             permissions: user.permissions || []
         },
-        JWT_SECRET,
-        { expiresIn: '15m' }
+        JWT_SECRET!,
+        { expiresIn: '90m' }
     );
 
     const cookieStore = await cookies();
     cookieStore.set("admin_session", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        maxAge: 60 * 15, // 15 minutes
+        maxAge: 60 * 90, // 90 minutes
         path: "/",
         sameSite: "lax"
     });
@@ -545,7 +549,7 @@ async function establishAdminSession(user: any) {
     cookieStore.set("admin_email", user.email, {
         httpOnly: false,
         secure: process.env.NODE_ENV === "production",
-        maxAge: 60 * 15, // 15 minutes
+        maxAge: 60 * 90, // 90 minutes
         path: "/",
         sameSite: "lax"
     });

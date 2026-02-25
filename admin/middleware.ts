@@ -1,8 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { jwtVerify } from 'jose'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'sharkfunded_admin_secret_2026_secure_key'
-const secret = new TextEncoder().encode(JWT_SECRET)
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    console.warn("[Middleware] CRITICAL: JWT_SECRET environment variable is missing!");
+}
+const secret = new TextEncoder().encode(JWT_SECRET!)
 
 const PERMISSION_MAP: Record<string, string> = {
     '/dashboard': 'dashboard',

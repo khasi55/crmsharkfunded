@@ -227,22 +227,31 @@ export class RulesService {
             return { enabled: true, passed: true, score: 0, maxAllowed: maxWinPercent, details: 'No winning trades' };
         }
 
-        const totalProfit = trades.reduce((sum, t) => {
-            const profit = Number(t.profit_loss) || 0;
-            const comm = Number(t.commission) || 0;
-            const swap = Number(t.swap) || 0;
-            return sum + profit + comm + swap;
+        // Denominator should be Net Profit (sum of all closed trades)
+        // Note: For consistency rules, we usually exclude pure deposits/withdrawals
+        const { data: allTrades } = await supabase
+            .from('trades')
+            .select('profit_loss, commission, swap')
+            .eq('challenge_id', challengeId)
+            .not('close_time', 'is', null); // Only closed trades
+
+        const netProfit = (allTrades || []).reduce((sum, t) => {
+            return sum + (Number(t.profit_loss) || 0) + (Number(t.commission) || 0) + (Number(t.swap) || 0);
         }, 0);
+
+        if (netProfit <= 0) {
+            return { enabled: true, passed: true, score: 0, maxAllowed: maxWinPercent, details: 'Negative or zero net profit' };
+        }
         let highestWinPercent = 0;
         let violationTrade = null;
 
-        if (totalProfit > 0) {
+        if (netProfit > 0) {
             for (const trade of trades) {
                 const profit = Number(trade.profit_loss) || 0;
                 const comm = Number(trade.commission) || 0;
                 const swap = Number(trade.swap) || 0;
                 const tradeNet = profit + comm + swap;
-                const percent = (tradeNet / totalProfit) * 100;
+                const percent = (tradeNet / netProfit) * 100;
                 if (percent > highestWinPercent) {
                     highestWinPercent = percent;
                     if (percent > maxWinPercent) {

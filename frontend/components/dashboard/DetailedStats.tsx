@@ -40,7 +40,7 @@ export default function DetailedStats() {
         return [
             { label: "Number of Days", value: "1", icon: Calendar },
             { label: "Total Trades Taken", value: String(trades), icon: Hash },
-            { label: "Total Lots Used", value: (lots / 100).toFixed(2), icon: BarChart3 },
+            { label: "Total Lots Used", value: (lots).toFixed(2), icon: BarChart3 },
             { label: "Biggest Win", value: win > 0 ? `+$${win.toFixed(2)}` : "$0.00", icon: TrendingUp, color: "text-green-400" },
             { label: "Biggest Loss", value: loss < 0 ? `-$${Math.abs(loss).toFixed(2)}` : "$0.00", icon: TrendingDown, color: "text-red-400" },
         ];

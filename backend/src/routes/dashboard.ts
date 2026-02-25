@@ -584,9 +584,10 @@ router.get('/consistency', authenticate, async (req: AuthRequest, res: Response)
 
         const { data: trades, error } = await supabase
             .from('trades')
-            .select('profit_loss, lots, symbol')
+            .select('profit_loss, lots, symbol, commission, swap')
             .eq('challenge_id', challenge_id)
-            .eq('user_id', user.id); // Implicit tenancy check
+            .order('close_time', { ascending: false });
+        // Implicit tenancy check
 
         if (error) {
             console.error('❌ DB Error fetching trades for consistency:', error);
@@ -599,25 +600,26 @@ router.get('/consistency', authenticate, async (req: AuthRequest, res: Response)
         // Exclude balance transactions
         const tradingTrades = (trades || []).filter(t => t.symbol && t.symbol !== '' && Number(t.lots) > 0);
         const winningTrades = tradingTrades.filter(t => Number(t.profit_loss) > 0);
+        const largestWin = winningTrades.reduce((max, t) => Math.max(max, Number(t.profit_loss)), 0);
         // console.log(`📊 Stats: Total Trading=${tradingTrades.length}, Winning=${winningTrades.length}`);
 
-        const totalProfit = winningTrades.reduce((sum, t) => sum + Number(t.profit_loss), 0);
-        const largestWin = winningTrades.reduce((max, t) => Math.max(max, Number(t.profit_loss)), 0);
+        // Base for consistency is Net Profit (pnL across all trades)
+        const netProfitBase = tradingTrades.reduce((sum, t) => {
+            return sum + (Number(t.profit_loss) || 0) + (Number(t.commission) || 0) + (Number(t.swap) || 0);
+        }, 0);
 
-        // console.log(`💰 Profit: Total=${totalProfit}, Largest=${largestWin}`);
-
-        // Score logic: 100 - (Largest Win / Total Profit * 100)
         let consistencyScore = 100;
         let concentration = 0;
 
-        if (totalProfit > 0) {
-            concentration = (largestWin / totalProfit) * 100;
+        if (netProfitBase > 0) {
+            concentration = (largestWin / netProfitBase) * 100;
             consistencyScore = Math.max(0, 100 - concentration);
         }
+        const eligible = concentration <= 50;
         // console.log(`✅ Calculated Score: ${consistencyScore}% (Conc: ${concentration}%)`);
 
         // Stats
-        const avgWin = winningTrades.length > 0 ? totalProfit / winningTrades.length : 0;
+        const avgWin = winningTrades.length > 0 ? (winningTrades.reduce((sum, t) => sum + Number(t.profit_loss), 0)) / winningTrades.length : 0;
         const losingTrades = tradingTrades.filter(t => Number(t.profit_loss) < 0);
         const totalLoss = losingTrades.reduce((sum, t) => sum + Math.abs(Number(t.profit_loss)), 0);
         const avgLoss = losingTrades.length > 0 ? totalLoss / losingTrades.length : 0;
@@ -631,7 +633,7 @@ router.get('/consistency', authenticate, async (req: AuthRequest, res: Response)
         res.json({
             consistency: {
                 score: consistencyScore,
-                eligible: concentration <= 50
+                eligible: eligible
             },
             stats: {
                 avg_trade_size: avgTradeSize,
@@ -825,6 +827,7 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
 
             netPnL += tradeNet;
             totalLots += Number(trade.lots) || 0;
+            // No division here anymore, trades in DB are already standardized to lots
             if (tradeNet > biggestWin) biggestWin = tradeNet;
             if (tradeNet < biggestLoss) biggestLoss = tradeNet;
 

@@ -7,7 +7,10 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { verify } from "otplib";
 
-const JWT_SECRET = process.env.JWT_SECRET || 'shark_admin_session_secure_2026_k8s_prod_v1';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    console.error("CRITICAL: JWT_SECRET environment variable is missing!");
+}
 
 export async function loginAdmin(formData: FormData) {
     const email = formData.get("email")?.toString().trim();
@@ -39,12 +42,7 @@ export async function loginAdmin(formData: FormData) {
         // Verify hashed password
         const isPasswordValid = await bcrypt.compare(password, user.password);
 
-        // TEMPORARY: Also allow plain text comparison for legacy users until they reset or we migrate them
-        // This is to prevent lockout immediately after this change.
-        // Once all users are migrated, we should remove this fallback.
-        const isPlainTextValid = password === user.password;
-
-        if (!isPasswordValid && !isPlainTextValid) {
+        if (!isPasswordValid) {
             return { error: "Invalid credentials" };
         }
 
@@ -54,7 +52,7 @@ export async function loginAdmin(formData: FormData) {
         // Generate a temporary short-lived token (5 mins) to verify 2FA or handle Setup
         const tempToken = jwt.sign(
             { id: user.id, purpose: '2fa_verification' },
-            JWT_SECRET,
+            JWT_SECRET!,
             { expiresIn: '5m' }
         );
 
@@ -86,7 +84,7 @@ export async function loginAdmin(formData: FormData) {
 
 export async function verifyTOTPLogin(tempToken: string, code: string) {
     try {
-        const decoded = jwt.verify(tempToken, JWT_SECRET) as any;
+        const decoded = jwt.verify(tempToken, JWT_SECRET!) as any;
         if (!decoded || decoded.purpose !== '2fa_verification') {
             return { error: "Invalid or expired session" };
         }
@@ -154,7 +152,7 @@ async function establishAdminSession(user: any) {
             full_name: user.full_name,
             permissions: user.permissions || []
         },
-        JWT_SECRET,
+        JWT_SECRET!,
         { expiresIn: '90m' }
     );
 

@@ -8,7 +8,10 @@ export interface AuthRequest extends Request {
 
 const CACHE_TTL = 300000; // 5 minutes (Increased from 30s)
 const authCache = new Map<string, { user: any; expires: number }>();
-const JWT_SECRET = process.env.JWT_SECRET || 'shark_admin_session_secure_2026_k8s_prod_v1';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    console.error("[Auth] CRITICAL: JWT_SECRET environment variable is missing!");
+}
 
 // Helper to validate session and get profile
 async function validateSession(sessionId: string, ip: string, userAgent: string, isLocalhost: boolean) {
@@ -68,7 +71,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         const adminSessionToken = req.cookies?.['admin_session'];
         if (adminSessionToken) {
             try {
-                const decoded = jwt.verify(adminSessionToken, JWT_SECRET) as any;
+                const decoded = jwt.verify(adminSessionToken, JWT_SECRET!) as any;
                 // console.log(`[Auth] Decoded Admin Token:`, decoded); 
 
                 if (decoded && decoded.id) {
