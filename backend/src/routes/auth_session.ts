@@ -49,7 +49,7 @@ router.post('/session', async (req, res) => {
                     secure: !isLocalhost,
                     sameSite: isLocalhost ? 'lax' : 'none',
                     path: '/', // ESSENTIAL: Allow cookie on all /api routes
-                    maxAge: 15 * 60 * 1000 // 15 Minutes
+                    maxAge: 90 * 60 * 1000 // 90 Minutes
                 });
                 return res.json({ success: true, message: 'Session already active', exists: true });
             }
@@ -79,7 +79,7 @@ router.post('/session', async (req, res) => {
             secure: !isLocalhost,
             sameSite: isLocalhost ? 'lax' : 'none',
             path: '/', // ESSENTIAL: Allow cookie on all /api routes
-            maxAge: 15 * 60 * 1000 // 15 Minutes
+            maxAge: 90 * 60 * 1000 // 90 Minutes
         });
 
         res.json({ success: true, message: 'Session initialized' });
