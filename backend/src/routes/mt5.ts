@@ -426,7 +426,7 @@ router.post('/sync-trades', authenticate, requireRole(['super_admin', 'admin', '
                 }
                 return tType;
             })(),
-            lots: t.volume / 100,
+            lots: t.volume / 10000, // Fixed: was 100
             open_price: t.price,
             close_price: t.close_price || null,
             profit_loss: t.profit,
@@ -818,7 +818,7 @@ router.post('/trades/webhook', async (req: Request, res: Response) => {
                         }
                         return tType;
                     })(),
-                    lots: t.volume / 100,
+                    lots: t.volume / 10000, // Fixed: was 100
                     open_price: t.open_price || 0,
                     close_price: t.close_price,
                     profit_loss: t.profit,
@@ -920,7 +920,7 @@ router.post('/trades/webhook', async (req: Request, res: Response) => {
                 ticket: Number(ticket),
                 symbol: symbol,
                 type: type,
-                lots: volume,
+                lots: volume / 10000, // Standardize on lots (convert raw MT5 units) - Fixed: was 100
                 open_price: 0,
                 close_price: price,
                 profit_loss: profit,
@@ -990,7 +990,7 @@ router.post('/trades/webhook', async (req: Request, res: Response) => {
             symbol: trade.symbol,
             ticket: Number(trade.ticket),
             type: trade.type === 0 ? 'sell' : trade.type === 1 ? 'buy' : 'balance',
-            lots: trade.volume / 100,
+            lots: trade.volume / 10000, // Fixed: was 100
             open_price: trade.price,
             close_price: trade.close_price,
             profit: trade.profit,

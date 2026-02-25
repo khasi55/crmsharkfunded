@@ -197,7 +197,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 const initialBalance = Number(challenge.initial_balance);
                 const currentBalance = Number(res.balance);
 
-                // --- RESTORED PROFIT TARGET LOGIC ---
+                // --- RESTORED PROFIT TARGET LOGIC (OPTIMIZED) ---
                 if (challenge.status === 'active') {
                     try {
                         const rules = await RulesService.getRules(challenge.group, challenge.challenge_type);
@@ -233,7 +233,8 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
 
             if (statusUpdates.length > 0) {
                 if (DEBUG) console.log(` Committing ${statusUpdates.length} STATUS CHANGES to DB.`);
-                const { error } = await supabase.from('challenges').upsert(statusUpdates);
+                // OPTIMIZATION: Select only ID if returning minimal is unavailable
+                const { error } = await supabase.from('challenges').upsert(statusUpdates).select('id');
                 if (error) console.error(" Bulk status update failed:", error.message);
             }
 
@@ -244,7 +245,7 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 // However, if we insert new (which shouldn't happen here as ID exists), we need required fields.
 
                 // Since we are updating existing, we just send ID + Equity + Balance.
-                const { error } = await supabase.from('challenges').upsert(equityUpdates);
+                const { error } = await supabase.from('challenges').upsert(equityUpdates).select('id');
                 if (error) console.error(" Bulk equity update failed:", error.message);
             }
 

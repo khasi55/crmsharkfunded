@@ -92,7 +92,7 @@ export async function startTradeSyncWorker() {
 
                         return tType;
                     })(),
-                    lots: t.volume / 100,
+                    lots: t.volume / 10000, // Standardize raw MT5 units to lots (Fixed: was 100)
                     open_price: t.price,
                     close_price: t.close_price || null,
                     profit_loss: t.profit,
