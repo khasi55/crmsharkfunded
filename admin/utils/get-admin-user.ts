@@ -1,7 +1,10 @@
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || 'sharkfunded_admin_secret_2026_secure_key';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    console.error("[getAdminUser] CRITICAL: JWT_SECRET environment variable is missing!");
+}
 
 export async function getAdminUser() {
     try {
@@ -13,7 +16,7 @@ export async function getAdminUser() {
         }
 
         // Verify and decode JWT
-        const decoded = jwt.verify(token, JWT_SECRET) as any;
+        const decoded = jwt.verify(token, JWT_SECRET!) as any;
 
         if (!decoded || !decoded.id) {
             return null;

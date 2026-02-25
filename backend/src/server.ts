@@ -3,18 +3,12 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { CoreRiskEngine } from './engine/risk-engine-core';
-import { AdvancedRiskEngine } from './engine/risk-engine-advanced';
+import path from 'path';
 import fs from 'fs';
 import cookieParser from 'cookie-parser';
-import { authenticate, requireRole } from './middleware/auth';
 
-
-import path from 'path';
-
-// Load environment variables
+// 1. Load environment variables FIRST before any other internal imports
 const envPath = path.resolve(__dirname, '../.env');
-console.log(`[Server] Attempting to load .env from: ${envPath}`);
 const dotenvResult = dotenv.config({ path: envPath });
 
 if (dotenvResult.error) {
@@ -22,6 +16,11 @@ if (dotenvResult.error) {
 } else {
     console.log(`[Server] .env loaded successfully.`);
 }
+
+// 2. Now import components that depend on process.env
+import { CoreRiskEngine } from './engine/risk-engine-core';
+import { AdvancedRiskEngine } from './engine/risk-engine-advanced';
+import { authenticate, requireRole } from './middleware/auth';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
