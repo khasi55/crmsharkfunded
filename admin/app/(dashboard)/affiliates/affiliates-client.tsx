@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, X, Filter, Loader2, Wallet, Calendar, User, CreditCard, ChevronDown, ChevronRight, Users, LayoutList, Network, Tag } from "lucide-react";
+import { Check, X, Filter, Loader2, Wallet, Calendar, User, CreditCard, ChevronDown, ChevronRight, Users, LayoutList, Network, Tag, Eye } from "lucide-react";
+
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { Copy } from "lucide-react";
+
 
 interface Withdrawal {
     id: string;
@@ -14,11 +18,13 @@ interface Withdrawal {
     created_at: string;
     processed_at: string | null;
     rejection_reason: string | null;
+    transaction_id: string | null;
     profiles: {
         email: string;
         full_name: string;
     };
 }
+
 
 interface Account {
     id: string;
@@ -86,6 +92,16 @@ export default function AdminAffiliatesClient() {
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [rejectId, setRejectId] = useState<string | null>(null);
     const [rejectReason, setRejectReason] = useState("");
+    const [detailsWithdrawal, setDetailsWithdrawal] = useState<Withdrawal | null>(null);
+    const [transactionId, setTransactionId] = useState("");
+
+
+
+    const copyToClipboard = (text: string, label: string) => {
+        navigator.clipboard.writeText(text);
+        toast.success(`${label} copied to clipboard`);
+    };
+
 
     useEffect(() => {
         fetchWithdrawals();
@@ -236,35 +252,50 @@ export default function AdminAffiliatesClient() {
         setExpandedUsers(newSet);
     };
 
-    const handleAction = async (id: string, status: 'approved' | 'rejected', reason?: string) => {
+    const handleAction = async (id: string, status: 'approved' | 'rejected', reason?: string, txId?: string) => {
         setProcessingId(id);
         try {
             // Fix: Use Admin API endpoint for status updates
             const res = await fetch(`/api/admin/affiliates/withdrawals/${id}/status`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status, rejection_reason: reason })
+                body: JSON.stringify({
+                    status,
+                    rejection_reason: reason,
+                    transaction_id: txId
+                })
             });
 
             if (res.ok) {
+                const data = await res.json();
                 // Update local state
                 setWithdrawals(prev => prev.map(w =>
-                    w.id === id ? { ...w, status, processed_at: new Date().toISOString(), rejection_reason: reason || null } : w
+                    w.id === id ? {
+                        ...w,
+                        status,
+                        processed_at: new Date().toISOString(),
+                        rejection_reason: reason || null,
+                        transaction_id: data.withdrawal?.transaction_id || txId || null
+                    } : w
                 ));
                 if (status === 'rejected') {
                     setRejectId(null);
                     setRejectReason("");
                 }
+                setDetailsWithdrawal(null);
+                setTransactionId("");
+                toast.success(`Withdrawal ${status} successfully`);
             } else {
-                alert("Failed to update status");
+                toast.error("Failed to update status");
             }
         } catch (error) {
             console.error("Error updating status:", error);
-            alert("Error updating status");
+            toast.error("Error updating status");
         } finally {
             setProcessingId(null);
         }
     };
+
 
     return (
         <div className="space-y-6">
@@ -395,19 +426,31 @@ export default function AdminAffiliatesClient() {
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-col">
-                                                        <div className="flex items-center gap-1.5 text-slate-700 capitalize font-medium">
+                                                        <div className="flex items-center gap-1.5 text-slate-700 capitalize font-medium mb-1.5">
                                                             <CreditCard size={14} />
                                                             {item.payout_method.replace('_', ' ')}
                                                         </div>
-                                                        <div className="text-xs text-slate-500 font-mono mt-1 max-w-[200px] truncate" title={JSON.stringify(item.payout_details, null, 2)}>
-                                                            {item.payout_method === 'crypto'
-                                                                ? (item.payout_details?.address || "No address")
-                                                                : item.payout_details?.account_number
-                                                                    ? `${item.payout_details.bank_name || 'Bank'}: ${item.payout_details.account_number}`
-                                                                    : 'Bank Details'}
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={() => setDetailsWithdrawal(item)}
+                                                                className="flex items-center gap-2 group/btn"
+                                                            >
+                                                                <span className="text-[12px] font-mono font-medium text-blue-700 bg-blue-50 px-2.5 py-1.5 rounded-md border border-blue-100 truncate max-w-[180px] group-hover/btn:bg-blue-100 transition-colors" title={item.payout_method === 'crypto' ? item.payout_details?.address : item.payout_details?.account_number}>
+                                                                    {item.payout_method === 'crypto'
+                                                                        ? (item.payout_details?.address || "No address")
+                                                                        : item.payout_details?.account_number
+                                                                            ? `${item.payout_details.bank_name || 'Bank'}: ${item.payout_details.account_number}`
+                                                                            : 'View Details'}
+                                                                </span>
+                                                                <div className="p-1.5 rounded-lg bg-slate-100 text-slate-500 group-hover/btn:bg-blue-500 group-hover/btn:text-white transition-all shadow-sm">
+                                                                    <Eye size={12} />
+                                                                </div>
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 </td>
+
+
                                                 <td className="px-6 py-4">
                                                     <div className={cn(
                                                         "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize",
@@ -724,6 +767,264 @@ export default function AdminAffiliatesClient() {
                     </div>
                 )
             }
-        </div >
+
+            {/* Withdrawal Details Modal (Redesigned) */}
+            {detailsWithdrawal && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in duration-300 overflow-y-auto">
+                    <div className="w-full max-w-4xl bg-white rounded-[32px] shadow-2xl overflow-hidden border border-slate-200 animate-in slide-in-from-bottom-8 zoom-in-95 duration-500 my-8">
+                        {/* Header */}
+                        <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-200">
+                                    <Wallet size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-slate-900 text-lg">Process Withdrawal</h3>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                        <span className="text-xs text-slate-500 font-medium tracking-tight">Review and process affiliate payout</span>
+                                        <span className={cn(
+                                            "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                                            detailsWithdrawal.status === 'pending' ? "bg-amber-100 text-amber-800" :
+                                                detailsWithdrawal.status === 'approved' || detailsWithdrawal.status === 'processed' ? "bg-emerald-100 text-emerald-800" :
+                                                    "bg-red-100 text-red-800"
+                                        )}>
+                                            {detailsWithdrawal.status}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setDetailsWithdrawal(null)}
+                                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all active:scale-95"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Content Grid */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2">
+                            {/* Left Pane: Information */}
+                            <div className="p-8 space-y-8 border-r border-slate-100 bg-slate-50/30">
+                                {/* Affiliate Section */}
+                                <div>
+                                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-[0.1em] mb-4">Affiliate Details</label>
+                                    <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                                        <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold border border-blue-200 text-lg">
+                                            {detailsWithdrawal.profiles.full_name?.charAt(0) || "U"}
+                                        </div>
+                                        <div>
+                                            <div className="text-base font-bold text-slate-900 leading-tight">{detailsWithdrawal.profiles.full_name}</div>
+                                            <div className="text-sm text-slate-500 font-medium">{detailsWithdrawal.profiles.email}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Payout Info */}
+                                <div className="space-y-4">
+                                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-[0.1em]">Payout Information</label>
+                                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                                        <div className="p-5 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
+                                            <span className="text-sm text-slate-500 font-medium">Requested Amount</span>
+                                            <span className="text-2xl font-black text-slate-900 tracking-tight">
+                                                <span className="text-slate-400 text-lg font-bold mr-0.5">$</span>
+                                                {detailsWithdrawal.amount.toLocaleString()}
+                                            </span>
+                                        </div>
+
+                                        <div className="p-5 space-y-4">
+                                            {detailsWithdrawal.payout_method === 'crypto' ? (
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Crypto Address</span>
+                                                        <button
+                                                            onClick={() => copyToClipboard(detailsWithdrawal.payout_details?.address || "", 'Wallet Address')}
+                                                            className="text-[10px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-widest"
+                                                        >
+                                                            Copy
+                                                        </button>
+                                                    </div>
+                                                    <div className="w-full rounded-xl bg-slate-50 border border-slate-100 p-4">
+                                                        <p className="font-mono text-[12px] leading-relaxed text-slate-700 break-all font-medium">
+                                                            {detailsWithdrawal.payout_details?.address || "No address provided"}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-4">
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Bank Name</p>
+                                                            <p className="font-bold text-slate-900 text-xs truncate">{detailsWithdrawal.payout_details?.bank_name || 'N/A'}</p>
+                                                        </div>
+                                                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Holder Name</p>
+                                                            <p className="font-bold text-slate-900 text-xs truncate">{detailsWithdrawal.payout_details?.account_holder_name || 'N/A'}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <p className="text-[10px] font-bold text-slate-400 uppercase">Account Number</p>
+                                                            <button
+                                                                onClick={() => copyToClipboard(detailsWithdrawal.payout_details?.account_number || "", 'Account Number')}
+                                                                className="text-[10px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-widest"
+                                                            >
+                                                                Copy
+                                                            </button>
+                                                        </div>
+                                                        <p className="font-mono text-[13px] leading-relaxed text-slate-900 font-bold tracking-wider">
+                                                            {detailsWithdrawal.payout_details?.account_number || "N/A"}
+                                                        </p>
+                                                    </div>
+                                                    {(detailsWithdrawal.payout_details?.ifsc_code || detailsWithdrawal.payout_details?.swift_code) && (
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            {detailsWithdrawal.payout_details?.ifsc_code && (
+                                                                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                                                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">IFSC Code</p>
+                                                                    <p className="font-mono font-bold text-slate-900 text-xs">{detailsWithdrawal.payout_details.ifsc_code}</p>
+                                                                </div>
+                                                            )}
+                                                            {detailsWithdrawal.payout_details?.swift_code && (
+                                                                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                                                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">SWIFT Code</p>
+                                                                    <p className="font-mono font-bold text-slate-900 text-xs">{detailsWithdrawal.payout_details.swift_code}</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Metadata / Footer Info */}
+                                <div className="pt-4 border-t border-slate-100 space-y-2">
+                                    <div className="flex justify-between text-xs">
+                                        <span className="text-slate-400 font-medium">Request Date</span>
+                                        <span className="text-slate-600 font-bold">{new Date(detailsWithdrawal.created_at).toLocaleString()}</span>
+                                    </div>
+                                    {detailsWithdrawal.transaction_id && (
+                                        <div className="flex flex-col gap-1.5 pt-2">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Transaction ID</span>
+                                            <div className="p-3 bg-emerald-50 text-emerald-700 font-mono text-[11px] rounded-xl border border-emerald-100 break-all leading-relaxed">
+                                                {detailsWithdrawal.transaction_id}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Right Pane: Actions */}
+                            <div className="p-8 space-y-8 flex flex-col">
+                                {detailsWithdrawal.status === 'pending' ? (
+                                    <>
+                                        {/* Approval Flow */}
+                                        <div className="space-y-6 flex-1">
+                                            <div className="space-y-2">
+                                                <h4 className="font-bold text-slate-900 text-base">Approve Payout</h4>
+                                                <p className="text-sm text-slate-500 leading-relaxed font-medium">
+                                                    Enter a transaction ID or blockchain hash to finalize the approval. If left blank, one will be generated.
+                                                </p>
+                                            </div>
+
+                                            <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-5 space-y-4">
+                                                <div className="space-y-2">
+                                                    <label className="block text-[11px] font-bold text-blue-600 uppercase tracking-wider ml-1">Transaction ID / Hash (Optional)</label>
+                                                    <div className="relative group">
+                                                        <input
+                                                            type="text"
+                                                            value={transactionId}
+                                                            onChange={(e) => setTransactionId(e.target.value)}
+                                                            placeholder="Enter txn hash..."
+                                                            className="w-full bg-white rounded-xl border-2 border-slate-100 p-4 pr-12 focus:border-blue-500 focus:outline-none transition-all font-mono text-sm placeholder:italic"
+                                                        />
+                                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300">
+                                                            <Tag size={18} />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    onClick={() => handleAction(detailsWithdrawal.id, 'approved', undefined, transactionId)}
+                                                    disabled={!!processingId}
+                                                    className="w-full h-14 bg-blue-600 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 shadow-xl shadow-blue-200 transition-all active:scale-[0.98] disabled:opacity-50"
+                                                >
+                                                    {processingId === detailsWithdrawal.id ? (
+                                                        <Loader2 size={24} className="animate-spin" />
+                                                    ) : (
+                                                        <>
+                                                            <Check size={20} />
+                                                            Approve Withdrawal
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+
+                                            {/* Rejection Option */}
+                                            <div className="space-y-5 pt-4">
+                                                <div className="relative">
+                                                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100"></div></div>
+                                                    <div className="relative flex justify-center text-[10px] uppercase font-bold text-slate-400"><span className="bg-white px-4">Or Reject Withdrawal</span></div>
+                                                </div>
+
+                                                <div className="space-y-3">
+                                                    <textarea
+                                                        value={rejectReason}
+                                                        onChange={(e) => setRejectReason(e.target.value)}
+                                                        placeholder="Provide a reason for rejection..."
+                                                        className="w-full bg-slate-50 rounded-xl border border-slate-200 p-4 text-sm focus:bg-white focus:border-red-500 focus:outline-none transition-all min-h-[100px]"
+                                                    />
+                                                    <button
+                                                        onClick={() => {
+                                                            if (!rejectReason.trim()) return toast.error("Please provide a rejection reason");
+                                                            handleAction(detailsWithdrawal.id, 'rejected', rejectReason);
+                                                        }}
+                                                        disabled={!!processingId}
+                                                        className="w-full py-4 text-red-600 font-bold hover:bg-red-50 rounded-2xl transition-all border border-transparent hover:border-red-100 flex items-center justify-center gap-2"
+                                                    >
+                                                        <X size={18} />
+                                                        Deny Request
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
+                                        <div className={cn(
+                                            "w-20 h-20 rounded-full flex items-center justify-center border-4",
+                                            detailsWithdrawal.status === 'approved' || detailsWithdrawal.status === 'processed'
+                                                ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                                                : "bg-red-50 text-red-600 border-red-100"
+                                        )}>
+                                            {detailsWithdrawal.status === 'approved' || detailsWithdrawal.status === 'processed' ? <Check size={40} /> : <X size={40} />}
+                                        </div>
+                                        <div>
+                                            <h4 className="text-xl font-bold text-slate-900 capitalize">Withdrawal {detailsWithdrawal.status}</h4>
+                                            <p className="text-sm text-slate-500 font-medium max-w-[240px] mt-2">
+                                                This request has already been processed on {new Date(detailsWithdrawal.processed_at || "").toLocaleDateString()}.
+                                            </p>
+                                        </div>
+                                        {detailsWithdrawal.rejection_reason && (
+                                            <div className="bg-red-50 text-red-700 p-4 rounded-xl border border-red-100 text-xs font-medium w-full text-left">
+                                                <span className="block text-[10px] font-bold uppercase tracking-wider mb-1 opacity-50">Reason for Rejection</span>
+                                                {detailsWithdrawal.rejection_reason}
+                                            </div>
+                                        )}
+                                        <button
+                                            onClick={() => setDetailsWithdrawal(null)}
+                                            className="px-8 py-3 bg-slate-900 text-white rounded-2xl text-sm font-bold shadow-lg shadow-slate-200 transition-all hover:bg-slate-800"
+                                        >
+                                            Close Record
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }
+

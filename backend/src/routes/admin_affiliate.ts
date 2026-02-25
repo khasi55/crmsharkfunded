@@ -36,7 +36,8 @@ router.get('/withdrawals', authenticate, requireRole(['super_admin', 'payouts_ad
 router.post('/withdrawals/:id/status', authenticate, requireRole(['super_admin', 'payouts_admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
-        const { status, rejection_reason } = req.body;
+        const { status, rejection_reason, transaction_id } = req.body;
+
 
         if (!['approved', 'rejected', 'processed', 'pending'].includes(status)) {
             res.status(400).json({ error: 'Invalid status' });
@@ -51,6 +52,17 @@ router.post('/withdrawals/:id/status', authenticate, requireRole(['super_admin',
         if (status === 'rejected' && rejection_reason) {
             updateData.rejection_reason = rejection_reason;
         }
+
+        if (status === 'approved' || status === 'processed') {
+            if (transaction_id) {
+                updateData.transaction_id = transaction_id;
+            } else {
+                // Generate a simple ID if none provided
+                updateData.transaction_id = `AFF-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+            }
+        }
+
+
 
         const { data, error } = await supabase
             .from('affiliate_withdrawals')
