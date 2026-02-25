@@ -6,6 +6,7 @@ import { validateRequest, payoutRequestSchema } from '../middleware/validation';
 import { resourceIntensiveLimiter } from '../middleware/rate-limit';
 import { logSecurityEvent } from '../utils/security-logger';
 import { EmailService } from '../services/email-service';
+import { OTPService } from '../services/otp-service';
 
 const router = Router();
 
@@ -235,7 +236,23 @@ router.get('/history', authenticate, async (req: AuthRequest, res: Response) => 
 router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, validateRequest(payoutRequestSchema), async (req: AuthRequest, res: Response) => {
     try {
         const user = req.user!;
-        const { amount, method, challenge_id } = req.body;
+        const { amount, method, challenge_id, otp } = req.body;
+
+        // 🛡️ SECURITY LAYER: Verify OTP
+        const isOtpValid = await OTPService.verifyOTP(user.id, otp);
+        if (!isOtpValid) {
+            await logSecurityEvent({
+                userId: user.id,
+                email: user.email,
+                action: 'PAYOUT_REQUEST_OTP_FAIL',
+                resource: 'payout',
+                status: 'failure',
+                errorMessage: 'Invalid or expired verification code',
+                ip: req.ip
+            });
+            res.status(401).json({ error: 'Invalid or expired verification code' });
+            return;
+        }
 
         // 🛡️ SECURITY INVESTIGATION: Log Request Details
         console.warn(`[SECURITY AUDIT] Payout Request Attempt:`, JSON.stringify({

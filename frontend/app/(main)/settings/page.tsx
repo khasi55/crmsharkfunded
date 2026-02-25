@@ -117,6 +117,11 @@ export default function SettingsPage() {
 
     const [isKycVerified, setIsKycVerified] = useState(false);
 
+    // OTP States
+    const [showOtpWallet, setShowOtpWallet] = useState(false);
+    const [showOtpBank, setShowOtpBank] = useState(false);
+    const [otpCode, setOtpCode] = useState("");
+
     // Fetch User Data on Mount
     useEffect(() => {
         const fetchUserData = async () => {
@@ -591,11 +596,48 @@ export default function SettingsPage() {
                                         />
 
                                         {!wallet.isLocked && (
-                                            <div className="flex justify-end pt-4">
+                                            <div className="flex flex-col items-end gap-4 pt-4">
+                                                {showOtpWallet && (
+                                                    <div className="w-full max-w-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                                                        <TerminalInput
+                                                            label="Verification Code"
+                                                            value={otpCode}
+                                                            onChange={(e: any) => setOtpCode(e.target.value)}
+                                                            placeholder="Enter 6-digit OTP"
+                                                            icon={Shield}
+                                                        />
+                                                        <p className="text-[10px] text-muted-foreground mt-2">
+                                                            Check your email for a verification code.
+                                                        </p>
+                                                    </div>
+                                                )}
+
                                                 <button
                                                     onClick={async () => {
                                                         if (!wallet.address || wallet.address.length < 30) {
                                                             setSaveMessage({ type: 'error', text: 'Please enter a valid TRON wallet address' });
+                                                            return;
+                                                        }
+
+                                                        if (!showOtpWallet) {
+                                                            try {
+                                                                setIsLoading(true);
+                                                                await fetchFromBackend('/api/user/request-financial-otp', {
+                                                                    method: 'POST',
+                                                                    body: JSON.stringify({ type: 'wallet' }),
+                                                                });
+                                                                setShowOtpWallet(true);
+                                                                setSaveMessage({ type: 'success', text: 'Verification code sent to your email.' });
+                                                            } catch (err: any) {
+                                                                setSaveMessage({ type: 'error', text: err.message || 'Failed to send OTP' });
+                                                            } finally {
+                                                                setIsLoading(false);
+                                                            }
+                                                            return;
+                                                        }
+
+                                                        if (otpCode.length !== 6) {
+                                                            setSaveMessage({ type: 'error', text: 'Please enter a 6-digit verification code' });
                                                             return;
                                                         }
 
@@ -605,10 +647,15 @@ export default function SettingsPage() {
                                                         try {
                                                             await fetchFromBackend('/api/user/wallet', {
                                                                 method: 'POST',
-                                                                body: JSON.stringify({ walletAddress: wallet.address }),
+                                                                body: JSON.stringify({
+                                                                    walletAddress: wallet.address,
+                                                                    otp: otpCode
+                                                                }),
                                                             });
 
                                                             setWallet({ ...wallet, isLocked: true });
+                                                            setShowOtpWallet(false);
+                                                            setOtpCode("");
                                                             setSaveMessage({ type: 'success', text: 'Wallet saved and locked successfully!' });
                                                         } catch (err: any) {
                                                             console.error("Wallet save error:", err);
@@ -621,9 +668,9 @@ export default function SettingsPage() {
                                                     className="px-6 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-lg text-sm flex items-center gap-2 disabled:opacity-50"
                                                 >
                                                     {isLoading ? (
-                                                        <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+                                                        <><Loader2 className="w-4 h-4 animate-spin" /> {showOtpWallet ? 'Verifying...' : 'Sending...'}</>
                                                     ) : (
-                                                        <><Lock size={16} /> Save & Lock Wallet</>
+                                                        <>{showOtpWallet ? <><CheckCircle size={16} /> Verify & Lock</> : <><Lock size={16} /> Save & Request OTP</>}</>
                                                     )}
                                                 </button>
                                             </div>
@@ -702,11 +749,48 @@ export default function SettingsPage() {
                                     </div>
 
                                     {!bank.isLocked && (
-                                        <div className="flex justify-end pt-4">
+                                        <div className="flex flex-col items-end gap-4 pt-4">
+                                            {showOtpBank && (
+                                                <div className="w-full max-w-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                                                    <TerminalInput
+                                                        label="Verification Code"
+                                                        value={otpCode}
+                                                        onChange={(e: any) => setOtpCode(e.target.value)}
+                                                        placeholder="Enter 6-digit OTP"
+                                                        icon={Shield}
+                                                    />
+                                                    <p className="text-[10px] text-muted-foreground mt-2">
+                                                        Check your email for a verification code.
+                                                    </p>
+                                                </div>
+                                            )}
+
                                             <button
                                                 onClick={async () => {
                                                     if (!bank.accountHolderName || !bank.bankName || !bank.accountNumber) {
                                                         setSaveMessage({ type: 'error', text: 'Please fill in required bank details' });
+                                                        return;
+                                                    }
+
+                                                    if (!showOtpBank) {
+                                                        try {
+                                                            setIsLoading(true);
+                                                            await fetchFromBackend('/api/user/request-financial-otp', {
+                                                                method: 'POST',
+                                                                body: JSON.stringify({ type: 'bank' }),
+                                                            });
+                                                            setShowOtpBank(true);
+                                                            setSaveMessage({ type: 'success', text: 'Verification code sent to your email.' });
+                                                        } catch (err: any) {
+                                                            setSaveMessage({ type: 'error', text: err.message || 'Failed to send OTP' });
+                                                        } finally {
+                                                            setIsLoading(false);
+                                                        }
+                                                        return;
+                                                    }
+
+                                                    if (otpCode.length !== 6) {
+                                                        setSaveMessage({ type: 'error', text: 'Please enter a 6-digit verification code' });
                                                         return;
                                                     }
 
@@ -721,11 +805,14 @@ export default function SettingsPage() {
                                                                 bank_name: bank.bankName,
                                                                 account_number: bank.accountNumber,
                                                                 ifsc_code: bank.ifscCode,
-                                                                swift_code: bank.swiftCode
+                                                                swift_code: bank.swiftCode,
+                                                                otp: otpCode
                                                             }),
                                                         });
 
                                                         setBank({ ...bank, isLocked: true });
+                                                        setShowOtpBank(false);
+                                                        setOtpCode("");
                                                         setSaveMessage({ type: 'success', text: 'Bank details saved and locked successfully!' });
                                                     } catch (err: any) {
                                                         console.error("Bank details save error:", err);
@@ -738,9 +825,9 @@ export default function SettingsPage() {
                                                 className="px-6 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-lg text-sm flex items-center gap-2 disabled:opacity-50"
                                             >
                                                 {isLoading ? (
-                                                    <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+                                                    <><Loader2 className="w-4 h-4 animate-spin" /> {showOtpBank ? 'Verifying...' : 'Sending...'}</>
                                                 ) : (
-                                                    <><Lock size={16} /> Save & Lock Bank Details</>
+                                                    <>{showOtpBank ? <><CheckCircle size={16} /> Verify & Lock</> : <><Lock size={16} /> Save & Request OTP</>}</>
                                                 )}
                                             </button>
                                         </div>

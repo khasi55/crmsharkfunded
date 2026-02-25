@@ -34,7 +34,10 @@ export async function loginAdmin(formData: FormData) {
     // Set a session cookie
     const cookieStore = await cookies();
     const jwt = require("jsonwebtoken");
-    const JWT_SECRET = process.env.JWT_SECRET || 'shark_admin_session_secure_2026_k8s_prod_v1';
+    const JWT_SECRET = process.env.JWT_SECRET;
+    if (!JWT_SECRET) {
+        console.error("CRITICAL: JWT_SECRET environment variable is missing!");
+    }
 
     const adminUser = user as { id: string, email: string, role?: string };
 

@@ -472,4 +472,43 @@ Shark Funded Team
 
         await this.sendEmail(email, subject, html, text);
     }
+
+    /**
+     * Send Financial OTP Notification
+     */
+    static async sendFinancialOTP(email: string, name: string, otp: string, type: 'wallet' | 'bank' | 'payout') {
+        let actionName = '';
+        let verb = 'update your';
+
+        if (type === 'wallet') actionName = 'Wallet Address Update';
+        else if (type === 'bank') actionName = 'Bank Details Update';
+        else if (type === 'payout') {
+            actionName = 'Payout Request Verification';
+            verb = 'authorize your';
+        }
+
+        const subject = `Verification Code for ${actionName} - ${this.FROM_NAME}`;
+
+        const html = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                <h2 style="color: #333;">Action Required: Verify Your Identity</h2>
+                <p>Dear ${name},</p>
+                <p>You have requested to ${verb} <strong>${actionName.toLowerCase()}</strong>. Please use the following verification code to confirm this action:</p>
+                
+                <div style="background-color: #f4f4f4; padding: 20px; border-radius: 8px; margin: 25px 0; text-align: center;">
+                    <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #0d47a1;">${otp}</span>
+                </div>
+
+                <p style="color: #666; font-size: 14px;">This code is valid for 5 minutes. If you did not request this, please ignore this email and secure your account immediately.</p>
+                
+                <p style="margin-top: 30px; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 15px;">
+                    This is an automated security notification. For your protection, never share this code with anyone.
+                </p>
+            </div>
+        `;
+
+        const text = `Dear ${name},\n\nYour verification code for ${actionName} is: ${otp}\n\nThis code is valid for 5 minutes. If you did not request this, please secure your account.`;
+
+        await this.sendEmail(email, subject, html, text);
+    }
 }

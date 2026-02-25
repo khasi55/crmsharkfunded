@@ -1,8 +1,9 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Wallet, AlertTriangle, CheckCircle, Loader2, ChevronDown, MapPin } from "lucide-react";
+import { ArrowRight, Wallet, AlertTriangle, CheckCircle, Loader2, ChevronDown, MapPin, Shield, Lock } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { fetchFromBackend } from "@/lib/backend-api";
 
 export interface AccountOption {
     id: string;
@@ -23,7 +24,7 @@ interface RequestPayoutCardProps {
     availablePayout: number; // Fallback global available
     walletAddress: string | null;
     isLoading: boolean;
-    onRequestPayout: (amount: number, method: string, accountId?: string) => Promise<boolean>;
+    onRequestPayout: (amount: number, method: string, otp: string, accountId?: string) => Promise<boolean>;
     accounts?: AccountOption[];
     isKycVerified: boolean;
     bankDetails?: {
@@ -43,6 +44,11 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
 
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [submittedAmount, setSubmittedAmount] = useState<string | null>(null);
+
+    // OTP States
+    const [showOtpInput, setShowOtpInput] = useState(false);
+    const [otpCode, setOtpCode] = useState("");
+    const [requestingOtp, setRequestingOtp] = useState(false);
 
     // Initialize selected account
     useEffect(() => {
@@ -88,13 +94,36 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
     };
 
     const confirmAndPay = async () => {
+        if (!showOtpInput) {
+            try {
+                setRequestingOtp(true);
+                setError(null);
+                await fetchFromBackend('/api/user/request-financial-otp', {
+                    method: 'POST',
+                    body: JSON.stringify({ type: 'payout' }),
+                });
+                setShowOtpInput(true);
+            } catch (err: any) {
+                setError(err.message || "Failed to send verification code");
+            } finally {
+                setRequestingOtp(false);
+            }
+            return;
+        }
+
+        if (otpCode.length !== 6) {
+            setError("Please enter 6-digit verification code");
+            return;
+        }
+
         const currentAmount = amount;
-        const payoutMethodName = method === 'crypto' ? "USDT (TRC20)" : "Bank Transfer";
-        const isSuccess = await onRequestPayout(parseFloat(currentAmount), method, selectedAccountId);
+        const isSuccess = await onRequestPayout(parseFloat(currentAmount), method, otpCode, selectedAccountId);
 
         if (isSuccess) {
             setSubmittedAmount(currentAmount);
             setShowConfirmation(false);
+            setShowOtpInput(false);
+            setOtpCode("");
             setSuccess(true);
             setAmount("");
             setTimeout(() => {
@@ -199,6 +228,28 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                                     {method === 'crypto' ? walletAddress : `${bankDetails?.bank_name} - ${bankDetails?.account_number}`}
                                 </p>
                             </div>
+
+                            {showOtpInput && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="bg-[#0a0f2d] border border-shark-blue/30 rounded-xl p-4 space-y-3"
+                                >
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <Shield size={14} className="text-shark-blue" />
+                                        <span className="text-[10px] text-shark-blue uppercase font-black tracking-widest">Verification Code</span>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        maxLength={6}
+                                        value={otpCode}
+                                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                                        placeholder="Enter 6-digit OTP"
+                                        className="w-full bg-black/40 border border-white/10 rounded-lg py-3 text-center text-xl font-bold tracking-[0.5em] text-white focus:outline-none focus:border-shark-blue placeholder:text-gray-600 placeholder:tracking-normal placeholder:text-sm"
+                                    />
+                                    <p className="text-[10px] text-gray-400 text-center">Check your email for the code</p>
+                                </motion.div>
+                            )}
                         </div>
 
                         <div className="mt-6 grid grid-cols-2 gap-3">
@@ -210,10 +261,16 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                             </button>
                             <button
                                 onClick={confirmAndPay}
-                                disabled={isLoading}
+                                disabled={isLoading || requestingOtp || (showOtpInput && otpCode.length !== 6)}
                                 className="px-4 py-3 rounded-lg bg-shark-blue hover:bg-blue-600 text-white font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
                             >
-                                {isLoading ? <Loader2 size={18} className="animate-spin" /> : "Confirm"}
+                                {isLoading || requestingOtp ? (
+                                    <Loader2 size={18} className="animate-spin" />
+                                ) : showOtpInput ? (
+                                    <><CheckCircle size={18} /> Verify & Request</>
+                                ) : (
+                                    <><Lock size={18} /> Get Verification Code</>
+                                )}
                             </button>
                         </div>
                     </motion.div>

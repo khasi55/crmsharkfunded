@@ -2,8 +2,11 @@ import { Router, Response } from 'express';
 import { authenticate, AuthRequest, requireKYC } from '../middleware/auth';
 import { supabase, createEphemeralClient } from '../lib/supabase';
 import { validateRequest, profileUpdateSchema, passwordUpdateSchema, emailUpdateSchema, walletUpdateSchema } from '../middleware/validation';
-import { sensitiveLimiter } from '../middleware/rate-limit';
+import { sensitiveLimiter, resourceIntensiveLimiter } from '../middleware/rate-limit';
 import { logSecurityEvent } from '../utils/security-logger';
+import { OTPService } from '../services/otp-service';
+import { EmailService } from '../services/email-service';
+import { requestFinancialOTPSchema } from '../middleware/validation';
 
 const router = Router();
 
@@ -231,6 +234,42 @@ router.put('/update-password', authenticate, sensitiveLimiter, validateRequest(p
     }
 });
 
+// POST /api/user/request-financial-otp - Request OTP for wallet/bank change
+router.post('/request-financial-otp', authenticate, resourceIntensiveLimiter, validateRequest(requestFinancialOTPSchema), async (req: AuthRequest, res: Response) => {
+    try {
+        const user = req.user!;
+        const { type } = req.body;
+
+        // Generate OTP
+        const otp = await OTPService.generateOTP(user.id);
+
+        // Fetch user profile for name
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .single();
+
+        // Send Email
+        await EmailService.sendFinancialOTP(user.email, profile?.full_name || 'Valued Trader', otp, type);
+
+        await logSecurityEvent({
+            userId: user.id,
+            email: user.email,
+            action: 'REQUEST_FINANCIAL_OTP',
+            resource: type,
+            status: 'success',
+            ip: req.ip
+        });
+
+        res.json({ success: true, message: `Verification code sent to ${user.email.replace(/(.{2})(.*)(@.*)/, "$1***$3")}` });
+
+    } catch (error: any) {
+        console.error('Request OTP error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // GET /api/user/wallet - Get user wallet details
 router.get('/wallet', authenticate, async (req: AuthRequest, res: Response) => {
     try {
@@ -274,7 +313,23 @@ router.get('/wallet', authenticate, async (req: AuthRequest, res: Response) => {
 router.post('/wallet', authenticate, requireKYC, sensitiveLimiter, validateRequest(walletUpdateSchema), async (req: AuthRequest, res: Response) => {
     try {
         const user = req.user!;
-        const { walletAddress } = req.body;
+        const { walletAddress, otp } = req.body;
+
+        // 🛡️ SECURITY LAYER: Verify OTP
+        const isOtpValid = await OTPService.verifyOTP(user.id, otp);
+        if (!isOtpValid) {
+            await logSecurityEvent({
+                userId: user.id,
+                email: user.email,
+                action: 'SAVE_WALLET_OTP_FAIL',
+                resource: 'wallet',
+                status: 'failure',
+                errorMessage: 'Invalid or expired verification code',
+                ip: req.ip
+            });
+            res.status(401).json({ error: 'Invalid or expired verification code' });
+            return;
+        }
 
         // Check if already locked
         const { data: existing } = await supabase
@@ -377,7 +432,23 @@ import { bankDetailsUpdateSchema } from '../middleware/validation';
 router.post('/bank-details', authenticate, requireKYC, sensitiveLimiter, validateRequest(bankDetailsUpdateSchema), async (req: AuthRequest, res: Response) => {
     try {
         const user = req.user!;
-        const updates = req.body;
+        const { otp, ...updates } = req.body;
+
+        // 🛡️ SECURITY LAYER: Verify OTP
+        const isOtpValid = await OTPService.verifyOTP(user.id, otp);
+        if (!isOtpValid) {
+            await logSecurityEvent({
+                userId: user.id,
+                email: user.email,
+                action: 'SAVE_BANK_DETAILS_OTP_FAIL',
+                resource: 'bank_details',
+                status: 'failure',
+                errorMessage: 'Invalid or expired verification code',
+                ip: req.ip
+            });
+            res.status(401).json({ error: 'Invalid or expired verification code' });
+            return;
+        }
 
         // Check if already locked
         const { data: existing } = await supabase

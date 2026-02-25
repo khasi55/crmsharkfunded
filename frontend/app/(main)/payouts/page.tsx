@@ -73,7 +73,7 @@ export default function PayoutsPage() {
         }
     };
 
-    const handleRequestPayout = async (amount: number, method: string, accountId?: string): Promise<boolean> => {
+    const handleRequestPayout = async (amount: number, method: string, otp: string, accountId?: string): Promise<boolean> => {
         try {
             setRequesting(true);
 
@@ -87,13 +87,19 @@ export default function PayoutsPage() {
                 return false;
             }
 
+            if (!otp || otp.length !== 6) {
+                alert("Please enter a valid 6-digit verification code.");
+                return false;
+            }
+
             // Call API to request payout
             const data = await fetchFromBackend('/api/payouts/request', {
                 method: 'POST',
                 body: JSON.stringify({
                     amount,
                     method,
-                    challenge_id: accountId
+                    challenge_id: accountId,
+                    otp
                 }),
             });
 

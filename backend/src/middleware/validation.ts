@@ -57,6 +57,7 @@ export const emailUpdateSchema = z.object({
 export const walletUpdateSchema = z.object({
     body: z.object({
         walletAddress: z.string().min(10, 'Wallet address is too short').max(200),
+        otp: z.string().length(6, 'Verification code must be 6 digits'),
     }).strict()
 });
 
@@ -67,6 +68,13 @@ export const bankDetailsUpdateSchema = z.object({
         account_number: z.string().min(5).max(50),
         ifsc_code: z.string().min(4).max(20).optional().nullable().or(z.literal('')),
         swift_code: z.string().min(4).max(20).optional().nullable().or(z.literal('')),
+        otp: z.string().length(6, 'Verification code must be 6 digits'),
+    }).strict()
+});
+
+export const requestFinancialOTPSchema = z.object({
+    body: z.object({
+        type: z.enum(['wallet', 'bank', 'payout']),
     }).strict()
 });
 
@@ -75,7 +83,8 @@ export const payoutRequestSchema = z.object({
         amount: z.number().positive('Amount must be positive'),
         walletAddress: z.string().min(10, 'Invalid wallet address').max(200).optional(),
         method: z.enum(['crypto', 'bank']).optional().default('crypto'),
-        challenge_id: z.string().uuid('Invalid challenge ID')
+        challenge_id: z.string().uuid('Invalid challenge ID'),
+        otp: z.string().length(6, 'Verification code must be 6 digits'),
     }).strict()
 });
 
