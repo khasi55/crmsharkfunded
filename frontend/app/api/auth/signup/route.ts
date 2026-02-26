@@ -71,6 +71,8 @@ export async function POST(request: NextRequest) {
             const klaviyoApiKey = process.env.KLAVIYO_PRIVATE_API_KEY;
             const klaviyoListId = process.env.KLAVIYO_LIST_ID;
 
+            console.log(`[Klaviyo] Attempting sync for ${email}. Key present: ${!!klaviyoApiKey}, List ID: ${klaviyoListId}`);
+
             if (klaviyoApiKey) {
                 const [firstName, ...rest] = fullName.split(' ');
                 const lastName = rest.join(' ');
@@ -97,11 +99,13 @@ export async function POST(request: NextRequest) {
                     })
                 });
 
-                if (profileResponse.ok && klaviyoListId) {
-                    const profileData = await profileResponse.json();
-                    const profileId = profileData.data.id;
+                const profileResult = await profileResponse.json();
+                console.log(`[Klaviyo] Profile response status: ${profileResponse.status}`, profileResult);
 
-                    await fetch(`https://a.klaviyo.com/api/lists/${klaviyoListId}/relationships/profiles`, {
+                if (profileResponse.ok && klaviyoListId) {
+                    const profileId = profileResult.data.id;
+
+                    const listResponse = await fetch(`https://a.klaviyo.com/api/lists/${klaviyoListId}/relationships/profiles`, {
                         method: 'POST',
                         headers: {
                             Authorization: `Klaviyo-API-Key ${klaviyoApiKey}`,
@@ -113,11 +117,21 @@ export async function POST(request: NextRequest) {
                             data: [{ type: 'profile', id: profileId }]
                         })
                     });
-                    console.log(`[Klaviyo] Signup sync successful for ${email}`);
+
+                    if (listResponse.ok) {
+                        console.log(`[Klaviyo] Successfully added ${email} to list ${klaviyoListId}`);
+                    } else {
+                        const listError = await listResponse.json();
+                        console.error(`[Klaviyo] Failed to add to list: ${listResponse.status}`, listError);
+                    }
+                } else if (!profileResponse.ok) {
+                    console.error(`[Klaviyo] Profile creation failed for ${email}`);
                 }
+            } else {
+                console.warn('[Klaviyo] Missing KLAVIYO_PRIVATE_API_KEY in frontend .env');
             }
         } catch (klaviyoError) {
-            console.error('[Klaviyo] Signup sync failed:', klaviyoError);
+            console.error('[Klaviyo] Signup sync error:', klaviyoError);
         }
 
         return NextResponse.json({
