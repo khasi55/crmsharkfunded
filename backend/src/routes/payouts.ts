@@ -256,7 +256,7 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
 
         // 🛡️ SECURITY INVESTIGATION: Log Request Details
         console.warn(`[SECURITY AUDIT] Payout Request Attempt:`, JSON.stringify({
-            ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+            ip: req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress,
             userAgent: req.headers['user-agent'],
             adminKeyHeader: req.headers['x-admin-api-key'] ? 'PRESENT' : 'MISSING',
             adminEmailHeader: req.headers['x-admin-email'],

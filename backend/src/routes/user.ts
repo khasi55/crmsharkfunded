@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { authenticate, AuthRequest, requireKYC } from '../middleware/auth';
 import { supabase, createEphemeralClient } from '../lib/supabase';
+import { getClientIP } from '../utils/ip';
 import { validateRequest, profileUpdateSchema, passwordUpdateSchema, emailUpdateSchema, walletUpdateSchema, requestFinancialOTPSchema } from '../middleware/validation';
 import { sensitiveLimiter, resourceIntensiveLimiter } from '../middleware/rate-limit';
 import { getRedis } from '../lib/redis';
@@ -69,7 +70,7 @@ router.put('/profile', authenticate, validateRequest(profileUpdateSchema), async
                 payload: updates,
                 status: 'failure',
                 errorMessage: error.message,
-                ip: req.ip
+                ip: getClientIP(req)
             });
             res.status(500).json({ error: 'Failed to update profile' });
             return;
@@ -82,7 +83,7 @@ router.put('/profile', authenticate, validateRequest(profileUpdateSchema), async
             resource: 'profile',
             payload: updates,
             status: 'success',
-            ip: req.ip
+            ip: getClientIP(req)
         });
 
         res.json({
@@ -117,7 +118,7 @@ router.put('/update-email', authenticate, sensitiveLimiter, validateRequest(emai
                 resource: 'auth',
                 status: 'failure',
                 errorMessage: 'Invalid current password',
-                ip: req.ip
+                ip: getClientIP(req)
             });
             res.status(401).json({ error: 'Invalid current password' });
             return;
@@ -142,7 +143,7 @@ router.put('/update-email', authenticate, sensitiveLimiter, validateRequest(emai
                 payload: { newEmail },
                 status: 'failure',
                 errorMessage: error.message,
-                ip: req.ip
+                ip: getClientIP(req)
             });
             res.status(500).json({ error: 'Failed to update email' });
             return;
@@ -155,7 +156,7 @@ router.put('/update-email', authenticate, sensitiveLimiter, validateRequest(emai
             resource: 'auth',
             payload: { newEmail },
             status: 'success',
-            ip: req.ip
+            ip: getClientIP(req)
         });
 
         res.json({ success: true, message: 'Email updated successfully. Please verify your new email.' });
@@ -187,7 +188,7 @@ router.put('/update-password', authenticate, sensitiveLimiter, validateRequest(p
                 resource: 'auth',
                 status: 'failure',
                 errorMessage: 'Invalid current password',
-                ip: req.ip
+                ip: getClientIP(req)
             });
             res.status(401).json({ error: 'Invalid current password' });
             return;
@@ -211,7 +212,7 @@ router.put('/update-password', authenticate, sensitiveLimiter, validateRequest(p
                 resource: 'auth',
                 status: 'failure',
                 errorMessage: error.message,
-                ip: req.ip
+                ip: getClientIP(req)
             });
             res.status(500).json({ error: 'Failed to update password' });
             return;
@@ -223,7 +224,7 @@ router.put('/update-password', authenticate, sensitiveLimiter, validateRequest(p
             action: 'UPDATE_PASSWORD',
             resource: 'auth',
             status: 'success',
-            ip: req.ip
+            ip: getClientIP(req)
         });
 
         res.json({ success: true, message: 'Password updated successfully' });
@@ -271,7 +272,7 @@ router.post('/request-financial-otp', authenticate, sensitiveLimiter, validateRe
             action: 'REQUEST_FINANCIAL_OTP',
             resource: type,
             status: 'success',
-            ip: req.ip
+            ip: getClientIP(req)
         });
 
         res.json({ success: true, message: `Verification code sent to ${user.email.replace(/(.{2})(.*)(@.*)/, "$1***$3")}` });
@@ -337,7 +338,7 @@ router.post('/wallet', authenticate, requireKYC, sensitiveLimiter, validateReque
                 resource: 'wallet',
                 status: 'failure',
                 errorMessage: 'Invalid or expired verification code',
-                ip: req.ip
+                ip: getClientIP(req)
             });
             res.status(401).json({ error: 'Invalid or expired verification code' });
             return;
@@ -378,7 +379,7 @@ router.post('/wallet', authenticate, requireKYC, sensitiveLimiter, validateReque
                 payload: { walletAddress },
                 status: 'failure',
                 errorMessage: error.message,
-                ip: req.ip
+                ip: getClientIP(req)
             });
 
             if (error.code === '23503') {
@@ -397,7 +398,7 @@ router.post('/wallet', authenticate, requireKYC, sensitiveLimiter, validateReque
             resource: 'wallet',
             payload: { walletAddress },
             status: 'success',
-            ip: req.ip
+            ip: getClientIP(req)
         });
 
         res.json({ success: true, wallet: data });
@@ -456,7 +457,7 @@ router.post('/bank-details', authenticate, requireKYC, sensitiveLimiter, validat
                 resource: 'bank_details',
                 status: 'failure',
                 errorMessage: 'Invalid or expired verification code',
-                ip: req.ip
+                ip: getClientIP(req)
             });
             res.status(401).json({ error: 'Invalid or expired verification code' });
             return;
@@ -500,7 +501,7 @@ router.post('/bank-details', authenticate, requireKYC, sensitiveLimiter, validat
             resource: 'bank_details',
             payload: updates,
             status: 'success',
-            ip: req.ip
+            ip: getClientIP(req)
         });
 
         res.json({ success: true, bankDetails: data });

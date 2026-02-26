@@ -45,7 +45,7 @@ router.post('/merchant', authenticate, requireRole(['super_admin', 'admin']), as
     try {
         // 🛡️ SECURITY INVESTIGATION: Log Request Details to identify source
         console.warn(`[SECURITY AUDIT] Merchant Config Update Attempt:`, JSON.stringify({
-            ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+            ip: req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress,
             userAgent: req.headers['user-agent'],
             adminKeyHeader: req.headers['x-admin-api-key'] ? 'PRESENT' : 'MISSING',
             adminEmailHeader: req.headers['x-admin-email'],

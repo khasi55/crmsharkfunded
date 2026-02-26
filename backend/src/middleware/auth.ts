@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { supabase } from '../lib/supabase';
+import { getClientIP } from '../utils/ip';
 
 export interface AuthRequest extends Request {
     user?: any;
@@ -111,7 +112,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
         const authHeader = req.headers.authorization;
         const sessionId = req.cookies?.['sf_session'];
-        const ip = (req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress) as string;
+        const ip = getClientIP(req);
         const userAgent = req.headers['user-agent'] || '';
         const isLocalhost = !!(req.headers.host?.includes('localhost') || req.headers.host?.includes('127.0.0.1'));
 

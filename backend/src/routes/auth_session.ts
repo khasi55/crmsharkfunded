@@ -1,4 +1,6 @@
 import { Router, Response } from 'express';
+import { getRedis } from '../lib/redis';
+import { getClientIP } from '../utils/ip';
 import { supabase, supabaseAdmin } from '../lib/supabase';
 import crypto from 'crypto';
 import { authenticate, AuthRequest } from '../middleware/auth';
@@ -28,8 +30,9 @@ router.post('/session', async (req, res) => {
 
         // 2. Optimized Logic: Check if valid session already exists
         const existingSessionId = req.cookies?.['sf_session'];
-        const ip = (req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress) as string;
-        const userAgent = req.headers['user-agent'];
+        const ip = getClientIP(req);
+        const userAgent = req.headers['user-agent'] || 'Unknown';
+        const fingerprint = req.body.fingerprint;
 
         const isLocalhost = req.headers.host?.includes('localhost') || req.headers.host?.includes('127.0.0.1');
 
