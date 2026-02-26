@@ -456,16 +456,6 @@ async function handlePaymentWebhook(req: Request, res: Response) {
                         } else {
                             console.log(`[Payment Webhook] Created/Ensured Profile for ${newUserId}`);
                             finalOrder.user_id = newUserId;
-
-                            // 🛡️ KLAVIYO SYNC
-                            try {
-                                const { KlaviyoService } = await import('../services/klaviyo-service');
-                                const [firstName, ...rest] = fullName.split(' ');
-                                const lastName = rest.join(' ');
-                                await KlaviyoService.syncUser(customerEmail, firstName, lastName, phone);
-                            } catch (kError) {
-                                console.error('[Klaviyo] Sync failed for guest user:', kError);
-                            }
                         }
 
                     } catch (createUserError: any) {
