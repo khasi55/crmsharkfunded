@@ -101,7 +101,7 @@ export const mt5BalanceAdjustSchema = z.object({
         login: z.number(),
         amount: z.number(),
         comment: z.string().max(100).optional()
-    })
+    }).strict()
 });
 
 export const mt5LeverageChangeSchema = z.object({

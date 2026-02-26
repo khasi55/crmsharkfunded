@@ -66,6 +66,60 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        // 🛡️ KLAVIYO SYNC
+        try {
+            const klaviyoApiKey = process.env.KLAVIYO_PRIVATE_API_KEY;
+            const klaviyoListId = process.env.KLAVIYO_LIST_ID;
+
+            if (klaviyoApiKey) {
+                const [firstName, ...rest] = fullName.split(' ');
+                const lastName = rest.join(' ');
+
+                const profileResponse = await fetch('https://a.klaviyo.com/api/profiles', {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Klaviyo-API-Key ${klaviyoApiKey}`,
+                        accept: 'application/json',
+                        'content-type': 'application/json',
+                        revision: '2024-02-15'
+                    },
+                    body: JSON.stringify({
+                        data: {
+                            type: 'profile',
+                            attributes: {
+                                email,
+                                first_name: firstName,
+                                last_name: lastName,
+                                phone_number: phone,
+                                properties: { source: 'Frontend Signup' }
+                            }
+                        }
+                    })
+                });
+
+                if (profileResponse.ok && klaviyoListId) {
+                    const profileData = await profileResponse.json();
+                    const profileId = profileData.data.id;
+
+                    await fetch(`https://a.klaviyo.com/api/lists/${klaviyoListId}/relationships/profiles`, {
+                        method: 'POST',
+                        headers: {
+                            Authorization: `Klaviyo-API-Key ${klaviyoApiKey}`,
+                            accept: 'application/json',
+                            'content-type': 'application/json',
+                            revision: '2024-02-15'
+                        },
+                        body: JSON.stringify({
+                            data: [{ type: 'profile', id: profileId }]
+                        })
+                    });
+                    console.log(`[Klaviyo] Signup sync successful for ${email}`);
+                }
+            }
+        } catch (klaviyoError) {
+            console.error('[Klaviyo] Signup sync failed:', klaviyoError);
+        }
+
         return NextResponse.json({
             success: true,
             user: {
