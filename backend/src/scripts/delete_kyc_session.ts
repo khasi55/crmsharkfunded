@@ -66,4 +66,4 @@ async function deleteKycSession(email: string) {
     console.log(`✨ DONE! The user ${email} can now restart their KYC process.`);
 }
 
-deleteKycSession('siddareddy1947@gmail.com');
+deleteKycSession('chaudharytanishk5927m@gmail.com');

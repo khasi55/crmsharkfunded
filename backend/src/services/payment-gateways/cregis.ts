@@ -125,8 +125,20 @@ export class CregisGateway implements PaymentGateway {
     }
 
     async verifyWebhook(headers: any, body: any): Promise<boolean> {
-        // Implementation check required for signature verification
-        return true;
+        try {
+            const receivedSign = body.sign;
+            if (!receivedSign) return false;
+
+            const config = await this.getConfig();
+            const apiKey = config.apiKey;
+            if (!apiKey) return false;
+
+            const expectedSign = this.generateSignature(body, apiKey);
+            return receivedSign === expectedSign;
+        } catch (error) {
+            console.error('Cregis webhook verification error:', error);
+            return false;
+        }
     }
 
     parseWebhookData(body: any): WebhookData {

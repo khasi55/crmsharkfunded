@@ -11,7 +11,6 @@ import TradeMonthlyCalendar from "@/components/dashboard/TradeMonthlyCalendar";
 import EquityCurveChart from "@/components/dashboard/EquityCurveChart";
 import TradeHistory from "@/components/dashboard/TradeHistory";
 import TradeAnalysis from "@/components/dashboard/TradeAnalysis";
-import ConsistencyScore from "@/components/dashboard/ConsistencyScore";
 import { ChevronRight, Key, RotateCw, Plus, LayoutDashboard, Rocket, LogOut, Share2, Copy } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -446,10 +445,6 @@ function DashboardContent() {
                                         <RiskAnalysis />
                                     </div>
 
-                                    {/* Consistency Score */}
-                                    <div className="shrink-0">
-                                        <ConsistencyScore />
-                                    </div>
 
 
 

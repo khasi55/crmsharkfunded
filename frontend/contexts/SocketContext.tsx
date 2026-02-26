@@ -28,8 +28,14 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     const supabase = createClient();
 
     useEffect(() => {
-        // Get backend URL from environment or default to localhost
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+        // Correct path based on server.ts mounting
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.sharkfunded.co';
+        // The following line `const response = await fetch(...)` is syntactically incorrect
+        // within a `useEffect` callback (cannot use `await` directly) and also references
+        // an undefined variable `token`. It has been commented out to maintain a syntactically
+        // correct file as per instructions. If this fetch is intended, it should be moved
+        // to an `async` function called within `useEffect` or to a different component.
+        // const response = await fetch(`${backendUrl}/api/public-performance/performance/${token}`);
 
 
 

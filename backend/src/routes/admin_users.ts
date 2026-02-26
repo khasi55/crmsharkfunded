@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 const router = Router();
 
 // POST /api/admin/users/update-email
-router.post('/update-email', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
+router.post('/update-email', authenticate, requireRole(['super_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { userId, newEmail } = req.body;
 
@@ -51,7 +51,7 @@ router.post('/update-email', authenticate, requireRole(['super_admin', 'admin', 
 });
 
 // POST /api/admin/users/create - Create a new user manually
-router.post('/create', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/create', authenticate, requireRole(['super_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { email, password, full_name, country, phone } = req.body;
 
@@ -183,7 +183,7 @@ router.post('/update', authenticate, requireRole(['super_admin', 'admin', 'sub_a
 });
 
 // POST /api/admin/users/update-password - Reset user password
-router.post('/update-password', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
+router.post('/update-password', authenticate, requireRole(['super_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { userId, newPassword } = req.body;
 

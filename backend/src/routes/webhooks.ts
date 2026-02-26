@@ -4,6 +4,7 @@ import { createMT5Account } from '../lib/mt5-bridge';
 import { EmailService } from '../services/email-service';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 
 const router = Router();
 
@@ -56,18 +57,39 @@ router.post('/mt5', async (req: Request, res: Response) => {
     }
 });
 
-// Secure verify function
 const verifyPaymentSecret = (req: Request): boolean => {
-    // ⚠️ EMERGENCY BYPASS: Always return true as requested by USER
-    // We still log diagnostics to help fix the secret mismatch later
+    try {
+        const signature = req.headers['x-sharkpay-signature'] as string;
+        const secret = process.env.PAYMENT_WEBHOOK_SECRET || process.env.SHARKPAY_WEBHOOK_SECRET;
 
+        if (!signature || !secret) {
+            console.warn('[Webhook] Missing signature or secret for verification');
+            return false;
+        }
 
-    const secret = process.env.PAYMENT_WEBHOOK_SECRET;
-    const forwarded = req.headers['forwarded'] as string;
-    const sigMatch = forwarded?.match(/sig=([^;]+)/);
+        const payload = JSON.stringify(req.body);
+        const expectedSignature = crypto
+            .createHmac('sha256', secret)
+            .update(payload)
+            .digest('hex');
 
+        const isValid = crypto.timingSafeEqual(
+            Buffer.from(signature),
+            Buffer.from(expectedSignature)
+        );
 
-    return true;
+        if (!isValid) {
+            console.error('[Webhook] Invalid signature detected:', {
+                received: signature.substring(0, 8) + '...',
+                expected: expectedSignature.substring(0, 8) + '...'
+            });
+        }
+
+        return isValid;
+    } catch (error) {
+        console.error('[Webhook] Verification error:', error);
+        return false;
+    }
 };
 
 /**
@@ -182,11 +204,24 @@ router.post('/cregis', async (req: Request, res: Response) => {
 
     console.log('[Webhook] Cregis Event (Parsed):', JSON.stringify(req.body));
 
+    // Verify Cregis Signature
+    try {
+        const { paymentGatewayRegistry } = await import('../services/payment-gateways');
+        const cregis = paymentGatewayRegistry.getGateway('cregis');
+        if (cregis) {
+            const isValid = await cregis.verifyWebhook(req.headers, req.body);
+            if (!isValid) {
+                console.warn(`🛑 Blocked unauthorized Cregis Webhook POST from ${req.ip}: Invalid signature.`);
+                return res.status(403).json({ error: 'Unauthorized: Invalid Cregis Signature' });
+            }
+            console.log('[Webhook] Cregis signature verified successfully.');
+        }
+    } catch (verError) {
+        console.error('[Webhook] Cregis verification error:', verError);
+    }
+
     // Adapt Cregis payload to internal structure expected by handlePaymentWebhook
     // Cregis sends: third_party_id (OrderId), status (1=success), amount
-
-    // We could verify signature here, but for now we prioritize handling the success.
-    // TODO: Add signature verification in future
 
     // Mutate req.body to match what handlePaymentWebhook looks for
     if (req.body) {
@@ -464,7 +499,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
 
         if (finalOrder.is_account_created && finalOrder.login) {
 
-            // Try to resolve challengeType from existing challenge if possible, 
+            // Try to resolve challengeType from existing challenge if possible,
             // but for BOGO it's usually the same as main.
         } else {
             const accountTypeName = (order.account_type_name || '').toLowerCase();

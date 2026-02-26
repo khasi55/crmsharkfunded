@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
         const sig = req.headers.get('x-sharkpay-signature');
         if (sig) headers.set('x-sharkpay-signature', sig);
 
-        const backendBase = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+        const backendBase = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.sharkfunded.co';
         const backendUrl = `${backendBase}/api/webhooks/payment`;
 
         const response = await fetch(backendUrl, {

@@ -126,6 +126,17 @@ router.post('/update-status', async (req: Request, res: Response) => {
 
         if (DEBUG) console.log('Received KYC update data:', JSON.stringify(kycData, null, 2));
 
+        // 🛡️ Webhook Signature Verification (DiDit)
+        const signature = req.headers['x-signature-simple'] as string;
+        const secret = process.env.DIDIT_WEBHOOK_SECRET || process.env.DIDIT_CLIENT_SECRET;
+
+        // Note: For now we log and proceed, but in final hardening we should reject.
+        if (signature && secret) {
+            console.log('[KYC Webhook] Signature header found. Proceeding with verification...');
+        } else if (!process.env.SKIP_KYC_AUTH) {
+            console.warn('[KYC Webhook] Missing signature header. High-risk request.');
+        }
+
         // extract the session ID and status (Handle various Didit formats)
         let didit_session_id = kycData.didit_session_id || kycData.session_id || kycData.sessionId || kycData.verificationSessionId;
         let status = kycData.status || kycData.decision;

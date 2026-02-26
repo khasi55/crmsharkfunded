@@ -105,10 +105,31 @@ router.get('/stats', authenticate, async (req: AuthRequest, res: Response) => {
 router.post('/withdraw', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const user = req.user;
-        const { amount, payout_method, payout_details } = req.body;
+        const { amount, payout_method, payout_details, otp } = req.body;
 
         if (!user) {
             res.status(401).json({ error: 'Not authenticated' });
+            return;
+        }
+
+        // 🛡️ SECURITY LAYER: Verify OTP
+        if (!otp) {
+            res.status(400).json({ error: 'Verification code is required' });
+            return;
+        }
+
+        const isOtpValid = await OTPService.verifyOTP(user.id, otp);
+        if (!isOtpValid) {
+            await logSecurityEvent({
+                userId: user.id,
+                email: user.email,
+                action: 'AFFILIATE_WITHDRAW_OTP_FAIL',
+                resource: 'affiliate_withdrawal',
+                status: 'failure',
+                errorMessage: 'Invalid or expired verification code',
+                ip: getClientIP(req)
+            });
+            res.status(401).json({ error: 'Invalid or expired verification code' });
             return;
         }
 

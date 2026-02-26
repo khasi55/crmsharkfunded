@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getForwardableCookies } from '@/lib/cookie-utils';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.sharkfunded.co';
 
 export async function GET(req: NextRequest) {
     try {

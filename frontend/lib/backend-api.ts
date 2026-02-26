@@ -1,6 +1,6 @@
 import { createClient } from '@/utils/supabase/client';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'https://api.sharkfunded.co';
 
 /**
  * Fetch wrapper for Backend APIs (authenticated)

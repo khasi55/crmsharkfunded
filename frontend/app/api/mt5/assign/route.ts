@@ -5,7 +5,8 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
 
         // Forward request to backend
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/mt5/assign`, {
+        const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+        const response = await fetch(`${backendUrl}/api/mt5/assign`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

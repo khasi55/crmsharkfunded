@@ -66,8 +66,8 @@ const nextConfig: NextConfig = {
   },
 
   async rewrites() {
-    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
-    const ADMIN_URL = (process.env.ADMIN_URL || 'http://localhost:3002').replace(/\/$/, '');
+    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.sharkfunded.co';
+    const ADMIN_URL = (process.env.ADMIN_URL || 'https://admin.sharkfunded.com').replace(/\/$/, '');
     return [
       {
         source: '/api/dashboard/:path*',

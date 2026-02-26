@@ -48,7 +48,8 @@ export default function LoginPage() {
 
             if (data.session) {
                 // Initialize backend session via httpOnly cookie
-                await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/auth/session`, {
+                const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+                await fetch(`${backendUrl}/api/auth/session`, {
                     method: 'POST',
                     credentials: 'include', // ESSENTIAL for cross-site cookies
                     headers: {

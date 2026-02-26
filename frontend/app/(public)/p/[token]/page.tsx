@@ -26,7 +26,8 @@ export default function PublicDashboardPage({ params }: { params: Promise<{ toke
             try {
                 setLoading(true);
                 // Correct path based on server.ts mounting
-                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'}/api/public-performance/performance/${token}`);
+                const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.sharkfunded.co';
+                const response = await fetch(`${backendUrl}/api/public-performance/performance/${token}`);
                 if (!response.ok) throw new Error('Shared dashboard not found');
                 const result = await response.json();
                 console.log("✅ Public data fetched:", result);
