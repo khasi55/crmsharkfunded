@@ -68,10 +68,6 @@ export default function AdminPayoutsClient() {
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
 
-    // Edit Wallet State
-    const [editingWallet, setEditingWallet] = useState<WalletAddress | null>(null);
-    const [newAddress, setNewAddress] = useState("");
-    const [isUpdating, setIsUpdating] = useState(false);
 
     useEffect(() => {
         // Reset page on tab change
@@ -149,34 +145,6 @@ export default function AdminPayoutsClient() {
         }
     }
 
-    const handleUpdateWallet = async () => {
-        if (!editingWallet || !newAddress) return;
-
-        setIsUpdating(true);
-        try {
-            const response = await fetch(`/api/payouts/admin/wallets/${editingWallet.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    wallet_address: newAddress,
-                    is_locked: editingWallet.is_locked // Keep current lock status or we could force true
-                }),
-            });
-
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || 'Failed to update wallet');
-            }
-
-            toast.success('Wallet updated successfully');
-            setEditingWallet(null);
-            fetchWallets(); // Refresh list
-        } catch (err: any) {
-            toast.error(err.message);
-        } finally {
-            setIsUpdating(false);
-        }
-    };
 
     const copyToClipboard = (text: string, label: string) => {
         navigator.clipboard.writeText(text);
@@ -498,7 +466,6 @@ export default function AdminPayoutsClient() {
                                     <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Type</th>
                                     <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Status</th>
                                     <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Created</th>
-                                    <th className="px-6 py-3.5 font-semibold text-gray-500 text-[11px] uppercase tracking-wider whitespace-nowrap text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 bg-white">
@@ -547,17 +514,6 @@ export default function AdminPayoutsClient() {
                                                 month: 'short',
                                                 day: 'numeric'
                                             })}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                                            <button
-                                                onClick={() => {
-                                                    setEditingWallet(wallet);
-                                                    setNewAddress(wallet.wallet_address);
-                                                }}
-                                                className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-[13px] font-semibold text-gray-700 shadow-sm hover:bg-gray-50 hover:text-blue-600 hover:border-blue-200 transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/10"
-                                            >
-                                                Edit
-                                            </button>
                                         </td>
                                     </tr>
                                 ))}
@@ -669,70 +625,6 @@ export default function AdminPayoutsClient() {
                 </div>
             )}
 
-            {/* Edit Modal */}
-            {editingWallet && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-4">
-                    <div className="w-full max-w-md bg-white rounded-[24px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 border border-gray-100">
-                        <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                            <h3 className="font-bold text-gray-900">Edit Wallet Address</h3>
-                            <button
-                                onClick={() => setEditingWallet(null)}
-                                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
-                            >
-                                <EyeOff size={18} />
-                            </button>
-                        </div>
-                        <div className="p-6 space-y-5">
-                            <div>
-                                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                                    User
-                                </label>
-                                <div className="text-[14px] font-semibold text-gray-900">
-                                    {editingWallet.profiles.full_name} <span className="text-gray-500 font-normal">({editingWallet.profiles.email})</span>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                                    Wallet Type
-                                </label>
-                                <div className="inline-flex items-center rounded-md bg-blue-50 px-2.5 py-1 text-[12px] font-bold text-blue-700 uppercase tracking-wide">
-                                    {editingWallet.wallet_type}
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">
-                                    New Wallet Address
-                                </label>
-                                <textarea
-                                    className="w-full min-h-[100px] rounded-xl border border-gray-200 p-3 text-[14px] font-mono focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all resize-none shadow-sm"
-                                    value={newAddress}
-                                    onChange={(e) => setNewAddress(e.target.value)}
-                                    placeholder="Enter new wallet address..."
-                                />
-                            </div>
-
-                            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-[13px] text-amber-800 shadow-sm">
-                                <strong>Warning:</strong> Changing a user's wallet address is a sensitive operation. Ensure you have verified the new address.
-                            </div>
-                        </div>
-                        <div className="px-6 py-4 bg-gray-50/80 border-t border-gray-100 flex justify-end gap-3">
-                            <button
-                                onClick={() => setEditingWallet(null)}
-                                className="px-5 py-2.5 text-[14px] font-semibold text-gray-600 hover:text-gray-900 hover:bg-white border border-transparent hover:border-gray-200 rounded-xl transition-all"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleUpdateWallet}
-                                disabled={isUpdating || !newAddress || newAddress === editingWallet.wallet_address}
-                                className="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-[14px] font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-all focus:ring-4 focus:ring-blue-500/20 outline-none"
-                            >
-                                {isUpdating ? "Updating..." : "Save Changes"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

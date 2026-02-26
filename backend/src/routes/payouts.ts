@@ -722,37 +722,12 @@ router.get('/admin/wallets', authenticate, requireRole(['super_admin', 'payouts_
 });
 
 // PUT /api/payouts/admin/wallets/:id - Update user wallet (admin only)
+/* 
 router.put('/admin/wallets/:id', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
-    try {
-        if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-        const { id } = req.params;
-        const { wallet_address, wallet_type, is_locked } = req.body;
-
-        if (!wallet_address) {
-            return res.status(400).json({ error: 'Wallet address is required' });
-        }
-
-        const { error } = await supabase
-            .from('wallet_addresses')
-            .update({
-                wallet_address,
-                wallet_type: wallet_type || 'USDT_TRC20',
-                is_locked: is_locked !== undefined ? is_locked : true,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', id);
-
-        if (error) {
-            console.error('Error updating wallet:', error);
-            throw error;
-        }
-
-        res.json({ success: true, message: 'Wallet updated successfully' });
-    } catch (error: any) {
-        console.error('Update wallet error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+    // ... endpoint disabled for security ...
+    return res.status(403).json({ error: 'Direct wallet updates are disabled. Users must set wallets via OTP verification.' });
 });
+*/
 
 // GET /api/payouts/admin/bank-details - Get all user bank details (admin only)
 router.get('/admin/bank-details', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {

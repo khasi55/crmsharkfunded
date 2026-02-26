@@ -33,7 +33,7 @@ const securityHeaders = [
       style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.tradingview.com;
       img-src 'self' blob: data: https://*.supabase.co https://*.google-analytics.com https://*.googletagmanager.com https://*.tradingview.com;
       font-src 'self' https://fonts.gstatic.com data:;
-      connect-src 'self' https://*.supabase.co https://*.ngrok-free.app https://api.sharkfunded.co https://api.sharkfunded.com wss://api.sharkfunded.co wss://*.supabase.co ws://localhost:3001 http://localhost:3001 ws://127.0.0.1:3001 http://127.0.0.1:3001 https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com;
+      connect-src 'self' https://*.supabase.co https://api.sharkfunded.co https://api.sharkfunded.com wss://api.sharkfunded.co wss://api.sharkfunded.com wss://*.supabase.co https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com;
       frame-src 'self' https://*.supabase.co https://sharkpay-o9zz.vercel.app https://sharkfundedpayment.vercel.app https://payments.sharkfunded.com https://*.paymentservice.me https://*.cregis.io https://*.tradingview.com;
       frame-ancestors 'self';
       base-uri 'self';
