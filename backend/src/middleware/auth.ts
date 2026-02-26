@@ -56,19 +56,9 @@ async function validateSession(sessionId: string, ip: string, userAgent: string,
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     // console.log(`🔒 [Auth] Checking ${req.method} ${req.path}`);
     try {
-        // 1. Check for Admin API Key (Backend-to-Backend/Admin Panel)
-        const adminKey = req.headers['x-admin-api-key'];
-        const envAdminKey = process.env.ADMIN_API_KEY;
-
-        if (adminKey && envAdminKey && adminKey === envAdminKey) {
-            const adminEmail = req.headers['x-admin-email'] as string;
-            // console.log(`   🔑 [Auth] API Key valid for ${adminEmail}`);
-            req.user = { id: 'admin-system', email: adminEmail || 'admin@sharkfunded.com', role: 'super_admin' };
-            next();
-            return;
-        }
-
-        // 2. Check for Admin JWT Cookie (from Admin Portal)
+        // 1. Check for Admin JWT Cookie (from Admin Portal)
+        // We check this FIRST to ensure that secret rotation (JWT_SECRET change) 
+        // effectively logs out users even if they have an API Key.
         const adminSessionToken = req.cookies?.['admin_session'];
         if (adminSessionToken) {
             try {
@@ -89,8 +79,6 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
                         if (adminUser?.email) {
                             email = adminUser.email;
-                        } else {
-                            console.error(`[Auth] Failed to find admin user for ID: ${decoded.id}. Defaulting to fallback.`);
                         }
                     }
 
@@ -105,7 +93,23 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
                 }
             } catch (jwtError) {
                 console.warn(`[Auth] Admin JWT invalid: ${(jwtError as Error).message}`);
+                // 🛡️ SECURITY: If a token is provided but fails verification, we REJECT the request.
+                // This prevents the API Key from acting as a "silent fallback" for expired secrets.
+                res.status(401).json({ error: 'Session expired or invalid. Please log in again.' });
+                return;
             }
+        }
+
+        // 2. Fallback to Admin API Key (Backend-to-Backend / Scripts)
+        const adminKey = req.headers['x-admin-api-key'];
+        const envAdminKey = process.env.ADMIN_API_KEY;
+
+        if (adminKey && envAdminKey && adminKey === envAdminKey) {
+            const adminEmail = req.headers['x-admin-email'] as string;
+            // console.log(`   🔑 [Auth] API Key valid for ${adminEmail}`);
+            req.user = { id: 'admin-system', email: adminEmail || 'admin@sharkfunded.com', role: 'super_admin' };
+            next();
+            return;
         }
 
         // ... rest of the logic
