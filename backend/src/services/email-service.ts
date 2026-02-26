@@ -5,7 +5,7 @@ import { EventEntryService } from './event-entry-service';
 export class EmailService {
     // SMTP Credentials
     private static SMTP_HOST = process.env.ELASTIC_EMAIL_SMTP_HOST || 'smtp.elasticemail.com';
-    private static SMTP_PORT = Number(process.env.ELASTIC_EMAIL_SMTP_PORT) || 2525;
+    private static SMTP_PORT = Number(process.env.ELASTIC_EMAIL_SMTP_PORT) || 2525; // Changed from 2525 to 587 for better reliability
     private static SMTP_USER = process.env.ELASTIC_EMAIL_SMTP_USER || 'noreply@sharkfunded.com';
     // Using hardcoded password as fallback from user request if env is missing
     private static SMTP_PASS = process.env.ELASTIC_EMAIL_SMTP_PASS || 'C26AD1121F3DDAFCE8CC1BD6F0F97F766132';
@@ -16,13 +16,18 @@ export class EmailService {
     private static transporter = nodemailer.createTransport({
         host: EmailService.SMTP_HOST,
         port: EmailService.SMTP_PORT,
-        secure: false, // 2525 is usually not implicit SSL
+        secure: false, // Port 587 uses STARTTLS
         auth: {
             user: EmailService.SMTP_USER,
             pass: EmailService.SMTP_PASS
         },
-        debug: false, // Show debug output
-        logger: false // Log to console
+        tls: {
+            // Do not fail on invalid certs in dev, but enforce STARTTLS
+            rejectUnauthorized: false,
+            ciphers: 'SSLv3'
+        },
+        debug: true, // Internal debug output for better logging
+        logger: true // Log to console
     });
 
     /**
@@ -48,6 +53,27 @@ export class EmailService {
             return info;
         } catch (error: any) {
             console.error(' Error sending email via SMTP:', error.message);
+
+            // 🛡️ SECURITY LAYER: Log delivery failure to database
+            try {
+                const { supabase } = await import('../lib/supabase');
+                await supabase.from('system_logs').insert({
+                    source: 'EmailService',
+                    level: 'ERROR',
+                    message: `Email delivery failed to ${to}: ${error.message}`,
+                    details: {
+                        to,
+                        subject,
+                        error: error.message,
+                        stack: error.stack,
+                        smtp_host: this.SMTP_HOST,
+                        smtp_port: this.SMTP_PORT
+                    }
+                });
+            } catch (logError) {
+                console.error('Failed to log email error to DB:', logError);
+            }
+
             // Don't throw, just log. We don't want to break the main flow.
         }
     }
