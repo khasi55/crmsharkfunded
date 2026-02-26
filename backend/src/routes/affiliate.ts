@@ -1,6 +1,9 @@
 import { Router, Response } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
+import { OTPService } from '../services/otp-service';
+import { logSecurityEvent } from '../utils/security-logger';
+import { getClientIP } from '../utils/ip';
 
 const router = Router();
 
