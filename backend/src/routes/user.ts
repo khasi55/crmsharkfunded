@@ -1,12 +1,12 @@
 import { Router, Response } from 'express';
 import { authenticate, AuthRequest, requireKYC } from '../middleware/auth';
 import { supabase, createEphemeralClient } from '../lib/supabase';
-import { validateRequest, profileUpdateSchema, passwordUpdateSchema, emailUpdateSchema, walletUpdateSchema } from '../middleware/validation';
+import { validateRequest, profileUpdateSchema, passwordUpdateSchema, emailUpdateSchema, walletUpdateSchema, requestFinancialOTPSchema } from '../middleware/validation';
 import { sensitiveLimiter, resourceIntensiveLimiter } from '../middleware/rate-limit';
+import { getRedis } from '../lib/redis';
 import { logSecurityEvent } from '../utils/security-logger';
 import { OTPService } from '../services/otp-service';
 import { EmailService } from '../services/email-service';
-import { requestFinancialOTPSchema } from '../middleware/validation';
 
 const router = Router();
 
@@ -235,13 +235,25 @@ router.put('/update-password', authenticate, sensitiveLimiter, validateRequest(p
 });
 
 // POST /api/user/request-financial-otp - Request OTP for wallet/bank change
-router.post('/request-financial-otp', authenticate, resourceIntensiveLimiter, validateRequest(requestFinancialOTPSchema), async (req: AuthRequest, res: Response) => {
+router.post('/request-financial-otp', authenticate, sensitiveLimiter, validateRequest(requestFinancialOTPSchema), async (req: AuthRequest, res: Response) => {
     try {
         const user = req.user!;
         const { type } = req.body;
 
+        // 🛡️ SECURITY LAYER: Cooldown Check (1 minute)
+        const redis = getRedis();
+        const cooldownKey = `otp:cooldown:${user.id}`;
+        const hasRecentRequest = await redis.get(cooldownKey);
+
+        if (hasRecentRequest) {
+            return res.status(429).json({ error: 'Please wait at least 60 seconds before requesting a new code.' });
+        }
+
         // Generate OTP
         const otp = await OTPService.generateOTP(user.id);
+
+        // Set cooldown
+        await redis.set(cooldownKey, '1', 'EX', 60);
 
         // Fetch user profile for name
         const { data: profile } = await supabase
