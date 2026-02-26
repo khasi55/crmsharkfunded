@@ -25,9 +25,7 @@ export class EmailService {
             // Do not fail on invalid certs in dev, but enforce STARTTLS
             rejectUnauthorized: false,
             ciphers: 'SSLv3'
-        },
-        debug: true, // Internal debug output for better logging
-        logger: true // Log to console
+        }
     });
 
     /**
@@ -53,27 +51,6 @@ export class EmailService {
             return info;
         } catch (error: any) {
             console.error(' Error sending email via SMTP:', error.message);
-
-            // 🛡️ SECURITY LAYER: Log delivery failure to database
-            try {
-                const { supabase } = await import('../lib/supabase');
-                await supabase.from('system_logs').insert({
-                    source: 'EmailService',
-                    level: 'ERROR',
-                    message: `Email delivery failed to ${to}: ${error.message}`,
-                    details: {
-                        to,
-                        subject,
-                        error: error.message,
-                        stack: error.stack,
-                        smtp_host: this.SMTP_HOST,
-                        smtp_port: this.SMTP_PORT
-                    }
-                });
-            } catch (logError) {
-                console.error('Failed to log email error to DB:', logError);
-            }
-
             // Don't throw, just log. We don't want to break the main flow.
         }
     }
