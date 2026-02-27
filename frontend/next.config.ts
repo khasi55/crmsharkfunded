@@ -29,12 +29,12 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: `
       default-src 'self';
-      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://*.google-analytics.com https://*.googletagmanager.com https://*.tradingview.com https://s3.tradingview.com;
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://main.sharkfunded.co https://*.google-analytics.com https://*.googletagmanager.com https://*.tradingview.com https://s3.tradingview.com;
       style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.tradingview.com;
-      img-src 'self' blob: data: https://*.supabase.co https://*.google-analytics.com https://*.googletagmanager.com https://*.tradingview.com;
+      img-src 'self' blob: data: https://*.supabase.co https://main.sharkfunded.co https://*.google-analytics.com https://*.googletagmanager.com https://*.tradingview.com;
       font-src 'self' https://fonts.gstatic.com data:;
-      connect-src 'self' https://*.supabase.co https://api.sharkfunded.co https://api.sharkfunded.com wss://api.sharkfunded.co wss://api.sharkfunded.com wss://*.supabase.co https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com;
-      frame-src 'self' https://*.supabase.co https://sharkpay-o9zz.vercel.app https://sharkfundedpayment.vercel.app https://payments.sharkfunded.com https://*.paymentservice.me https://*.cregis.io https://*.tradingview.com;
+      connect-src 'self' https://*.supabase.co https://main.sharkfunded.co https://api.sharkfunded.co https://api.sharkfunded.com wss://api.sharkfunded.co wss://api.sharkfunded.com wss://*.supabase.co wss://main.sharkfunded.co https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com;
+      frame-src 'self' https://*.supabase.co https://main.sharkfunded.co https://sharkpay-o9zz.vercel.app https://sharkfundedpayment.vercel.app https://payments.sharkfunded.com https://*.paymentservice.me https://*.cregis.io https://*.tradingview.com;
       frame-ancestors 'self';
       base-uri 'self';
       form-action 'self';

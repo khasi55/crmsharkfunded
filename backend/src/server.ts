@@ -54,12 +54,12 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://*.supabase.co", "https://*.tradingview.com", "https://s3.tradingview.com"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://*.supabase.co", "https://main.sharkfunded.co", "https://*.tradingview.com", "https://s3.tradingview.com"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://*.tradingview.com"],
-            imgSrc: ["'self'", "blob:", "data:", "https://*.supabase.co", "https://*.tradingview.com"],
+            imgSrc: ["'self'", "blob:", "data:", "https://*.supabase.co", "https://main.sharkfunded.co", "https://*.tradingview.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
-            connectSrc: ["'self'", "https://*.supabase.co", "https://api.sharkfunded.co", "https://api.sharkfunded.com", "wss://*.supabase.co", "wss://api.sharkfunded.co", "wss://api.sharkfunded.com", "ws://localhost:3001", "http://localhost:3001", "ws://127.0.0.1:3001", "http://127.0.0.1:3001"],
-            frameSrc: ["'self'", "https://*.supabase.co", "https://sharkpay-o9zz.vercel.app", "https://sharkfundedpayment.vercel.app", "https://payments.sharkfunded.com", "https://*.cregis.io", "https://*.tradingview.com"],
+            connectSrc: ["'self'", "https://*.supabase.co", "https://main.sharkfunded.co", "https://api.sharkfunded.co", "https://api.sharkfunded.com", "wss://*.supabase.co", "wss://main.sharkfunded.co", "wss://api.sharkfunded.co", "wss://api.sharkfunded.com", "ws://localhost:3001", "http://localhost:3001", "ws://127.0.0.1:3001", "http://127.0.0.1:3001"],
+            frameSrc: ["'self'", "https://*.supabase.co", "https://main.sharkfunded.co", "https://sharkpay-o9zz.vercel.app", "https://sharkfundedpayment.vercel.app", "https://payments.sharkfunded.com", "https://*.cregis.io", "https://*.tradingview.com"],
             objectSrc: ["'none'"],
             upgradeInsecureRequests: [],
         },
@@ -96,6 +96,7 @@ app.use(cors({
             'https://www.sharkfunded.co',
             'https://app.sharkfunded.co',
             'https://admin.sharkfunded.co',
+            'https://main.sharkfunded.co',
             process.env.FRONTEND_URL?.replace(/\/$/, ''),
             process.env.ADMIN_URL?.replace(/\/$/, '')
         ].filter(Boolean) as string[];
