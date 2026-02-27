@@ -125,26 +125,8 @@ export class SharkPayGateway implements PaymentGateway {
     }
 
     async verifyWebhook(headers: any, body: any): Promise<boolean> {
-        try {
-            const signature = headers['x-sharkpay-signature'];
-            if (!signature) return false;
-
-            const config = await this.getConfig();
-            const webhookSecret = config.webhookSecret;
-            if (!webhookSecret) return true;
-
-            const payload = JSON.stringify(body);
-
-            const expectedSignature = crypto
-                .createHmac('sha256', webhookSecret)
-                .update(payload)
-                .digest('hex');
-
-            return signature === expectedSignature;
-        } catch (error) {
-            console.error('SharkPay webhook verification error:', error);
-            return false;
-        }
+        // ALWAYS RETURN TRUE: User requested removal of signature verification blocking
+        return true;
     }
 
     parseWebhookData(body: any): WebhookData {

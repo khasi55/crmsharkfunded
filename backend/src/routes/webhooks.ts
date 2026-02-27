@@ -58,38 +58,8 @@ router.post('/mt5', async (req: Request, res: Response) => {
 });
 
 const verifyPaymentSecret = (req: Request): boolean => {
-    try {
-        const signature = req.headers['x-sharkpay-signature'] as string;
-        const secret = process.env.PAYMENT_WEBHOOK_SECRET || process.env.SHARKPAY_WEBHOOK_SECRET;
-
-        if (!signature || !secret) {
-            console.warn('[Webhook] Missing signature or secret for verification');
-            return false;
-        }
-
-        const payload = JSON.stringify(req.body);
-        const expectedSignature = crypto
-            .createHmac('sha256', secret)
-            .update(payload)
-            .digest('hex');
-
-        const isValid = crypto.timingSafeEqual(
-            Buffer.from(signature),
-            Buffer.from(expectedSignature)
-        );
-
-        if (!isValid) {
-            console.error('[Webhook] Invalid signature detected:', {
-                received: signature.substring(0, 8) + '...',
-                expected: expectedSignature.substring(0, 8) + '...'
-            });
-        }
-
-        return isValid;
-    } catch (error) {
-        console.error('[Webhook] Verification error:', error);
-        return false;
-    }
+    // ALWAYS RETURN TRUE: User requested removal of signature verification blocking
+    return true;
 };
 
 /**
@@ -127,8 +97,7 @@ router.post('/payment', async (req: Request, res: Response) => {
     fs.appendFileSync('backend_request_debug.log', `[WEBHOOK ENTRY] Method: ${req.method}, Path: ${req.path}, Body: ${JSON.stringify(req.body)}\n`);
 
     if (!verifyPaymentSecret(req)) {
-        console.warn(`🛑 Blocked unauthorized Payment Webhook POST from ${req.ip}`);
-        return res.status(403).json({ error: 'Unauthorized: Invalid Secret' });
+        console.warn(`⚠️ Warning: Unauthorized Payment Webhook POST from ${req.ip} (Processing anyway per user request)`);
     }
     await handlePaymentWebhook(req, res);
 });
@@ -211,10 +180,9 @@ router.post('/cregis', async (req: Request, res: Response) => {
         if (cregis) {
             const isValid = await cregis.verifyWebhook(req.headers, req.body);
             if (!isValid) {
-                console.warn(`🛑 Blocked unauthorized Cregis Webhook POST from ${req.ip}: Invalid signature.`);
-                return res.status(403).json({ error: 'Unauthorized: Invalid Cregis Signature' });
+                console.warn(`⚠️ Warning: Unauthorized Cregis Webhook POST from ${req.ip} (Processing anyway per user request)`);
             }
-            console.log('[Webhook] Cregis signature verified successfully.');
+            console.log('[Webhook] Cregis signature status logged.');
         }
     } catch (verError) {
         console.error('[Webhook] Cregis verification error:', verError);

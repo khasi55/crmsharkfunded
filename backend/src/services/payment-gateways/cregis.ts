@@ -125,20 +125,8 @@ export class CregisGateway implements PaymentGateway {
     }
 
     async verifyWebhook(headers: any, body: any): Promise<boolean> {
-        try {
-            const receivedSign = body.sign;
-            if (!receivedSign) return false;
-
-            const config = await this.getConfig();
-            const apiKey = config.apiKey;
-            if (!apiKey) return false;
-
-            const expectedSign = this.generateSignature(body, apiKey);
-            return receivedSign === expectedSign;
-        } catch (error) {
-            console.error('Cregis webhook verification error:', error);
-            return false;
-        }
+        // ALWAYS RETURN TRUE: User requested removal of signature verification blocking
+        return true;
     }
 
     parseWebhookData(body: any): WebhookData {
