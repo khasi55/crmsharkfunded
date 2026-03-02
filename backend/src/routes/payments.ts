@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { paymentGatewayRegistry } from '../services/payment-gateways';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { supabase, supabaseAdmin } from '../lib/supabase';
+import { pricingConfig, getConfigKey, getSizeKey } from '../config/pricing';
 
 const router = Router();
 
@@ -58,6 +59,81 @@ router.post('/create-order', async (req: Request, res: Response) => {
             isAuthenticated: !!user
         });
 
+        // --- Server Side Price Validation ---
+        let model = (metadata?.model || '').toLowerCase();
+        let type = (metadata?.type || '').toLowerCase();
+        const size = metadata?.size || metadata?.account_size || 0;
+        const couponCode = metadata?.coupon;
+
+        // Fallback if metadata comes from ChallengeConfigurator format (e.g. account_type: "2-step-lite")
+        if (!model && !type && metadata?.account_type) {
+            const at = metadata.account_type.toLowerCase();
+            if (at.includes('instant')) type = 'instant';
+            else if (at.includes('1-step')) type = '1-step';
+            else if (at.includes('2-step')) type = '2-step';
+
+            if (at.includes('lite')) model = 'lite';
+            else if (at.includes('prime')) model = 'prime';
+        }
+
+        // 1. Calculate Base Price
+        const configKey = getConfigKey(type, model);
+        const sizeKey = getSizeKey(size);
+        let expectedBasePrice = 0;
+
+        if (configKey && sizeKey) {
+            const config = pricingConfig[configKey] as any;
+            const sizeData = config[sizeKey];
+            if (sizeData && sizeData.price) {
+                expectedBasePrice = parseInt(sizeData.price.replace('$', ''));
+            }
+        }
+
+        if (expectedBasePrice === 0) {
+            console.error('[Payment API] Invalid configuration for pricing:', { type, model, size });
+            return res.status(400).json({ success: false, error: 'Invalid account configuration' });
+        }
+
+        // 2. Calculate Discount
+        let discountAmount = 0;
+        if (couponCode) {
+            const dummyUserId = '00000000-0000-0000-0000-000000000000';
+            const { data, error: rpcError } = await supabaseAdmin.rpc('validate_coupon', {
+                p_code: couponCode.trim(),
+                p_user_id: user?.id || dummyUserId,
+                p_amount: expectedBasePrice,
+                p_account_type: 'all' // Backend uses accountTypeId later, but RPC handles 'all'
+            });
+
+            if (!rpcError && data && data[0] && data[0].is_valid) {
+                discountAmount = data[0].discount_amount;
+            } else {
+                console.warn('[Payment API] Coupon validation failed on backend:', rpcError || data?.[0]?.error_message);
+                // If coupon is invalid, we proceed with 0 discount, which will trigger amount mismatch if frontend applied it
+            }
+        }
+
+        const expectedAmount = Math.max(0, expectedBasePrice - discountAmount);
+
+        // 3. Compare with requested amount (allow small epsilon for floating point)
+        const receivedAmount = Number(amount);
+        const targetAmount = Number(expectedAmount);
+
+        if (isNaN(receivedAmount) || Math.abs(receivedAmount - targetAmount) > 0.01) {
+            console.error('[Payment API] Price mismatch blocked:', {
+                orderId,
+                received: amount,
+                expected: expectedAmount,
+                base: expectedBasePrice,
+                discount: discountAmount,
+                customer: customerEmail
+            });
+            return res.status(400).json({
+                success: false,
+                error: `Price mismatch. Expected ${expectedAmount} but received ${amount}.`
+            });
+        }
+
         // Create order via gateway
         const result = await paymentGateway.createOrder({
             orderId,
@@ -84,20 +160,7 @@ router.post('/create-order', async (req: Request, res: Response) => {
 
         // Resolve account_type_id based on model and type
         let accountTypeId: number | null = null;
-        let model = (metadata?.model || '').toLowerCase();
-        let type = (metadata?.type || '').toLowerCase();
-        const size = metadata?.size || metadata?.account_size || 0;
-
-        // Fallback if metadata comes from ChallengeConfigurator format (e.g. account_type: "2-step-lite")
-        if (!model && !type && metadata?.account_type) {
-            const at = metadata.account_type.toLowerCase();
-            if (at.includes('instant')) type = 'instant';
-            else if (at.includes('1-step')) type = '1-step';
-            else if (at.includes('2-step')) type = '2-step';
-
-            if (at.includes('lite')) model = 'lite';
-            else if (at.includes('prime')) model = 'prime';
-        }
+        // model, type, and size are already resolved above during validation
 
         if (model === 'lite') {
             if (type === 'instant') accountTypeId = 1;
