@@ -18,6 +18,15 @@ export interface AccountOption {
         maxAllowed: number;
         details: string;
     };
+    payout_eligibility?: {
+        min_profit_amount: number;
+        current_profit: number;
+        profit_met: boolean;
+        last_payout_date: string;
+        profitable_days: number;
+        days_required: number;
+        time_met: boolean;
+    };
 }
 
 interface RequestPayoutCardProps {
@@ -90,6 +99,21 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
             setError("Please select an account");
             return;
         }
+
+        const selectedAcc = getSelectedAccount();
+        if (selectedAcc && selectedAcc.payout_eligibility) {
+            const el = selectedAcc.payout_eligibility;
+            if (!el.profit_met) {
+                setError(`Profit requirement not met ($${el.current_profit.toLocaleString()} / $${el.min_profit_amount.toLocaleString()})`);
+                return;
+            }
+            if (!el.time_met) {
+                const daysLeft = el.days_required - (el.profitable_days || 0);
+                setError(`Profitable days requirement not met. You have ${el.profitable_days || 0} / ${el.days_required} days (each day must have >= 0.25% profit).`);
+                return;
+            }
+        }
+
         setShowConfirmation(true);
     };
 
@@ -353,7 +377,7 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                                             setAmount(e.target.value);
                                             setError(null);
                                         }}
-                                        disabled={currentAvailable <= 0 || !walletAddress || isLoading}
+                                        disabled={currentAvailable <= 0 || (method === 'crypto' ? !walletAddress : (!bankDetails || !bankDetails.is_locked)) || isLoading}
                                         className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-shark-blue text-white font-medium placeholder:text-gray-500 transition-colors disabled:opacity-50"
                                         placeholder="0.00"
                                     />
@@ -369,7 +393,7 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                                     <span className="text-gray-400 font-medium">Available to withdraw: <span className="text-white font-bold ml-1">${currentAvailable.toFixed(2)}</span></span>
                                     <button
                                         onClick={() => setAmount(currentAvailable.toFixed(2))}
-                                        disabled={currentAvailable <= 0 || !walletAddress}
+                                        disabled={currentAvailable <= 0 || (method === 'crypto' ? !walletAddress : (!bankDetails || !bankDetails.is_locked))}
                                         className="text-shark-blue font-bold uppercase tracking-tight hover:text-blue-400 transition-colors disabled:text-gray-600 px-2 py-1 bg-shark-blue/10 rounded-md"
                                     >
                                         Max Amount
@@ -436,7 +460,7 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                             {/* Submit Button */}
                             <button
                                 onClick={handleInitialSubmit}
-                                disabled={currentAvailable <= 0 || !walletAddress || isLoading || !amount || !isKycVerified}
+                                disabled={currentAvailable <= 0 || (method === 'crypto' ? !walletAddress : (!bankDetails || !bankDetails.is_locked)) || isLoading || !amount || !isKycVerified}
                                 className="relative w-full py-4 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all group disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden shadow-[0_0_20px_rgba(34,197,94,0.0)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] active:scale-[0.98]"
                                 style={{
                                     background: isKycVerified
