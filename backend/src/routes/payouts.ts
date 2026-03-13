@@ -69,20 +69,7 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
 
         const eligibleAccountsDetail = fundedAccounts.map((acc: any) => {
             const profit = Number(acc.current_balance) - Number(acc.initial_balance);
-            let available = Math.max(0, profit); // Allow 100% of profit
-
-            // Deduct payouts associated with this account
-            const accountPayouts = (allPayouts || []).filter((p: any) =>
-                p.metadata?.challenge_id === acc.id
-            );
-
-            const paidOrPending = accountPayouts.reduce((sum: number, p: any) => {
-                const reqVal = p.metadata?.requested_amount ? Number(p.metadata.requested_amount) : Number(p.amount);
-                return sum + reqVal;
-            }, 0);
-
-            // Subtract paid amount from profit share
-            available = Math.max(0, available - paidOrPending);
+            let available = Math.max(0, profit); // Available profit is simply current growth
 
             if (profit > 0) {
                 totalProfit += profit;
@@ -97,16 +84,47 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
             };
         });
 
-        // Add Consistency Check for each account in accountList
-        const accountsWithConsistency = await Promise.all(eligibleAccountsDetail.map(async (acc: any) => {
+        // Add Consistency & Payout Eligibility Check for each account in accountList
+        const accountsWithEligibility = await Promise.all(eligibleAccountsDetail.map(async (acc: any) => {
             const consistency = await RulesService.checkConsistency(acc.id);
+
+            // Fetch processed payouts for this challenge
+            const { data: latestPayout } = await supabase
+                .from('payout_requests')
+                .select('created_at')
+                .filter('metadata->>challenge_id', 'eq', acc.id)
+                .eq('status', 'processed')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            const challengeData = accountsRaw?.find(a => a.id === acc.id);
+            const refDate = latestPayout ? new Date(latestPayout.created_at) : new Date(challengeData?.created_at || Date.now());
+            const payoutEligData = await RulesService.calculateProfitableDays(acc.id, Number(challengeData?.initial_balance || 0), refDate);
+            const minProfitReq = Number(challengeData?.initial_balance || 0) * 0.0025;
+            const curProfit = Number(challengeData?.current_balance || 0) - Number(challengeData?.initial_balance || 0);
+
+            const payoutEligibility = {
+                min_profit_amount: minProfitReq,
+                current_profit: curProfit,
+                profit_met: curProfit >= minProfitReq,
+                last_payout_date: refDate.toISOString(),
+                profitable_days: payoutEligData.profitable_days,
+                days_required: 7,
+                time_met: payoutEligData.profitable_days >= 7,
+                today_profit: payoutEligData.today_profit,
+                today_goal_met: payoutEligData.today_goal_met,
+                daily_goal: payoutEligData.threshold
+            };
+
             return {
                 ...acc,
-                consistency
+                consistency,
+                payout_eligibility: payoutEligibility
             };
         }));
 
-        const availablePayout = accountsWithConsistency.reduce((sum: number, acc: any) => sum + acc.available, 0);
+        const availablePayout = accountsWithEligibility.reduce((sum: number, acc: any) => sum + acc.available, 0);
         const profitTargetMet = availablePayout > 0;
 
         // Fetch payout history
@@ -118,14 +136,20 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
 
         const payoutList = payouts || [];
 
-        // Calculate stats
+        // Calculate stats (Gross for consistency with Available card)
         const totalPaid = payoutList
             .filter((p: any) => p.status === 'processed')
-            .reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+            .reduce((sum: number, p: any) => {
+                const val = p.metadata?.requested_amount ? Number(p.metadata.requested_amount) : (Number(p.amount) / 0.8);
+                return sum + val;
+            }, 0);
 
         const pending = payoutList
-            .filter((p: any) => p.status === 'pending')
-            .reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+            .filter((p: any) => p.status === 'pending' || p.status === 'approved')
+            .reduce((sum: number, p: any) => {
+                const val = p.metadata?.requested_amount ? Number(p.metadata.requested_amount) : (Number(p.amount) / 0.8);
+                return sum + val;
+            }, 0);
 
         const responsePayload = {
             balance: {
@@ -133,7 +157,7 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
                 totalPaid,
                 pending,
             },
-            accountList: accountsWithConsistency,
+            accountList: accountsWithEligibility,
             walletAddress: wallet?.wallet_address || null,
             hasWallet: !!wallet,
             eligibility: {
@@ -347,7 +371,7 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
                     totalProfit += profit;
                 }
             });
-            maxPayout = totalProfit; // Allow 100%
+            maxPayout = totalProfit; // Allow 100% Gross
         }
 
         // if (DEBUG) console.log(`[Payout Request] Max Payout: ${maxPayout}`);
@@ -367,17 +391,18 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
         // If scoping to account, we must filter previous payouts for that account too
         let alreadyRequested = 0;
         if (targetAccount) {
-            // Filter by metadata.challenge_id matching target
-            alreadyRequested = previousPayouts?.filter((p: any) => p.metadata?.challenge_id === targetAccount.id)
+            alreadyRequested = (previousPayouts || [])
+                .filter((p: any) => p.metadata?.challenge_id === targetAccount.id)
                 .reduce((sum, p) => {
                     const reqVal = p.metadata?.requested_amount ? Number(p.metadata.requested_amount) : Number(p.amount);
                     return sum + reqVal;
-                }, 0) || 0;
+                }, 0);
         } else {
-            alreadyRequested = previousPayouts?.reduce((sum, p) => {
-                const reqVal = p.metadata?.requested_amount ? Number(p.metadata.requested_amount) : Number(p.amount);
-                return sum + reqVal;
-            }, 0) || 0;
+            alreadyRequested = (previousPayouts || [])
+                .reduce((sum, p) => {
+                    const reqVal = p.metadata?.requested_amount ? Number(p.metadata.requested_amount) : Number(p.amount);
+                    return sum + reqVal;
+                }, 0);
         }
 
         // if (DEBUG) console.log(`[Payout Request] Already Requested: ${alreadyRequested}`);
@@ -394,11 +419,35 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
         // If no challenge_id provided, default to first funded account found
         const account = targetAccount || fundedAccounts[0];
 
-        if (!account) {
-            res.status(400).json({ error: 'No eligible funded account found.' });
+        // if (DEBUG) console.log(`[Payout Request] Proceeding with account: ${account.id}, Account Type: ${account.account_type_id}`);
+
+        // 2.2 New Payout Rules Enforcement (0.25% Profit & 7 Profitable Days)
+        const { data: lastProcessedPayout } = await supabase
+            .from('payout_requests')
+            .select('created_at')
+            .filter('metadata->>challenge_id', 'eq', account.id)
+            .eq('status', 'processed')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        const lastRefDate = lastProcessedPayout ? new Date(lastProcessedPayout.created_at) : new Date(account.created_at);
+        const payoutEligData = await RulesService.calculateProfitableDays(account.id, Number(account.initial_balance), lastRefDate);
+        const minProfitRequired = Number(account.initial_balance) * 0.0025;
+        const currentProf = Number(account.current_balance) - Number(account.initial_balance);
+
+        if (currentProf < minProfitRequired) {
+            return res.status(400).json({
+                error: `Minimum profit requirement not met. You need at least $${minProfitRequired.toFixed(2)} total profit (Current: $${currentProf.toFixed(2)}).`
+            });
         }
 
-        // if (DEBUG) console.log(`[Payout Request] Proceeding with account: ${account.id}, Account Type: ${account.account_type_id}`);
+        if (payoutEligData.profitable_days < 7) {
+            const daysLeft = 7 - payoutEligData.profitable_days;
+            return res.status(400).json({
+                error: `Minimum profitable days requirement not met. You have ${payoutEligData.profitable_days} / 7 profitable days (each day must have >= 0.25% profit).`
+            });
+        }
 
         // 2. Validate Consistency (INSTANT ACCOUNTS ONLY)
         let mt5Group = '';
@@ -490,19 +539,19 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
             }
         }
 
-        // 3. Perform MT5 Balance Deduction (IMMEDIATE & PERMANENT)
+        // 3. Perform MT5 Balance Deduction (Full Gross Amount)
         const { adjustMT5Balance } = await import('../lib/mt5-bridge');
+        const grossDeduction = amount;
 
         let mt5Ticket = null;
         if (account.login) {
             try {
                 const bridgeResponse = await adjustMT5Balance(
                     account.login,
-                    -amount,
+                    -grossDeduction,
                     `Payout Request: $${amount}`
                 ) as any;
                 mt5Ticket = bridgeResponse?.ticket || 'processed';
-                // if (DEBUG) console.log(`✅ MT5 Balance Adjusted. Ticket: ${mt5Ticket}`);
             } catch (bridgeErr: any) {
                 console.error(`❌ MT5 Deduction Failed for login ${account.login}:`, bridgeErr.message);
                 return res.status(500).json({
@@ -516,20 +565,19 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
         }
 
         // 4. Create Payout Request
-        // if (DEBUG) console.log(`[Payout Request] Creating payout request record...`);
-        const actualPayoutAmount = amount * 0.8; // 80% profit share
+        const actualPayoutAmount = amount * 0.8; // User receives 80% Net
 
         const { error: insertError } = await supabase
             .from('payout_requests')
             .insert({
                 user_id: user.id,
-                amount: actualPayoutAmount, // User gets 80%
+                amount: actualPayoutAmount,
                 status: 'pending',
                 payout_method: method || 'crypto',
                 wallet_address: (req as any).payoutDestination,
                 metadata: {
-                    requested_amount: amount, // Full amount deducted from MT5
-                    profit_split_deduction: amount * 0.2, // The 20% cut
+                    requested_amount: grossDeduction, // Full Gross amount
+                    profit_split_deduction: grossDeduction * 0.2, // The 20% cut
                     challenge_id: account.id,
                     mt5_login: account.login,
                     mt5_ticket: mt5Ticket,
@@ -978,12 +1026,10 @@ router.put('/admin/:id/reject', authenticate, requireRole(['super_admin', 'payou
             return res.status(400).json({ error: 'Only pending payouts can be rejected' });
         }
 
-        // 2. Perform MT5 Refund (80% of requested amount, 20% penalty)
-        const requestedAmount = Number(payout.amount) || 0;
-        const refundAmount = requestedAmount * 0.8; // Refund 80%
-
+        // 2. Perform MT5 Refund (Full Gross amount from metadata)
         let challengeId = payout.metadata?.challenge_id;
         let mt5Login = payout.metadata?.mt5_login;
+        let refundAmount = Number(payout.metadata?.requested_amount) || (Number(payout.amount) / 0.8);
 
         if (typeof payout.metadata === 'string') {
             try {
@@ -1005,9 +1051,8 @@ router.put('/admin/:id/reject', authenticate, requireRole(['super_admin', 'payou
                 await adjustMT5Balance(
                     mt5Login,
                     refundAmount, // Positive amount for refund
-                    `Payout Rejected Refund 80% (Penalty 20%)`
+                    `Payout Rejected: Refund Gross $${refundAmount.toFixed(2)}`
                 );
-                console.log(`[Payout Rejected] Refunded $${refundAmount} (80%) back to MT5 account ${mt5Login}`);
             } catch (bridgeErr: any) {
                 console.error(`[Payout Rejected] Failed to refund MT5 account ${mt5Login}:`, bridgeErr.message);
                 return res.status(500).json({ error: 'Failed to refund MT5 balance. Rejection aborted.', details: bridgeErr.message });
@@ -1025,21 +1070,20 @@ router.put('/admin/:id/reject', authenticate, requireRole(['super_admin', 'payou
             .eq('id', id);
 
         if (error) {
-            // console.error('Error rejecting payout:', error);
             throw error;
         }
 
         // Log Admin Action
         const { AuditLogger } = await import('../lib/audit-logger');
-        AuditLogger.info(req.user.email, `Rejected Payout Request: ${id}. Penalized 20%, Refunded $${refundAmount}`, { payout_id: id, reason, penalty: requestedAmount * 0.2, refunded: refundAmount });
+        AuditLogger.info(req.user.email, `Rejected Payout Request: ${id}. Refunded Gross $${refundAmount.toFixed(2)} to MT5`, { payout_id: id, reason, refunded: refundAmount });
 
-        res.json({ success: true, message: `Payout rejected. 20% penalty applied. $${refundAmount} refunded to MT5 account.` });
+        res.json({ success: true, message: `Payout rejected. $${refundAmount.toFixed(2)} (Gross) refunded to MT5 account.` });
 
         // Notify User via Email
         try {
             const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', payout.user_id).single();
             if (profile && profile.email) {
-                const detailedReason = `${reason}. Note: A 20% penalty has been applied. The remaining $${refundAmount.toFixed(2)} has been credited back to your trading account.`;
+                const detailedReason = `${reason}. The gross amount of $${refundAmount.toFixed(2)} has been credited back to your trading account.`;
                 await EmailService.sendPayoutRejectedNotice(profile.email, profile.full_name || 'User', payout.amount, detailedReason);
             }
         } catch (emailErr) {

@@ -183,7 +183,8 @@ export default function PayoutsPage() {
                                 { label: "Funded Account Active", status: eligibility.fundedAccountActive },
                                 { label: "Wallet Connected", status: eligibility.walletConnected },
                                 { label: "Bank Details Connected", status: eligibility.bankDetailsConnected },
-                                { label: "Profit Target Met", status: eligibility.profitTargetMet },
+                                { label: "Min. Profit Met (0.25%)", status: eligibleAccounts.some(acc => acc.payout_eligibility?.profit_met) },
+                                { label: "7 Profitable Days", status: eligibleAccounts.some(acc => acc.payout_eligibility?.time_met) },
                                 { label: "KYC Verified", status: eligibility.kycVerified },
                             ].map((item, i) => (
                                 <li key={i} className="flex items-center justify-between text-sm">

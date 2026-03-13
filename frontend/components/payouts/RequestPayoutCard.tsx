@@ -230,16 +230,16 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                                     </div>
                                 )}
                                 <div className="flex justify-between items-center">
-                                    <span className="text-gray-400 text-sm font-medium">Amount</span>
+                                    <span className="text-gray-400 text-sm font-medium">Amount to Deduct (Gross)</span>
                                     <span className="text-white text-xl font-bold tracking-tight">${parseFloat(amount).toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-gray-400 text-sm font-medium">Fee (20% Profit Split)</span>
+                                    <span className="text-gray-400 text-sm font-medium">Profit Split (20% Fee)</span>
                                     <span className="text-red-400 text-xl font-bold tracking-tight">-${(parseFloat(amount) * 0.20).toFixed(2)}</span>
                                 </div>
                                 <div className="h-px bg-white/10 my-2" />
                                 <div className="flex justify-between items-center pt-1">
-                                    <span className="text-gray-300 text-sm font-medium uppercase tracking-wider">Total Receive (80%)</span>
+                                    <span className="text-gray-300 text-sm font-medium uppercase tracking-wider">Total You Receive (80%)</span>
                                     <span className="text-blue-400 text-2xl font-bold tracking-tight">${(parseFloat(amount) * 0.80).toFixed(2)}</span>
                                 </div>
                             </div>
