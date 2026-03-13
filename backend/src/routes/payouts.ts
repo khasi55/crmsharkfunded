@@ -100,7 +100,6 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
 
             const challengeData = accountsRaw?.find(a => a.id === acc.id);
             const refDate = latestPayout ? new Date(latestPayout.created_at) : new Date(challengeData?.created_at || Date.now());
-            const payoutEligData = await RulesService.calculateProfitableDays(acc.id, Number(challengeData?.initial_balance || 0), refDate);
             const minProfitReq = Number(challengeData?.initial_balance || 0) * 0.0025;
             const curProfit = Number(challengeData?.current_balance || 0) - Number(challengeData?.initial_balance || 0);
 
@@ -108,13 +107,7 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
                 min_profit_amount: minProfitReq,
                 current_profit: curProfit,
                 profit_met: curProfit >= minProfitReq,
-                last_payout_date: refDate.toISOString(),
-                profitable_days: payoutEligData.profitable_days,
-                days_required: 7,
-                time_met: payoutEligData.profitable_days >= 7,
-                today_profit: payoutEligData.today_profit,
-                today_goal_met: payoutEligData.today_goal_met,
-                daily_goal: payoutEligData.threshold
+                last_payout_date: refDate.toISOString()
             };
 
             return {
@@ -431,21 +424,12 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
             .limit(1)
             .maybeSingle();
 
-        const lastRefDate = lastProcessedPayout ? new Date(lastProcessedPayout.created_at) : new Date(account.created_at);
-        const payoutEligData = await RulesService.calculateProfitableDays(account.id, Number(account.initial_balance), lastRefDate);
         const minProfitRequired = Number(account.initial_balance) * 0.0025;
         const currentProf = Number(account.current_balance) - Number(account.initial_balance);
 
         if (currentProf < minProfitRequired) {
             return res.status(400).json({
                 error: `Minimum profit requirement not met. You need at least $${minProfitRequired.toFixed(2)} total profit (Current: $${currentProf.toFixed(2)}).`
-            });
-        }
-
-        if (payoutEligData.profitable_days < 7) {
-            const daysLeft = 7 - payoutEligData.profitable_days;
-            return res.status(400).json({
-                error: `Minimum profitable days requirement not met. You have ${payoutEligData.profitable_days} / 7 profitable days (each day must have >= 0.25% profit).`
             });
         }
 
