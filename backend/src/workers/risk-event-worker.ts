@@ -12,7 +12,7 @@ const DEBUG = process.env.DEBUG === 'true'; // STRICT: Silence risk worker logs 
 
 // Main Worker Function
 export async function startRiskEventWorker() {
-    if (DEBUG) console.log('⚡ Risk Event Worker Started (Queue: risk-queue)...');
+    // if (DEBUG) console.log('⚡ Risk Event Worker Started (Queue: risk-queue)...');
 
     const worker = new Worker('risk-queue', async (job: Job) => {
         // Parallel Processing (Concurrency: 50)!!
@@ -388,8 +388,8 @@ async function processTradeEvent(data: { login: number, trades: any[], event?: s
     }
 
     // 7. Commit Updates
-    // DISABLED: Let bridge handle equity/balance updates and use webhooks for breaches (2026-02-20)
-    // await supabase.from('challenges').update(updateData).eq('id', challenge.id);
+    // re-enabled: Ensure dashboard updates with every trade event
+    await supabaseAdmin.from('challenges').update(updateData).eq('id', challenge.id);
 
     // console.log(`✅ Processed event for ${login} in ${Date.now() - startTime}ms`);
 }
