@@ -68,8 +68,11 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
         let totalProfit = 0;
 
         const eligibleAccountsDetail = fundedAccounts.map((acc: any) => {
-            const profit = Number(acc.current_balance) - Number(acc.initial_balance);
-            let available = Math.max(0, profit); // Available profit is simply current growth
+            // SYNC FIX: Use Equity - Initial as the base growth.
+            // Since risk-event-worker now includes withdrawals in current_equity/balance,
+            // this value is already "Net" of all synchronized payouts.
+            const profit = Number(acc.current_equity || acc.current_balance) - Number(acc.initial_balance);
+            let available = Math.max(0, profit);
 
             if (profit > 0) {
                 totalProfit += profit;
@@ -138,15 +141,18 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
             }, 0);
 
         const pending = payoutList
-            .filter((p: any) => p.status === 'pending' || p.status === 'approved')
+            .filter((p: any) => p.status === 'pending') // ONLY subtract pending payouts. Approved/Processed are already in balance.
             .reduce((sum: number, p: any) => {
                 const val = p.metadata?.requested_amount ? Number(p.metadata.requested_amount) : (Number(p.amount) / 0.8);
                 return sum + val;
             }, 0);
 
+        // Final Available Payout adjustment: Gross Growth - Pending Debt
+        const adjustedAvailable = Math.max(0, availablePayout - pending);
+
         const responsePayload = {
             balance: {
-                available: Math.max(0, availablePayout),
+                available: adjustedAvailable,
                 totalPaid,
                 pending,
             },
@@ -382,16 +388,18 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
         }
 
         // If scoping to account, we must filter previous payouts for that account too
+        // SYNC FIX: Only subtract PENDING payouts. Approved/Processed are reflected in the MT5-synced current_balance.
         let alreadyRequested = 0;
         if (targetAccount) {
             alreadyRequested = (previousPayouts || [])
-                .filter((p: any) => p.metadata?.challenge_id === targetAccount.id)
+                .filter((p: any) => p.status === 'pending' && p.metadata?.challenge_id === targetAccount.id)
                 .reduce((sum, p) => {
                     const reqVal = p.metadata?.requested_amount ? Number(p.metadata.requested_amount) : Number(p.amount);
                     return sum + reqVal;
                 }, 0);
         } else {
             alreadyRequested = (previousPayouts || [])
+                .filter((p: any) => p.status === 'pending')
                 .reduce((sum, p) => {
                     const reqVal = p.metadata?.requested_amount ? Number(p.metadata.requested_amount) : Number(p.amount);
                     return sum + reqVal;
@@ -1030,13 +1038,18 @@ router.put('/admin/:id/reject', authenticate, requireRole(['super_admin', 'payou
         }
 
         if (mt5Login && refundAmount > 0) {
+            // Logic Change: Refund 80% of Gross, Deduct 20%
+            const actualRefund = refundAmount * 0.8;
+            const deduction = refundAmount * 0.2;
+
             try {
                 const { adjustMT5Balance } = await import('../lib/mt5-bridge');
                 await adjustMT5Balance(
                     mt5Login,
-                    refundAmount, // Positive amount for refund
-                    `Payout Rejected: Refund Gross $${refundAmount.toFixed(2)}`
+                    actualRefund, // Positive amount for refund
+                    `Payout Rejected (80% Refund): $${actualRefund.toFixed(2)} (20% share retained)`
                 );
+                refundAmount = actualRefund; // Update for logging/success msg
             } catch (bridgeErr: any) {
                 console.error(`[Payout Rejected] Failed to refund MT5 account ${mt5Login}:`, bridgeErr.message);
                 return res.status(500).json({ error: 'Failed to refund MT5 balance. Rejection aborted.', details: bridgeErr.message });
@@ -1059,15 +1072,15 @@ router.put('/admin/:id/reject', authenticate, requireRole(['super_admin', 'payou
 
         // Log Admin Action
         const { AuditLogger } = await import('../lib/audit-logger');
-        AuditLogger.info(req.user.email, `Rejected Payout Request: ${id}. Refunded Gross $${refundAmount.toFixed(2)} to MT5`, { payout_id: id, reason, refunded: refundAmount });
+        AuditLogger.info(req.user.email, `Rejected Payout Request: ${id}. Refunded 80% Gross ($${refundAmount.toFixed(2)}) to MT5`, { payout_id: id, reason, refunded: refundAmount });
 
-        res.json({ success: true, message: `Payout rejected. $${refundAmount.toFixed(2)} (Gross) refunded to MT5 account.` });
+        res.json({ success: true, message: `Payout rejected. 80% ($${refundAmount.toFixed(2)}) refunded to MT5 account. 20% share retained.` });
 
         // Notify User via Email
         try {
             const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', payout.user_id).single();
             if (profile && profile.email) {
-                const detailedReason = `${reason}. The gross amount of $${refundAmount.toFixed(2)} has been credited back to your trading account.`;
+                const detailedReason = `${reason}. 80% of the gross amount ($${refundAmount.toFixed(2)}) has been credited back to your trading account, with 20% retained as per payout policy.`;
                 await EmailService.sendPayoutRejectedNotice(profile.email, profile.full_name || 'User', payout.amount, detailedReason);
             }
         } catch (emailErr) {
