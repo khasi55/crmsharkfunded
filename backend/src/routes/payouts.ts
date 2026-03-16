@@ -140,8 +140,23 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
                 return sum + val;
             }, 0);
 
+        // Fetch synced balance trades for these challenges to prevent double-deduction
+        const challengeIds = fundedAccounts.map(a => a.id);
+        const { data: syncedTrades } = await supabase
+            .from('trades')
+            .select('ticket, challenge_id')
+            .in('challenge_id', challengeIds);
+
+        const syncedTickets = new Set(syncedTrades?.map(t => String(t.ticket)) || []);
+
         const pending = payoutList
-            .filter((p: any) => p.status === 'pending') // ONLY subtract pending payouts. Approved/Processed are already in balance.
+            .filter((p: any) => {
+                if (p.status !== 'pending') return false;
+                const ticket = p.metadata?.mt5_ticket;
+                // SYNC FIX: If the ticket is already in our trades table, MT5 has already deducted it from balance.
+                // Subtracting it AGAIN here would be a double-deduction.
+                return !ticket || !syncedTickets.has(String(ticket));
+            })
             .reduce((sum: number, p: any) => {
                 const val = p.metadata?.requested_amount ? Number(p.metadata.requested_amount) : (Number(p.amount) / 0.8);
                 return sum + val;
@@ -388,18 +403,34 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
         }
 
         // If scoping to account, we must filter previous payouts for that account too
-        // SYNC FIX: Only subtract PENDING payouts. Approved/Processed are reflected in the MT5-synced current_balance.
+        // SYNC FIX: Only subtract PENDING payouts that HAVEN'T been synced to the database yet.
+        // Once synced, they are already reflected in the current_balance.
         let alreadyRequested = 0;
+
+        // Fetch synced trades for this user's accounts to check for ticket overlap
+        const { data: userSyncedTrades } = await supabase
+            .from('trades')
+            .select('ticket')
+            .eq('user_id', user.id);
+        const userSyncedTickets = new Set(userSyncedTrades?.map(t => String(t.ticket)) || []);
+
+        const pendingPayouts = (previousPayouts || [])
+            .filter((p: any) => {
+                if (p.status !== 'pending') return false;
+                const ticket = p.metadata?.mt5_ticket;
+                // If the ticket is already in trades, it's already subtracted from Balance/Equity
+                return !ticket || !userSyncedTickets.has(String(ticket));
+            });
+
         if (targetAccount) {
-            alreadyRequested = (previousPayouts || [])
-                .filter((p: any) => p.status === 'pending' && p.metadata?.challenge_id === targetAccount.id)
+            alreadyRequested = pendingPayouts
+                .filter((p: any) => p.metadata?.challenge_id === targetAccount.id)
                 .reduce((sum, p) => {
                     const reqVal = p.metadata?.requested_amount ? Number(p.metadata.requested_amount) : Number(p.amount);
                     return sum + reqVal;
                 }, 0);
         } else {
-            alreadyRequested = (previousPayouts || [])
-                .filter((p: any) => p.status === 'pending')
+            alreadyRequested = pendingPayouts
                 .reduce((sum, p) => {
                     const reqVal = p.metadata?.requested_amount ? Number(p.metadata.requested_amount) : Number(p.amount);
                     return sum + reqVal;
