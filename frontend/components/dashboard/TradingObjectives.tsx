@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Clock, AlertCircle, Loader2 } from "lucide-react";
+import { Clock, AlertCircle, Loader2, Target, Calendar, CheckCircle2, Zap, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAccount } from "@/contexts/AccountContext";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
@@ -33,6 +33,18 @@ interface ChallengeRules {
     start_of_day_equity?: number;
     daily_remaining?: number;
     total_remaining?: number;
+    payout_eligibility?: {
+        min_profit_amount: number;
+        current_profit: number;
+        profit_met: boolean;
+        last_payout_date: string;
+        profitable_days: number;
+        days_required: number;
+        time_met: boolean;
+        today_profit: number;
+        today_goal_met: boolean;
+        daily_goal: number;
+    };
 }
 
 function ObjectiveRow({ title, timer, max, current, threshold, status, isLossLimit, remainingOverride }: ObjectiveRowProps & { remainingOverride?: number }) {
@@ -102,6 +114,157 @@ function ObjectiveRow({ title, timer, max, current, threshold, status, isLossLim
     );
 }
 
+const RequirementItem = ({
+    icon: Icon,
+    title,
+    current,
+    target,
+    isMet,
+    isCurrency = true,
+    suffix = ""
+}: {
+    icon: any;
+    title: string;
+    current: number;
+    target: number;
+    isMet: boolean;
+    isCurrency?: boolean;
+    suffix?: string;
+}) => {
+    const percentage = Math.min(100, (Math.max(0, current) / (target || 1)) * 100);
+    const colorClass = isMet ? "bg-green-500" : "bg-shark-blue";
+    const shadowClass = isMet ? "shadow-[0_0_12px_rgba(34,197,94,0.4)]" : "shadow-[0_0_12px_rgba(59,130,246,0.4)]";
+
+    return (
+        <div className="group/item relative p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-300">
+            <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-3">
+                    <div className={cn(
+                        "p-2 rounded-lg transition-colors",
+                        isMet ? "bg-green-500/10 text-green-400" : "bg-shark-blue/10 text-shark-blue"
+                    )}>
+                        <Icon size={16} />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{title}</p>
+                        <p className="text-sm font-bold text-white mt-0.5 flex items-center gap-2">
+                            {isCurrency ? `$${current.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : current}
+                            <span className="text-gray-500 font-normal">/</span>
+                            <span className="text-gray-400 group-hover/item:text-white transition-colors">
+                                {isCurrency ? `$${target.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `${target}${suffix}`}
+                            </span>
+                            {isMet && (
+                                <span className="flex items-center gap-1 text-[10px] text-green-400 font-black uppercase tracking-tighter bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20 ml-auto">
+                                    <CheckCircle2 size={10} /> Met
+                                </span>
+                            )}
+                        </p>
+                    </div>
+                </div>
+                {!isMet && target > 0 && (
+                    <div className="text-[10px] font-bold text-shark-blue bg-shark-blue/10 px-2 py-0.5 rounded-full border border-shark-blue/20">
+                        {Math.round(percentage)}%
+                    </div>
+                )}
+            </div>
+
+            <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden relative">
+                <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${percentage}%` }}
+                    layout
+                    transition={{ duration: 0.5 }}
+                    className={cn("h-full rounded-full transition-shadow duration-500", colorClass, shadowClass)}
+                />
+            </div>
+        </div>
+    );
+};
+
+const PayoutEligibilityMeter = ({ eligibility }: { eligibility: any }) => {
+    if (!eligibility) return null;
+
+    const isFullyEligible = eligibility.profit_met && eligibility.time_met;
+
+    return (
+        <div className="relative p-6 rounded-2xl border border-white/10 bg-[#050923] overflow-hidden group">
+            {/* Background glow effects */}
+            <div className="absolute -top-24 -right-24 w-48 h-48 bg-shark-blue/10 blur-[80px] rounded-full pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-green-500/5 blur-[80px] rounded-full pointer-events-none" />
+
+            <div className="relative flex justify-between items-center mb-6">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-shark-blue/20 to-shark-blue/5 border border-white/10 flex items-center justify-center shadow-inner">
+                        <Zap className="text-shark-blue" size={20} />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-white text-base tracking-tight">Payout Eligibility</h3>
+                        <p className="text-[10px] text-gray-500 font-medium uppercase tracking-[0.2em] mt-0.5">Verification Requirements</p>
+                    </div>
+                    <div className="group/info relative ml-1">
+                        <Info size={14} className="text-gray-500 cursor-help hover:text-white transition-colors" />
+                        <div className="absolute left-0 bottom-full mb-3 hidden group-hover/info:block w-56 p-3 bg-[#0a102a] text-white text-[10px] leading-relaxed rounded-xl z-20 border border-white/10 shadow-2xl backdrop-blur-xl">
+                            <p className="font-bold mb-1.5 text-shark-blue">Requirements Tracker:</p>
+                            <ul className="space-y-1 text-gray-400">
+                                <li className="flex items-center gap-1.5">• KYC Verification</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <motion.div
+                    animate={{
+                        scale: isFullyEligible ? [1, 1.05, 1] : 1
+                    }}
+                    transition={{ repeat: Infinity, duration: 3 }}
+                    className={cn(
+                        "px-4 py-1.5 rounded-xl border text-[11px] font-black uppercase tracking-widest flex items-center gap-2",
+                        isFullyEligible
+                            ? "bg-green-500/20 text-green-400 border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.2)]"
+                            : "bg-white/5 text-gray-400 border-white/10"
+                    )}
+                >
+                    {isFullyEligible && <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />}
+                    {isFullyEligible ? "Verification Passed" : "In Progress"}
+                </motion.div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <RequirementItem
+                    icon={Target}
+                    title="Daily Target"
+                    current={eligibility.today_profit || 0}
+                    target={eligibility.daily_goal || 1}
+                    isMet={eligibility.today_goal_met}
+                />
+                <RequirementItem
+                    icon={Zap}
+                    title="Total Profit"
+                    current={eligibility.current_profit || 0}
+                    target={eligibility.min_profit_amount || 1}
+                    isMet={eligibility.profit_met}
+                />
+            </div>
+
+            {isFullyEligible && (
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-6 p-4 rounded-xl bg-gradient-to-r from-green-500/10 to-transparent border border-green-500/20 flex items-center gap-4"
+                >
+                    <div className="p-2 bg-green-500/20 rounded-lg text-green-400">
+                        <CheckCircle2 size={24} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-bold text-white">Eligibility Confirmed</p>
+                        <p className="text-xs text-green-400 opacity-80 mt-1">You've successfully met all performance verification criteria.</p>
+                    </div>
+                </motion.div>
+            )}
+        </div>
+    );
+};
+
 interface TradingObjectivesProps {
     objectives?: any;
     account?: any;
@@ -160,6 +323,7 @@ export default function TradingObjectives({ objectives: initialObjectives, accou
                 start_of_day_equity: (initialObjectives.daily_loss?.threshold ?? 0) + (initialObjectives.daily_loss?.max_allowed ?? 0),
                 daily_remaining: initialObjectives.daily_loss?.remaining ?? 0,
                 total_remaining: initialObjectives.total_loss?.remaining ?? 0,
+                payout_eligibility: initialObjectives.payout_eligibility
             });
             return;
         }
@@ -185,6 +349,7 @@ export default function TradingObjectives({ objectives: initialObjectives, accou
                 start_of_day_equity: data.daily_loss.start_of_day_equity ?? 0,
                 daily_remaining: data.daily_loss.remaining,
                 total_remaining: data.total_loss.remaining,
+                payout_eligibility: data.payout_eligibility
             });
         }
     }, [dashboardData.objectives, initialObjectives]);
@@ -288,6 +453,10 @@ export default function TradingObjectives({ objectives: initialObjectives, accou
                         status={getProfitStatus()}
                         isLossLimit={false}
                     />
+                )}
+
+                {rules.payout_eligibility && (
+                    <PayoutEligibilityMeter eligibility={rules.payout_eligibility} />
                 )}
             </div>
         </div>

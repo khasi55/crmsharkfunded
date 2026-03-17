@@ -463,6 +463,7 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
             .limit(1)
             .maybeSingle();
 
+        /* 
         const minProfitRequired = Number(account.initial_balance) * 0.0025;
         const currentProf = Number(account.current_balance) - Number(account.initial_balance);
 
@@ -471,6 +472,7 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
                 error: `Minimum profit requirement not met. You need at least $${minProfitRequired.toFixed(2)} total profit (Current: $${currentProf.toFixed(2)}).`
             });
         }
+        */
 
         // 2. Validate Consistency (INSTANT ACCOUNTS ONLY)
         let mt5Group = '';
