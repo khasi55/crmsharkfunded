@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Users, DollarSign, TrendingUp, Copy, Check, ExternalLink,
-    Gift, Wallet, ArrowUpRight, X, ChevronRight, CreditCard,
-    Building2, LayoutDashboard, History, Loader2
+    Gift, Wallet, ArrowUpRight, X, ChevronRight, CreditCard, CheckCircle,
+    Building2, LayoutDashboard, History, Loader2, Shield, Lock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchFromBackend } from "@/lib/backend-api";
@@ -138,6 +138,9 @@ export default function AffiliatePage() {
     const [withdrawLoading, setWithdrawLoading] = useState(false);
     const [withdrawError, setWithdrawError] = useState("");
     const [withdrawSuccess, setWithdrawSuccess] = useState("");
+    const [showOtpInput, setShowOtpInput] = useState(false);
+    const [otpCode, setOtpCode] = useState("");
+    const [requestingOtp, setRequestingOtp] = useState(false);
 
     useEffect(() => {
         fetchAffiliateData();
@@ -174,8 +177,35 @@ export default function AffiliatePage() {
         setTimeout(() => setCopiedState(false), 2000);
     };
 
+    const handleRequestOtp = async () => {
+        try {
+            setRequestingOtp(true);
+            setWithdrawError("");
+            await fetchFromBackend('/api/user/request-financial-otp', {
+                method: 'POST',
+                body: JSON.stringify({ type: 'affiliate_withdrawal' }),
+            });
+            setShowOtpInput(true);
+        } catch (err: any) {
+            setWithdrawError(err.message || "Failed to send verification code");
+        } finally {
+            setRequestingOtp(false);
+        }
+    };
+
     const handleWithdraw = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!showOtpInput) {
+            await handleRequestOtp();
+            return;
+        }
+
+        if (otpCode.length !== 6) {
+            setWithdrawError("Please enter 6-digit verification code");
+            return;
+        }
+
         setWithdrawLoading(true);
         setWithdrawError("");
         setWithdrawSuccess("");
@@ -199,13 +229,16 @@ export default function AffiliatePage() {
                 body: JSON.stringify({
                     amount,
                     payout_method: withdrawMethod,
-                    payout_details
+                    payout_details,
+                    otp: otpCode
                 })
             });
 
             setWithdrawSuccess("Withdrawal requested successfully!");
             setWithdrawAmount("");
             setWithdrawDetails("");
+            setShowOtpInput(false);
+            setOtpCode("");
             setBankDetails({
                 accountHolder: "",
                 bankName: "",
@@ -629,6 +662,37 @@ export default function AffiliatePage() {
                                     )}
                                 </div>
 
+                                {/* OTP Input */}
+                                <AnimatePresence>
+                                    {showOtpInput && (
+                                        <motion.div
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            className="space-y-3 bg-white/5 border border-blue-500/30 rounded-xl p-4 overflow-hidden"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <Shield size={14} className="text-blue-400" />
+                                                <label className="text-[10px] text-blue-400 uppercase font-black tracking-widest">
+                                                    Verification Code
+                                                </label>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                maxLength={6}
+                                                value={otpCode}
+                                                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                                                placeholder="Enter 6-digit OTP"
+                                                className="w-full bg-black/40 border border-white/10 rounded-lg py-3 text-center text-xl font-bold tracking-[0.5em] text-white focus:outline-none focus:border-blue-500 placeholder:text-gray-600 placeholder:tracking-normal placeholder:text-sm"
+                                                required
+                                            />
+                                            <p className="text-[10px] text-gray-500 text-center">
+                                                Check your email for the verification code
+                                            </p>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+
                                 {/* Feedback */}
                                 {(withdrawError || withdrawSuccess) && (
                                     <motion.div
@@ -645,16 +709,24 @@ export default function AffiliatePage() {
 
                                 <button
                                     type="submit"
-                                    disabled={withdrawLoading || stats.availableBalance <= 0}
+                                    disabled={withdrawLoading || requestingOtp || stats.availableBalance <= 0 || (showOtpInput && otpCode.length !== 6)}
                                     className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
                                 >
-                                    {withdrawLoading ? (
+                                    {withdrawLoading || requestingOtp ? (
                                         <>
                                             <Loader2 className="animate-spin" size={18} />
-                                            Processing...
+                                            {requestingOtp ? "Sending code..." : "Processing..."}
+                                        </>
+                                    ) : showOtpInput ? (
+                                        <>
+                                            <CheckCircle size={18} />
+                                            Verify & Confirm
                                         </>
                                     ) : (
-                                        "Confirm Withdrawal"
+                                        <>
+                                            <Lock size={18} />
+                                            Get Verification Code
+                                        </>
                                     )}
                                 </button>
                             </form>

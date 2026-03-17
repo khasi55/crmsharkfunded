@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -6,44 +5,31 @@ import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl!, supabaseKey!);
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error('Missing Supabase Config');
+    process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function main() {
-    const email = 'kamalkumavat1@gmail.com';
-    console.log(`Checking User: ${email}`);
+    const email = 'andrewdoraisamy6@gmail.com';
+    const userId = '24c601dd-63e2-4dad-9321-7e9147d27cd2';
 
-    // 1. Check Auth User
-    const { data: { users }, error: authError } = await supabase.auth.admin.listUsers();
+    console.log(`Verifying email for: ${email} (ID: ${userId})`);
 
-    if (authError) {
-        console.error("Auth List Error:", authError);
-    }
+    const { data, error } = await supabase.auth.admin.updateUserById(
+        userId,
+        { email_confirm: true }
+    );
 
-    const authUser = users?.find(u => u.email === email);
-
-    if (authUser) {
-        console.log(`✅ Auth User Found: ${authUser.id}`);
-        console.log(`   - Email Verified: ${authUser.email_confirmed_at ? 'Yes' : 'No'}`);
-        console.log(`   - Created: ${authUser.created_at}`);
-        console.log(`   - Last Sign In: ${authUser.last_sign_in_at}`);
+    if (error) {
+        console.error("Failed to verify email:", error);
     } else {
-        console.log(`❌ Auth User NOT found.`);
-    }
-
-    // 2. Check Profile
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('email', email)
-        .single();
-
-    if (profile) {
-        console.log(`✅ Profile Found: ${profile.id}`);
-        console.log(`   - Name: ${profile.full_name}`);
-        console.log(`   - Role: ${profile.role}`);
-    } else {
-        console.log(`❌ Profile NOT found.`);
+        console.log(`✅ Email successfully verified for: ${data.user.email}`);
+        console.log(`Confirmed At: ${data.user.confirmed_at}`);
     }
 }
 
