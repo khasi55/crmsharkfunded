@@ -107,11 +107,6 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                 setError(`Profit requirement not met ($${el.current_profit.toLocaleString()} / $${el.min_profit_amount.toLocaleString()})`);
                 return;
             }
-            if (!el.time_met) {
-                const daysLeft = el.days_required - (el.profitable_days || 0);
-                setError(`Profitable days requirement not met. You have ${el.profitable_days || 0} / ${el.days_required} days (each day must have >= 0.25% profit).`);
-                return;
-            }
         }
 
         setShowConfirmation(true);

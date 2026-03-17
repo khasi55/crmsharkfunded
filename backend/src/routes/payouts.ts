@@ -453,7 +453,7 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
 
         // if (DEBUG) console.log(`[Payout Request] Proceeding with account: ${account.id}, Account Type: ${account.account_type_id}`);
 
-        // 2.2 New Payout Rules Enforcement (0.25% Profit & 7 Profitable Days)
+        // 2.2 New Payout Rules Enforcement (0.25% Profit Share Requirement)
         const { data: lastProcessedPayout } = await supabase
             .from('payout_requests')
             .select('created_at')
