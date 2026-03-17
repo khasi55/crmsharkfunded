@@ -181,89 +181,6 @@ const RequirementItem = ({
     );
 };
 
-const PayoutEligibilityMeter = ({ eligibility }: { eligibility: any }) => {
-    if (!eligibility) return null;
-
-    const isFullyEligible = eligibility.profit_met && eligibility.time_met;
-
-    return (
-        <div className="relative p-6 rounded-2xl border border-white/10 bg-[#050923] overflow-hidden group">
-            {/* Background glow effects */}
-            <div className="absolute -top-24 -right-24 w-48 h-48 bg-shark-blue/10 blur-[80px] rounded-full pointer-events-none" />
-            <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-green-500/5 blur-[80px] rounded-full pointer-events-none" />
-
-            <div className="relative flex justify-between items-center mb-6">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-shark-blue/20 to-shark-blue/5 border border-white/10 flex items-center justify-center shadow-inner">
-                        <Zap className="text-shark-blue" size={20} />
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-white text-base tracking-tight">Payout Eligibility</h3>
-                        <p className="text-[10px] text-gray-500 font-medium uppercase tracking-[0.2em] mt-0.5">Verification Requirements</p>
-                    </div>
-                    <div className="group/info relative ml-1">
-                        <Info size={14} className="text-gray-500 cursor-help hover:text-white transition-colors" />
-                        <div className="absolute left-0 bottom-full mb-3 hidden group-hover/info:block w-56 p-3 bg-[#0a102a] text-white text-[10px] leading-relaxed rounded-xl z-20 border border-white/10 shadow-2xl backdrop-blur-xl">
-                            <p className="font-bold mb-1.5 text-shark-blue">Requirements Tracker:</p>
-                            <ul className="space-y-1 text-gray-400">
-                                <li className="flex items-center gap-1.5">• KYC Verification</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-
-                <motion.div
-                    animate={{
-                        scale: isFullyEligible ? [1, 1.05, 1] : 1
-                    }}
-                    transition={{ repeat: Infinity, duration: 3 }}
-                    className={cn(
-                        "px-4 py-1.5 rounded-xl border text-[11px] font-black uppercase tracking-widest flex items-center gap-2",
-                        isFullyEligible
-                            ? "bg-green-500/20 text-green-400 border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.2)]"
-                            : "bg-white/5 text-gray-400 border-white/10"
-                    )}
-                >
-                    {isFullyEligible && <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />}
-                    {isFullyEligible ? "Verification Passed" : "In Progress"}
-                </motion.div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <RequirementItem
-                    icon={Target}
-                    title="Daily Target"
-                    current={eligibility.today_profit || 0}
-                    target={eligibility.daily_goal || 1}
-                    isMet={eligibility.today_goal_met}
-                />
-                <RequirementItem
-                    icon={Zap}
-                    title="Total Profit"
-                    current={eligibility.current_profit || 0}
-                    target={eligibility.min_profit_amount || 1}
-                    isMet={eligibility.profit_met}
-                />
-            </div>
-
-            {isFullyEligible && (
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-6 p-4 rounded-xl bg-gradient-to-r from-green-500/10 to-transparent border border-green-500/20 flex items-center gap-4"
-                >
-                    <div className="p-2 bg-green-500/20 rounded-lg text-green-400">
-                        <CheckCircle2 size={24} />
-                    </div>
-                    <div>
-                        <p className="text-sm font-bold text-white">Eligibility Confirmed</p>
-                        <p className="text-xs text-green-400 opacity-80 mt-1">You've successfully met all performance verification criteria.</p>
-                    </div>
-                </motion.div>
-            )}
-        </div>
-    );
-};
 
 interface TradingObjectivesProps {
     objectives?: any;
@@ -455,9 +372,6 @@ export default function TradingObjectives({ objectives: initialObjectives, accou
                     />
                 )}
 
-                {rules.payout_eligibility && (
-                    <PayoutEligibilityMeter eligibility={rules.payout_eligibility} />
-                )}
             </div>
         </div>
     );
