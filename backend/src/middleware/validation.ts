@@ -12,6 +12,9 @@ export const validateRequest = (schema: z.ZodSchema<any>) => {
             return next();
         } catch (error) {
             if (error instanceof z.ZodError) {
+                console.error('❌ Validation Error Details:', JSON.stringify(error.issues, null, 2));
+                const fs = require('fs');
+                fs.appendFileSync('validation_debug.log', `[${new Date().toISOString()}] Validation Failed for ${req.path}: ${JSON.stringify(error.issues, null, 2)}\nBODY: ${JSON.stringify(req.body, null, 2)}\n\n`);
                 return res.status(400).json({
                     error: 'Validation failed',
                     details: error.issues.map((e: any) => ({
@@ -20,6 +23,7 @@ export const validateRequest = (schema: z.ZodSchema<any>) => {
                     }))
                 });
             }
+            console.error('❌ Internal Validation Error:', error);
             return res.status(500).json({ error: 'Internal server error during validation' });
         }
     };
@@ -74,7 +78,7 @@ export const bankDetailsUpdateSchema = z.object({
 
 export const requestFinancialOTPSchema = z.object({
     body: z.object({
-        type: z.enum(['wallet', 'bank', 'payout']),
+        type: z.enum(['wallet', 'bank', 'payout', 'affiliate_withdrawal']),
     }).strict()
 });
 
