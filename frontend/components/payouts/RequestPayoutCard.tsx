@@ -83,8 +83,8 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
             setError("Amount exceeds available payout for selected account");
             return;
         }
-        if (parseFloat(amount) < 50) {
-            setError("Minimum withdrawal is $50");
+        if (parseFloat(amount) < 10) {
+            setError("Minimum withdrawal is $10");
             return;
         }
         if (method === 'crypto' && !walletAddress) {
@@ -489,7 +489,7 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                             </button>
 
                             <p className="text-center text-xs text-gray-500">
-                                Process time: 24-48 hours. Minimum withdrawal: $50.
+                                Process time: 24-48 hours. Minimum withdrawal: $10.
                             </p>
                         </div>
                     </motion.div>
