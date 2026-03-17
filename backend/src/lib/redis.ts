@@ -38,12 +38,15 @@ export function getRedis(): Redis {
             },
         });
 
-        client.on('connect', () => {
+        client.on('connect', async () => {
             if (DEBUG) console.log('🟢 Redis Singleton Connected');
             // Try to set eviction policy if possible, but don't crash
             try {
-                client?.config('SET', 'maxmemory-policy', 'noeviction').catch(() => { });
-            } catch (e) { }
+                const response = await client?.config('SET', 'maxmemory-policy', 'noeviction');
+                if (DEBUG) console.log(`✅ Redis Eviction Policy set to noeviction: ${response}`);
+            } catch (e: any) {
+                console.warn(`⚠️ Could not set Redis noeviction policy: ${e.message}`);
+            }
         });
 
         client.on('error', (e) => {

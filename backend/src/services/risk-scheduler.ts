@@ -9,7 +9,7 @@ const BRIDGE_URL = process.env.BRIDGE_URL || 'https://bridge.sharkfunded.co';
 const DEBUG = process.env.DEBUG === 'true'; // STRICT: Silence risk monitor logs in dev
 
 export function startRiskMonitor(intervalSeconds: number = 300) {
-    if (DEBUG) {
+    if (DEBUG || true) {
         console.log(`⏰ Risk Monitor Scheduler (Safety Sync) started. Interval: ${intervalSeconds}s`);
         console.log(`🛡️ Limits: Dynamic based on MT5 Groups`);
     }
@@ -22,12 +22,12 @@ let isProcessing = false;
 
 async function runRiskCheck() {
     if (isProcessing) {
-        // console.log("⚠️ [Risk Scheduler] Previous cycle still running. Skipping.");
+        console.log("⚠️ [Risk Scheduler] Previous cycle still running. Skipping.");
         return;
     }
     isProcessing = true;
     try {
-        // console.log("🔍 [Risk Scheduler] Starting cycle...");
+        if (DEBUG || true) console.log("🔍 [Risk Scheduler] Starting cycle...");
 
         // 1. Fetch Active Challenges
         const { data: challenges, error } = await supabase
