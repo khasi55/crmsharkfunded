@@ -44,17 +44,18 @@ async function getStats() {
         supabase.from("advanced_risk_flags").select("*", { count: "exact", head: true }) // Count all violations
     ]);
 
-    // 1.5 Fetch Paginated Data Sets
     const [
         { data: paidOrders },
         { data: allChallenges },
         { data: processedPayouts },
         { data: pendingUpgrades }, // Accounts waiting for upgrade
+        { data: allProfiles } // Fetch all profiles for user curve
     ] = await Promise.all([
         fetchAllRows(supabase, "payment_orders", "amount, created_at, payment_gateway", q => q.eq("status", "paid")),
         fetchAllRows(supabase, "challenges", "challenge_type, status, upgraded_to"),
         fetchAllRows(supabase, "payout_requests", "amount, processed_at, created_at", q => q.in("status", ["approved", "processed"])),
-        fetchAllRows(supabase, "challenges", "id, challenge_type, status", q => q.eq("status", "passed"))
+        fetchAllRows(supabase, "challenges", "id, challenge_type, status", q => q.eq("status", "passed")),
+        fetchAllRows(supabase, "profiles", "id, created_at")
     ]);
 
     // 2. Calculate Revenue
@@ -156,7 +157,7 @@ async function getStats() {
     }).length || 0;
 
     // 5. Chart Data (Time Series)
-    const dateMap = new Map<string, { date: string, rawDate: string, revenue: number, payouts: number }>();
+    const dateMap = new Map<string, { date: string, rawDate: string, revenue: number, payouts: number, newUsers: number }>();
     const getDateKey = (d: Date) => getISTDate(d).toISOString().split('T')[0];
     const getDisplayDate = (d: Date) => getISTDate(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 
@@ -164,7 +165,7 @@ async function getStats() {
     paidOrders?.forEach(order => {
         const d = new Date(order.created_at);
         const key = getDateKey(d);
-        if (!dateMap.has(key)) dateMap.set(key, { date: getDisplayDate(d), rawDate: key, revenue: 0, payouts: 0 });
+        if (!dateMap.has(key)) dateMap.set(key, { date: getDisplayDate(d), rawDate: key, revenue: 0, payouts: 0, newUsers: 0 });
 
         const entry = dateMap.get(key)!;
         entry.revenue += Number(order.amount) || 0;
@@ -174,25 +175,38 @@ async function getStats() {
     processedPayouts?.forEach(payout => {
         const d = new Date(payout.processed_at || payout.created_at);
         const key = getDateKey(d);
-        if (!dateMap.has(key)) dateMap.set(key, { date: getDisplayDate(d), rawDate: key, revenue: 0, payouts: 0 });
+        if (!dateMap.has(key)) dateMap.set(key, { date: getDisplayDate(d), rawDate: key, revenue: 0, payouts: 0, newUsers: 0 });
 
         const entry = dateMap.get(key)!;
         entry.payouts += Number(payout.amount) || 0;
+    });
+
+    // Populate with new users
+    allProfiles?.forEach(profile => {
+        const d = new Date(profile.created_at || now);
+        const key = getDateKey(d);
+        if (!dateMap.has(key)) dateMap.set(key, { date: getDisplayDate(d), rawDate: key, revenue: 0, payouts: 0, newUsers: 0 });
+
+        const entry = dateMap.get(key)!;
+        entry.newUsers += 1;
     });
 
     // Sort full history
     const sortedDailyData = Array.from(dateMap.values())
         .sort((a, b) => a.rawDate.localeCompare(b.rawDate));
 
-    // Calculate Rolling Equity on Full History
+    // Calculate Rolling Equity and Users on Full History
     let rollingEquity = 0;
+    let rollingUsers = 0;
     const fullHistoryWithEquity = sortedDailyData.map(day => {
         const net = day.revenue - day.payouts;
         rollingEquity += net;
+        rollingUsers += day.newUsers;
         return {
             ...day,
             net,
-            cumulativeEquity: rollingEquity
+            cumulativeEquity: rollingEquity,
+            cumulativeUsers: rollingUsers
         };
     });
 
@@ -206,10 +220,12 @@ async function getStats() {
     const t30Key = getDateKey(t30);
 
     let currentEquity = 0;
+    let currentUsers = 0;
     // Find last known equity before window
     for (const d of fullHistoryWithEquity) {
         if (d.rawDate < t30Key) {
             currentEquity = d.cumulativeEquity;
+            currentUsers = d.cumulativeUsers;
         } else {
             break;
         }
@@ -222,16 +238,20 @@ async function getStats() {
 
         const actualData = historyMap.get(key);
         const net = actualData ? actualData.net : 0;
+        const newUsers = actualData ? actualData.newUsers : 0;
 
         currentEquity += net;
+        currentUsers += newUsers;
 
         last30Days.push({
             date: getDisplayDate(d),
             rawDate: key,
             revenue: actualData ? actualData.revenue : 0,
             payouts: actualData ? actualData.payouts : 0,
+            newUsers: newUsers,
             net: net,
-            cumulativeEquity: currentEquity
+            cumulativeEquity: currentEquity,
+            cumulativeUsers: currentUsers
         });
     }
 

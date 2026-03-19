@@ -11,6 +11,8 @@ interface FinancialDataPoint {
     payouts: number;
     net: number;
     cumulativeEquity: number;
+    newUsers: number;
+    cumulativeUsers: number;
 }
 
 interface FinancialChartProps {
@@ -27,8 +29,8 @@ export function FinancialChart({ data }: FinancialChartProps) {
         <div className="bg-white rounded-2xl border border-gray-200/60 p-7 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] w-full block">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
                 <div>
-                    <h2 className="text-lg font-bold tracking-tight text-gray-900">Financial Performance</h2>
-                    <p className="text-sm font-medium text-gray-500 mt-1">Net equity growth and daily cashflow</p>
+                    <h2 className="text-lg font-bold tracking-tight text-gray-900">Platform Growth & Daily Volume</h2>
+                    <p className="text-sm font-medium text-gray-500 mt-1">Client growth and daily cashflow</p>
                 </div>
                 <div className="flex bg-gray-50/80 rounded-xl p-1 shrink-0 self-start sm:self-auto border border-gray-100">
                     <button
@@ -38,7 +40,7 @@ export function FinancialChart({ data }: FinancialChartProps) {
                             : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
                             }`}
                     >
-                        Equity Curve
+                        Client Curve
                     </button>
                     <button
                         onClick={() => setView('daily')}
@@ -55,13 +57,7 @@ export function FinancialChart({ data }: FinancialChartProps) {
             <div className="h-[380px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                     {view === 'cumulative' ? (
-                        <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                            <defs>
-                                <linearGradient id="colorEquity" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.25} />
-                                    <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
+                        <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
                             <XAxis
                                 dataKey="date"
@@ -78,27 +74,18 @@ export function FinancialChart({ data }: FinancialChartProps) {
                                 fontWeight={500}
                                 tickLine={false}
                                 axisLine={false}
-                                tickFormatter={(value) => `$${value / 1000}k`}
+                                tickFormatter={(value) => `${value}`}
                                 tickMargin={12}
                             />
                             <Tooltip
+                                cursor={{ fill: '#f8fafc' }}
                                 contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #f1f5f9', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)', padding: '12px 16px' }}
                                 itemStyle={{ color: '#0f172a', fontWeight: '700', fontSize: '14px' }}
-                                formatter={(value: number) => formatCurrency(value)}
-                                labelStyle={{ color: '#64748b', marginBottom: '4px', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
-                                cursor={{ stroke: '#cbd5e1', strokeWidth: 1, strokeDasharray: '4 4' }}
+                                formatter={(value: number, name: string) => [value, name]}
+                                labelStyle={{ color: '#64748b', marginBottom: '8px', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
                             />
-                            <Area
-                                type="monotone"
-                                dataKey="cumulativeEquity"
-                                name="Net Equity"
-                                stroke="#4f46e5"
-                                strokeWidth={3}
-                                fillOpacity={1}
-                                fill="url(#colorEquity)"
-                                activeDot={{ r: 6, strokeWidth: 0, fill: '#4f46e5' }}
-                            />
-                        </AreaChart>
+                            <Bar dataKey="newUsers" name="New Clients" fill="#3b82f6" radius={[6, 6, 0, 0]} barSize={16} />
+                        </BarChart>
                     ) : (
                         <ComposedChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />

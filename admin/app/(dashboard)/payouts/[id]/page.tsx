@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { useParams } from "next/navigation";
+import { Copy, CheckCircle, XCircle, Info, Hash, Play, StopCircle, RefreshCw, HandCoins, Building2, User, Wallet, FileText } from "lucide-react";
 
 interface PayoutRequest {
     id: string;
@@ -49,8 +50,7 @@ export default function AdminPayoutDetailsPage() {
     const [processing, setProcessing] = useState(false);
     const [rejectionReason, setRejectionReason] = useState("");
     const [transactionId, setTransactionId] = useState("");
-
-    // ... (useEffect remains same) ...
+    const [copiedField, setCopiedField] = useState<string | null>(null);
 
     const formatCurrency = (val?: number) => {
         if (val === undefined || val === null) return '-';
@@ -59,8 +59,8 @@ export default function AdminPayoutDetailsPage() {
 
     const copyToClipboard = (text: string, label: string) => {
         navigator.clipboard.writeText(text);
-        // We'll use a simple alert or just console if toast component isn't handy in this file,
-        // but let's assume standard behavior or just rely on clipboard API success
+        setCopiedField(label);
+        setTimeout(() => setCopiedField(null), 2000);
     };
 
     useEffect(() => {
@@ -91,7 +91,6 @@ export default function AdminPayoutDetailsPage() {
     }, [id]);
 
     async function handleApprove(e: React.FormEvent) {
-        // ... (same as before) ...
         e.preventDefault();
         if (!id) return;
 
@@ -122,7 +121,6 @@ export default function AdminPayoutDetailsPage() {
     }
 
     async function handleReject(e: React.FormEvent) {
-        // ... (same as before) ...
         e.preventDefault();
         if (!id || !rejectionReason.trim()) {
             alert('Please provide a rejection reason');
@@ -156,8 +154,9 @@ export default function AdminPayoutDetailsPage() {
     if (loading) {
         return (
             <div className="mx-auto max-w-4xl space-y-6">
-                <div className="flex items-center justify-center py-12">
-                    <div className="text-gray-500">Loading...</div>
+                <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-500 bg-white rounded-2xl border border-gray-100 shadow-sm mt-8">
+                    <RefreshCw className="w-8 h-8 animate-spin text-emerald-500" />
+                    <p className="font-medium">Loading payout details...</p>
                 </div>
             </div>
         );
@@ -165,268 +164,314 @@ export default function AdminPayoutDetailsPage() {
 
     if (error || !request) {
         return (
-            <div className="mx-auto max-w-4xl space-y-6">
-                <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-800">
-                    Error: {error || 'Payout not found'}
+            <div className="mx-auto max-w-4xl space-y-6 mt-8">
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center shadow-sm">
+                    <XCircle className="w-10 h-10 text-red-500 mx-auto mb-3" />
+                    <h3 className="text-lg font-bold text-red-900 mb-1">Failed to load payout</h3>
+                    <p className="text-sm text-red-700">{error || 'Payout not found'}</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="mx-auto max-w-4xl space-y-6 bg-white min-h-screen">
-            <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold text-gray-900">Process Payout</h1>
-                <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500">Current Status:</span>
+        <div className="mx-auto max-w-5xl space-y-8 p-6 lg:p-8">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                <div>
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl">
+                            <HandCoins className="w-6 h-6" />
+                        </div>
+                        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Process Payout</h1>
+                    </div>
+                    <p className="text-sm text-gray-500 ml-[3.25rem]">Review and manage withdrawal request details.</p>
+                </div>
+                <div className="flex items-center gap-3 bg-white px-4 py-2.5 rounded-xl border border-gray-200 shadow-sm">
+                    <span className="text-sm font-medium text-gray-500">Current Status:</span>
                     <StatusBadge status={request.status} />
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                {/* Payout Details */}
-                <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                    <h2 className="mb-4 text-xl font-semibold text-gray-900">Payment Details</h2>
-                    <dl className="space-y-4 text-sm">
-                        <div className="flex justify-between items-center">
-                            <dt className="text-gray-500">Amount</dt>
-                            <dd className="font-bold text-2xl text-green-600">${request.amount}</dd>
-                        </div>
-                        <div className="flex justify-between">
-                            <dt className="text-gray-500">Method</dt>
-                            <dd className="font-medium capitalize text-gray-900">{request.payout_method}</dd>
-                        </div>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8 items-start">
 
-                        {request.account_info && (
-                            <div className="border-t pt-4 pb-2 space-y-3 border-gray-100">
-                                <h3 className="font-semibold text-gray-900 mb-2">Account Information</h3>
-
-                                <div className="flex justify-between items-center group">
-                                    <dt className="text-gray-500">Login ID</dt>
-                                    <div className="flex items-center gap-2">
-                                        <dd className="font-mono font-semibold text-gray-900">{request.account_info.login}</dd>
-                                        <button
-                                            onClick={() => copyToClipboard(request.account_info!.login, 'Login ID')}
-                                            className="text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            title="Copy Login"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
-                                        </button>
+                {/* Left Column - Main Details (Span 7) */}
+                <div className="lg:col-span-7 space-y-6">
+                    {/* Payment Details Card */}
+                    <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm">
+                        <div className="border-b border-gray-100 bg-gray-50/50 px-6 py-4">
+                            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                <FileText className="w-5 h-5 text-gray-400" />
+                                Payment Details
+                            </h2>
+                        </div>
+                        <div className="p-6">
+                            <dl className="space-y-6 text-sm">
+                                {/* Amount & Method Row */}
+                                <div className="grid grid-cols-2 gap-4 pb-6 border-b border-gray-100">
+                                    <div>
+                                        <dt className="text-sm font-medium text-gray-500 mb-1">Amount Requested</dt>
+                                        <dd className="font-extrabold text-3xl text-emerald-600 tracking-tight">{formatCurrency(request.amount)}</dd>
                                     </div>
-                                </div>
-
-                                <div className="flex justify-between items-center group">
-                                    <dt className="text-gray-500">Investor Password</dt>
-                                    <div className="flex items-center gap-2">
-                                        <dd className="font-mono bg-gray-50 px-2 py-0.5 rounded text-gray-700">
-                                            {request.account_info.investor_password || 'N/A'}
+                                    <div className="text-right">
+                                        <dt className="text-sm font-medium text-gray-500 mb-1">Payout Method</dt>
+                                        <dd className="inline-flex items-center gap-1.5 font-bold capitalize text-gray-900 bg-gray-100 px-3 py-1 rounded-lg">
+                                            {request.payout_method === 'bank' ? <Building2 className="w-4 h-4 text-gray-500" /> : <Wallet className="w-4 h-4 text-gray-500" />}
+                                            {request.payout_method}
                                         </dd>
-                                        {request.account_info.investor_password && (
+                                    </div>
+                                </div>
+
+                                {/* Account Information */}
+                                {request.account_info && (
+                                    <div className="space-y-4">
+                                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Trading Account Info</h3>
+                                        <div className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl bg-gray-50/80 p-5 border border-gray-100/80">
+                                            <div className="space-y-1 group">
+                                                <dt className="text-xs font-medium text-gray-500">Login ID</dt>
+                                                <div className="flex items-center gap-2">
+                                                    <dd className="font-mono font-bold text-gray-900 text-base">{request.account_info.login}</dd>
+                                                    <button
+                                                        onClick={() => copyToClipboard(request.account_info!.login, 'Login ID')}
+                                                        className="p-1 rounded-md text-gray-400 hover:bg-gray-200 hover:text-gray-700 transition-colors tooltip"
+                                                        title="Copy Login"
+                                                    >
+                                                        {copiedField === 'Login ID' ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-1 group">
+                                                <dt className="text-xs font-medium text-gray-500">Investor Password</dt>
+                                                <div className="flex items-center gap-2">
+                                                    <dd className="font-mono font-medium bg-white border border-gray-200 px-2 py-0.5 rounded text-gray-700 text-sm shadow-sm">
+                                                        {request.account_info.investor_password || 'N/A'}
+                                                    </dd>
+                                                    {request.account_info.investor_password && (
+                                                        <button
+                                                            onClick={() => copyToClipboard(request.account_info!.investor_password!, 'Investor Password')}
+                                                            className="p-1 rounded-md text-gray-400 hover:bg-gray-200 hover:text-gray-700 transition-colors"
+                                                            title="Copy Password"
+                                                        >
+                                                            {copiedField === 'Investor Password' ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-1 border-t border-gray-200 pt-3 col-span-2 grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <dt className="text-xs font-medium text-gray-500">Current Equity</dt>
+                                                    <dd className="font-bold text-gray-900 text-base">{formatCurrency(request.account_info.equity)}</dd>
+                                                </div>
+                                                <div>
+                                                    <dt className="text-xs font-medium text-gray-500">Current Balance</dt>
+                                                    <dd className="font-bold text-gray-900 text-base">{formatCurrency(request.account_info.balance)}</dd>
+                                                </div>
+                                            </div>
+
+                                            <div className="col-span-2 flex flex-wrap gap-2 pt-2">
+                                                <span className="inline-flex items-center px-2 py-1 rounded bg-white border border-gray-200 text-xs font-medium text-gray-600">
+                                                    Type: {request.account_info.account_type}
+                                                </span>
+                                                <span className="inline-flex items-center px-2 py-1 rounded bg-white border border-gray-200 text-xs font-medium text-gray-600 font-mono">
+                                                    Grp: {request.account_info.group || '-'}
+                                                </span>
+                                                <span className="inline-flex items-center px-2 py-1 rounded bg-white border border-gray-200 text-xs font-medium text-gray-600">
+                                                    Size: ${request.account_info.account_size?.toLocaleString()}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Destination Details */}
+                                {request.payout_method === 'bank' && request.metadata?.bank_details && (
+                                    <div className="space-y-3 pt-2">
+                                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Destination Account</h3>
+                                        <dd className="rounded-xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm">
+                                            <div className="grid grid-cols-2 gap-y-5 gap-x-4">
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">Bank Name</p>
+                                                    <p className="font-bold text-gray-900 font-medium">{request.metadata.bank_details.bank_name}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">Account Holder</p>
+                                                    <p className="font-bold text-gray-900 font-medium">{request.metadata.bank_details.account_holder_name}</p>
+                                                </div>
+                                                <div className="col-span-2">
+                                                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">Account Number</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-mono font-bold text-lg text-emerald-800 tracking-wide bg-white px-3 py-1.5 rounded-lg border border-emerald-200/50 shadow-sm select-all inline-block">
+                                                            {request.metadata.bank_details.account_number}
+                                                        </p>
+                                                        <button
+                                                            onClick={() => copyToClipboard(request.metadata!.bank_details!.account_number, 'Account Number')}
+                                                            className="p-1.5 rounded-md text-emerald-600 hover:bg-emerald-100 transition-colors"
+                                                            title="Copy Account Number"
+                                                        >
+                                                            {copiedField === 'Account Number' ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                {request.metadata.bank_details.ifsc_code && (
+                                                    <div>
+                                                        <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">IFSC Code</p>
+                                                        <p className="font-mono font-bold text-gray-800">{request.metadata.bank_details.ifsc_code}</p>
+                                                    </div>
+                                                )}
+                                                {request.metadata.bank_details.swift_code && (
+                                                    <div>
+                                                        <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">SWIFT Code</p>
+                                                        <p className="font-mono font-bold text-gray-800">{request.metadata.bank_details.swift_code}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </dd>
+                                    </div>
+                                )}
+
+                                {request.wallet_address && (
+                                    <div className="space-y-3 pt-2">
+                                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Destination Crypto Wallet</h3>
+                                        <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 shadow-sm flex items-center justify-between gap-4">
+                                            <dd className="font-mono break-all text-sm font-semibold text-indigo-900 flex-1">{request.wallet_address}</dd>
                                             <button
-                                                onClick={() => copyToClipboard(request.account_info!.investor_password!, 'Investor Password')}
-                                                className="text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                title="Copy Password"
+                                                onClick={() => copyToClipboard(request.wallet_address, 'Wallet')}
+                                                className="shrink-0 p-2 rounded-lg text-indigo-600 hover:bg-indigo-100 transition-colors"
                                             >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                                                {copiedField === 'Wallet' ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                                             </button>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="flex justify-between">
-                                    <dt className="text-gray-500">Current Equity</dt>
-                                    <dd className="font-medium text-gray-900">{formatCurrency(request.account_info.equity)}</dd>
-                                </div>
-
-                                <div className="flex justify-between">
-                                    <dt className="text-gray-500">Current Balance</dt>
-                                    <dd className="font-medium text-gray-900">{formatCurrency(request.account_info.balance)}</dd>
-                                </div>
-
-                                <div className="pt-2 border-t border-dashed border-gray-100">
-                                    <div className="flex justify-between">
-                                        <dt className="text-gray-500 text-xs">Account Type</dt>
-                                        <dd className="text-xs text-gray-600">{request.account_info.account_type}</dd>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <dt className="text-gray-500 text-xs">Account Group</dt>
-                                        <dd className="text-xs text-gray-600 font-mono">{request.account_info.group || '-'}</dd>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <dt className="text-gray-500 text-xs">Initial Size</dt>
-                                        <dd className="text-xs text-gray-600">${request.account_info.account_size?.toLocaleString()}</dd>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {request.payout_method === 'bank' && request.metadata?.bank_details && (
-                            <div className="border-t pt-4 border-gray-100">
-                                <dt className="mb-4 text-gray-500 font-semibold flex items-center gap-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600"><rect width="20" height="14" x="2" y="5" rx="2" /><line x1="2" x2="22" y1="10" y2="10" /></svg>
-                                    Bank Transfer Details
-                                </dt>
-                                <dd className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 space-y-3">
-                                    <div className="grid grid-cols-2 gap-4 text-xs">
-                                        <div>
-                                            <p className="text-[10px] font-bold text-emerald-700/50 uppercase tracking-widest">Bank Name</p>
-                                            <p className="font-bold text-gray-900 mt-1">{request.metadata.bank_details.bank_name}</p>
                                         </div>
-                                        <div>
-                                            <p className="text-[10px] font-bold text-emerald-700/50 uppercase tracking-widest">Account Holder</p>
-                                            <p className="font-bold text-gray-900 mt-1">{request.metadata.bank_details.account_holder_name}</p>
-                                        </div>
-                                        <div className="col-span-2">
-                                            <p className="text-[10px] font-bold text-emerald-700/50 uppercase tracking-widest">Account Number</p>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <p className="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded select-all">
-                                                    {request.metadata.bank_details.account_number}
-                                                </p>
-                                                <button onClick={() => copyToClipboard(request.metadata!.bank_details!.account_number, 'Account Number')} className="text-gray-400 hover:text-gray-600">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
-                                                </button>
-                                            </div>
-                                        </div>
-                                        {request.metadata.bank_details.ifsc_code && (
+                                    </div>
+                                )}
+
+                                {/* Processed Info (Transaction ID / Rejection) */}
+                                {(request.transaction_id || request.rejection_reason) && (
+                                    <div className="pt-4 border-t border-gray-100 space-y-4">
+                                        {request.transaction_id && (
                                             <div>
-                                                <p className="text-[10px] font-bold text-emerald-700/50 uppercase tracking-widest">IFSC Code</p>
-                                                <p className="font-mono font-bold text-gray-700 mt-1">{request.metadata.bank_details.ifsc_code}</p>
+                                                <dt className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                                    <Hash className="w-3.5 h-3.5" /> Transaction Record
+                                                </dt>
+                                                <dd className="font-mono break-all rounded-lg bg-gray-50 border border-gray-200 p-3 text-sm font-medium text-gray-700 flex justify-between items-center group">
+                                                    {request.transaction_id}
+                                                    <button
+                                                        onClick={() => copyToClipboard(request.transaction_id!, 'Transaction ID')}
+                                                        className="text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    >
+                                                        {copiedField === 'Transaction ID' ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                                                    </button>
+                                                </dd>
                                             </div>
                                         )}
-                                        {request.metadata.bank_details.swift_code && (
+
+                                        {request.rejection_reason && (
                                             <div>
-                                                <p className="text-[10px] font-bold text-emerald-700/50 uppercase tracking-widest">SWIFT Code</p>
-                                                <p className="font-mono font-bold text-gray-700 mt-1">{request.metadata.bank_details.swift_code}</p>
+                                                <dt className="text-xs font-bold text-red-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                                    <StopCircle className="w-3.5 h-3.5" /> Rejection Reason
+                                                </dt>
+                                                <dd className="rounded-lg bg-red-50 border border-red-100 p-4 text-sm font-medium text-red-800 leading-relaxed">
+                                                    {request.rejection_reason}
+                                                </dd>
                                             </div>
                                         )}
                                     </div>
-                                </dd>
-                            </div>
-                        )}
-
-                        {request.wallet_address && (
-                            <div className="border-t pt-4 border-gray-100">
-                                <dt className="mb-2 text-gray-500 font-medium">Wallet Address</dt>
-                                <dd className="font-mono break-all rounded bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-3 text-xs text-gray-900">{request.wallet_address}</dd>
-                            </div>
-                        )}
-
-                        {request.transaction_id && (
-                            <div className="border-t pt-4 border-gray-100">
-                                <dt className="mb-2 text-gray-500 font-medium">Transaction ID</dt>
-                                <dd className="font-mono break-all rounded bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 p-3 text-xs text-gray-900">{request.transaction_id}</dd>
-                            </div>
-                        )}
-
-                        {request.rejection_reason && (
-                            <div className="border-t pt-4 border-gray-100">
-                                <dt className="mb-2 text-gray-500 font-medium">Rejection Reason</dt>
-                                <dd className="rounded bg-red-50 border border-red-200 p-3 text-xs text-red-900">{request.rejection_reason}</dd>
-                            </div>
-                        )}
-                    </dl>
+                                )}
+                            </dl>
+                        </div>
+                    </div>
                 </div>
 
-                {/* User Info & Actions */}
-                <div className="space-y-6">
-                    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                        <h2 className="mb-4 text-xl font-semibold text-gray-900">User Information</h2>
-                        <div className="flex items-center gap-4">
-                            <div className="rounded-full bg-blue-100 p-2 text-blue-600">
-                                <span className="font-bold">{request.profiles?.full_name?.charAt(0) || "U"}</span>
+                {/* Right Column - User Info & Actions (Span 5) */}
+                <div className="lg:col-span-5 space-y-6">
+                    {/* User Profile Card */}
+                    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                        <div className="flex items-start gap-4">
+                            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-700 flex items-center justify-center font-bold text-lg shadow-inner ring-1 ring-blue-50">
+                                {request.profiles?.full_name?.charAt(0) || <User className="w-5 h-5" />}
                             </div>
-                            <div>
-                                <div className="font-medium text-gray-900">{request.profiles?.full_name}</div>
-                                <div className="text-sm text-gray-500">{request.profiles?.email}</div>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="text-lg font-bold text-gray-900 truncate">{request.profiles?.full_name}</h3>
+                                <p className="text-sm font-medium text-gray-500 truncate">{request.profiles?.email}</p>
+                                <div className="mt-2 text-xs text-gray-400 font-medium">Requested on {new Date(request.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</div>
                             </div>
                         </div>
                     </div>
 
+                    {/* Action Card (Only if pending) */}
                     {request.status === 'pending' && (
-                        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                            <h2 className="mb-4 text-xl font-semibold text-gray-900">Actions</h2>
-                            <div className="space-y-6">
+                        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                            <div className="border-b border-gray-100 bg-gray-50/50 px-6 py-4">
+                                <h2 className="text-base font-bold text-gray-900">Process Action</h2>
+                            </div>
+                            <div className="p-6 space-y-8">
+                                {/* Approve Form */}
                                 <form onSubmit={handleApprove} className="space-y-4">
-                                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-r-lg p-4">
-                                        <div className="flex items-start">
-                                            <div className="flex-shrink-0">
-                                                <svg className="h-5 w-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                                                </svg>
-                                            </div>
-                                            <div className="ml-3">
-                                                <p className="text-sm font-medium text-blue-900">
-                                                    Transaction ID Auto-Generation
-                                                </p>
-                                                <p className="mt-1 text-sm text-blue-700">
-                                                    A unique transaction ID will be automatically generated when you approve this payout request.
-                                                </p>
-                                            </div>
+                                    <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 flex gap-3 items-start">
+                                        <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-sm font-semibold text-blue-900">Auto-Generate ID</p>
+                                            <p className="mt-1 text-xs text-blue-700/80 leading-relaxed">
+                                                A unique ID is automatically generated upon approval. Or, provide a custom hash below.
+                                            </p>
                                         </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-700">
-                                            Transaction Hash / ID (Optional)
+                                    <div className="space-y-1.5">
+                                        <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider">
+                                            Custom Transaction Hash
+                                            <span className="text-gray-400 font-normal ml-1">(Optional)</span>
                                         </label>
                                         <input
                                             type="text"
                                             value={transactionId}
                                             onChange={(e) => setTransactionId(e.target.value)}
-                                            placeholder="Enter blockchain hash or transaction ID..."
-                                            className="w-full rounded-lg border border-gray-300 p-3 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20"
+                                            placeholder="Optional blockchain hash..."
+                                            className="w-full rounded-xl border border-gray-200 bg-gray-50/50 p-3 text-sm text-gray-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition-all font-mono"
                                             disabled={processing}
                                         />
-                                        <p className="text-xs text-gray-500">
-                                            If left blank, a unique ID will be auto-generated.
-                                        </p>
                                     </div>
                                     <button
                                         type="submit"
                                         disabled={processing}
-                                        className="w-full rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 px-4 py-3 font-semibold text-white shadow-md hover:from-green-700 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
                                     >
                                         {processing ? (
-                                            <span className="flex items-center justify-center">
-                                                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                </svg>
-                                                Processing...
-                                            </span>
+                                            <><RefreshCw className="w-4 h-4 animate-spin md:-ml-4" /> Processing...</>
                                         ) : (
-                                            '✓ Approve Payout'
+                                            <><CheckCircle className="w-4 h-4" /> Approve Payout</>
                                         )}
                                     </button>
                                 </form>
 
                                 <div className="relative">
-                                    <div className="absolute inset-0 flex items-center">
-                                        <span className="w-full border-t border-gray-200" />
-                                    </div>
-                                    <div className="relative flex justify-center text-xs uppercase">
-                                        <span className="bg-white px-2 text-gray-500">Or</span>
-                                    </div>
+                                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100" /></div>
+                                    <div className="relative flex justify-center text-xs"><span className="bg-white px-3 font-medium text-gray-400 uppercase tracking-widest">Or</span></div>
                                 </div>
 
-                                <form onSubmit={handleReject} className="space-y-3">
-                                    <label className="block text-sm font-medium text-gray-700">
-                                        Rejection Reason
-                                    </label>
-                                    <textarea
-                                        value={rejectionReason}
-                                        onChange={(e) => setRejectionReason(e.target.value)}
-                                        placeholder="Please provide a detailed reason for rejecting this payout request..."
-                                        required
-                                        rows={4}
-                                        className="w-full rounded-lg border border-gray-300 p-3 text-sm text-gray-900 focus:border-red-500 focus:ring-2 focus:ring-red-500 focus:ring-opacity-20"
-                                        disabled={processing}
-                                    />
+                                {/* Reject Form */}
+                                <form onSubmit={handleReject} className="space-y-3 pt-2">
+                                    <div className="space-y-1.5">
+                                        <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider">
+                                            Rejection Reason
+                                            <span className="text-red-400 ml-1">*</span>
+                                        </label>
+                                        <textarea
+                                            value={rejectionReason}
+                                            onChange={(e) => setRejectionReason(e.target.value)}
+                                            placeholder="Explain why this payout is being rejected..."
+                                            required
+                                            rows={3}
+                                            className="w-full rounded-xl border border-gray-200 bg-gray-50/50 p-3 text-sm text-gray-900 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 focus:bg-white transition-all resize-none"
+                                            disabled={processing}
+                                        />
+                                    </div>
                                     <button
                                         type="submit"
-                                        disabled={processing}
-                                        className="w-full rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-4 py-3 font-semibold text-white shadow-md hover:from-red-700 hover:to-rose-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                        disabled={processing || !rejectionReason.trim()}
+                                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-white border-2 border-red-100 text-red-600 px-4 py-3 text-sm font-bold hover:bg-red-50 hover:border-red-200 focus:outline-none focus:ring-2 focus:ring-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
                                     >
-                                        {processing ? 'Processing...' : '✗ Deny Payout'}
+                                        <StopCircle className="w-4 h-4" /> Deny Payout
                                     </button>
                                 </form>
                             </div>
