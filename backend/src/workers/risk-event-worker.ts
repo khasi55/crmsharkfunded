@@ -144,34 +144,35 @@ async function processTradeEvent(data: { login: number, trades: any[], event?: s
 
     const challengeStartTime = new Date(challenge.created_at).getTime() / 1000;
 
-    // START FIX: Remove 24h filter to allow processing of historical trades synced in background
+    
     meaningfulTrades = validIncomingTrades;
-    // END FIX
 
-    // console.log(`[RiskEvent] Login ${login}: ${meaningfulTrades.length} meaningful trades / ${trades.length} total.`);
-
-    // 3. Recalculate Equity (In-Memory if possible, or simple query)
-    // 3. Recalculate Equity (In-Memory if possible, or simple query)
-    // Query DB for verified calculation, but strictly filter out 0-lot trades (deposits)
     const { data: dbTrades } = await supabaseAdmin.from('trades')
-        .select('profit_loss, commission, swap, close_time')
-        .eq('challenge_id', challenge.id)
-        .gt('lots', 0); // Strict filter: Real trades must have lots > 0
-
-    // ... (Summing Logic) ...
+        .select('profit_loss, commission, swap, close_time, lots')
+        .eq('challenge_id', challenge.id);
+   
     let closedProfit = 0;
     let floatingProfit = 0;
 
+    const initialBalance = Number(challenge.initial_balance);
+
     if (dbTrades) {
         for (const t of dbTrades) {
-            // Fix: Commission is reported per-side (or half), so we deduct it twice to match Net P&L (User Expectation: 1.98 vs 2.58)
-            const netProfit = Number(t.profit_loss) + (Number(t.commission || 0) * 2) + Number(t.swap || 0);
-            if (t.close_time) closedProfit += netProfit;
-            else floatingProfit += netProfit;
+            const pnl = Number(t.profit_loss || 0);
+            const comm = Number(t.commission || 0) * 2; // Match Net P&L (per-side reporting)
+            const swap = Number(t.swap || 0);
+
+            // Skip the initial deposit ticket (lots: 0, pnl > 0) to avoid double-counting with initialBalance
+            if (Number(t.lots) === 0 && pnl > 0 && Math.abs(pnl - initialBalance) < 1.0) {
+                continue;
+            }
+
+            const netTrade = pnl + comm + swap;
+            if (t.close_time) closedProfit += netTrade;
+            else floatingProfit += netTrade;
         }
     }
 
-    const initialBalance = Number(challenge.initial_balance);
     const newBalance = initialBalance + closedProfit;
     const newEquity = newBalance + floatingProfit;
 
@@ -339,20 +340,15 @@ async function processTradeEvent(data: { login: number, trades: any[], event?: s
         });
 
         if (concurrentTradesForEngine.length > 0) {
-            // const sample = concurrentTradesForEngine[0];
-            // console.log(`🔎 [DEBUG-TYPE] open_time type: ${typeof sample.open_time}, val: ${sample.open_time}`);
-            // console.log(`🔎 [DEBUG-TYPE] DB Trade #0 ticket: ${sample.ticket_number}, RAW type: ${concurrentTrades[0].type}, Mapped type: ${sample.type}`);
+           
         }
 
-        // Analyze each incoming trade for behavioral patterns
-        // FIX: Ensure meaningfulTrades is defined/accessible
         if (meaningfulTrades && meaningfulTrades.length > 0) {
             // console.log(`🔎 [DEBUG-TYPE] Incoming Trade #0 ticket: ${meaningfulTrades[0].ticket}, RAW type: ${meaningfulTrades[0].type}`);
             for (const t of meaningfulTrades) {
                 // Debug: Check if close_time exists for closed trades
                 if (t.close_time) {
-                    // console.log(`🕵️ Risk Check: Ticket ${t.ticket}, Close Time: ${t.close_time}`);
-                    // console.log(`   Rules: Min Duration ${rules.min_trade_duration_seconds}s`);
+                    
                 }
 
                 // Map to internal Trade type for engine
@@ -387,9 +383,13 @@ async function processTradeEvent(data: { login: number, trades: any[], event?: s
         console.error('Failed advanced risk checks:', err);
     }
 
-    // 7. Commit Updates
-    // re-enabled: Ensure dashboard updates with every trade event
+    
+    
     await supabaseAdmin.from('challenges').update(updateData).eq('id', challenge.id);
+
+    // --- CACHE INVALIDATION ---
+    const redis = getRedis();
+    await redis.del(`dashboard:bulk:${challenge.id}`).catch(() => {});
 
     // console.log(`✅ Processed event for ${login} in ${Date.now() - startTime}ms`);
 }

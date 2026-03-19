@@ -7,7 +7,7 @@ const SCAN_INTERVAL_MS = 300000; // 5 minutes
 const DEBUG = process.env.DEBUG === 'true'; // STRICT: Silence advanced risk monitor logs in dev
 
 export function startAdvancedRiskMonitor() {
-    if (DEBUG) console.log(`🛡️ Advanced Risk Monitor (Martingale) Started. Interval: ${SCAN_INTERVAL_MS / 1000}s`);
+    // if (DEBUG) console.log(`🛡️ Advanced Risk Monitor (Martingale) Started. Interval: ${SCAN_INTERVAL_MS / 1000}s`);
     runMartingaleScan(); // Initial Run
     setInterval(runMartingaleScan, SCAN_INTERVAL_MS);
 }
@@ -36,13 +36,31 @@ async function runMartingaleScan() {
             rulesMap.set(cleanName, r);
         });
 
-        // 2. Fetch Active Challenges
-        const { data: challenges } = await supabase
-            .from('challenges')
-            .select('id, user_id, group, login')
-            .eq('status', 'active');
+        // 2. Fetch Active Challenges with Pagination
+        let challenges: any[] = [];
+        let from = 0;
+        let hasMore = true;
+        const PAGE_SIZE = 500;
 
-        if (!challenges || challenges.length === 0) {
+        while (hasMore) {
+            const { data, error } = await supabase
+                .from('challenges')
+                .select('id, user_id, group, login')
+                .eq('status', 'active')
+                .order('id', { ascending: true })
+                .range(from, from + PAGE_SIZE - 1);
+
+            if (error || !data) break;
+
+            challenges = [...challenges, ...data];
+            if (data.length < PAGE_SIZE) {
+                hasMore = false;
+            } else {
+                from += PAGE_SIZE;
+            }
+        }
+
+        if (challenges.length === 0) {
             isProcessing = false;
             return;
         }

@@ -1,6 +1,7 @@
 import { EmailService } from './email-service';
 import { supabase, supabaseAdmin } from '../lib/supabase';
 import { RulesService } from './rules-service';
+import { getRedis } from '../lib/redis';
 
 const BRIDGE_URL = process.env.BRIDGE_URL || 'https://bridge.sharkfunded.co';
 // console.log("🔍 [Risk Scheduler] Using BRIDGE_URL:", BRIDGE_URL);
@@ -28,39 +29,66 @@ async function runRiskCheck() {
     isProcessing = true;
     try {
         if (DEBUG || true) console.log("🔍 [Risk Scheduler] Starting cycle...");
+        const startTime = Date.now();
 
-        // 1. Fetch Active Challenges
-        const { data: challenges, error } = await supabase
-            .from('challenges')
-            .select('id, login, initial_balance, current_balance, current_equity, group, start_of_day_equity, user_id, status, challenge_type')
-            .eq('status', 'active');
+        // 1. Fetch Active Challenges with Pagination
+        let challenges: any[] = [];
+        let from = 0;
+        let hasMore = true;
+        const PAGE_SIZE = 500;
+
+        while (hasMore) {
+            const { data, error } = await supabase
+                .from('challenges')
+                .select('id, login, initial_balance, current_balance, current_equity, group, start_of_day_equity, user_id, status, challenge_type')
+                .eq('status', 'active')
+                .order('id', { ascending: true })
+                .range(from, from + PAGE_SIZE - 1);
+
+            if (error) {
+                console.error("❌ Fetch failed:", error);
+                return;
+            }
+
+            if (!data) break;
+            challenges = [...challenges, ...data];
+
+            if (data.length < PAGE_SIZE) {
+                hasMore = false;
+            } else {
+                from += PAGE_SIZE;
+            }
+        }
+
+        if (challenges.length === 0) {
+            return;
+        }
 
         // 2. Fetch Risk Groups
         const { data: riskGroups } = await supabase
             .from('mt5_risk_groups')
             .select('*');
 
-        if (error) {
-            console.error("❌ Fetch failed:", error);
-            return;
-        }
-
-        if (!challenges || challenges.length === 0) {
-            return;
-        }
-
         // console.log(`Checking ${challenges.length} active challenges...`);
 
         // Batch Processing (Chunk size 100)
         const BATCH_SIZE = 100;
+        const promises = [];
+        
         for (let i = 0; i < challenges.length; i += BATCH_SIZE) {
             const chunk = challenges.slice(i, i + BATCH_SIZE);
-            await processBatch(chunk, riskGroups || []);
+            // Process batches in parallel but with a small delay to avoid overwhelming the bridge/DB
+            promises.push((async () => {
+                await new Promise(resolve => setTimeout(resolve, (i / BATCH_SIZE) * 200)); 
+                return processBatch(chunk, riskGroups || []);
+            })());
+        }
 
-            // Rate limit: Sleep 500ms between batches to prevent bridge overload
-            if (i + BATCH_SIZE < challenges.length) {
-                await new Promise(resolve => setTimeout(resolve, 50));
-            }
+        await Promise.all(promises);
+        
+        if (DEBUG || true) {
+            const duration = (Date.now() - startTime) / 1000;
+            console.log(`✅ [Risk Scheduler] Cycle completed in ${duration.toFixed(1)}s. Processed ${challenges.length} accounts.`);
         }
 
     } catch (e) {
@@ -236,6 +264,12 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 // OPTIMIZATION: Select only ID if returning minimal is unavailable
                 const { error } = await supabase.from('challenges').upsert(statusUpdates).select('id');
                 if (error) console.error(" Bulk status update failed:", error.message);
+
+                // --- CACHE INVALIDATION ---
+                const redis = getRedis();
+                for (const u of statusUpdates) {
+                    await redis.del(`dashboard:bulk:${u.id}`).catch(() => {});
+                }
             }
 
             if (equityUpdates.length > 0) {
@@ -247,6 +281,12 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
                 // Since we are updating existing, we just send ID + Equity + Balance.
                 const { error } = await supabase.from('challenges').upsert(equityUpdates).select('id');
                 if (error) console.error(" Bulk equity update failed:", error.message);
+
+                // --- CACHE INVALIDATION ---
+                const redis = getRedis();
+                for (const u of equityUpdates) {
+                    await redis.del(`dashboard:bulk:${u.id}`).catch(() => {});
+                }
             }
 
             /*

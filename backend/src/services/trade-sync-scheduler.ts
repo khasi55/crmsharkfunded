@@ -23,16 +23,33 @@ async function runTradeSync() {
     try {
         if (DEBUG || true) console.log("📡 [Trade Sync] Dispatching bulk sync jobs...");
 
-        // 1. Fetch ALL Active Challenges (Scales to 10k+)
-        const { data: challenges, error } = await supabase
-            .from('challenges')
-            .select('id, user_id, login, created_at')
-            .eq('status', 'active');
+        // 1. Fetch ALL Active Challenges with Pagination (Scales to 10k+)
+        let challenges: any[] = [];
+        let from = 0;
+        let hasMore = true;
+        const PAGE_SIZE = 500;
 
-        if (error || !challenges) {
-            if (DEBUG) console.log("❌ [Trade Sync] Error fetching challenges or no data:", error);
-            return;
+        while (hasMore) {
+            const { data, error } = await supabase
+                .from('challenges')
+                .select('id, user_id, login, created_at')
+                .eq('status', 'active')
+                .order('id', { ascending: true })
+                .range(from, from + PAGE_SIZE - 1);
+
+            if (error || !data) {
+                if (DEBUG) console.log("❌ [Trade Sync] Error fetching challenges:", error);
+                break;
+            }
+
+            challenges = [...challenges, ...data];
+            if (data.length < PAGE_SIZE) {
+                hasMore = false;
+            } else {
+                from += PAGE_SIZE;
+            }
         }
+
         if (challenges.length === 0) {
             if (DEBUG) console.log("ℹ️ No active accounts to sync.");
             return;

@@ -7,7 +7,7 @@ import { supabase, supabaseAdmin } from '../lib/supabase';
 const DEBUG = process.env.DEBUG === 'true'; // Strict: Only log if explicitly asked
 
 export async function startTradeSyncWorker() {
-    if (DEBUG) console.log('👷 Trade Sync Worker Started (Queue: sync-queue)...');
+    // if (DEBUG) console.log('👷 Trade Sync Worker Started (Queue: sync-queue)...');
 
     const worker = new Worker('sync-queue', async (job: Job) => {
         const { challengeId, userId, login, createdAt } = job.data;
@@ -161,7 +161,7 @@ export async function startTradeSyncWorker() {
 
             const duration = (Date.now() - startTime) / 1000;
             if (DEBUG && (tradesToUpsert.length > 0 || duration > 15)) {
-                console.log(`✅ [Sync] ${login}: +${tradesToUpsert.length} trades (${duration.toFixed(1)}s)`);
+                // console.log(`✅ [Sync] ${login}: +${tradesToUpsert.length} trades (${duration.toFixed(1)}s)`);
             }
 
             return { success: true, count: tradesToUpsert.length };
@@ -171,6 +171,13 @@ export async function startTradeSyncWorker() {
                 if (DEBUG) console.warn(`⏳ [Sync Timeout] Account ${login} took > 60s. Skipping for now.`);
             } else {
                 console.error(`❌ [Sync Worker] Failed for ${login}:`, e.message);
+                if (e.stack) {
+                    console.error(e.stack);
+                }
+                // Log to backend_error_debug.log as well
+                const fs = require('fs');
+                const logMessage = `[${new Date().toISOString()}] SYNC ERROR for ${login}: ${e.message}\n${e.stack}\n\n`;
+                fs.appendFileSync('backend_error_debug.log', logMessage);
             }
             // Do not throw for timeouts, just finish the job so we don't spam retries on dead accounts
             if (e.name === 'AbortError') return { success: false, error: 'timeout' };
@@ -178,7 +185,7 @@ export async function startTradeSyncWorker() {
         }
     }, {
         connection: getRedis() as any,
-        concurrency: 5, // Toned down from 20 to 5 to avoid PostgREST connection starvation and 522s
+        concurrency: 20, // Increased from 5 to 20 to clear backlog faster. 
         limiter: {
             max: 500,
             duration: 1000
