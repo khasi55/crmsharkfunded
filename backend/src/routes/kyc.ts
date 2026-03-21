@@ -6,6 +6,8 @@ import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
 import { AuditLogger } from '../lib/audit-logger';
 import { resourceIntensiveLimiter } from '../middleware/rate-limit';
 import { logSecurityEvent } from '../utils/security-logger';
+import fs from 'fs';
+import path from 'path';
 
 const router = Router();
 
@@ -481,24 +483,38 @@ router.get('/admin', authenticate, requireRole(['super_admin', 'admin', 'sub_adm
             throw error;
         }
 
-        // Manual fetch for profiles
+        // Manual join for profiles
         if (sessions && sessions.length > 0) {
             const userIds = [...new Set(sessions.map((s: any) => s.user_id).filter(Boolean))];
-
-            const { data: profiles } = await supabase
+            
+            // ensure the limit matches the number of IDs we want to fetch
+            const { data: profiles, error: pError } = await supabase
                 .from('profiles')
                 .select('id, full_name, email')
-                .in('id', userIds);
+                .in('id', userIds)
+                .limit(userIds.length);
+
+            if (pError) {
+                console.error('Error fetching profiles for KYC sessions:', pError);
+            }
+
+            console.log(`[KYC Admin] Sessions: ${sessions.length}, Unique User IDs: ${userIds.length}, Profiles Fetched: ${profiles?.length || 0}`);
 
             const profilesMap: Record<string, any> = {};
             profiles?.forEach((p: any) => {
                 profilesMap[p.id] = p;
             });
 
-            const sessionsWithProfiles = sessions.map((s: any) => ({
-                ...s,
-                profiles: profilesMap[s.user_id] || { full_name: 'Unknown', email: 'Unknown' }
-            }));
+            const sessionsWithProfiles = sessions.map((s: any) => {
+                const profile = profilesMap[s.user_id];
+                if (!profile && s.user_id) {
+                    // console.warn(`[KYC Admin] Profile not found for User ID: ${s.user_id}`);
+                }
+                return {
+                    ...s,
+                    profiles: profile || { full_name: 'Unknown', email: 'Unknown' }
+                };
+            });
 
             res.json({ sessions: sessionsWithProfiles });
             return;

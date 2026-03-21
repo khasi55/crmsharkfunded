@@ -30,7 +30,8 @@ export function KYCTable({ requests = [] }: KYCTableProps) {
     const filteredRequests = requests.filter(req => {
         const matchesSearch =
             (req.profiles?.full_name?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
-            (req.profiles?.email?.toLowerCase() || "").includes(searchQuery.toLowerCase());
+            (req.profiles?.email?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+            (req.id?.toLowerCase() || "").includes(searchQuery.toLowerCase());
 
         const matchesStatus = statusFilter === "all" || req.status.toLowerCase() === statusFilter.toLowerCase();
 
