@@ -474,6 +474,8 @@ export default async function AdminDashboardPage() {
                                         <tr>
                                             <th className="px-6 py-4 font-bold text-gray-500 uppercase tracking-widest text-[10px]">Metric</th>
                                             <th className="px-6 py-4 font-bold text-gray-500 uppercase tracking-widest text-[10px] text-right">Daily</th>
+                                            <th className="px-6 py-4 font-bold text-gray-500 uppercase tracking-widest text-[10px] text-right">7 Days</th>
+                                            <th className="px-6 py-4 font-bold text-gray-500 uppercase tracking-widest text-[10px] text-right">30 Days</th>
                                             <th className="px-6 py-4 font-bold text-gray-500 uppercase tracking-widest text-[10px] text-right">All Time</th>
                                         </tr>
                                     </thead>
@@ -484,6 +486,8 @@ export default async function AdminDashboardPage() {
                                                 Gross Revenue
                                             </td>
                                             <td className="px-6 py-5 text-right font-medium text-gray-700">{formatCurrency(stats.financials.payments.daily)}</td>
+                                            <td className="px-6 py-5 text-right font-medium text-gray-700">{formatCurrency(stats.financials.payments.weekly)}</td>
+                                            <td className="px-6 py-5 text-right font-medium text-gray-700">{formatCurrency(stats.financials.payments.monthly)}</td>
                                             <td className="px-6 py-5 text-right font-bold text-emerald-600">{formatCurrency(stats.financials.payments.total)}</td>
                                         </tr>
                                         <tr className="hover:bg-[#FAFAFA] transition-colors group">
@@ -492,6 +496,8 @@ export default async function AdminDashboardPage() {
                                                 Payouts Sent
                                             </td>
                                             <td className="px-6 py-5 text-right font-medium text-gray-700">{formatCurrency(stats.financials.payouts.daily)}</td>
+                                            <td className="px-6 py-5 text-right font-medium text-gray-700">{formatCurrency(stats.financials.payouts.weekly)}</td>
+                                            <td className="px-6 py-5 text-right font-medium text-gray-700">{formatCurrency(stats.financials.payouts.monthly)}</td>
                                             <td className="px-6 py-5 text-right font-bold text-red-500">{formatCurrency(stats.financials.payouts.total)}</td>
                                         </tr>
                                         <tr className="bg-[#F8FAFF] border-y border-indigo-100/50 font-semibold group/equity hover:bg-indigo-50/50 transition-colors">
@@ -501,6 +507,12 @@ export default async function AdminDashboardPage() {
                                             </td>
                                             <td className={`px-6 py-5 text-right font-bold ${stats.financials.equity.daily >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                                 {formatCurrency(stats.financials.equity.daily)}
+                                            </td>
+                                            <td className={`px-6 py-5 text-right font-bold ${stats.financials.equity.weekly >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                {formatCurrency(stats.financials.equity.weekly)}
+                                            </td>
+                                            <td className={`px-6 py-5 text-right font-bold ${stats.financials.equity.monthly >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                {formatCurrency(stats.financials.equity.monthly)}
                                             </td>
                                             <td className={`px-6 py-5 text-right font-extrabold ${stats.financials.equity.total >= 0 ? 'text-emerald-600' : 'text-rose-600'} text-[15px]`}>
                                                 {formatCurrency(stats.financials.equity.total)}
@@ -512,6 +524,8 @@ export default async function AdminDashboardPage() {
                                                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 group-hover:scale-150 transition-transform"></div>
                                                     {gateway}
                                                 </td>
+                                                <td className="px-6 py-4 text-right text-gray-400">-</td>
+                                                <td className="px-6 py-4 text-right text-gray-400">-</td>
                                                 <td className="px-6 py-4 text-right text-gray-400">-</td>
                                                 <td className="px-6 py-4 text-right font-semibold text-gray-700">{formatCurrency(amount as number)}</td>
                                             </tr>
