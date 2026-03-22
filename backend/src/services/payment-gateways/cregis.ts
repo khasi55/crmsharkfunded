@@ -168,7 +168,8 @@ export class CregisGateway implements PaymentGateway {
             const signature = this.generateSignature(payload, config.apiKey);
             payload.sign = signature;
 
-            const requestUrl = `${this.apiUrl}/api/v2/payment/query`.replace(/\/+$/, '');
+            // Updated to use /api/v2/order/info as per recommendation/docs
+            const requestUrl = `${this.apiUrl}/api/v2/order/info`.replace(/\/+$/, '');
             
             console.log('[Cregis Debug] Querying order with Axios:', {
                 url: requestUrl,
