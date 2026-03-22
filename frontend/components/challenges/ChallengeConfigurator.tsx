@@ -34,8 +34,8 @@ export const pricingConfig = {
     InstantLite: {
         '3K': { price: '$44', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
         '6K': { price: '$73', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
-        '12K': { price: '$78', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
-        '25K': { price: '$188', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
+        '12K': { price: '$111', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
+        '25K': { price: '$269', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
         '50K': { price: '$710', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
         '100K': { price: '$1140', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
     },
