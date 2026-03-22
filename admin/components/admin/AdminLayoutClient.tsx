@@ -5,6 +5,7 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { Menu, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { WelcomeAnimation } from "@/components/admin/WelcomeAnimation";
 
 interface AdminLayoutClientProps {
     children: React.ReactNode;
@@ -16,6 +17,7 @@ export function AdminLayoutClient({ children, user }: AdminLayoutClientProps) {
 
     return (
         <div className="flex h-screen w-full bg-white">
+            <WelcomeAnimation user={user} />
             {/* Desktop Sidebar */}
             <div className="hidden md:block h-full">
                 <AdminSidebar user={user} />
