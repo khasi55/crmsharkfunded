@@ -3,7 +3,7 @@ export const revalidate = 0;
 
 import { createAdminClient } from "@/utils/supabase/admin";
 import Link from "next/link";
-import { Users, FileText, CreditCard, DollarSign, TrendingUp, AlertCircle, ChevronRight, AlertTriangle } from "lucide-react";
+import { Users, FileText, CreditCard, DollarSign, TrendingUp, AlertCircle, ChevronRight, AlertTriangle, Wallet } from "lucide-react";
 import { FinancialChart } from "@/components/admin/FinancialChart";
 
 async function fetchAllRows(supabase: any, table: string, selectFields: string, queryModifier?: (q: any) => any) {
@@ -36,12 +36,14 @@ async function getStats() {
         { count: usersCount },
         { count: kycCount },
         { count: payoutsCount },
-        { count: violationsCount }
+        { count: violationsCount },
+        { count: affiliateWithdrawalsCount }
     ] = await Promise.all([
         supabase.from("profiles").select("*", { count: "exact", head: true }),
         supabase.from("kyc_sessions").select("*", { count: "exact", head: true }).in("status", ["pending", "requires_review"]),
         supabase.from("payout_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("advanced_risk_flags").select("*", { count: "exact", head: true }) // Count all violations
+        supabase.from("advanced_risk_flags").select("*", { count: "exact", head: true }), // Count all violations
+        supabase.from("affiliate_withdrawals").select("*", { count: "exact", head: true }).eq("status", "pending")
     ]);
 
     const [
@@ -259,6 +261,7 @@ async function getStats() {
         totalUsers: usersCount || 0,
         pendingKYC: kycCount || 0,
         pendingPayouts: payoutsCount || 0,
+        pendingAffiliateWithdrawals: affiliateWithdrawalsCount || 0,
         pendingUpgrades: pendingUpgradesCount, // New stat for pending upgrades
         violationsCount: violationsCount || 0, // Risk violations count
         totalRevenue: paymentStats.total,
@@ -402,6 +405,16 @@ export default async function AdminDashboardPage() {
             textColor: "text-green-600",
             href: "/passed-accounts"
         },
+        {
+            title: "Affiliate Withdrawals",
+            value: stats.pendingAffiliateWithdrawals,
+            icon: Wallet,
+            color: "blue",
+            bgColor: "bg-blue-50",
+            iconColor: "text-blue-600",
+            textColor: "text-blue-600",
+            href: "/affiliates"
+        },
     ];
 
     const formatCurrency = (amount: number) => `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -411,7 +424,7 @@ export default async function AdminDashboardPage() {
             {/* Header Area */}
             <div className="bg-white border-b border-gray-200 px-8 py-8 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] text-left mb-8 -mx-8 -mt-8">
                 <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Dashboard Overview</h1>
-                <p className="text-sm text-gray-500 mt-2 font-medium">Monitor your platform's key performance metrics</p>
+                <p className="text-sm text-gray-500 mt-2 font-medium">Monitor your platform&apos;s key performance metrics</p>
             </div>
 
             <div className="px-8 max-w-[1920px] mx-auto space-y-8">
@@ -568,6 +581,15 @@ export default async function AdminDashboardPage() {
                             <div>
                                 <p className="font-bold text-gray-900 group-hover:text-purple-900 transition-colors">Process Payouts</p>
                                 <p className="text-xs text-gray-500 font-medium">{stats.pendingPayouts} pending withdrawals</p>
+                            </div>
+                        </Link>
+                        <Link href="/affiliates" className="group flex items-center gap-4 p-5 rounded-2xl border border-gray-100 hover:border-blue-200 bg-[#FAFAFA] hover:bg-white hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.08)] transition-all duration-300">
+                            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300 shadow-sm">
+                                <Wallet className="h-6 w-6" strokeWidth={2} />
+                            </div>
+                            <div>
+                                <p className="font-bold text-gray-900 group-hover:text-blue-900 transition-colors">Affiliate Payouts</p>
+                                <p className="text-xs text-gray-500 font-medium">{stats.pendingAffiliateWithdrawals} pending withdrawals</p>
                             </div>
                         </Link>
                     </div>
