@@ -236,7 +236,8 @@ router.post('/cregis', async (req: Request, res: Response) => {
 
 async function handlePaymentWebhook(req: Request, res: Response) {
     try {
-        const body = req.method === 'GET' ? req.query : req.body;
+        // Merge query and body params for robust payload checking (gateways like SharkPay send 'gateway' in query)
+        const body = { ...req.body, ...req.query };
 
         // Helper to find value in object (case-insensitive and deep scan for EPay)
         const getPayloadValue = (obj: any, keys: string[]) => {
