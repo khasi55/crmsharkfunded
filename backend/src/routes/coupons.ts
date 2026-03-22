@@ -61,8 +61,8 @@ router.post('/validate', async (req: AuthRequest, res: Response) => {
         }
 
         // Calculate final amounts for response
-        const discountAmount = validation.discount_amount;
-        const finalAmount = amount - discountAmount;
+        const discountAmount = Math.round(validation.discount_amount);
+        const finalAmount = Math.round(amount - discountAmount);
 
         // Ensure we have the discount value for display (fallback if RPC is old and returns limited columns)
         let discountValue = validation.discount_value;

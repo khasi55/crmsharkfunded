@@ -153,12 +153,13 @@ function CheckoutContent() {
     };
 
     const basePriceUSD = getBasePrice();
-    const discountAmount = appliedCoupon ? appliedCoupon.discount.amount : 0;
-    const finalPriceUSD = Math.max(0, basePriceUSD - discountAmount);
+    const discountAmount = appliedCoupon ? Math.round(appliedCoupon.discount.amount) : 0;
+    const finalPriceUSD = Math.round(Math.max(0, basePriceUSD - discountAmount));
     // const finalPriceINR = Math.round(finalPriceUSD * 84); // If implementing INR view
 
     const handleApplyCoupon = async () => {
         if (!coupon.trim()) return;
+        setAppliedCoupon(null); // Clear previous state immediately
         setValidatingCoupon(true);
         setCouponError("");
         try {
@@ -182,9 +183,10 @@ function CheckoutContent() {
         }
     };
 
-    // Re-validate coupon when config changes (and price likely changes)
+    // Clear/Re-validate coupon when config changes (and price likely changes)
     useEffect(() => {
-        if (appliedCoupon && coupon) {
+        setAppliedCoupon(null); // Clear stale coupon IMMEDIATELY on config change
+        if (coupon.trim()) {
             handleApplyCoupon();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -406,7 +408,7 @@ function CheckoutContent() {
                                             {appliedCoupon.discount.type === 'bogo' ? <Zap size={12} /> : <Check size={12} />}
                                             {appliedCoupon.discount.type === 'bogo'
                                                 ? `BOGO Active: Buy One Get One Free!`
-                                                : `Coupon (${appliedCoupon.coupon.code}) Applied: -$${discountAmount}`
+                                                : `Coupon (${appliedCoupon.coupon.code}) Applied: -$${Math.round(discountAmount)}`
                                             }
                                             {appliedCoupon.discount.type === 'percentage' && ` (${appliedCoupon.discount.value}% OFF)`}
                                         </div>
@@ -434,7 +436,9 @@ function CheckoutContent() {
 
                                         <div className="flex justify-between items-center">
                                             <span className="text-slate-500">Subtotal</span>
-                                            <span className="font-mono text-slate-700">${basePriceUSD}</span>
+                                            <div className="text-right">
+                                                <span className="font-mono text-slate-700">${basePriceUSD}</span>
+                                            </div>
                                         </div>
                                         {appliedCoupon && (
                                             <div className={cn("flex justify-between items-center", appliedCoupon.discount.type === 'bogo' ? "text-purple-600" : "text-green-600")}>
@@ -446,7 +450,7 @@ function CheckoutContent() {
                                                     {appliedCoupon.discount.type === 'percentage' && ` - ${appliedCoupon.discount.value}%`}
                                                 </span>
                                                 <span className="font-mono">
-                                                    {appliedCoupon.discount.type === 'bogo' ? "FREE ACCOUNT" : `-$${discountAmount}`}
+                                                    {appliedCoupon.discount.type === 'bogo' ? "FREE ACCOUNT" : `-$${Math.round(discountAmount)}`}
                                                 </span>
                                             </div>
                                         )}
@@ -456,7 +460,7 @@ function CheckoutContent() {
                                         <div className="flex justify-between items-end">
                                             <span className="font-bold text-lg text-slate-800">Total</span>
                                             <div className="text-right">
-                                                <div className="text-2xl font-black text-blue-600">${finalPriceUSD}</div>
+                                                <div className="text-2xl font-black text-blue-600">${Math.round(finalPriceUSD)}</div>
                                             </div>
                                         </div>
                                     </div>
@@ -593,7 +597,7 @@ function CheckoutContent() {
                                 <h3 className="text-xl font-bold text-slate-800">Global Card</h3>
                                 <p className="text-slate-500 text-sm mt-1">International Credit/Debit via Paymentservice</p>
                                 <div className="mt-4 text-lg font-bold text-blue-600">
-                                    ${finalPriceUSD.toFixed(2)}
+                                    ${Math.round(finalPriceUSD)}
                                 </div>
                             </button>
 
@@ -614,7 +618,7 @@ function CheckoutContent() {
                                 <h3 className="text-xl font-bold text-slate-800">Crypto</h3>
                                 <p className="text-slate-500 text-sm mt-1">Pay with BTC, ETH, USDT via Cregis</p>
                                 <div className="mt-4 text-lg font-bold text-blue-600">
-                                    ${finalPriceUSD.toFixed(2)}
+                                    ${Math.round(finalPriceUSD)}
                                 </div>
                             </button>
                         </div>
@@ -636,7 +640,7 @@ function CheckoutContent() {
                     <div className="flex items-center gap-6">
                         <div>
                             <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Total Due</p>
-                            <p className="text-2xl font-bold text-[#0a0d20] tracking-tight">${finalPriceUSD.toFixed(2)}</p>
+                            <p className="text-2xl font-bold text-[#0a0d20] tracking-tight">${Math.round(finalPriceUSD)}</p>
                         </div>
                     </div>
 
@@ -652,13 +656,15 @@ function CheckoutContent() {
                         )}
                         <button
                             onClick={handleContinue}
-                            disabled={loading || (currentStep === 1 && !finalPriceUSD) || (currentStep === 2 && (!formData.email || !formData.terms))}
+                            disabled={loading || validatingCoupon || (currentStep === 1 && !finalPriceUSD) || (currentStep === 2 && (!formData.email || !formData.terms))}
                             className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-blue-900/20 active:scale-[0.95] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100"
                         >
                             {loading ? <Loader2 className="animate-spin" /> : (
-                                currentStep === 3
-                                    ? (selectedGateway.toLowerCase() === 'cregis' ? "Pay with Crypto" : `Pay with ${selectedGateway === 'Sharkpay' ? 'UPI' : selectedGateway}`)
-                                    : "Continue"
+                                validatingCoupon ? "Validating Price..." : (
+                                    currentStep === 3
+                                        ? (selectedGateway.toLowerCase() === 'cregis' ? "Pay with Crypto" : `Pay with ${selectedGateway === 'Sharkpay' ? 'UPI' : selectedGateway}`)
+                                        : "Continue"
+                                )
                             )} <ArrowRight size={18} />
                         </button>
                     </div>

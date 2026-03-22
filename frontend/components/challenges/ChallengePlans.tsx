@@ -6,11 +6,11 @@ import { Check, Shield, Rocket, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const accounts = [
-    { size: "5k", price: 49, target: 400, daily: 250, total: 500 },
-    { size: "10k", price: 99, target: 800, daily: 500, total: 1000 },
-    { size: "25k", price: 199, target: 2000, daily: 1250, total: 2500 },
-    { size: "50k", price: 299, target: 4000, daily: 2500, total: 5000 },
-    { size: "100k", price: 499, target: 8000, daily: 5000, total: 10000, recommended: true },
+    { size: "5k", price: 33, target: 400, daily: 250, total: 500 },
+    { size: "10k", price: 63, target: 800, daily: 500, total: 1000 },
+    { size: "25k", price: 141, target: 2000, daily: 1250, total: 2500 },
+    { size: "50k", price: 270, target: 4000, daily: 2500, total: 5000 },
+    { size: "100k", price: 630, target: 8000, daily: 5000, total: 10000, recommended: true },
 ];
 
 export default function ChallengePlans() {
@@ -105,7 +105,9 @@ export default function ChallengePlans() {
                             <div className="flex justify-between items-end mb-4">
                                 <div>
                                     <p className="text-sm text-muted-foreground mb-1">One-time fee</p>
-                                    <p className="text-3xl font-bold text-foreground">${selectedSize.price}</p>
+                                    <div className="flex items-baseline gap-2">
+                                        <p className="text-3xl font-bold text-foreground">${selectedSize.price}</p>
+                                    </div>
                                 </div>
                             </div>
                             <button className="w-full py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-lg flex items-center justify-center gap-2 transition-colors shadow-md shadow-primary/20">

@@ -113,7 +113,7 @@ router.post('/create-order', async (req: Request, res: Response) => {
             }
         }
 
-        const expectedAmount = Math.max(0, expectedBasePrice - discountAmount);
+        const expectedAmount = Math.round(Math.max(0, expectedBasePrice - Math.round(discountAmount)));
 
         // 3. Compare with requested amount (allow small epsilon for floating point)
         const receivedAmount = Number(amount);

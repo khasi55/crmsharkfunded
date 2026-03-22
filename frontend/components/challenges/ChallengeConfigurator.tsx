@@ -11,40 +11,40 @@ import { fetchFromBackend } from "@/lib/backend-api";
 
 export const pricingConfig = {
     Prime: {
-        '5K': { price: '$59', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
-        '10K': { price: '$89', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
-        '25K': { price: '$236', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
-        '50K': { price: '$412', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
-        '100K': { price: '$610', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '5K': { price: '$85', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '10K': { price: '$99', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '25K': { price: '$340', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '50K': { price: '$590', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '100K': { price: '$870', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
     },
     LiteTwoStep: {
-        '5K': { price: '$30', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
-        '10K': { price: '$55', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
-        '25K': { price: '$125', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
-        '50K': { price: '$235', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
-        '100K': { price: '$440', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
+        '5K': { price: '$33', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
+        '10K': { price: '$63', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
+        '25K': { price: '$141', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
+        '50K': { price: '$270', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
+        '100K': { price: '$630', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
     },
     LiteOneStep: {
-        '5K': { price: '$48', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
-        '10K': { price: '$70', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
-        '25K': { price: '$150', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
-        '50K': { price: '$260', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
-        '100K': { price: '$550', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
+        '5K': { price: '$63', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
+        '10K': { price: '$99', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
+        '25K': { price: '$207', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
+        '50K': { price: '$307', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
+        '100K': { price: '$634', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
     },
     InstantLite: {
-        '3K': { price: '$34', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
-        '6K': { price: '$59', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
-        '12K': { price: '$89', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
-        '25K': { price: '$249', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
-        '50K': { price: '$499', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
-        '100K': { price: '$799', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
+        '3K': { price: '$44', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
+        '6K': { price: '$73', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
+        '12K': { price: '$78', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
+        '25K': { price: '$188', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
+        '50K': { price: '$710', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
+        '100K': { price: '$1140', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
     },
     InstantPrime: {
-        '5K': { price: '$49', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
-        '10K': { price: '$83', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
-        '25K': { price: '$199', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
-        '50K': { price: '$350', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
-        '100K': { price: '$487', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
+        '5K': { price: '$70', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
+        '10K': { price: '$120', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
+        '25K': { price: '$285', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
+        '50K': { price: '$500', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
+        '100K': { price: '$700', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
     }
 } as const;
 
@@ -316,8 +316,8 @@ export default function ChallengeConfigurator() {
     const basePriceUSD = getBasePrice();
     // Pro multiplier is already built into the Prime prices in the config
 
-    const discountAmount = appliedCoupon ? appliedCoupon.discount.amount : 0;
-    const finalPriceUSD = Math.max(0, basePriceUSD - discountAmount);
+    const discountAmount = appliedCoupon ? Math.round(appliedCoupon.discount.amount) : 0;
+    const finalPriceUSD = Math.round(Math.max(0, basePriceUSD - discountAmount));
     const finalPriceINR = Math.round(finalPriceUSD * 98); // Simple fixed rate: 98 (Synced with Gateway)
 
 
@@ -328,6 +328,7 @@ export default function ChallengeConfigurator() {
     const handleApplyCoupon = async () => {
         if (!coupon.trim()) return;
 
+        setAppliedCoupon(null); // Clear previous state immediately
         setValidatingCoupon(true);
         setCouponError("");
 
@@ -646,7 +647,7 @@ export default function ChallengeConfigurator() {
                                     <span className={cn("font-bold font-mono", appliedCoupon.discount.type === 'bogo' ? "text-purple-400" : "text-green-400")}>
                                         {appliedCoupon.discount.type === 'bogo'
                                             ? "FREE ACCOUNT"
-                                            : `-${displayCurrency === 'INR' ? '₹' : '$'}${(gateway === 'sharkpay' ? Math.round(discountAmount * 98) : discountAmount).toLocaleString()}`
+                                            : `-${displayCurrency === 'INR' ? '₹' : '$'}${Math.round(gateway === 'sharkpay' ? Math.round(discountAmount * 98) : discountAmount).toLocaleString()}`
                                         }
                                     </span>
                                 </div>
@@ -690,13 +691,18 @@ export default function ChallengeConfigurator() {
 
                             <button
                                 onClick={handlePurchase}
-                                disabled={isPurchasing || !agreedToTerms}
+                                disabled={isPurchasing || validatingCoupon || !agreedToTerms}
                                 className="w-full py-4 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100 disabled:cursor-not-allowed"
                             >
                                 {isPurchasing ? (
                                     <>
                                         <Loader2 size={20} className="animate-spin" />
                                         Creating Order...
+                                    </>
+                                ) : validatingCoupon ? (
+                                    <>
+                                        <Loader2 size={20} className="animate-spin" />
+                                        Validating Coupon...
                                     </>
                                 ) : (
                                     <>
