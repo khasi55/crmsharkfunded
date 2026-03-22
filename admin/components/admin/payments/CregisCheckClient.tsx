@@ -19,10 +19,19 @@ export function CregisCheckClient() {
         setResult(null);
 
         try {
-            const data = await fetchFromBackend("/api/admin/payments/cregis/query", {
+            // Call the local Next.js API route which proxies to the backend with proper auth
+            const response = await fetch("/api/admin/payments/cregis/query", {
                 method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ orderId: orderId.trim() }),
             });
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: response.statusText }));
+                throw new Error(errorData.message || `Error ${response.status}`);
+            }
+
+            const data = await response.json();
 
             if (data.code === "00000") {
                 setResult(data.data);
