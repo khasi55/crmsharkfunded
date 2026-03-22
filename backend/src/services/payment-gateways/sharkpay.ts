@@ -62,6 +62,8 @@ export class SharkPayGateway implements PaymentGateway {
             // Frontend and backend URLs
             const frontendUrl = process.env.FRONTEND_URL || 'https://app.sharkfunded.com';
             const backendUrl = process.env.BACKEND_URL || 'https://api.sharkfunded.co';
+            const webhookSecret = config.webhookSecret || process.env.PAYMENT_WEBHOOK_SECRET;
+            const webhookUrl = `${backendUrl}/api/webhooks/payment?gateway=sharkpay${webhookSecret ? `&secret=${webhookSecret}` : ''}`;
 
             const payload = {
                 amount: amountINR,
@@ -70,7 +72,7 @@ export class SharkPayGateway implements PaymentGateway {
                 reference_id: params.orderId,
                 success_url: `${frontendUrl}/payment/success?orderId=${params.orderId}`,
                 failed_url: `${frontendUrl}/payment/failed`,
-                callback_url: `${backendUrl}/api/webhooks/payment`,
+                callback_url: webhookUrl,
             };
 
             console.log('[SharkPay Debug] Sending Payload:', JSON.stringify(payload, null, 2));
@@ -137,8 +139,15 @@ export class SharkPayGateway implements PaymentGateway {
             }
 
             const receivedSignature = headers['x-shark-signature'] || headers['x-signature'];
+            
+            // 🛡️ FALLBACK: If no signature header, check for secret in body/query (merged in 'body' by webhooks.ts)
             if (!receivedSignature) {
-                console.warn('[SharkPay] No signature found in headers');
+                const receivedSecret = body.secret || body.webhook_secret;
+                if (receivedSecret && receivedSecret === webhookSecret) {
+                    console.log('[SharkPay] Webhook verified via secret token');
+                    return true;
+                }
+                console.warn('[SharkPay] No signature found in headers and no valid secret token');
                 return false;
             }
 
