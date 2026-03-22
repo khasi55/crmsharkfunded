@@ -21,7 +21,6 @@ export function CregisCheckClient() {
         try {
             const data = await fetchFromBackend("/api/admin/payments/cregis/query", {
                 method: "POST",
-                requireAuth: false,
                 body: JSON.stringify({ orderId: orderId.trim() }),
             });
 
