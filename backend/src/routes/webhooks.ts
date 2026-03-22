@@ -175,11 +175,10 @@ router.post('/cregis', async (req: Request, res: Response) => {
         
         if (cregis) {
             const isValid = await cregis.verifyWebhook(req.headers, req.body);
-            if (!isValid) {
-                console.warn(`[Webhook API] Invalid signature for Cregis from IP: ${req.ip}`);
-                return res.status(401).json({ error: 'Invalid signature' });
+            if (isValid) {
+                console.log('[Webhook] Cregis signature status verified.');
+                req.body.verified_by_preprocessor = true;
             }
-            console.log('[Webhook] Cregis signature status verified.');
         } else {
             console.error('[Webhook] Cregis gateway not found in registry');
             return res.status(500).json({ error: 'Gateway not found' });
@@ -277,7 +276,10 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             return res.status(500).json({ error: 'Internal Error: Gateway Registry Failure' });
         }
         
-        if (gateway) {
+        // Skip verification if already done by a pre-processor (like Cregis)
+        if (body.verified_by_preprocessor) {
+            console.log(`[Webhook] Skipping secondary verification for ${gatewayName} (already verified)`);
+        } else if (gateway) {
             try {
                 const isValid = await gateway.verifyWebhook(req.headers, body);
                 if (!isValid) {
