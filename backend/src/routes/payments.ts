@@ -172,6 +172,20 @@ router.post('/create-order', async (req: Request, res: Response) => {
             else if (type === '2-step') accountTypeId = 7;
         }
 
+        // 4. Sanitize Metadata for storage (Prevent injection of sensitive fields like mt5_group)
+        const safeMetadata: any = {
+            type: type,
+            model: model,
+            size: size,
+            platform: metadata?.platform || 'MT5',
+            coupon: metadata?.coupon,
+            country: metadata?.country,
+            phone: metadata?.phone,
+            referralCode: metadata?.referralCode,
+            competition_id: metadata?.competition_id,
+            is_competition: metadata?.is_competition,
+        };
+
         // Insert into database (Handle optional user_id)
         const { error: dbError } = await supabaseAdmin.from('payment_orders').insert({
             user_id: user?.id || null, // Allow null for guest checkout
@@ -182,13 +196,13 @@ router.post('/create-order', async (req: Request, res: Response) => {
             account_type_name: `${model || ''} ${type || ''}`.trim() || 'Challenge',
             account_type_id: accountTypeId,
             account_size: size,
-            platform: metadata?.platform || 'MT5',
+            platform: safeMetadata.platform,
             model: model || 'lite',
             payment_gateway: gateway,
             payment_id: result.gatewayOrderId,
             coupon_code: metadata?.coupon,
             metadata: {
-                ...(metadata || {}),
+                ...safeMetadata,
                 customerName,
                 customerEmail
             }

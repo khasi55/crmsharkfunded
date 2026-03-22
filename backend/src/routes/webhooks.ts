@@ -5,12 +5,9 @@ import { EmailService } from '../services/email-service';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { paymentGatewayRegistry } from '../services/payment-gateways';
 
 const router = Router();
-
-router.get('/test-path-123', (req, res) => {
-    res.json({ success: true, message: 'WEBHOOKS_FILE_IS_ACTIVE' });
-});
 
 router.post('/mt5', async (req: Request, res: Response) => {
     // Security Check: Verify Shared Secret
@@ -58,47 +55,45 @@ router.post('/mt5', async (req: Request, res: Response) => {
 });
 
 const verifyPaymentSecret = (req: Request): boolean => {
-    // ALWAYS RETURN TRUE: User requested removal of signature verification blocking
-    return true;
+    // 🛡️ Global Security Check: Use for unknown gateways or as a baseline
+    const webhookSecret = process.env.PAYMENT_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+        console.warn('⚠️ No PAYMENT_WEBHOOK_SECRET configured. Security is degraded.');
+        return process.env.NODE_ENV === 'development'; // Allow only in dev if secret is missing
+    }
+
+    const signature = req.headers['x-payment-signature'] || req.headers['x-hub-signature-256'];
+    if (!signature) return false;
+
+    try {
+        const hmac = crypto.createHmac('sha256', webhookSecret);
+        const bodyStr = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+        const expected = hmac.update(bodyStr).digest('hex');
+        
+        // Handle 'sha256=' prefix if present (common in webhooks)
+        const received = String(signature).replace('sha256=', '');
+        
+        const receivedBuf = Buffer.from(received);
+        const expectedBuf = Buffer.from(expected);
+        
+        if (receivedBuf.length !== expectedBuf.length) return false;
+        
+        return crypto.timingSafeEqual(receivedBuf, expectedBuf);
+    } catch (e) {
+        return false;
+    }
 };
 
-/**
- * Payment Webhook Handler (POST)
- * Called by gateway to notify success
- */
 router.post('/payment', async (req: Request, res: Response) => {
-    // DEBUG: Log Headers
-    console.log('[Webhook] Payment Generic Headers:', JSON.stringify(req.headers));
+    // 🛡️ Log Entry
+    const logEntry = `[${new Date().toISOString()}] POST /api/webhooks/payment - RAW - From: ${req.ip}\n`;
+    fs.appendFileSync('backend_request_debug.log', logEntry);
 
-    // FORCE PARSE: If body is empty, try to read stream
+    // Ensure we have a body
     if (!req.body || Object.keys(req.body).length === 0) {
-        try {
-            const rawBody = await new Promise<string>((resolve, reject) => {
-                let data = '';
-                req.setEncoding('utf8');
-                req.on('data', chunk => data += chunk);
-                req.on('end', () => resolve(data));
-                req.on('error', err => reject(err));
-            });
-
-            if (rawBody) {
-                console.log('[Webhook] Payment Generic Raw Body Captured:', rawBody);
-                try {
-                    req.body = JSON.parse(rawBody);
-                } catch (e) {
-                    console.warn('[Webhook] Failed to JSON parse raw body:', e);
-                }
-            }
-        } catch (e) {
-            console.error('[Webhook] Error reading stream:', e);
-        }
+        console.warn('[Webhook] Received empty body on /payment');
     }
 
-    fs.appendFileSync('backend_request_debug.log', `[WEBHOOK ENTRY] Method: ${req.method}, Path: ${req.path}, Body: ${JSON.stringify(req.body)}\n`);
-
-    if (!verifyPaymentSecret(req)) {
-        console.warn(`⚠️ Warning: Unauthorized Payment Webhook POST from ${req.ip} (Processing anyway per user request)`);
-    }
     await handlePaymentWebhook(req, res);
 });
 
@@ -177,15 +172,21 @@ router.post('/cregis', async (req: Request, res: Response) => {
     try {
         const { paymentGatewayRegistry } = await import('../services/payment-gateways');
         const cregis = paymentGatewayRegistry.getGateway('cregis');
+        
         if (cregis) {
             const isValid = await cregis.verifyWebhook(req.headers, req.body);
             if (!isValid) {
-                console.warn(`⚠️ Warning: Unauthorized Cregis Webhook POST from ${req.ip} (Processing anyway per user request)`);
+                console.warn(`[Webhook API] Invalid signature for Cregis from IP: ${req.ip}`);
+                return res.status(401).json({ error: 'Invalid signature' });
             }
-            console.log('[Webhook] Cregis signature status logged.');
+            console.log('[Webhook] Cregis signature status verified.');
+        } else {
+            console.error('[Webhook] Cregis gateway not found in registry');
+            return res.status(500).json({ error: 'Gateway not found' });
         }
     } catch (verError) {
         console.error('[Webhook] Cregis verification error:', verError);
+        return res.status(500).json({ error: 'Internal Error: Cregis Verification' });
     }
 
     // Adapt Cregis payload to internal structure expected by handlePaymentWebhook
@@ -251,11 +252,45 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             return null;
         };
 
+        const gatewayName = getPayloadValue(body, ['gateway']) || (body.mid ? 'epay' : 'unknown');
         const internalOrderId = getPayloadValue(body, ['reference_id', 'reference', 'orderid', 'orderId', 'internalOrderId', 'order_id']);
         const status = getPayloadValue(body, ['status', 'transt', 'transactionStatus']);
         const amount = getPayloadValue(body, ['amount', 'tranmt', 'receive_amount', 'orderAmount']);
 
-
+        // 🛡️ SIGNATURE VERIFICATION
+        let gateway;
+        try {
+            gateway = paymentGatewayRegistry.getGateway(gatewayName);
+            console.log(`[Webhook Debug] Gateway identified: ${gatewayName}, Instance found: ${!!gateway}`);
+        } catch (registryError) {
+            console.error('[Webhook Error] Failed to retrieve gateway from registry:', registryError);
+            return res.status(500).json({ error: 'Internal Error: Gateway Registry Failure' });
+        }
+        
+        if (gateway) {
+            try {
+                const isValid = await gateway.verifyWebhook(req.headers, body);
+                if (!isValid) {
+                    console.error(`🛑 [Webhook] Unauthorized ${gatewayName} webhook attempt for order ${internalOrderId} from ${req.ip}`);
+                    return res.status(401).json({ error: 'Unauthorized: Invalid Signature' });
+                }
+                console.log(`✅ [Webhook] ${gatewayName} signature verified for order ${internalOrderId}`);
+            } catch (verifyError) {
+                console.error(`[Webhook Error] Verification failed for ${gatewayName}:`, verifyError);
+                return res.status(500).json({ error: 'Internal Error: Verification Logic Failure' });
+            }
+        } else {
+            console.warn(`⚠️ [Webhook] Unknown gateway ${gatewayName}. Proceeding with baseline verification.`);
+            try {
+                if (!verifyPaymentSecret(req)) {
+                   console.error(`🛑 [Webhook] Global signature verification failed for unknown gateway ${gatewayName}`);
+                   return res.status(401).json({ error: 'Unauthorized: Invalid Global Signature' });
+                }
+            } catch (globalVerifyError) {
+                console.error('[Webhook Error] Global verification failed:', globalVerifyError);
+                return res.status(500).json({ error: 'Internal Error: Global Verification Failure' });
+            }
+        }
 
         // Use consistent Frontend URL logic
         const frontendUrl = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.sharkfunded.com';
@@ -268,10 +303,10 @@ async function handlePaymentWebhook(req: Request, res: Response) {
 
         // 1. Log webhook for audit
         await supabaseAdmin.from('webhook_logs').insert({
-            event_type: body.event || 'unknown',
-            gateway: body.gateway || (body.mid ? 'epay' : 'unknown'),
+            event_type: body.event || body.event_type || 'unknown',
+            gateway: gatewayName,
             order_id: internalOrderId,
-            gateway_order_id: body.transactionid || body.transaction_id || body.orderId || body.orderid,
+            gateway_order_id: body.transactionid || body.transaction_id || body.orderId || body.orderid || body.cregis_id,
             amount: amount,
             status: status || 'unknown',
             utr: body.utr,
@@ -761,6 +796,9 @@ async function handlePaymentWebhook(req: Request, res: Response) {
 
     } catch (error: any) {
         console.error('❌ Payment Webhook Error:', error);
+        try {
+            fs.appendFileSync('debug_webhook_error.log', `[WEBHOOK ERROR] ${new Date().toISOString()} - ${error.message} - Stack: ${error.stack}\n`);
+        } catch (e) {}
         fs.appendFileSync('backend_request_debug.log', `[WEBHOOK ERROR] ${new Date().toISOString()} - ${error.message} - Stack: ${error.stack}\n`);
         if (req.method === 'GET') {
             return res.redirect(`${process.env.FRONTEND_URL}/payment/failed`);

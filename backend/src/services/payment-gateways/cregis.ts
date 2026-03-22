@@ -126,8 +126,33 @@ export class CregisGateway implements PaymentGateway {
     }
 
     async verifyWebhook(headers: any, body: any): Promise<boolean> {
-        // ALWAYS RETURN TRUE: User requested removal of signature verification blocking
-        return true;
+        try {
+            const config = await this.getConfig();
+            if (!config.apiKey) {
+                console.warn('[Cregis] No API key found for verification');
+                return false;
+            }
+
+            const receivedSignature = body.sign;
+            if (!receivedSignature) {
+                console.warn('[Cregis] No signature found in webhook body');
+                return false;
+            }
+
+            // Generate expected signature (Cregis uses same logic for requests and webhooks)
+            const expectedSignature = this.generateSignature(body, config.apiKey);
+
+            const isValid = receivedSignature.toLowerCase() === expectedSignature.toLowerCase();
+
+            if (!isValid) {
+                console.warn('[Cregis] Invalid webhook signature detected');
+            }
+
+            return isValid;
+        } catch (error) {
+            console.error('[Cregis] Webhook verification error:', error);
+            return false;
+        }
     }
 
     parseWebhookData(body: any): WebhookData {
@@ -149,18 +174,39 @@ export class CregisGateway implements PaymentGateway {
                 throw new Error("Cregis API Credentials (Key/ProjectID) missing");
             }
 
-            // Determine if input is a Cregis ID (usually starts with 'po') or a Merchant Order ID
-            const isCregisId = id.toLowerCase().startsWith('po');
             const trimmedId = id.trim();
+            let cregisId = '';
+            
+            // If it starts with 'po', it's likely already a Cregis ID
+            if (trimmedId.toLowerCase().startsWith('po')) {
+                cregisId = trimmedId;
+            } else {
+                // Otherwise, try to find it in our database
+                console.log(`[Cregis Debug] Looking up Cregis ID for merchant order: ${trimmedId}`);
+                const { data: order } = await supabase
+                    .from('payment_orders')
+                    .select('payment_id')
+                    .eq('order_id', trimmedId)
+                    .single();
+                
+                if (order?.payment_id) {
+                    console.log(`[Cregis Debug] Found Cregis ID in DB: ${order.payment_id}`);
+                    cregisId = order.payment_id;
+                } else {
+                    console.log(`[Cregis Debug] No Cregis ID found in DB for ${trimmedId}. Trying as order_id directly.`);
+                    // Fallback to sending it as order_id if supported by endpoint (v1 used this)
+                    // But for /api/v2/order/info we likely need cregis_id
+                }
+            }
 
             const payload: any = {
-                pid: Number(config.projectId), // Ensure numeric as per docs
-                timestamp: Date.now(), // Number
+                pid: Number(config.projectId),
+                timestamp: Date.now(),
                 nonce: Math.random().toString(36).substring(2, 8),
             };
 
-            if (isCregisId) {
-                payload.cregis_id = trimmedId;
+            if (cregisId) {
+                payload.cregis_id = cregisId;
             } else {
                 payload.order_id = trimmedId;
             }
@@ -206,8 +252,6 @@ export class CregisGateway implements PaymentGateway {
     }
 
     private generateSignature(payload: any, apiKey: string): string {
-        console.log('[Cregis Debug] generateSignature - API Key Length:', apiKey?.length);
-        
         // Filter out 'sign', null, undefined, or empty string values
         const keys = Object.keys(payload).filter(k =>
             k !== 'sign' &&
@@ -216,19 +260,13 @@ export class CregisGateway implements PaymentGateway {
             payload[k] !== ''
         ).sort();
 
-        console.log('[Cregis Debug] generateSignature - Sorted Keys:', keys);
-
         let paramString = '';
         for (const key of keys) {
-            console.log(`[Cregis Debug]   Processing key: ${key}, value: ${payload[key]} (type: ${typeof payload[key]})`);
             paramString += `${key}${payload[key]}`;
         }
 
         const signString = apiKey + paramString;
-        console.log('[Cregis Debug] FINAL Signing String:', signString);
-
         const hash = crypto.createHash('md5').update(signString).digest('hex').toLowerCase();
-        console.log('[Cregis Debug] MD5 Hash result:', hash);
 
         return hash;
     }
