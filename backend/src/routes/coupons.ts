@@ -47,12 +47,8 @@ router.post('/validate', async (req: AuthRequest, res: Response) => {
         }
 
         const validation = result && result[0];
-        const debugFile = require('path').resolve(__dirname, '../../coupon_debug.log');
-        require('fs').appendFileSync(debugFile, `\n--- [${new Date().toISOString()}] ---\n`);
-        require('fs').appendFileSync(debugFile, `RPC Result: ${JSON.stringify(validation, null, 2)}\n`);
-
         if (!validation || !validation.is_valid) {
-            require('fs').appendFileSync(debugFile, `Invalid: ${validation?.message || 'Unknown'}\n`);
+            console.warn(`[Coupons] Invalid: ${validation?.message || 'Unknown code'}`);
             res.json({
                 valid: false,
                 error: validation?.message || 'Invalid or expired coupon code'

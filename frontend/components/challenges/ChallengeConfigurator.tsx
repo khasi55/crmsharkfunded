@@ -375,6 +375,18 @@ export default function ChallengeConfigurator() {
                 return;
             }
 
+            // 🛡️ FRONTEND SECURITY SYNC: Final price sanity check before sending
+            const expectedTotal = Math.max(0, basePriceUSD - Math.round(discountAmount));
+            if (finalPriceUSD !== expectedTotal) {
+                console.warn(`[Security] Frontend price discrepancy detected! Recalculated: ${expectedTotal}, Current: ${finalPriceUSD}`);
+                // Force sync and prevent purchase if inconsistent
+                alert("Pricing out of sync. Please refresh the page and try again.");
+                setIsPurchasing(false);
+                return;
+            }
+
+            console.log(`[Security] Purchase initiated. Validated Amount: $${finalPriceUSD} (Base: $${basePriceUSD}, Discount: -$${discountAmount})`);
+
             // Determine explicit MT5 group based on user request
             let mt5Group = '';
 
@@ -434,7 +446,13 @@ export default function ChallengeConfigurator() {
                     alert('Payment URL not received. Please contact support.');
                 }
             } else {
-                alert(data.error || 'Failed to create order');
+                // 🛡️ SECURITY FEEDBACK: If backend blocks price manipulation, show the specific error
+                const errorMsg = data.error || 'Failed to create order';
+                if (errorMsg.toLowerCase().includes('price mismatch')) {
+                    alert(`🚨 SECURITY BLOCK: ${errorMsg}\n\nThe server detected that the price was modified externally. Please use the official pricing.`);
+                } else {
+                    alert(errorMsg);
+                }
             }
         } catch (error) {
             console.error('Order creation error:', error);
