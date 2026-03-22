@@ -39,7 +39,9 @@ router.get('/', authenticate, requireRole(['super_admin', 'payouts_admin', 'admi
             .from('payment_orders')
             .select('*', { count: 'exact' });
 
+        // Apply filters BEFORE ordering and range
         if (search) {
+            const searchLower = search.toLowerCase();
             // Find user IDs matching search in profiles
             const { data: matchedProfiles } = await supabase
                 .from('profiles')
@@ -48,21 +50,30 @@ router.get('/', authenticate, requireRole(['super_admin', 'payouts_admin', 'admi
 
             const matchedUserIds = matchedProfiles?.map(p => p.id) || [];
 
-            // Combine filters: order_id, payment_id, or user_id in matchedUserIds
-            let filter = `order_id.ilike.%${search}%,payment_id.ilike.%${search}%`;
+            // Combine filters: order_id, payment_id, user_id, or metadata fields
+            // Note: metadata->>field is Postgres syntax for JSONB text search
+            let orFilter = `order_id.ilike.%${search}%,payment_id.ilike.%${search}%,metadata->>customerName.ilike.%${search}%,metadata->>customerEmail.ilike.%${search}%,metadata->>payer_name.ilike.%${search}%,metadata->>payer_email.ilike.%${search}%`;
+            
             if (matchedUserIds.length > 0) {
-                filter += `,user_id.in.(${matchedUserIds.join(',')})`;
+                orFilter += `,user_id.in.(${matchedUserIds.join(',')})`;
             }
-            query = query.or(filter);
+            
+            // Also search in amount if search is numeric
+            if (!isNaN(parseFloat(search))) {
+                orFilter += `,amount.eq.${parseFloat(search)}`;
+            }
+
+            query = query.or(orFilter);
         }
 
-        query = query.order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
-
-        // Apply status filter if provided
+        // Apply status filter BEFORE pagination
         if (status && status !== 'all') {
             query = query.eq('status', status);
         }
+
+        // Apply ordering and pagination LAST
+        query = query.order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
 
         // Execute Query
         const { data: payments, count, error } = await query;
