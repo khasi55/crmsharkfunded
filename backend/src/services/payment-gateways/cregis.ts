@@ -205,6 +205,8 @@ export class CregisGateway implements PaymentGateway {
     }
 
     private generateSignature(payload: any, apiKey: string): string {
+        console.log('[Cregis Debug] generateSignature - API Key Length:', apiKey?.length);
+        
         // Filter out 'sign', null, undefined, or empty string values
         const keys = Object.keys(payload).filter(k =>
             k !== 'sign' &&
@@ -213,14 +215,20 @@ export class CregisGateway implements PaymentGateway {
             payload[k] !== ''
         ).sort();
 
+        console.log('[Cregis Debug] generateSignature - Sorted Keys:', keys);
+
         let paramString = '';
         for (const key of keys) {
+            console.log(`[Cregis Debug]   Processing key: ${key}, value: ${payload[key]} (type: ${typeof payload[key]})`);
             paramString += `${key}${payload[key]}`;
         }
 
         const signString = apiKey + paramString;
-        console.log('[Cregis Debug] Signing String:', signString);
+        console.log('[Cregis Debug] FINAL Signing String:', signString);
 
-        return crypto.createHash('md5').update(signString).digest('hex').toLowerCase();
+        const hash = crypto.createHash('md5').update(signString).digest('hex').toLowerCase();
+        console.log('[Cregis Debug] MD5 Hash result:', hash);
+
+        return hash;
     }
 }
