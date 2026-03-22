@@ -142,19 +142,28 @@ export class CregisGateway implements PaymentGateway {
             metadata: {}
         };
     }
-    async queryOrder(orderId: string): Promise<any> {
+    async queryOrder(id: string): Promise<any> {
         try {
             const config = await this.getConfig();
             if (!config.apiKey || !config.projectId) {
                 throw new Error("Cregis API Credentials (Key/ProjectID) missing");
             }
 
+            // Determine if input is a Cregis ID (usually starts with 'po') or a Merchant Order ID
+            const isCregisId = id.toLowerCase().startsWith('po');
+            const trimmedId = id.trim();
+
             const payload: any = {
-                pid: config.projectId,
-                timestamp: Date.now(),
+                pid: Number(config.projectId), // Ensure numeric as per docs
+                timestamp: Date.now(), // Number
                 nonce: Math.random().toString(36).substring(2, 8),
-                order_id: orderId
             };
+
+            if (isCregisId) {
+                payload.cregis_id = trimmedId;
+            } else {
+                payload.order_id = trimmedId;
+            }
 
             const signature = this.generateSignature(payload, config.apiKey);
             payload.sign = signature;
@@ -163,7 +172,7 @@ export class CregisGateway implements PaymentGateway {
             
             console.log('[Cregis Debug] Querying order with Axios:', {
                 url: requestUrl,
-                orderId: orderId,
+                orderId: id,
                 pid: config.projectId
             });
 
