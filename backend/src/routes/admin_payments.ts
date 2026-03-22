@@ -31,13 +31,32 @@ router.get('/', authenticate, requireRole(['super_admin', 'payouts_admin', 'admi
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 50;
         const status = req.query.status as string;
+        const search = req.query.search as string;
         const offset = (page - 1) * limit;
 
         // 1. Build Query
         let query = supabase
             .from('payment_orders')
-            .select('*', { count: 'exact' })
-            .order('created_at', { ascending: false })
+            .select('*', { count: 'exact' });
+
+        if (search) {
+            // Find user IDs matching search in profiles
+            const { data: matchedProfiles } = await supabase
+                .from('profiles')
+                .select('id')
+                .or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
+
+            const matchedUserIds = matchedProfiles?.map(p => p.id) || [];
+
+            // Combine filters: order_id, payment_id, or user_id in matchedUserIds
+            let filter = `order_id.ilike.%${search}%,payment_id.ilike.%${search}%`;
+            if (matchedUserIds.length > 0) {
+                filter += `,user_id.in.(${matchedUserIds.join(',')})`;
+            }
+            query = query.or(filter);
+        }
+
+        query = query.order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
 
         // Apply status filter if provided
@@ -109,6 +128,17 @@ router.get('/', authenticate, requireRole(['super_admin', 'payouts_admin', 'admi
                 else if (atn.includes('lite')) determinedModel = 'lite';
             }
 
+            // Enhanced name/email resolution for guest checkouts
+            let metadata = p.metadata || {};
+            if (typeof metadata.data === 'string') {
+                try {
+                    metadata = { ...metadata, ...JSON.parse(metadata.data) };
+                } catch (e) {}
+            }
+
+            const guestName = metadata.customerName || metadata.name || metadata.payer_name || metadata.customer_name;
+            const guestEmail = metadata.customerEmail || metadata.email || metadata.payer_email || metadata.customer_email;
+
             return {
                 id: p.id,
                 order_id: p.order_id,
@@ -123,8 +153,8 @@ router.get('/', authenticate, requireRole(['super_admin', 'payouts_admin', 'admi
                 coupon_code: p.coupon_code || '-',
                 created_at: p.created_at,
                 paid_at: p.paid_at,
-                user_name: profile?.full_name || profile?.email?.split('@')[0] || p.metadata?.customerName || p.metadata?.name || 'Guest User',
-                user_email: profile?.email || p.metadata?.customerEmail || p.metadata?.email || 'Unknown'
+                user_name: profile?.full_name || profile?.email?.split('@')[0] || guestName || 'Guest User',
+                user_email: profile?.email || guestEmail || 'Unknown'
             };
         });
 

@@ -278,7 +278,20 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             request_body: body,
         });
 
-        // 2. Determine Success
+        // 2. Fetch existing order to preserve metadata
+        const { data: existingOrder, error: fetchError } = await supabaseAdmin
+            .from('payment_orders')
+            .select('*')
+            .eq('order_id', internalOrderId)
+            .single();
+
+        if (fetchError || !existingOrder) {
+            console.error(`❌ [Payment] Order not found for ${internalOrderId}`);
+            if (req.method === 'GET') return res.redirect(`${frontendUrl}/dashboard`);
+            return res.status(404).json({ error: 'Order not found' });
+        }
+
+        // 3. Determine Success
         const statusLower = String(status || '').toLowerCase();
         const isSuccess =
             statusLower === 'success' ||
@@ -292,9 +305,16 @@ async function handlePaymentWebhook(req: Request, res: Response) {
         if (!isSuccess) {
             console.log('⚠️ Payment not successful:', status);
 
-            // Fix: Explicitly mark order as failed in DB so it doesn't stay pending
+            // Preserve existing metadata during update
             await supabaseAdmin.from('payment_orders')
-                .update({ status: 'failed', metadata: { ...body, failure_reason: status } })
+                .update({ 
+                    status: 'failed', 
+                    metadata: { 
+                        ...(existingOrder.metadata || {}), 
+                        ...body, 
+                        failure_reason: status 
+                    } 
+                })
                 .eq('order_id', internalOrderId);
 
             if (req.method === 'GET') {
@@ -305,17 +325,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
 
         // 3. Status Update (Atomic)
 
-        // Fetch order first to validate amount
-        const { data: existingOrder, error: fetchError } = await supabaseAdmin
-            .from('payment_orders')
-            .select('*')
-            .eq('order_id', internalOrderId)
-            .single();
-
-        if (fetchError || !existingOrder) {
-            console.error(`❌ [Payment] Order not found for ${internalOrderId}`);
-            return res.status(404).json({ error: 'Order not found' });
-        }
+        // Fetch order already handled above
 
         // Validate Underpayment
         const receivedAmount = Number(amount);
