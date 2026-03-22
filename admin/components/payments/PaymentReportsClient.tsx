@@ -8,6 +8,7 @@ import { toast } from "react-hot-toast";
 interface PaymentOrder {
     id: string;
     order_id: string;
+    payment_id?: string;
     amount: number;
     currency: string;
     status: string;
@@ -202,19 +203,37 @@ export function PaymentReportsClient() {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">
-                                            <div className="flex items-center gap-2">
-                                                <span>{payment.order_id}</span>
-                                                <button
-                                                    onClick={() => handleCopy(payment.order_id, payment.id)}
-                                                    className="text-gray-400 hover:text-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 rounded-md p-1 opacity-0 group-hover:opacity-100"
-                                                    title="Copy Order ID"
-                                                >
-                                                    {copiedId === payment.id ? (
-                                                        <Check className="h-3.5 w-3.5 text-green-500" />
-                                                    ) : (
-                                                        <Copy className="h-3.5 w-3.5" />
-                                                    )}
-                                                </button>
+                                            <div className="flex flex-col gap-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-gray-900 font-semibold">{payment.order_id}</span>
+                                                    <button
+                                                        onClick={() => handleCopy(payment.order_id, payment.id)}
+                                                        className="text-gray-400 hover:text-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 rounded-md p-0.5 opacity-0 group-hover:opacity-100"
+                                                        title="Copy Order ID"
+                                                    >
+                                                        {copiedId === payment.id ? (
+                                                            <Check className="h-3 w-3 text-green-500" />
+                                                        ) : (
+                                                            <Copy className="h-3 w-3" />
+                                                        )}
+                                                    </button>
+                                                </div>
+                                                {payment.payment_id && (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] text-gray-400 font-medium">Gateway: {payment.payment_id}</span>
+                                                        <button
+                                                            onClick={() => handleCopy(payment.payment_id!, payment.id + '-gateway')}
+                                                            className="text-gray-400 hover:text-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 rounded-md p-0.5 opacity-0 group-hover:opacity-100"
+                                                            title="Copy Gateway ID"
+                                                        >
+                                                            {copiedId === payment.id + '-gateway' ? (
+                                                                <Check className="h-2.5 w-2.5 text-green-500" />
+                                                            ) : (
+                                                                <Copy className="h-2.5 w-2.5" />
+                                                            )}
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">

@@ -112,6 +112,7 @@ router.get('/', authenticate, requireRole(['super_admin', 'payouts_admin', 'admi
             return {
                 id: p.id,
                 order_id: p.order_id,
+                payment_id: p.payment_id,
                 amount: p.amount,
                 currency: p.currency,
                 status: p.status,
