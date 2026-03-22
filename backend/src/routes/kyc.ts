@@ -485,20 +485,30 @@ router.get('/admin', authenticate, requireRole(['super_admin', 'admin', 'sub_adm
 
         // Manual join for profiles
         if (sessions && sessions.length > 0) {
-            const userIds = [...new Set(sessions.map((s: any) => s.user_id).filter(Boolean))];
+            // Filter out nulls and ensure we only have valid-looking UUIDs to avoid "Bad Request" from Supabase
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            const userIds = [...new Set(sessions.map((s: any) => s.user_id).filter((id: any) => id && uuidRegex.test(id)))];
             
-            // ensure the limit matches the number of IDs we want to fetch
-            const { data: profiles, error: pError } = await supabase
-                .from('profiles')
-                .select('id, full_name, email')
-                .in('id', userIds)
-                .limit(userIds.length);
+            let profiles: any[] = [];
+            if (userIds.length > 0) {
+                // Chunk userIds to avoid URL length limits (PostgREST IN filter uses query params)
+                const chunkSize = 50;
+                for (let i = 0; i < userIds.length; i += chunkSize) {
+                    const chunk = userIds.slice(i, i + chunkSize);
+                    const { data: pData, error: pError } = await supabase
+                        .from('profiles')
+                        .select('id, full_name, email')
+                        .in('id', chunk);
 
-            if (pError) {
-                console.error('Error fetching profiles for KYC sessions:', pError);
+                    if (pError) {
+                        console.error(`Error fetching profiles chunk ${i / chunkSize}:`, pError);
+                    } else if (pData) {
+                        profiles = [...profiles, ...pData];
+                    }
+                }
             }
 
-            console.log(`[KYC Admin] Sessions: ${sessions.length}, Unique User IDs: ${userIds.length}, Profiles Fetched: ${profiles?.length || 0}`);
+            console.log(`[KYC Admin] Sessions: ${sessions.length}, Unique Valid User IDs: ${userIds.length}, Profiles Fetched: ${profiles.length}`);
 
             const profilesMap: Record<string, any> = {};
             profiles?.forEach((p: any) => {
