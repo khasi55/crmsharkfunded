@@ -118,7 +118,7 @@ async function getChallengeIdByLogin(login: number): Promise<string | null> {
 
         if (data && !error) {
             loginToChallengeMap.set(login, data.id);
-            if (DEBUG) console.log(`🔗 Mapped Login ${login} -> Challenge ${data.id}`);
+            // if (DEBUG) console.log(`🔗 Mapped Login ${login} -> Challenge ${data.id}`);
             return data.id;
         }
     } catch (err) {
@@ -149,16 +149,15 @@ export function initializeBridgeWS() {
             const { event, login } = message;
 
             // Uncommented for active debugging of all traffic
-            if (DEBUG) console.log(`📥 WS Relay: Received ${event} for login ${login}`);
+            // if (DEBUG) console.log(`📥 WS Relay: Received ${event} for login ${login}`);
 
             const challengeId = await getChallengeIdByLogin(login);
             if (!challengeId) {
-                if (DEBUG) console.warn(`⚠️ WS Relay: No challenge found for login ${login}`);
                 return;
             }
 
             if (event === 'account_update') {
-                if (DEBUG) console.log(`⚡️ Relay Balance→Frontend for challenge_${challengeId} (Eq: ${message.equity}, FPL: ${message.floating_pl})`);
+                // if (DEBUG) console.log(`⚡️ Relay Balance→Frontend for challenge_${challengeId} (Eq: ${message.equity}, FPL: ${message.floating_pl})`);
                 broadcastBalanceUpdate(challengeId, {
                     equity: message.equity,
                     floating_pl: message.floating_pl,
@@ -252,7 +251,7 @@ export function broadcastBalanceUpdate(challengeId: string, balanceData: any) {
     if (!io) return;
     const roomName = `challenge_${challengeId}`;
     const roomSize = io?.sockets?.adapter?.rooms?.get(roomName)?.size || 0;
-    if (DEBUG) console.log(`📤 balance_update → ${roomName} (${roomSize} listeners)`, { equity: balanceData.equity, floating_pl: balanceData.floating_pl });
+    // if (DEBUG) console.log(`📤 balance_update → ${roomName} (${roomSize} listeners)`, { equity: balanceData.equity, floating_pl: balanceData.floating_pl });
     io.to(roomName).emit('balance_update', balanceData);
 }
 

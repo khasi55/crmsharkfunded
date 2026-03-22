@@ -4,6 +4,7 @@ export interface PaymentGateway {
     createOrder(params: CreateOrderParams): Promise<CreateOrderResponse>;
     verifyWebhook(headers: any, body: any): Promise<boolean>;
     parseWebhookData(body: any): WebhookData;
+    queryOrder?(orderId: string): Promise<any>;
 }
 
 export interface CreateOrderParams {

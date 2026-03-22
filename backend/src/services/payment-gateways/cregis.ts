@@ -6,6 +6,7 @@ import {
 } from './types';
 import crypto from 'crypto';
 import { supabase } from '../../lib/supabase';
+import axios from 'axios';
 
 export class CregisGateway implements PaymentGateway {
     name = 'cregis';
@@ -141,27 +142,76 @@ export class CregisGateway implements PaymentGateway {
             metadata: {}
         };
     }
+    async queryOrder(orderId: string): Promise<any> {
+        try {
+            const config = await this.getConfig();
+            if (!config.apiKey || !config.projectId) {
+                throw new Error("Cregis API Credentials (Key/ProjectID) missing");
+            }
+
+            const payload: any = {
+                pid: config.projectId,
+                timestamp: Date.now(),
+                nonce: Math.random().toString(36).substring(2, 8),
+                order_id: orderId
+            };
+
+            const signature = this.generateSignature(payload, config.apiKey);
+            payload.sign = signature;
+
+            const requestUrl = `${this.apiUrl}/api/v2/payment/query`.replace(/\/+$/, '');
+            
+            console.log('[Cregis Debug] Querying order with Axios:', {
+                url: requestUrl,
+                orderId: orderId,
+                pid: config.projectId
+            });
+
+            // Using axios as it's already a dependency and often handles WAF/Cloudflare better than native fetch in node
+            const response = await axios.post(requestUrl, payload, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'token': config.apiKey
+                },
+                timeout: 10000,
+                validateStatus: null // Allow any status code
+            });
+
+            console.log(`[Cregis Debug] Response Status: ${response.status}`);
+            console.log(`[Cregis Debug] Response Body:`, JSON.stringify(response.data));
+
+            if (response.status !== 200) {
+                throw new Error(`Cregis API query failed with status ${response.status}: ${JSON.stringify(response.data)}`);
+            }
+
+            return response.data;
+        } catch (error: any) {
+            console.error('Cregis queryOrder error:', error.message || error);
+            if (error.response) {
+                console.error('Response data:', error.response.data);
+            }
+            throw error;
+        }
+    }
+
     private generateSignature(payload: any, apiKey: string): string {
-        // 1. Filter out 'sign', null, undefined, or empty string values
+        // Filter out 'sign', null, undefined, or empty string values
         const keys = Object.keys(payload).filter(k =>
             k !== 'sign' &&
             payload[k] !== null &&
             payload[k] !== undefined &&
             payload[k] !== ''
-        ).sort(); // 2. Sort keys lexicographically
+        ).sort();
 
-        // 3. Concatenate parameters: key1value1key2value2...
         let paramString = '';
         for (const key of keys) {
             paramString += `${key}${payload[key]}`;
         }
 
-        // 4. Prepend API Key
         const signString = apiKey + paramString;
+        console.log('[Cregis Debug] Signing String:', signString);
 
-        console.log('[Cregis Debug] Signature String:', signString); // Debug log
-
-        // 5. Calculate MD5 hash
         return crypto.createHash('md5').update(signString).digest('hex').toLowerCase();
     }
 }

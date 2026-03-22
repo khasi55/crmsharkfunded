@@ -2,7 +2,29 @@ import { Router, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
 
+import { paymentGatewayRegistry } from '../services/payment-gateways';
+
 const router = Router();
+
+router.post('/cregis/query', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
+    try {
+        const { orderId } = req.body;
+        if (!orderId) {
+            return res.status(400).json({ error: 'Order ID is required' });
+        }
+
+        const gateway = paymentGatewayRegistry.getGateway('cregis');
+        if (!gateway || !gateway.queryOrder) {
+            return res.status(500).json({ error: 'Cregis gateway not configured correctly' });
+        }
+
+        const result = await gateway.queryOrder(orderId);
+        res.json(result);
+    } catch (err: any) {
+        console.error('Cregis order query error:', err);
+        res.status(500).json({ error: err.message || 'Internal server error' });
+    }
+});
 
 router.get('/', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
