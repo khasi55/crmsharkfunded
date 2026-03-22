@@ -316,7 +316,13 @@ export default function ChallengeConfigurator() {
     const basePriceUSD = getBasePrice();
     // Pro multiplier is already built into the Prime prices in the config
 
-    const discountAmount = appliedCoupon ? Math.round(appliedCoupon.discount.amount) : 0;
+    const discountAmount = (() => {
+        if (!appliedCoupon) return 0;
+        if (appliedCoupon.discount.type === 'percentage') {
+            return Math.round(basePriceUSD * (appliedCoupon.discount.value / 100));
+        }
+        return Math.round(appliedCoupon.discount.amount);
+    })();
     const finalPriceUSD = Math.round(Math.max(0, basePriceUSD - discountAmount));
     const finalPriceINR = Math.round(finalPriceUSD * 98); // Simple fixed rate: 98 (Synced with Gateway)
 

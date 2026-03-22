@@ -73,6 +73,8 @@ export class SharkPayGateway implements PaymentGateway {
                 callback_url: `${backendUrl}/api/webhooks/payment`,
             };
 
+            console.log('[SharkPay Debug] Sending Payload:', JSON.stringify(payload, null, 2));
+
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 30000);
 

@@ -137,7 +137,7 @@ router.post('/create-order', async (req: Request, res: Response) => {
         // Create order via gateway
         const result = await paymentGateway.createOrder({
             orderId,
-            amount,
+            amount: expectedAmount, // 🛡️ ENFORCED: Use server-calculated price only
             currency,
             customerEmail,
             customerName,

@@ -362,18 +362,26 @@ async function handlePaymentWebhook(req: Request, res: Response) {
 
         // Fetch order already handled above
 
-        // Validate Underpayment
-        const receivedAmount = Number(amount);
-        const orderAmount = Number(existingOrder.amount); // Assuming amount is the column
+            // 🛡️ SECURITY FIX: Currency-Aware Underpayment Validation
+        let receivedAmount = Number(amount);
+        const expectedAmount = Number(existingOrder.amount);
+        const orderCurrency = (existingOrder.currency || 'USD').toUpperCase();
+        
+        // Convert received amount to USD if gateway is SharkPay (which sends INR)
+        if (gatewayName === 'sharkpay' && orderCurrency === 'USD') {
+            const USD_TO_INR = 98; // Sync with sharkpay.ts
+            receivedAmount = receivedAmount / USD_TO_INR;
+            console.log(`[Webhook API] Converted SharkPay INR ${amount} to USD ${receivedAmount.toFixed(2)}`);
+        }
 
-        if (!isNaN(receivedAmount) && !isNaN(orderAmount) && receivedAmount < orderAmount) {
-            console.warn(`⚠️ Underpayment detected for ${internalOrderId}. Paid: ${receivedAmount}, Expected: ${orderAmount}`);
+        if (isNaN(receivedAmount) || isNaN(expectedAmount) || (receivedAmount < (expectedAmount - 0.5))) {
+            console.warn(`⚠️ Underpayment detected for ${internalOrderId}. Paid: ${receivedAmount.toFixed(2)} ${orderCurrency}, Expected: ${expectedAmount} ${orderCurrency}`);
 
             await supabaseAdmin.from('payment_orders').update({
                 status: 'partial_paid',
                 payment_id: body.paymentId || body.transaction_id || body.utr,
                 payment_method: body.paymentMethod || 'gateway',
-                metadata: { ...existingOrder.metadata, received_amount: receivedAmount }
+                metadata: { ...existingOrder.metadata, received_amount: receivedAmount, raw_webhook_amount: amount, gateway_currency: gatewayName === 'sharkpay' ? 'INR' : orderCurrency }
             }).eq('order_id', internalOrderId);
 
             return res.json({ message: 'Payment partial, account not created' });
