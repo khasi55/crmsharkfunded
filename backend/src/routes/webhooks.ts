@@ -238,6 +238,11 @@ async function handlePaymentWebhook(req: Request, res: Response) {
     try {
         // Merge query and body params for robust payload checking (gateways like SharkPay send 'gateway' in query)
         const body = { ...req.body, ...req.query };
+        
+        // 🔍 DEEP DEBUG: Log the parsed body and query to see why gateway is missing
+        console.log(`[Webhook Debug] Raw Query:`, JSON.stringify(req.query));
+        console.log(`[Webhook Debug] Raw Body:`, JSON.stringify(req.body));
+        console.log(`[Webhook Debug] Merged Payload Keys:`, Object.keys(body));
 
         // Helper to find value in object (case-insensitive and deep scan for EPay)
         const getPayloadValue = (obj: any, keys: string[]) => {
@@ -253,7 +258,11 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             return null;
         };
 
-        const gatewayName = getPayloadValue(body, ['gateway']) || (body.mid ? 'epay' : 'unknown');
+        const userAgent = String(req.headers['user-agent'] || '').toLowerCase();
+        const gatewayName = getPayloadValue(body, ['gateway']) || 
+                           (userAgent.includes('sharkfunded-callback') ? 'sharkpay' : 
+                           (body.mid ? 'epay' : 'unknown'));
+        
         const internalOrderId = getPayloadValue(body, ['reference_id', 'reference', 'orderid', 'orderId', 'internalOrderId', 'order_id']);
         const status = getPayloadValue(body, ['status', 'transt', 'transactionStatus']);
         const amount = getPayloadValue(body, ['amount', 'tranmt', 'receive_amount', 'orderAmount']);
