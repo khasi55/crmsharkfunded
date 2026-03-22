@@ -46,23 +46,29 @@ export function CregisCheckClient() {
         }
     };
 
-    const getStatusIcon = (status: number) => {
-        switch (status) {
-            case 1: return <CheckCircle className="h-5 w-5 text-green-500" />;
-            case 0: return <Clock className="h-5 w-5 text-yellow-500" />;
-            default: return <XCircle className="h-5 w-5 text-red-500" />;
+    const getStatusIcon = (status: string) => {
+        const s = String(status || '').toLowerCase();
+        if (s === 'paid' || s === 'paid_over' || s === 'success') {
+            return <CheckCircle className="h-5 w-5 text-green-500" />;
         }
+        if (s === 'unpaid' || s === 'pending') {
+            return <Clock className="h-5 w-5 text-yellow-500" />;
+        }
+        return <XCircle className="h-5 w-5 text-red-500" />;
     };
 
-    const getStatusText = (status: number) => {
-        switch (status) {
-            case 1: return "Paid / Success";
-            case 0: return "Pending / Unpaid";
-            case 2: return "Expired / Failed";
-            case 3: return "Cancelled";
-            default: return `Unknown (${status})`;
-        }
+    const getStatusText = (status: string) => {
+        const s = String(status || '').toLowerCase();
+        if (s === 'paid_over') return "Paid (Overpaid)";
+        if (s === 'paid') return "Paid / Success";
+        if (s === 'unpaid') return "Unpaid / Pending";
+        if (s === 'expired') return "Expired";
+        if (s === 'cancel') return "Cancelled";
+        return s.toUpperCase() || "Unknown";
     };
+
+    // Helper to get payment info
+    const firstPayment = result?.payment_detail?.[0] || {};
 
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
@@ -75,7 +81,7 @@ export function CregisCheckClient() {
                             Cregis Order Lookup
                         </h2>
                         <p className="text-sm text-gray-500">
-                            Enter a Cregis Order ID or Third Party Order ID to check its current status directly from the gateway.
+                            Enter a Cregis Order ID or Merchant Order ID to check its current status.
                         </p>
                     </div>
                     
@@ -119,30 +125,39 @@ export function CregisCheckClient() {
                                 {getStatusIcon(result.status)}
                                 <div>
                                     <h3 className="text-white font-bold">{getStatusText(result.status)}</h3>
-                                    <p className="text-[11px] text-gray-500 uppercase tracking-wider mt-0.5">Order Status</p>
+                                    <p className="text-[11px] text-gray-500 uppercase tracking-wider mt-0.5">Payment Engine Status</p>
                                 </div>
                             </div>
                             <div className={`px-3 py-1 rounded-full text-[10px] font-bold border ${
-                                result.status === 1 
+                                (result.status === 'paid' || result.status === 'paid_over')
                                     ? "bg-green-500/10 text-green-500 border-green-500/20" 
                                     : "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
                             }`}>
-                                {result.status === 1 ? "COMPLETED" : "IN PROGRESS"}
+                                {(result.status === 'paid' || result.status === 'paid_over') ? "COMPLETED" : "IN PROGRESS"}
                             </div>
                         </div>
                         <div className="p-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-4">
-                                    <DetailItem label="Order ID" value={result.third_party_id || "-"} />
-                                    <DetailItem label="Cregis ID" value={result.order_id || "-"} />
-                                    <DetailItem label="Amount" value={`${result.amount} ${result.currency || ""}`} />
-                                    <DetailItem label="Pay Amount" value={`${result.pay_amount || "-"} ${result.pay_currency || ""}`} />
+                                    <DetailItem label="Merchant Order ID" value={result.order_id || "-"} />
+                                    <DetailItem label="Cregis ID" value={result.cregis_id || "-"} />
+                                    <DetailItem label="Order Amount" value={`${result.order_amount || "-"} ${result.order_currency || ""}`} />
+                                    <DetailItem label="Payer" value={result.payer_name || result.payer_email || "-"} />
                                 </div>
                                 <div className="space-y-4">
-                                    <DetailItem label="Created At" value={result.create_time ? new Date(result.create_time).toLocaleString() : "-"} />
-                                    <DetailItem label="Paid At" value={result.pay_time ? new Date(result.pay_time).toLocaleString() : "-"} />
-                                    <DetailItem label="Chain Name" value={result.chain_name || "-"} />
-                                    <DetailItem label="Transaction Hash" value={result.tx_id || "-"} isLink link={`https://tronscan.org/#/transaction/${result.tx_id}`} />
+                                    <DetailItem label="Created At" value={result.created_time ? new Date(result.created_time).toLocaleString() : "-"} />
+                                    <DetailItem label="Paid At" value={result.transact_time ? new Date(result.transact_time).toLocaleString() : "-"} />
+                                    <DetailItem label="Network" value={`${firstPayment.blockchain || "-"} (${firstPayment.token_name || "-"})`} />
+                                    <DetailItem 
+                                        label="Transaction Hash" 
+                                        value={firstPayment.tx_id || "-"} 
+                                        isLink 
+                                        link={firstPayment.blockchain?.toLowerCase().includes('tron') 
+                                            ? `https://tronscan.org/#/transaction/${firstPayment.tx_id}` 
+                                            : firstPayment.blockchain?.toLowerCase().includes('bsc') || firstPayment.blockchain?.toLowerCase().includes('smart chain')
+                                                ? `https://bscscan.com/tx/${firstPayment.tx_id}`
+                                                : `https://etherscan.io/tx/${firstPayment.tx_id}`} 
+                                    />
                                 </div>
                             </div>
 
@@ -152,6 +167,13 @@ export function CregisCheckClient() {
                                     <p className="text-sm text-gray-300">{result.remark}</p>
                                 </div>
                             )}
+
+                            <div className="mt-8 pt-6 border-t border-[#1f1f23]">
+                                <div className="flex items-center gap-2 text-gray-500">
+                                    <Info className="h-4 w-4" />
+                                    <p className="text-xs">Data directly from Cregis Gateway API v2</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </motion.div>
