@@ -294,7 +294,7 @@ export default function ChallengeConfigurator() {
 
     const discountAmount = appliedCoupon ? appliedCoupon.discount.amount : 0;
     const finalPriceUSD = Math.max(0, basePriceUSD - discountAmount);
-    const finalPriceINR = Math.round(finalPriceUSD * 84); // Simple fixed rate: 84
+    const finalPriceINR = Math.round(finalPriceUSD * 98); // Simple fixed rate: 98
 
 
     const selectedGateway = PAYMENT_GATEWAYS.find(g => g.id === gateway);
