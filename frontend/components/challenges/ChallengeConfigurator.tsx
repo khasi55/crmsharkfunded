@@ -318,10 +318,11 @@ export default function ChallengeConfigurator() {
 
     const discountAmount = (() => {
         if (!appliedCoupon) return 0;
-        if (appliedCoupon.discount.type === 'percentage') {
-            return Math.round(basePriceUSD * (appliedCoupon.discount.value / 100));
+        const type = appliedCoupon.discount.type?.toLowerCase();
+        if (type === 'percentage') {
+            return Math.round(basePriceUSD * (Number(appliedCoupon.discount.value) / 100));
         }
-        return Math.round(appliedCoupon.discount.amount);
+        return Math.round(Number(appliedCoupon.discount.amount));
     })();
     const finalPriceUSD = Math.round(Math.max(0, basePriceUSD - discountAmount));
     const finalPriceINR = Math.round(finalPriceUSD * 98); // Simple fixed rate: 98 (Synced with Gateway)
@@ -642,7 +643,7 @@ export default function ChallengeConfigurator() {
                                 <Check size={14} />
                                 <span>
                                     Coupon "{appliedCoupon.coupon.code}" applied!
-                                    {appliedCoupon.discount.type === 'percentage' && ` (${appliedCoupon.discount.value}% OFF)`}
+                                    {appliedCoupon.discount.type?.toLowerCase() === 'percentage' && ` (${appliedCoupon.discount.value}% OFF)`}
                                 </span>
                             </div>
                         )}
@@ -664,12 +665,12 @@ export default function ChallengeConfigurator() {
 
                             {appliedCoupon && (
                                 <div className="flex justify-between items-center text-sm">
-                                    <span className={cn("transition-colors", appliedCoupon.discount.type === 'bogo' ? "text-purple-400 font-bold" : "text-green-400")}>
-                                        {appliedCoupon.discount.type === 'bogo' ? 'BOGO Active' : 'Discount'} ({appliedCoupon.coupon.code})
-                                        {appliedCoupon.discount.type === 'percentage' && ` - ${appliedCoupon.discount.value}%`}
+                                    <span className={cn("transition-colors", appliedCoupon.discount.type?.toLowerCase() === 'bogo' ? "text-purple-400 font-bold" : "text-green-400")}>
+                                        {appliedCoupon.discount.type?.toLowerCase() === 'bogo' ? 'BOGO Active' : 'Discount'} ({appliedCoupon.coupon.code})
+                                        {appliedCoupon.discount.type?.toLowerCase() === 'percentage' && ` - ${appliedCoupon.discount.value}%`}
                                     </span>
-                                    <span className={cn("font-bold font-mono", appliedCoupon.discount.type === 'bogo' ? "text-purple-400" : "text-green-400")}>
-                                        {appliedCoupon.discount.type === 'bogo'
+                                    <span className={cn("font-bold font-mono", appliedCoupon.discount.type?.toLowerCase() === 'bogo' ? "text-purple-400" : "text-green-400")}>
+                                        {appliedCoupon.discount.type?.toLowerCase() === 'bogo'
                                             ? "FREE ACCOUNT"
                                             : `-${displayCurrency === 'INR' ? '₹' : '$'}${Math.round(gateway === 'sharkpay' ? Math.round(discountAmount * 98) : discountAmount).toLocaleString()}`
                                         }

@@ -56,8 +56,11 @@ router.post('/validate', async (req: AuthRequest, res: Response) => {
             return;
         }
 
-        // Calculate final amounts for response
-        const discountAmount = Math.round(validation.discount_amount);
+        // Calculate final amounts for response (Recalculate percentage if necessary for accuracy)
+        let discountAmount = Math.round(validation.discount_amount);
+        if (validation.discount_type === 'percentage' && validation.discount_value) {
+            discountAmount = Math.round(amount * (validation.discount_value / 100));
+        }
         const finalAmount = Math.round(amount - discountAmount);
 
         // Ensure we have the discount value for display (fallback if RPC is old and returns limited columns)

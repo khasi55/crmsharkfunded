@@ -106,7 +106,14 @@ router.post('/create-order', async (req: Request, res: Response) => {
             });
 
             if (!rpcError && data && data[0] && data[0].is_valid) {
-                discountAmount = data[0].discount_amount;
+                const val = data[0];
+                discountAmount = Math.round(val.discount_amount);
+                
+                // 🛡️ RECALCULATION GUARD: If percentage, calculate from base price to prevent $1 exploit
+                // This ensures that even if the RPC has a bug, the server enforces the correct math.
+                if (val.discount_type?.toLowerCase() === 'percentage' && val.discount_value) {
+                    discountAmount = Math.round(expectedBasePrice * (Number(val.discount_value) / 100));
+                }
             } else {
                 console.warn('[Payment API] Coupon validation failed on backend:', rpcError || data?.[0]?.error_message);
                 // If coupon is invalid, we proceed with 0 discount, which will trigger amount mismatch if frontend applied it

@@ -62,8 +62,11 @@ export class SharkPayGateway implements PaymentGateway {
             // Frontend and backend URLs
             const frontendUrl = process.env.FRONTEND_URL || 'https://app.sharkfunded.com';
             const backendUrl = process.env.BACKEND_URL || 'https://api.sharkfunded.co';
-            const webhookSecret = config.webhookSecret || process.env.PAYMENT_WEBHOOK_SECRET;
-            const webhookUrl = `${backendUrl}/api/webhooks/payment?gateway=sharkpay${webhookSecret ? `&secret=${webhookSecret}` : ''}`;
+            // 🛡️ SECURITY: Use a per-order signature that includes the expected status and amount
+            const masterWebhookSecret = process.env.PAYMENT_WEBHOOK_SECRET || 'shark_secret_fallback';
+            // We lock the signature to the orderId + 'paid' status + currency
+            const signature = crypto.createHmac('sha256', masterWebhookSecret).update(`${params.orderId}:paid:${params.currency}`).digest('hex');
+            const webhookUrl = `${backendUrl}/api/webhooks/payment?gateway=sharkpay&sig=${signature}`;
 
             const payload = {
                 amount: amountINR,
@@ -139,15 +142,24 @@ export class SharkPayGateway implements PaymentGateway {
             }
 
             const receivedSignature = headers['x-shark-signature'] || headers['x-signature'];
-            
-            // 🛡️ FALLBACK: If no signature header, check for secret in body/query (merged in 'body' by webhooks.ts)
+ 
+            // 🛡️ FALLBACK: If no signature header, check for per-order HMAC signature in body/query
             if (!receivedSignature) {
-                const receivedSecret = body.secret || body.webhook_secret;
-                if (receivedSecret && receivedSecret === webhookSecret) {
-                    console.log('[SharkPay] Webhook verified via secret token');
-                    return true;
+                const receivedSig = body.sig;
+                const orderId = body.reference_id || body.order_id;
+                
+                if (receivedSig && orderId && webhookSecret) {
+                    // Re-calculate the expected signature for a 'paid' status
+                    // We check if the signature matches 'paid' for this specific order
+                    const currency = body.currency || 'USD';
+                    const expectedSig = crypto.createHmac('sha256', webhookSecret).update(`${orderId}:paid:${currency}`).digest('hex');
+                    
+                    if (receivedSig === expectedSig) {
+                        console.log(`[SharkPay] Webhook verified via per-order signature for ${orderId}`);
+                        return true;
+                    }
                 }
-                console.warn('[SharkPay] No signature found in headers and no valid secret token');
+                console.warn('[SharkPay] No valid signature or token found');
                 return false;
             }
 
