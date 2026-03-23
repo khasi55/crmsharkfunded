@@ -29,11 +29,11 @@ export const pricingConfig = {
         '100K': { price: '$1140' },
     },
     InstantPrime: {
-        '5K': { price: '$70' },
-        '10K': { price: '$120' },
-        '25K': { price: '$285' },
-        '50K': { price: '$500' },
-        '100K': { price: '$700' },
+        '5K': { price: '$49' },
+        '10K': { price: '$83' },
+        '25K': { price: '$199' },
+        '50K': { price: '$350' },
+        '100K': { price: '$487' },
     }
 } as const;
 
