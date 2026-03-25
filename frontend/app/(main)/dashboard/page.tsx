@@ -89,6 +89,7 @@ function DashboardContent() {
 
         // 1. Try Metadata first (cleanest)
         if (account.metadata?.model && account.metadata?.type) {
+            if (account.metadata.type === 'direct_funded') return 'SharkFunded Direct Funded';
             const model = account.metadata.model.charAt(0).toUpperCase() + account.metadata.model.slice(1);
             const type = account.metadata.type === 'instant' ? 'Instant' :
                 account.metadata.type.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
@@ -97,6 +98,12 @@ function DashboardContent() {
 
         // 2. Fallback to Group Parsing
         const group = account.group || '';
+        
+        // Explicitly check for Direct Funded before Lite / Prime group parse
+        if (group.includes('Direct-SF') || account.account_type === 'direct_funded' || account.challenge_type === 'direct_funded') {
+            return 'Direct Funded';
+        }
+
         if (group.includes('demo\\SF\\') || group.toUpperCase().includes('PRO')) { // Prime
             if (group.includes('1-Pro') || group.includes('1-SF')) return 'Prime 1 Step';
             if (group.includes('2-Pro') || group.includes('2-SF')) return 'Prime 2 Step';
@@ -113,6 +120,7 @@ function DashboardContent() {
         // 3. Fallback to Account Type
         const type = account.challenge_type || account.account_type;
         if (!type) return 'Account';
+        if (type.toLowerCase().includes('direct_funded')) return 'Direct Funded';
         return type.split('_')
             .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
             .join(' ');
@@ -368,7 +376,7 @@ function DashboardContent() {
                                                     </h2>
 
                                                     {/* Account Type Badge (Prime vs Lite) */}
-                                                    {selectedAccount.group && (
+                                                    {selectedAccount.group && !selectedAccount.group.includes('Direct-SF') && selectedAccount.account_type !== 'direct_funded' && (
                                                         <span className={cn(
                                                             "px-2.5 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider",
                                                             selectedAccount.group.includes('demo\\SF\\') || selectedAccount.group.toUpperCase().includes('PRO')

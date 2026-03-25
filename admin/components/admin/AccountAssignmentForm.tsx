@@ -11,10 +11,11 @@ const supabase = createClient();
 
 // Definition of Sizes per Category
 const SIZES_CONFIG = {
-    lite_instant: [3000, 6000, 12000, 25000, 50000, 100000],
-    lite_step: [5000, 10000, 25000, 50000, 100000],
-    prime: [5000, 10000, 25000, 50000, 100000],
-    funded: [5000, 10000, 25000, 50000, 100000],
+    lite_instant: [1000, 3000, 6000, 12000, 25000, 50000, 100000],
+    lite_step: [1000, 5000, 10000, 25000, 50000, 100000],
+    prime: [1000, 5000, 10000, 25000, 50000, 100000],
+    funded: [1000, 5000, 10000, 25000, 50000, 100000],
+    direct_funded: [1000, 5000, 10000, 25000, 50000, 100000],
     competition: [100000],
 };
 
@@ -33,7 +34,7 @@ export default function AccountAssignmentForm({ users = [] }: AccountAssignmentF
 
     // Form State
     const [selectedEmail, setSelectedEmail] = useState("");
-    const [category, setCategory] = useState<"challenge" | "funded" | "competition">("challenge");
+    const [category, setCategory] = useState<"challenge" | "funded" | "direct_funded" | "competition">("challenge");
 
     // Challenge Specific State
     const [model, setModel] = useState<"lite" | "prime">("lite");
@@ -116,6 +117,7 @@ export default function AccountAssignmentForm({ users = [] }: AccountAssignmentF
     // 1. Get MT5 Group String
     const getMt5Group = () => {
         if (category === 'funded') return "SF Funded Live";
+        if (category === 'direct_funded') return "demo\\S\\0-Direct-SF"; // Updated to correct MT5 group
         if (category === 'competition') return "demo\\SF\\0-Demo\\comp";
 
         // Challenge Logic
@@ -134,6 +136,7 @@ export default function AccountAssignmentForm({ users = [] }: AccountAssignmentF
     // 2. Get Plan Type Display Name
     const getPlanTypeName = () => {
         if (category === 'funded') return "Funded Live Account";
+        if (category === 'direct_funded') return "SharkFunded Direct Funded";
         if (category === 'competition') return "Competition Account";
 
         // Challenge Name
@@ -145,6 +148,7 @@ export default function AccountAssignmentForm({ users = [] }: AccountAssignmentF
     // 3. Get Available Sizes
     const getAvailableSizes = () => {
         if (category === 'funded') return SIZES_CONFIG.funded;
+        if (category === 'direct_funded') return SIZES_CONFIG.direct_funded;
         if (category === 'competition') return SIZES_CONFIG.competition;
 
         if (model === 'prime') return SIZES_CONFIG.prime;
@@ -336,6 +340,7 @@ export default function AccountAssignmentForm({ users = [] }: AccountAssignmentF
                                 {[
                                     { id: 'challenge', label: 'Evaluation Challenge' },
                                     { id: 'funded', label: 'Funded Live Account' },
+                                    { id: 'direct_funded', label: 'Direct Funded' },
                                     { id: 'competition', label: 'Competition Account' }
                                 ].map(c => (
                                     <button

@@ -42,8 +42,9 @@ export default function ChallengeTypeRulesTab() {
         </div>
     );
 
-    const liteRules = rules.filter(r => r.challenge_type.includes('lite'));
-    const primeRules = rules.filter(r => r.challenge_type.includes('prime'));
+    const liteRules = rules.filter(r => r.challenge_type.toLowerCase().includes('lite'));
+    const primeRules = rules.filter(r => r.challenge_type.toLowerCase().includes('prime'));
+    const directRules = rules.filter(r => r.challenge_type.toLowerCase().includes('direct') || r.challenge_type.toLowerCase().includes('direct-sf'));
 
     return (
         <div className="space-y-8">
@@ -51,6 +52,39 @@ export default function ChallengeTypeRulesTab() {
                 <div>
                     <h3 className="text-lg font-bold text-gray-900">Challenge Type Rules</h3>
                     <p className="text-sm text-gray-500 mt-1">Configure profit targets and drawdown limits for each challenge type</p>
+                </div>
+            </div>
+
+            {/* Direct Funded Rules */}
+            <div className="space-y-4">
+                <div className="flex items-center gap-2 px-2">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">⚡</span>
+                    <h4 className="text-lg font-semibold text-gray-900">Direct Funded Accounts</h4>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="border-b border-gray-200 bg-gray-50/80">
+                                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Challenge Type</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Profit Target (%)</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Daily DD (%)</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Max DD (%)</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {directRules.map((rule, idx) => (
+                                    <RuleRow key={idx} rule={rule} handleSave={handleSave} />
+                                ))}
+                                {directRules.length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-12 text-center text-gray-500 font-medium">No direct funded rules found.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 

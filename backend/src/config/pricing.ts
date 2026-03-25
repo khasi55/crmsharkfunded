@@ -34,6 +34,14 @@ export const pricingConfig = {
         '25K': { price: '$199' },
         '50K': { price: '$350' },
         '100K': { price: '$487' },
+    },
+    DirectFunded: {
+        '1K': { price: '$19' }, // Placeholder price
+        '5K': { price: '$49' },
+        '10K': { price: '$89' },
+        '25K': { price: '$199' },
+        '50K': { price: '$349' },
+        '100K': { price: '$599' },
     }
 } as const;
 
@@ -48,6 +56,9 @@ export const getConfigKey = (type: string, model: string): keyof typeof pricingC
     const t = type.toLowerCase();
     const m = model.toLowerCase();
 
+    if (t === 'funded' || t === 'direct_funded') {
+        return 'DirectFunded';
+    }
     if (t === 'instant') {
         return m === 'prime' ? 'InstantPrime' : 'InstantLite';
     }

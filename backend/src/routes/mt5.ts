@@ -198,7 +198,9 @@ router.post('/assign', authenticate, requireRole(['super_admin', 'admin', 'sub_a
         // Logic matched with payment webhook
         const lowerPlan = planType.toLowerCase();
 
-        if (lowerPlan.includes('pro') || lowerPlan.includes('prime')) {
+        if (lowerPlan.includes('direct funded')) {
+            challengeType = 'direct_funded';
+        } else if (lowerPlan.includes('pro') || lowerPlan.includes('prime')) {
             if (lowerPlan.includes('instant')) challengeType = 'prime_instant';
             else if (lowerPlan.includes('1 step') || lowerPlan.includes('1-step')) challengeType = 'prime_1_step';
             else if (lowerPlan.includes('2 step') || lowerPlan.includes('2-step')) challengeType = 'prime_2_step';
