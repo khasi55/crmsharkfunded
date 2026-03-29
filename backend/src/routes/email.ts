@@ -121,9 +121,8 @@ router.post('/bulk', authenticate, requireRole(['super_admin', 'admin']), async 
             return;
         }
 
-        const result = await emailService.sendBulkEmail(
+        const result = await NodemailerEmailService.sendBulkCustomEmail(
             userIds,
-            emailType || 'marketing',
             subject,
             htmlContent,
             textContent
@@ -240,13 +239,15 @@ Best regards,
 SharkFunded Team
         `;
 
-        // Here you would integrate with your actual email service (Resend, SendGrid, etc.)
-        // For now, we'll log it
-        console.log(`Sending account credentials to ${email}`);
-        console.log(textContent);
-
-        // TODO: Integrate with actual email service
-        // await emailService.send({ to: email, subject, html: htmlContent, text: textContent });
+        // Send the email using the Nodemailer service
+        await NodemailerEmailService.sendAccountCredentials(
+            email,
+            name,
+            login,
+            masterPassword,
+            'AURO MARKETS',
+            investorPassword
+        );
 
         res.json({ success: true, message: 'Credentials email sent' });
 

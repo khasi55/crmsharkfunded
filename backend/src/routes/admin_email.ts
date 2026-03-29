@@ -50,33 +50,50 @@ router.post('/send-custom-campaign', authenticate, requireRole(['super_admin', '
         if (targetGroup === 'active_accounts') {
             // Fetch all users with non-breached MT5 accounts
             // We join profiles to get the email and name
-            const { data: activeAccounts, error } = await supabaseAdmin
-                .from('mt5_accounts')
-                .select(`
-                    user_id,
-                    profiles:user_id (id, email, full_name)
-                `)
-                .neq('status', 'breached');
+            // Step 1: Fetch unique user_ids with active challenges
+            const { data: uniqueUserIds, error: challengesError } = await supabaseAdmin
+                .from('challenges')
+                .select('user_id')
+                .eq('status', 'active');
 
-            if (error) {
-                console.error("Error fetching active accounts for campaign:", error);
-                return res.status(500).json({ error: 'Failed to fetch target group' });
+            if (challengesError) {
+                console.error("Error fetching active user IDs:", challengesError);
+                return res.status(500).json({ error: 'Failed to fetch active accounts' });
+            }
+            const ids = Array.from(new Set(uniqueUserIds?.map(c => c.user_id).filter(Boolean))) as string[];
+
+            if (ids.length === 0) {
+                return res.status(400).json({ error: 'No active accounts found' });
             }
 
-            // Deduplicate by user_id
-            const uniqueUsers = new Map<string, { email: string; name: string }>();
+            // Step 2: Fetch profiles in batches (to avoid "Bad Request" on large lists)
+            const ALL_PROFILES = [];
+            const BATCH_SIZE = 200;
 
-            activeAccounts?.forEach((acc: any) => {
-                const profile = Array.isArray(acc.profiles) ? acc.profiles[0] : acc.profiles;
-                if (profile && profile.email) {
-                    uniqueUsers.set(profile.id, {
-                        email: profile.email,
-                        name: profile.full_name || 'Trader'
-                    });
+            for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+                const batch = ids.slice(i, i + BATCH_SIZE);
+                const { data: profiles, error: profilesError } = await supabaseAdmin
+                    .from('profiles')
+                    .select('id, email, full_name')
+                    .in('id', batch);
+
+                if (profilesError) {
+                    console.error(`Error fetching profiles batch (${i}-${i + BATCH_SIZE}):`, profilesError);
+                    // Continue with next batch instead of failing everything
+                    continue;
                 }
-            });
 
-            targetRecipients = Array.from(uniqueUsers.values());
+                if (profiles) ALL_PROFILES.push(...profiles);
+            }
+
+            if (ALL_PROFILES.length === 0) {
+                return res.status(400).json({ error: 'Failed to fetch any matching recipient profiles' });
+            }
+
+            targetRecipients = ALL_PROFILES.map(p => ({
+                email: p.email,
+                name: p.full_name || 'Trader'
+            }));
 
         } else if (targetGroup === 'manual' && Array.isArray(recipients)) {
             // Use manually provided list

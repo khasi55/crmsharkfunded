@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import QRCode from 'qrcode';
 import { EventEntryService } from './event-entry-service';
+import { supabase } from '../lib/supabase';
 
 export class EmailService {
     // SMTP Credentials
@@ -71,7 +72,8 @@ export class EmailService {
                 </div>
 
                 <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #888; text-align: center;">
-                    <p>Sent by <strong>SharkFunded</strong></p>
+                    <p>Sent by <strong>SharkFunded
+                    </strong></p>
                     <p>If you no longer wish to receive these emails, you can update your preferences in your dashboard.</p>
                 </div>
             </div>
@@ -513,5 +515,66 @@ Shark Funded Team
         const text = `Dear ${name},\n\nYour verification code for ${actionName} is: ${otp}\n\nThis code is valid for 5 minutes. If you did not request this, please secure your account.`;
 
         await this.sendEmail(email, subject, html, text);
+    }
+
+    /**
+     * Send Bulk Custom HTML Emails
+     */
+    static async sendBulkCustomEmail(
+        userIds: string[],
+        subject: string,
+        htmlContent: string,
+        textContent?: string
+    ): Promise<{ sent: number; failed: number }> {
+        let sent = 0;
+        let failed = 0;
+
+        for (const userId of userIds) {
+            try {
+                // Get user email and name
+                const { data: profile, error } = await supabase
+                    .from('profiles')
+                    .select('email, full_name')
+                    .eq('id', userId)
+                    .single();
+
+                if (error || !profile?.email) {
+                    console.error(`User ${userId} not found or has no email`);
+                    failed++;
+                    continue;
+                }
+
+                // Wrap custom content in a basic branded template
+                const html = `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                        <h2 style="color: #333; border-bottom: 2px solid #0d47a1; padding-bottom: 10px; margin-bottom: 20px;">
+                            ${subject}
+                        </h2>
+                        
+                        <div style="color: #444; font-size: 15px; line-height: 1.6;">
+                            ${htmlContent}
+                        </div>
+
+                        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #888; text-align: center;">
+                            <p>Sent by <strong>${this.FROM_NAME}</strong></p>
+                            <p>If you no longer wish to receive these emails, you can update your preferences in your dashboard.</p>
+                        </div>
+                    </div>
+                `;
+
+                const text = textContent || htmlContent.replace(/<[^>]*>?/gm, '');
+
+                await this.sendEmail(profile.email, subject, html, text);
+                sent++;
+
+                // Small delay to avoid hitting SMTP limits too hard
+                await new Promise(resolve => setTimeout(resolve, 50));
+            } catch (err) {
+                console.error(`Failed to send bulk email to ${userId}:`, err);
+                failed++;
+            }
+        }
+
+        return { sent, failed };
     }
 }
