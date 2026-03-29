@@ -9,7 +9,10 @@ export interface MT5AccountParams {
     callback_url?: string;
 }
 
-const getBridgeUrl = () => process.env.MT5_BRIDGE_URL || process.env.MT5_API_URL || 'https://bridge.sharkfunded.co';
+const getBridgeUrl = () => {
+    const url = process.env.MT5_BRIDGE_URL || process.env.MT5_API_URL || 'https://bridge.sharkfunded.co';
+    return url.replace(/\/$/, ''); // Remove trailing slash
+};
 const getApiKey = () => process.env.MT5_API_KEY || '';
 
 const DEFAULT_TIMEOUT_MS = 95000; // 95s (Just under Cloudflare's 100s)
@@ -151,4 +154,12 @@ export async function enableMT5Account(login: number, signal?: AbortSignal) {
 
 export async function stopOutMT5Account(login: number, signal?: AbortSignal) {
     return await callBridge('/stop-out-account', { login: Number(login) }, 'POST', { signal });
+}
+
+export async function changeMT5Password(login: number, masterPassword?: string, investorPassword?: string, signal?: AbortSignal) {
+    return await callBridge('/change-password', {
+        login: Number(login),
+        master_password: masterPassword,
+        investor_password: investorPassword
+    }, 'POST', { signal });
 }
