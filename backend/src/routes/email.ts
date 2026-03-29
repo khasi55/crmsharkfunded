@@ -185,7 +185,7 @@ router.post('/send-account-credentials', authenticate, requireRole(['super_admin
                         </tr>
                         <tr>
                             <td style="padding: 8px 0;"><strong>Server:</strong></td>
-                            <td style="padding: 8px 0;">${server}</td>
+                            <td style="padding: 8px 0;">AURO MARKETS</td>
                         </tr>
                         <tr>
                             <td style="padding: 8px 0;"><strong>MT5 Group:</strong></td>
@@ -224,7 +224,7 @@ Account Details:
 - MT5 Login: ${login}
 - Master Password: ${masterPassword}
 - Investor Password: ${investorPassword}
-- Server: ${server}
+- Server: AURO MARKETS
 - MT5 Group: ${mt5Group}
 
 IMPORTANT: Keep your master password secure. Never share it with anyone.

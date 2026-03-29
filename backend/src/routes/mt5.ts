@@ -9,7 +9,8 @@ import {
     adjustMT5Balance,
     changeMT5Leverage,
     enableMT5Account,
-    stopOutMT5Account
+    stopOutMT5Account,
+    changeMT5Password
 } from '../lib/mt5-bridge';
 import { EmailService } from '../services/email-service';
 import { AuditLogger } from '../lib/audit-logger';
@@ -265,7 +266,7 @@ router.post('/assign', authenticate, requireRole(['super_admin', 'admin', 'sub_a
                 login: mt5Login,
                 master_password: masterPassword,
                 investor_password: investorPassword,
-                server: 'ALFX Limited',
+                server: 'AURO MARKETS',
                 platform: 'MT5',
                 group: finalGroup, // Save the assigned group
                 leverage: 100,
@@ -318,7 +319,7 @@ router.post('/assign', authenticate, requireRole(['super_admin', 'admin', 'sub_a
                 profile.full_name || 'Trader',
                 String(mt5Login),
                 masterPassword,
-                'ALFX Limited',
+                'AURO MARKETS',
                 investorPassword
             ).catch(err => console.error("Async Email Error:", err));
         }
@@ -353,6 +354,106 @@ router.post('/assign', authenticate, requireRole(['super_admin', 'admin', 'sub_a
 });
 
 // POST /api/mt5/sync-trades - Manually trigger trade sync from Bridge (admin only)
+// POST /api/mt5/change-password - User-facing password change (with ownership check)
+router.post('/change-password', authenticate, async (req: AuthRequest, res: Response) => {
+    try {
+        const { login, new_password, type = 'master' } = req.body;
+
+        if (!login || !new_password) {
+            return res.status(400).json({ error: 'MT5 Login and new password are required' });
+        }
+
+        // 1. Verify Ownership: Ensure this user owns the challenge
+        const { data: challenge, error: challengeError } = await supabase
+            .from('challenges')
+            .select('user_id, status')
+            .eq('login', login)
+            .single();
+
+        if (challengeError || !challenge) {
+            return res.status(404).json({ error: 'Trading account not found in our records.' });
+        }
+
+        if (challenge.user_id !== req.user.id) {
+            console.warn(`[MT5 Security] User ${req.user.id} attempted to change password for account ${login} owned by ${challenge.user_id}`);
+            return res.status(403).json({ error: 'Access denied: You do not own this trading account.' });
+        }
+
+        // 2. Change Password via Bridge
+        const masterPass = type === 'master' ? new_password : undefined;
+        const investorPass = type === 'investor' ? new_password : undefined;
+
+        console.log(`🔐 [MT5 User] Changing ${type} password for account ${login}`);
+        await changeMT5Password(login, masterPass, investorPass);
+
+        // 3. Update Database to reflect new password
+        const updateData: any = {};
+        if (type === 'master') updateData.master_password = new_password;
+        if (type === 'investor') updateData.investor_password = new_password;
+
+        const { error: updateError } = await supabase
+            .from('challenges')
+            .update({ ...updateData, updated_at: new Date().toISOString() })
+            .eq('login', login);
+
+        if (updateError) {
+            console.error(`❌ [MT5 User] DB sync failed for account ${login}:`, updateError);
+        }
+
+        // 4. Audit Log
+        await AuditLogger.info(
+            req.user.email,
+            'MT5_USER_PASSWORD_CHANGE',
+            { login, type }
+        );
+
+        res.json({
+            success: true,
+            message: `${type === 'master' ? 'Master' : 'Investor'} password changed successfully.`
+        });
+
+    } catch (error: any) {
+        console.error("User MT5 password change error:", error);
+        res.status(500).json({ error: error.message || 'Failed to change trading password.' });
+    }
+});
+
+// POST /api/mt5/admin/change-password
+router.post('/admin/change-password', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
+    try {
+        const { login, master_password, investor_password } = req.body;
+
+        if (!login) {
+            return res.status(400).json({ error: 'MT5 Login is required' });
+        }
+
+        if (!master_password && !investor_password) {
+            return res.status(400).json({ error: 'At least one password (master or investor) must be provided' });
+        }
+
+        console.log(`🔐 [MT5] Changing password for account ${login}`);
+
+        const result = await changeMT5Password(login, master_password, investor_password);
+
+        // Audit Log
+        await AuditLogger.info(
+            req.user?.email || 'system',
+            'MT5_PASSWORD_CHANGE',
+            { login, hasMaster: !!master_password, hasInvestor: !!investor_password }
+        );
+
+        res.json({
+            success: true,
+            message: 'Password(s) changed successfully',
+            data: result
+        });
+
+    } catch (error: any) {
+        console.error("MT5 password change error:", error);
+        res.status(500).json({ error: error.message || 'Failed to change password' });
+    }
+});
+
 router.post('/sync-trades', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { login, user_id } = req.body;

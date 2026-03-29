@@ -253,3 +253,59 @@ export async function syncMT5Trades(login: number) {
         return { error: error.message || "Failed to sync trades" };
     }
 }
+
+export async function changeAccountPassword(login: number, masterPassword?: string, investorPassword?: string) {
+    const endpoint = '/api/mt5/admin/change-password';
+
+    try {
+        const response = await fetchWithAuth(endpoint, {
+            method: 'POST',
+            body: JSON.stringify({
+                login,
+                master_password: masterPassword,
+                investor_password: investorPassword
+            }),
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            try {
+                const errJson = JSON.parse(errText);
+                return { error: errJson.error || `Server Error: ${response.statusText}` };
+            } catch {
+                return { error: `Server Error: ${errText}` };
+            }
+        }
+
+        // --- SYNC WITH DATABASE ---
+        try {
+            const { createAdminClient } = await import("@/utils/supabase/admin");
+            const supabase = createAdminClient();
+            
+            const updateData: any = {};
+            if (masterPassword) updateData.master_password = masterPassword;
+            if (investorPassword) updateData.investor_password = investorPassword;
+
+            if (Object.keys(updateData).length > 0) {
+                const { error: updateError } = await supabase
+                    .from('challenges')
+                    .update({ ...updateData, updated_at: new Date().toISOString() })
+                    .eq('login', Number(login));
+
+                if (updateError) {
+                    console.error(`❌ [MT5 Action] DB sync failed for ${login}:`, updateError);
+                    // Still return success for MT5 change, but with a warning in logs
+                } else {
+                    console.log(`✅ [MT5 Action] DB synced for ${login}`);
+                }
+            }
+        } catch (syncErr) {
+            console.error("❌ [MT5 Action] Critical sync error:", syncErr);
+        }
+
+        return { success: true, message: `Password(s) changed successfully for account ${login}` };
+    } catch (error: any) {
+        console.error("❌ Password change failed:", error);
+        return { error: error.message || "Failed to change password" };
+    }
+}

@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Ban, AlertOctagon, RefreshCw, ScrollText, X, Pencil, DollarSign, Zap, MoreHorizontal, ChevronDown } from "lucide-react";
+import { Loader2, Ban, AlertOctagon, RefreshCw, ScrollText, X, Pencil, DollarSign, Zap, MoreHorizontal, ChevronDown, Key, ChevronRight, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
-import { executeAccountAction, getAccountTrades, updateUserEmail, adjustMT5Balance, changeAccountLeverage, syncMT5Trades } from "@/app/actions/mt5-actions";
+import { executeAccountAction, getAccountTrades, updateUserEmail, adjustMT5Balance, changeAccountLeverage, syncMT5Trades, changeAccountPassword } from "@/app/actions/mt5-actions";
 
 interface AccountActionsProps {
     accountId: string;
@@ -42,6 +42,36 @@ export function AccountActions({ accountId, login, currentStatus, userId, curren
     const [showLeverageModal, setShowLeverageModal] = useState(false);
     const [newLeverage, setNewLeverage] = useState("100");
     const [adjustingLeverage, setAdjustingLeverage] = useState(false);
+
+    // Password Change State
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [showMasterPassModal, setShowMasterPassModal] = useState(false);
+    const [masterPassword, setMasterPassword] = useState("");
+    const [investorPassword, setInvestorPassword] = useState("");
+    const [updatingPassword, setUpdatingPassword] = useState(false);
+
+    const generateRandomPassword = (length = 12) => {
+        const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+        const lower = 'abcdefghjkmnpqrstuvwxyz';
+        const digits = '23456789';
+        const symbols = '!@#$%&*';
+        const all = upper + lower + digits + symbols;
+
+        let password = '';
+        // Guarantee at least one of each
+        password += upper.charAt(Math.floor(Math.random() * upper.length));
+        password += lower.charAt(Math.floor(Math.random() * lower.length));
+        password += digits.charAt(Math.floor(Math.random() * digits.length));
+        password += symbols.charAt(Math.floor(Math.random() * symbols.length));
+
+        // Fill the rest
+        for (let i = password.length; i < length; i++) {
+            password += all.charAt(Math.floor(Math.random() * all.length));
+        }
+
+        // Shuffle
+        return password.split('').sort(() => 0.5 - Math.random()).join('');
+    };
 
     const handleAction = async (action: 'disable' | 'stop-out' | 'enable') => {
         let actionName = '';
@@ -174,6 +204,26 @@ export function AccountActions({ accountId, login, currentStatus, userId, curren
             toast.error(error.message);
         } finally {
             setAdjustingLeverage(false);
+        }
+    };
+
+    const handlePasswordChange = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!masterPassword && !investorPassword) return toast.error("Provide at least one password");
+
+        setUpdatingPassword(true);
+        try {
+            const result = await changeAccountPassword(login, masterPassword || undefined, investorPassword || undefined);
+            if (result.error) throw new Error(result.error);
+            toast.success(result.message);
+            setShowPasswordModal(false);
+            setShowMasterPassModal(false);
+            setMasterPassword("");
+            setInvestorPassword("");
+        } catch (error: any) {
+            toast.error(error.message);
+        } finally {
+            setUpdatingPassword(false);
         }
     };
 
@@ -314,6 +364,32 @@ export function AccountActions({ accountId, login, currentStatus, userId, curren
                                     })()}
 
                                     <div className="border-t border-gray-100 my-1.5 mx-2" />
+
+                                    <button
+                                        onClick={() => { setShowMasterPassModal(true); setShowMoreActions(false); }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition-colors border-b border-slate-50 group"
+                                    >
+                                        <span className="p-1.5 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                            <Key size={16} strokeWidth={2.5} />
+                                        </span>
+                                        <div className="text-left">
+                                            <p className="font-bold">Change Master Pass</p>
+                                            <p className="text-[10px] text-slate-400 font-medium">Quick update only</p>
+                                        </div>
+                                    </button>
+
+                                    <button
+                                        onClick={() => { setShowPasswordModal(true); setShowMoreActions(false); }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition-colors border-b border-slate-50 group"
+                                    >
+                                        <span className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                            <ShieldCheck size={16} strokeWidth={2.5} />
+                                        </span>
+                                        <div className="text-left">
+                                            <p className="font-bold">Manage Credentials</p>
+                                            <p className="text-[10px] text-slate-400 font-medium">Update Master or Investor</p>
+                                        </div>
+                                    </button>
 
                                     <button
                                         onClick={() => { handleAction('stop-out'); setShowMoreActions(false); }}
@@ -530,6 +606,159 @@ export function AccountActions({ accountId, login, currentStatus, userId, curren
                                     Change Leverage
                                 </button>
                             </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* 7. Change Password Modal */}
+            {showPasswordModal && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-300">
+                        <div className="bg-slate-50 px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-blue-100 text-blue-600 rounded-2xl shadow-sm">
+                                    <Key size={22} strokeWidth={2.5} />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-slate-900 leading-tight">Change passwords</h3>
+                                    <p className="text-xs text-slate-400 font-medium">Account: <span className="font-mono">{login}</span></p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowPasswordModal(false)} className="p-2 hover:bg-white hover:shadow-md rounded-xl transition-all text-slate-400 hover:text-slate-600">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handlePasswordChange} className="p-8 space-y-6">
+                            <div className="space-y-4">
+                                {/* Master Password */}
+                                <div className="space-y-1.5">
+                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1">Master Password</label>
+                                    <div className="relative group">
+                                        <input
+                                            type="text"
+                                            value={masterPassword}
+                                            onChange={(e) => setMasterPassword(e.target.value)}
+                                            placeholder="Leave empty to keep current"
+                                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3.5 text-sm font-semibold text-slate-900 placeholder:text-slate-300 focus:border-blue-500 focus:bg-white transition-all outline-none"
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={() => setMasterPassword(generateRandomPassword())}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-blue-50 text-blue-500 rounded-xl transition-all"
+                                            title="Auto-generate"
+                                        >
+                                            <RefreshCw size={16} strokeWidth={2.5} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Investor Password */}
+                                <div className="space-y-1.5">
+                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1">Investor Password</label>
+                                    <div className="relative group">
+                                        <input
+                                            type="text"
+                                            value={investorPassword}
+                                            onChange={(e) => setInvestorPassword(e.target.value)}
+                                            placeholder="Leave empty to keep current"
+                                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3.5 text-sm font-semibold text-slate-900 placeholder:text-slate-300 focus:border-blue-500 focus:bg-white transition-all outline-none"
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={() => setInvestorPassword(generateRandomPassword())}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-blue-50 text-blue-500 rounded-xl transition-all"
+                                            title="Auto-generate"
+                                        >
+                                            <RefreshCw size={16} strokeWidth={2.5} />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={updatingPassword || (!masterPassword && !investorPassword)}
+                                className="w-full bg-slate-900 hover:bg-blue-600 disabled:bg-slate-200 text-white rounded-2xl py-4 font-bold transition-all shadow-lg shadow-slate-900/10 hover:shadow-blue-600/20 flex items-center justify-center gap-2 group text-sm"
+                            >
+                                {updatingPassword ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Updating credentials...
+                                    </>
+                                ) : (
+                                    <>
+                                        Save Changes
+                                        <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" strokeWidth={3} />
+                                    </>
+                                )}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
+            {/* 8. Master Password Only Modal */}
+            {showMasterPassModal && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-300">
+                        <div className="bg-slate-50 px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-blue-100 text-blue-600 rounded-2xl shadow-sm">
+                                    <Key size={22} strokeWidth={2.5} />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-slate-900 leading-tight">Master Password</h3>
+                                    <p className="text-xs text-slate-400 font-medium">Account: <span className="font-mono">{login}</span></p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowMasterPassModal(false)} className="p-2 hover:bg-white hover:shadow-md rounded-xl transition-all text-slate-400 hover:text-slate-600">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handlePasswordChange} className="p-8 space-y-6">
+                            <div className="space-y-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1">New Master Password</label>
+                                    <div className="relative group">
+                                        <input
+                                            type="text"
+                                            value={masterPassword}
+                                            required
+                                            onChange={(e) => setMasterPassword(e.target.value)}
+                                            placeholder="Enter new master password"
+                                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3.5 text-sm font-semibold text-slate-900 placeholder:text-slate-300 focus:border-blue-500 focus:bg-white transition-all outline-none"
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={() => setMasterPassword(generateRandomPassword())}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-blue-50 text-blue-500 rounded-xl transition-all"
+                                            title="Auto-generate"
+                                        >
+                                            <RefreshCw size={16} strokeWidth={2.5} />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={updatingPassword || !masterPassword}
+                                className="w-full bg-slate-900 hover:bg-blue-600 disabled:bg-slate-200 text-white rounded-2xl py-4 font-bold transition-all shadow-lg shadow-slate-900/10 hover:shadow-blue-600/20 flex items-center justify-center gap-2 group text-sm"
+                            >
+                                {updatingPassword ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Updating...
+                                    </>
+                                ) : (
+                                    <>
+                                        Update Master Password
+                                        <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" strokeWidth={3} />
+                                    </>
+                                )}
+                            </button>
                         </form>
                     </div>
                 </div>

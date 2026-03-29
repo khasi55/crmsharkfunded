@@ -98,7 +98,7 @@ export class EmailService {
                 <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
                     <p><strong>Login:</strong> ${login}</p>
                     <p><strong>Password:</strong> ${password}</p>
-                    <p><strong>Server:</strong> ${server}</p>
+                    <p><strong>Server:</strong> AURO MARKETS</p>
                     ${investorPassword ? `<p><strong>Investor Password:</strong> ${investorPassword}</p>` : ''}
                 </div>
 
@@ -110,7 +110,7 @@ export class EmailService {
             </div>
         `;
 
-        const text = `Dear ${name},\\n\\nYour new trading account has been created.\\n\\nLogin: ${login}\\nPassword: ${password}\\nServer: ${server}\\n${investorPassword ? `Investor Password: ${investorPassword}\\n` : ''}\\n\\nPlease login to MT5 with these details.`;
+        const text = `Dear ${name},\\n\\nYour new trading account has been created.\\n\\nLogin: ${login}\\nPassword: ${password}\\nServer: AURO MARKETS\\n${investorPassword ? `Investor Password: ${investorPassword}\\n` : ''}\\n\\nPlease login to MT5 with these details.`;
 
         await this.sendEmail(email, subject, html, text);
     }
@@ -187,7 +187,7 @@ export class EmailService {
                 </div>
 
                 <p>You will receive your new credentials shortly via email if your challenge requires a new account creation.</p>
-                <p>Thank you for trading with SharkFunded!</p>
+                <p>Thank you for trading with AURO MARKETS!</p>
             </div>
         `;
 
@@ -479,14 +479,14 @@ Shark Funded Team
     /**
      * Send Financial OTP Notification
      */
-    static async sendFinancialOTP(email: string, name: string, otp: string, type: 'wallet' | 'bank' | 'payout') {
+    static async sendFinancialOTP(email: string, name: string, otp: string, type: 'wallet' | 'bank' | 'payout' | 'affiliate_withdrawal') {
         let actionName = '';
         let verb = 'update your';
 
         if (type === 'wallet') actionName = 'Wallet Address Update';
         else if (type === 'bank') actionName = 'Bank Details Update';
-        else if (type === 'payout') {
-            actionName = 'Payout Request Verification';
+        else if (type === 'payout' || type === 'affiliate_withdrawal') {
+            actionName = type === 'payout' ? 'Payout Request Verification' : 'Affiliate Withdrawal Verification';
             verb = 'authorize your';
         }
 

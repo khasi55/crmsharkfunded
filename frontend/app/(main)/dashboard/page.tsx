@@ -11,7 +11,7 @@ import TradeMonthlyCalendar from "@/components/dashboard/TradeMonthlyCalendar";
 import EquityCurveChart from "@/components/dashboard/EquityCurveChart";
 import TradeHistory from "@/components/dashboard/TradeHistory";
 import TradeAnalysis from "@/components/dashboard/TradeAnalysis";
-import { ChevronRight, Key, RotateCw, Plus, LayoutDashboard, Rocket, LogOut, Share2, Copy } from "lucide-react";
+import { ChevronRight, Key, RotateCw, Plus, LayoutDashboard, Rocket, LogOut, Share2, Copy, Eye } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { AccountProvider, useAccount } from "@/contexts/AccountContext";
@@ -415,12 +415,22 @@ function DashboardContent() {
                                                         selectedAccount.status?.toLowerCase() === 'failed' ? "text-red-500" : "text-blue-400"
                                                     )}>{formatStatus(selectedAccount.status)}</p>
                                                 </div>
-                                                <button
-                                                    onClick={() => setShowCredentials(true)}
-                                                    className="p-2.5 sm:p-3 bg-white/5 active:bg-white/10 rounded-xl text-gray-400 active:text-white transition-colors touch-manipulation"
-                                                >
-                                                    <Key size={18} className="sm:w-5 sm:h-5" />
-                                                </button>
+                                                <div className="flex items-center gap-2 sm:gap-3">
+                                                    <button
+                                                        onClick={() => setShowCredentials(true)}
+                                                        className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] sm:text-xs font-bold transition-all shadow-lg shadow-blue-600/20 active:scale-[0.98]"
+                                                    >
+                                                        <Key size={14} className="sm:w-4 sm:h-4" />
+                                                        <span>CHANGE PASSWORD</span>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setShowCredentials(true)}
+                                                        className="p-2.5 sm:p-3 bg-white/5 hover:bg-white/10 rounded-xl text-gray-400 active:text-white transition-colors touch-manipulation"
+                                                        title="View Credentials"
+                                                    >
+                                                        <Eye size={18} className="sm:w-5 sm:h-5" />
+                                                    </button>
+                                                </div>
                                             </div>
 
                                             {/* Background decorative glow */}
