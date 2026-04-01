@@ -93,9 +93,9 @@ async function callBridge(endpoint: string, body: any, method = 'POST', options:
 
 export async function createMT5Account(params: MT5AccountParams, signal?: AbortSignal) {
     const data = await callBridge('/create-account', params, 'POST', { signal }) as any;
-    // Force AURO MARKETS branding regardless of bridge response
+    // Force STOX PIPS LIMITED branding regardless of bridge response
     if (data) {
-        data.server = 'AURO MARKETS';
+        data.server = 'STOX PIPS LIMITED';
     }
     return data;
 }

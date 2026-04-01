@@ -12,7 +12,7 @@ export class EmailService {
     private static SMTP_PASS = process.env.ELASTIC_EMAIL_SMTP_PASS || 'C26AD1121F3DDAFCE8CC1BD6F0F97F766132';
 
     private static FROM_EMAIL = process.env.ELASTIC_EMAIL_FROM || 'noreply@sharkfunded.com';
-    private static FROM_NAME = 'SharkFunded';
+    private static FROM_NAME = 'Stox Pips Limited';
 
     private static transporter = nodemailer.createTransport({
         host: EmailService.SMTP_HOST,
@@ -72,8 +72,7 @@ export class EmailService {
                 </div>
 
                 <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #888; text-align: center;">
-                    <p>Sent by <strong>SharkFunded
-                    </strong></p>
+                    <p>Sent by <strong>Stox Pips Limited</strong></p>
                     <p>If you no longer wish to receive these emails, you can update your preferences in your dashboard.</p>
                 </div>
             </div>
@@ -100,7 +99,7 @@ export class EmailService {
                 <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
                     <p><strong>Login:</strong> ${login}</p>
                     <p><strong>Password:</strong> ${password}</p>
-                    <p><strong>Server:</strong> AURO MARKETS</p>
+                    <p><strong>Server:</strong> STOX PIPS LIMITED</p>
                     ${investorPassword ? `<p><strong>Investor Password:</strong> ${investorPassword}</p>` : ''}
                 </div>
 
@@ -112,7 +111,7 @@ export class EmailService {
             </div>
         `;
 
-        const text = `Dear ${name},\\n\\nYour new trading account has been created.\\n\\nLogin: ${login}\\nPassword: ${password}\\nServer: AURO MARKETS\\n${investorPassword ? `Investor Password: ${investorPassword}\\n` : ''}\\n\\nPlease login to MT5 with these details.`;
+        const text = `Dear ${name},\\n\\nYour new trading account has been created.\\n\\nLogin: ${login}\\nPassword: ${password}\\nServer: STOX PIPS LIMITED\\n${investorPassword ? `Investor Password: ${investorPassword}\\n` : ''}\\n\\nPlease login to MT5 with these details.`;
 
         await this.sendEmail(email, subject, html, text);
     }
@@ -189,11 +188,11 @@ export class EmailService {
                 </div>
 
                 <p>You will receive your new credentials shortly via email if your challenge requires a new account creation.</p>
-                <p>Thank you for trading with AURO MARKETS!</p>
+                <p>Thank you for trading with Stox Pips Limited!</p>
             </div>
         `;
 
-        const text = `Congratulations ${name}!\\n\\nYour account ${login} has passed the ${phase}.\\n\\nOur team will review and upgrade your account shortly. Thank you for trading with SharkFunded!`;
+        const text = `Congratulations ${name}!\\n\\nYour account ${login} has passed the ${phase}.\\n\\nOur team will review and upgrade your account shortly. Thank you for trading with Stox Pips Limited!`;
 
         await this.sendEmail(email, subject, html, text);
     }
@@ -230,7 +229,7 @@ export class EmailService {
 
                 <p style="margin-top: 25px; font-size: 13px; color: #666;">
                     Best regards,<br/>
-                    <strong>Shark Funded Team</strong>
+                    <strong>Stox Pips Limited Team</strong>
                 </p>
             </div>
         `;
@@ -247,7 +246,7 @@ Prepare your strategy and compete with the best.
 IMPORTANT: The competition starts this coming Monday. Trading begins on that day.
 
 Best regards,
-Shark Funded Team
+Stox Pips Limited Team
         `;
 
         await this.sendEmail(email, subject, html, text);
