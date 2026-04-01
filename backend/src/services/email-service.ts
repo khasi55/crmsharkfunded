@@ -12,7 +12,7 @@ export class EmailService {
     private static SMTP_PASS = process.env.ELASTIC_EMAIL_SMTP_PASS || 'C26AD1121F3DDAFCE8CC1BD6F0F97F766132';
 
     private static FROM_EMAIL = process.env.ELASTIC_EMAIL_FROM || 'noreply@sharkfunded.com';
-    private static FROM_NAME = 'Stox Pips Limited';
+    private static FROM_NAME = 'Shark Funded';
 
     private static transporter = nodemailer.createTransport({
         host: EmailService.SMTP_HOST,
@@ -72,7 +72,7 @@ export class EmailService {
                 </div>
 
                 <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #888; text-align: center;">
-                    <p>Sent by <strong>Stox Pips Limited</strong></p>
+                    <p>Sent by <strong>Shark Funded</strong></p>
                     <p>If you no longer wish to receive these emails, you can update your preferences in your dashboard.</p>
                 </div>
             </div>
@@ -88,11 +88,11 @@ export class EmailService {
      * Send Account Credentials (Login, Password, Server)
      */
     static async sendAccountCredentials(email: string, name: string, login: string, password: string, server: string, investorPassword?: string) {
-        const subject = `Your New Trading Account Credentials - ${this.FROM_NAME}`;
+        const subject = `Your New Trading Account Credentials - SharkFunded`;
 
         const html = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                <h2 style="color: #333;">Welcome to ${this.FROM_NAME}</h2>
+                <h2 style="color: #333;">Welcome to SharkFunded</h2>
                 <p>Dear ${name},</p>
                 <p>Your new trading account has been successfully created. Here are your login details:</p>
                 
@@ -188,11 +188,11 @@ export class EmailService {
                 </div>
 
                 <p>You will receive your new credentials shortly via email if your challenge requires a new account creation.</p>
-                <p>Thank you for trading with Stox Pips Limited!</p>
+                <p>Thank you for trading with Shark Funded!</p>
             </div>
         `;
 
-        const text = `Congratulations ${name}!\\n\\nYour account ${login} has passed the ${phase}.\\n\\nOur team will review and upgrade your account shortly. Thank you for trading with Stox Pips Limited!`;
+        const text = `Congratulations ${name}!\\n\\nYour account ${login} has passed the ${phase}.\\n\\nOur team will review and upgrade your account shortly. Thank you for trading with Shark Funded!`;
 
         await this.sendEmail(email, subject, html, text);
     }
@@ -229,7 +229,7 @@ export class EmailService {
 
                 <p style="margin-top: 25px; font-size: 13px; color: #666;">
                     Best regards,<br/>
-                    <strong>Stox Pips Limited Team</strong>
+                    <strong>Shark Funded Team</strong>
                 </p>
             </div>
         `;
@@ -246,7 +246,7 @@ Prepare your strategy and compete with the best.
 IMPORTANT: The competition starts this coming Monday. Trading begins on that day.
 
 Best regards,
-Stox Pips Limited Team
+Shark Funded Team
         `;
 
         await this.sendEmail(email, subject, html, text);
