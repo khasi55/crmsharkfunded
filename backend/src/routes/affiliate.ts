@@ -26,10 +26,10 @@ router.get('/stats', authenticate, async (req: AuthRequest, res: Response) => {
         const withdrawalsFrom = (withdrawalsPage - 1) * limit;
         const withdrawalsTo = withdrawalsFrom + limit - 1;
 
-        // Fetch current user's profile to get their referral code
+        // Fetch current user's profile to get their referral code and cached commission sum
         const { data: userProfile, error: profileError } = await supabase
             .from('profiles')
-            .select('referral_code')
+            .select('referral_code, total_commission')
             .eq('id', user.id)
             .single();
 
@@ -47,16 +47,6 @@ router.get('/stats', authenticate, async (req: AuthRequest, res: Response) => {
             console.error('Error fetching referrals count:', referralsError);
         }
 
-        // Fetch earnings total sum
-        const { data: earningsSumData, error: earningsSumError } = await supabase
-            .from('affiliate_earnings')
-            .select('amount')
-            .eq('referrer_id', user.id);
-
-        if (earningsSumError) {
-            console.error('Error fetching earnings sum:', earningsSumError);
-        }
-
         // Fetch paginated earnings
         const { data: earningsData, count: totalEarningsCount, error: earningsError } = await supabase
             .from('affiliate_earnings')
@@ -69,7 +59,7 @@ router.get('/stats', authenticate, async (req: AuthRequest, res: Response) => {
             console.error('Error fetching paginated earnings:', earningsError);
         }
 
-        // Fetch withdrawals history
+        // Fetch withdrawals history for summary calculation
         const { data: withdrawalsHistory, error: withdrawalsHistoryError } = await supabase
             .from('affiliate_withdrawals')
             .select('amount, status')
@@ -94,10 +84,9 @@ router.get('/stats', authenticate, async (req: AuthRequest, res: Response) => {
         const actualEarnings = earningsData || [];
         const actualWithdrawals = withdrawalsData || [];
         const historyWithdrawals = withdrawalsHistory || [];
-        const historyEarnings = earningsSumData || [];
 
-        // Calculate stats
-        const totalEarnings = historyEarnings.reduce((sum, e) => sum + Number(e.amount), 0);
+        // Calculate stats using cached total_commission for accuracy beyond 1000 records
+        const totalEarnings = Number(userProfile?.total_commission) || 0;
 
         // Calculate withdrawn/pending amount
         const totalWithdrawn = historyWithdrawals
@@ -174,17 +163,18 @@ router.post('/withdraw', authenticate, async (req: AuthRequest, res: Response) =
         }
 
         // 1. Calculate Balance
-        const { data: earningsData } = await supabase
-            .from('affiliate_earnings')
-            .select('amount')
-            .eq('referrer_id', user.id);
+        const { data: userProfile } = await supabase
+            .from('profiles')
+            .select('total_commission')
+            .eq('id', user.id)
+            .single();
 
         const { data: withdrawalsData } = await supabase
             .from('affiliate_withdrawals')
             .select('amount, status')
             .eq('user_id', user.id);
 
-        const totalEarnings = (earningsData || []).reduce((sum, e) => sum + Number(e.amount), 0);
+        const totalEarnings = Number(userProfile?.total_commission) || 0;
         const totalWithdrawn = (withdrawalsData || [])
             .filter(w => ['pending', 'approved', 'processed'].includes(w.status))
             .reduce((sum, w) => sum + Number(w.amount), 0);
