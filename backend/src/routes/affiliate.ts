@@ -16,6 +16,16 @@ router.get('/stats', authenticate, async (req: AuthRequest, res: Response) => {
             return;
         }
 
+        const earningsPage = parseInt(req.query.earningsPage as string) || 1;
+        const withdrawalsPage = parseInt(req.query.withdrawalsPage as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+
+        const earningsFrom = (earningsPage - 1) * limit;
+        const earningsTo = earningsFrom + limit - 1;
+
+        const withdrawalsFrom = (withdrawalsPage - 1) * limit;
+        const withdrawalsTo = withdrawalsFrom + limit - 1;
+
         // Fetch current user's profile to get their referral code
         const { data: userProfile, error: profileError } = await supabase
             .from('profiles')
@@ -27,74 +37,96 @@ router.get('/stats', authenticate, async (req: AuthRequest, res: Response) => {
             console.error('Error fetching user profile:', profileError);
         }
 
-        // Fetch referrals from profiles table
-        const { data: referrals, error: referralsError } = await supabase
+        // Fetch referrals from profiles table (for counts)
+        const { count: totalReferrals, error: referralsError } = await supabase
             .from('profiles')
-            .select('id, full_name, created_at, total_commission')
+            .select('*', { count: 'exact', head: true })
             .eq('referred_by', user.id);
 
         if (referralsError) {
-            console.error('Error fetching referrals:', referralsError);
+            console.error('Error fetching referrals count:', referralsError);
         }
 
-        // Fetch earnings from affiliate_earnings table
-        const { data: earningsData, error: earningsError } = await supabase
+        // Fetch earnings total sum
+        const { data: earningsSumData, error: earningsSumError } = await supabase
             .from('affiliate_earnings')
-            .select('*')
+            .select('amount')
+            .eq('referrer_id', user.id);
+
+        if (earningsSumError) {
+            console.error('Error fetching earnings sum:', earningsSumError);
+        }
+
+        // Fetch paginated earnings
+        const { data: earningsData, count: totalEarningsCount, error: earningsError } = await supabase
+            .from('affiliate_earnings')
+            .select('*', { count: 'exact' })
             .eq('referrer_id', user.id)
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: false })
+            .range(earningsFrom, earningsTo);
 
         if (earningsError && earningsError.code !== 'PGRST116') {
-            console.error('Error fetching earnings:', earningsError);
+            console.error('Error fetching paginated earnings:', earningsError);
         }
 
-        // Fetch withdrawals
-        const { data: withdrawalsData, error: withdrawalsError } = await supabase
+        // Fetch withdrawals history
+        const { data: withdrawalsHistory, error: withdrawalsHistoryError } = await supabase
             .from('affiliate_withdrawals')
-            .select('*')
+            .select('amount, status')
+            .eq('user_id', user.id);
+
+        if (withdrawalsHistoryError) {
+            console.error('Error fetching withdrawals history:', withdrawalsHistoryError);
+        }
+
+        // Fetch paginated withdrawals
+        const { data: withdrawalsData, count: totalWithdrawalsCount, error: withdrawalsError } = await supabase
+            .from('affiliate_withdrawals')
+            .select('*', { count: 'exact' })
             .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: false })
+            .range(withdrawalsFrom, withdrawalsTo);
 
         if (withdrawalsError && withdrawalsError.code !== 'PGRST116') {
-            console.error('Error fetching withdrawals:', withdrawalsError);
+            console.error('Error fetching paginated withdrawals:', withdrawalsError);
         }
 
-        const actualReferrals = referrals || [];
         const actualEarnings = earningsData || [];
         const actualWithdrawals = withdrawalsData || [];
+        const historyWithdrawals = withdrawalsHistory || [];
+        const historyEarnings = earningsSumData || [];
 
         // Calculate stats
-        const totalReferrals = actualReferrals.length;
-        const activeReferrals = actualReferrals.length; // Simplified active logic
-        const totalEarnings = actualEarnings.reduce((sum, e) => sum + Number(e.amount), 0);
+        const totalEarnings = historyEarnings.reduce((sum, e) => sum + Number(e.amount), 0);
 
         // Calculate withdrawn/pending amount
-        // We subtract ALL withdrawals (pending + approved + processed) from available balance
-        // Valid status: pending, approved, processed. Rejected ones are credit back (or never deducted)
-        const totalWithdrawn = actualWithdrawals
+        const totalWithdrawn = historyWithdrawals
             .filter(w => ['pending', 'approved', 'processed'].includes(w.status))
             .reduce((sum, w) => sum + Number(w.amount), 0);
 
         const availableBalance = totalEarnings - totalWithdrawn;
-        const pendingWithdrawals = actualWithdrawals
+        const pendingWithdrawals = historyWithdrawals
             .filter(w => w.status === 'pending')
             .reduce((sum, w) => sum + Number(w.amount), 0);
 
         // Calculate conversion rate
-        const conversionRate = totalReferrals > 0 ? 100 : 0; // Simplified
+        const conversionRate = (totalReferrals || 0) > 0 ? 100 : 0; // Simplified
 
         res.json({
             affiliate: {
                 referralCode: userProfile?.referral_code || 'GENERATE',
-                totalReferrals,
-                activeReferrals,
+                totalReferrals: totalReferrals || 0,
+                activeReferrals: totalReferrals || 0,
                 totalEarnings,
                 availableBalance: Math.max(0, availableBalance),
                 withdrawnAmount: totalWithdrawn,
-                pendingEarnings: pendingWithdrawals, // Renaming for frontend compat checks if needed, or just add new field
+                pendingEarnings: pendingWithdrawals,
                 conversionRate,
                 earnings: actualEarnings,
-                withdrawals: actualWithdrawals
+                withdrawals: actualWithdrawals,
+                totalEarningsCount: totalEarningsCount || 0,
+                totalWithdrawalsCount: totalWithdrawalsCount || 0,
+                limit
             }
         });
 

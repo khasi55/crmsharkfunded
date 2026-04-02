@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Users, DollarSign, TrendingUp, Copy, Check, ExternalLink,
-    Gift, Wallet, ArrowUpRight, X, ChevronRight, CreditCard, CheckCircle,
+    Gift, Wallet, ArrowUpRight, X, ChevronRight, ChevronLeft, CreditCard, CheckCircle,
     Building2, LayoutDashboard, History, Loader2, Shield, Lock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -102,6 +102,48 @@ const TabButton = ({ active, label, onClick }: { active: boolean, label: string,
     </button>
 );
 
+const Pagination = ({ 
+    currentPage, 
+    totalCount, 
+    limit, 
+    onPageChange 
+}: { 
+    currentPage: number, 
+    totalCount: number, 
+    limit: number, 
+    onPageChange: (page: number) => void 
+}) => {
+    const totalPages = Math.ceil(totalCount / limit);
+    if (totalPages <= 1) return null;
+
+    return (
+        <div className="flex items-center justify-between px-6 py-4 border-t border-white/5 bg-white/[0.01]">
+            <div className="text-xs text-gray-500">
+                Showing <span className="text-gray-300">{(currentPage - 1) * limit + 1}</span> to <span className="text-gray-300">{Math.min(currentPage * limit, totalCount)}</span> of <span className="text-gray-300">{totalCount}</span> results
+            </div>
+            <div className="flex items-center gap-2">
+                <button
+                    onClick={() => onPageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg border border-white/10 hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                >
+                    <ChevronLeft size={16} className="text-gray-400" />
+                </button>
+                <div className="text-sm font-medium text-white px-3 py-1 bg-white/5 rounded-md border border-white/10 min-w-[60px] text-center">
+                    {currentPage} / {totalPages}
+                </div>
+                <button
+                    onClick={() => onPageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg border border-white/10 hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                >
+                    <ChevronRight size={16} className="text-gray-400" />
+                </button>
+            </div>
+        </div>
+    );
+};
+
 // --- Main Page Component ---
 
 export default function AffiliatePage() {
@@ -119,6 +161,14 @@ export default function AffiliatePage() {
     const [referralCode, setReferralCode] = useState("LOADING...");
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'earnings' | 'withdrawals'>('earnings');
+
+    // Pagination States
+    const [earningsPage, setEarningsPage] = useState(1);
+    const [withdrawalsPage, setWithdrawalsPage] = useState(1);
+    const [totalEarningsCount, setTotalEarningsCount] = useState(0);
+    const [totalWithdrawalsCount, setTotalWithdrawalsCount] = useState(0);
+    const [limit, setLimit] = useState(10);
+    const [isDataLoading, setIsDataLoading] = useState(false);
 
     // Copy States
     const [codeCopied, setCodeCopied] = useState(false);
@@ -143,12 +193,13 @@ export default function AffiliatePage() {
     const [requestingOtp, setRequestingOtp] = useState(false);
 
     useEffect(() => {
-        fetchAffiliateData();
-    }, []);
+        fetchAffiliateData(earningsPage, withdrawalsPage);
+    }, [earningsPage, withdrawalsPage]);
 
-    const fetchAffiliateData = async () => {
+    const fetchAffiliateData = async (ePage = earningsPage, wPage = withdrawalsPage) => {
         try {
-            const data = await fetchFromBackend('/api/affiliate/stats');
+            if (!loading) setIsDataLoading(true);
+            const data = await fetchFromBackend(`/api/affiliate/stats?earningsPage=${ePage}&withdrawalsPage=${wPage}&limit=${limit}`);
 
             if (data.affiliate) {
                 setReferralCode(data.affiliate.referralCode || 'DEMO');
@@ -163,11 +214,15 @@ export default function AffiliatePage() {
                 });
                 setEarnings(data.affiliate.earnings || []);
                 setWithdrawals(data.affiliate.withdrawals || []);
+                setTotalEarningsCount(data.affiliate.totalEarningsCount || 0);
+                setTotalWithdrawalsCount(data.affiliate.totalWithdrawalsCount || 0);
+                if (data.affiliate.limit) setLimit(data.affiliate.limit);
             }
         } catch (error) {
             console.error('Error fetching affiliate data:', error);
         } finally {
             setLoading(false);
+            setIsDataLoading(false);
         }
     };
 
@@ -431,7 +486,12 @@ export default function AffiliatePage() {
                             </div>
 
                             {/* Table Content */}
-                            <div className="flex-1 overflow-x-auto">
+                            <div className="flex-1 overflow-x-auto relative">
+                                {isDataLoading && (
+                                    <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px] flex items-center justify-center z-10">
+                                        <Loader2 className="animate-spin text-blue-500 h-8 w-8" />
+                                    </div>
+                                )}
                                 <table className="w-full">
                                     <thead>
                                         <tr className="border-b border-white/5 bg-white/5">
@@ -512,6 +572,23 @@ export default function AffiliatePage() {
                                     </tbody>
                                 </table>
                             </div>
+
+                            {/* Pagination Footer */}
+                            {activeTab === 'earnings' ? (
+                                <Pagination 
+                                    currentPage={earningsPage}
+                                    totalCount={totalEarningsCount}
+                                    limit={limit}
+                                    onPageChange={setEarningsPage}
+                                />
+                            ) : (
+                                <Pagination 
+                                    currentPage={withdrawalsPage}
+                                    totalCount={totalWithdrawalsCount}
+                                    limit={limit}
+                                    onPageChange={setWithdrawalsPage}
+                                />
+                            )}
                         </motion.div>
                     </div>
                 </div>
