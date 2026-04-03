@@ -238,7 +238,7 @@ export default function CredentialsModal({ isOpen, onClose, account }: Credentia
 
                     <CredentialRow
                         label="Server"
-                        value={account.server?.includes('AURO') ? 'STOX PIPS LIMITED' : (account.server || 'STOX PIPS LIMITED')}
+                        value={account.server?.includes('AURO') ? 'BULGE GROUP INVESTMENT LIMITED' : (account.server || 'BULGE GROUP INVESTMENT LIMITED')}
                         field="server"
                         icon={Server}
                     />

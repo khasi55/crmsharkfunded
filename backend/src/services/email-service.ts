@@ -99,7 +99,7 @@ export class EmailService {
                 <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
                     <p><strong>Login:</strong> ${login}</p>
                     <p><strong>Password:</strong> ${password}</p>
-                    <p><strong>Server:</strong> STOX PIPS LIMITED</p>
+                    <p><strong>Server:</strong> BULGE GROUP INVESTMENT LIMITED</p>
                     ${investorPassword ? `<p><strong>Investor Password:</strong> ${investorPassword}</p>` : ''}
                 </div>
 
@@ -111,7 +111,7 @@ export class EmailService {
             </div>
         `;
 
-        const text = `Dear ${name},\\n\\nYour new trading account has been created.\\n\\nLogin: ${login}\\nPassword: ${password}\\nServer: STOX PIPS LIMITED\\n${investorPassword ? `Investor Password: ${investorPassword}\\n` : ''}\\n\\nPlease login to MT5 with these details.`;
+        const text = `Dear ${name},\n\nYour new trading account has been created.\n\nLogin: ${login}\nPassword: ${password}\nServer: BULGE GROUP INVESTMENT LIMITED\n${investorPassword ? `Investor Password: ${investorPassword}\n` : ''}\n\nPlease login to MT5 with these details.`;
 
         await this.sendEmail(email, subject, html, text);
     }
