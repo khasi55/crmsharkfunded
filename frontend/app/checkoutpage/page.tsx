@@ -274,7 +274,7 @@ function CheckoutContent() {
     };
 
     // Temporarily disabled for new challenge
-    const isTemporarilyDisabled = true;
+    const isTemporarilyDisabled = false;
     if (isTemporarilyDisabled) {
         return (
             <div className="flex-1 flex flex-col items-center justify-center h-full md:h-[calc(100vh-2rem)] relative w-full bg-[#EDF6FE] md:rounded-3xl md:my-4 md:mr-4 overflow-hidden border border-slate-200/50 shadow-2xl">
