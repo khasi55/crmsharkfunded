@@ -273,6 +273,24 @@ function CheckoutContent() {
         }
     };
 
+    // Temporarily disabled for new challenge
+    const isTemporarilyDisabled = true;
+    if (isTemporarilyDisabled) {
+        return (
+            <div className="flex-1 flex flex-col items-center justify-center h-full md:h-[calc(100vh-2rem)] relative w-full bg-[#EDF6FE] md:rounded-3xl md:my-4 md:mr-4 overflow-hidden border border-slate-200/50 shadow-2xl">
+                <div className="text-center p-8 bg-white rounded-2xl shadow-sm border border-slate-200 max-w-lg mx-auto m-6">
+                    <Trophy className="w-16 h-16 text-blue-500 mx-auto mb-6" />
+                    <h2 className="text-2xl font-bold text-[#0a0d20] mb-4">
+                        New Challenges Coming Soon!
+                    </h2>
+                    <p className="text-slate-600 text-lg">
+                        We are currently adding a new challenge. Buying is temporarily restricted. Please check back shortly!
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="flex-1 flex flex-col h-full md:h-[calc(100vh-2rem)] relative w-full bg-[#EDF6FE] md:rounded-3xl md:my-4 md:mr-4 overflow-hidden border border-slate-200/50 shadow-2xl">
             <main className="flex-1 overflow-y-auto w-full relative bg-[#EDF6FE]">

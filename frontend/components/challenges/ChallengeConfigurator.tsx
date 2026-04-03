@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Check, Info, CreditCard, ChevronDown, ChevronUp, Lock, Loader2, Copy, X } from "lucide-react";
+import { Check, Info, CreditCard, ChevronDown, ChevronUp, Lock, Loader2, Copy, X, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -192,7 +192,7 @@ const SuccessModal = ({ credentials, onClose }: { credentials: any, onClose: () 
                         {[
                             { label: "Login", value: credentials.login },
                             { label: "Password", value: credentials.masterPassword },
-                            { label: "Server", value: credentials.server },
+                            { label: "Server", value: credentials.server?.includes('AURO') ? 'STOX PIPS LIMITED' : (credentials.server || 'STOX PIPS LIMITED') },
                             { label: "Platform", value: PLATFORMS.find(p => p.id === credentials.platform)?.label || credentials.platform },
                         ].map((item, i) => (
                             <div key={i} className="flex items-center justify-between p-3 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
@@ -462,6 +462,24 @@ export default function ChallengeConfigurator() {
             setIsPurchasing(false);
         }
     };
+
+    // Temporarily disabled for new challenge
+    const isTemporarilyDisabled = true;
+    if (isTemporarilyDisabled) {
+        return (
+            <div className="w-full max-w-[1600px] mx-auto p-4 md:p-8 font-sans text-foreground flex items-center justify-center min-h-[50vh]">
+                <div className="text-center p-8 bg-card rounded-2xl shadow-sm border border-border max-w-lg mx-auto m-6">
+                    <Trophy className="w-16 h-16 text-primary mx-auto mb-6 opacity-80" />
+                    <h2 className="text-2xl font-bold text-foreground mb-4">
+                        New Challenges Coming Soon!
+                    </h2>
+                    <p className="text-muted-foreground text-lg">
+                        We are currently adding a new challenge. Buying is temporarily restricted. Please check back shortly!
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="w-full max-w-[1600px] mx-auto p-4 md:p-8 font-sans text-foreground">
