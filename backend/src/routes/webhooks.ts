@@ -599,12 +599,17 @@ async function handlePaymentWebhook(req: Request, res: Response) {
             if (isCompetition) {
                 challengeType = 'competition';
             } else if (model && type) {
-                // Map common patterns to snake_case (e.g. Model: 'lite', Type: '2-step' -> 'lite_2_step_phase_1')
-                const normalizedType = type.replace('-', '_').replace(' ', '_');
-                if (normalizedType === '2_step') {
-                    challengeType = `${model}_2_step_phase_1`;
+                // SPECIAL CASE: Bolt model maps to direct_funded challenge type
+                if (model === 'bolt') {
+                    challengeType = 'direct_funded';
                 } else {
-                    challengeType = `${model}_${normalizedType}`;
+                    // Map common patterns to snake_case (e.g. Model: 'lite', Type: '2-step' -> 'lite_2_step_phase_1')
+                    const normalizedType = type.replace('-', '_').replace(' ', '_');
+                    if (normalizedType === '2_step') {
+                        challengeType = `${model}_2_step_phase_1`;
+                    } else {
+                        challengeType = `${model}_${normalizedType}`;
+                    }
                 }
             } else {
                 // Fallback for older orders or manual creations
