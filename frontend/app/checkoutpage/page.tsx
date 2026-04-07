@@ -188,7 +188,7 @@ function CheckoutContent() {
 
         // Restriction for Bolt model - only specific coupons allowed
         if (model === 'bolt') {
-            const allowedCoupons = ['SHARK30', 'BOOST30'];
+            const allowedCoupons = ['SHARK30', 'BOOST30', 'NEW30'];
             if (!allowedCoupons.includes(coupon.trim().toUpperCase())) {
                 setAppliedCoupon(null);
                 setCouponError("Maximum discount available is 30%");

@@ -115,7 +115,7 @@ router.post('/create-order', async (req: Request, res: Response) => {
         if (couponCode) {
             // 🛡️ SECURITY: Restrict coupons for Bolt model
             if (model === 'bolt') {
-                const allowedCoupons = ['SHARK30', 'BOOST30'];
+                const allowedCoupons = ['SHARK30', 'BOOST30', 'NEW30'];
                 if (!allowedCoupons.includes(couponCode.trim().toUpperCase())) {
                     console.warn(`[Payment API] Blocked invalid coupon ${couponCode} for Bolt model`);
                     return res.status(400).json({ success: false, error: 'Maximum discount available is 30%' });
