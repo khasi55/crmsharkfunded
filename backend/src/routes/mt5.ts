@@ -38,7 +38,7 @@ function generatePassword(length = 10): string {
 }
 
 // GET /api/mt5/accounts - List all MT5 accounts from unified table (admin only)
-router.get('/accounts', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
+router.get('/accounts', authenticate, requireRole(['super_admin', 'admin', 'sub_admin', 'risk_admin', 'payouts_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { status, size, group, phase, login } = req.query;
 
@@ -266,7 +266,7 @@ router.post('/assign', authenticate, requireRole(['super_admin', 'admin', 'sub_a
                 login: mt5Login,
                 master_password: masterPassword,
                 investor_password: investorPassword,
-                server: 'AURO MARKETS',
+                server: 'STOX PIPS LIMITED',
                 platform: 'MT5',
                 group: finalGroup, // Save the assigned group
                 leverage: 100,
@@ -319,7 +319,7 @@ router.post('/assign', authenticate, requireRole(['super_admin', 'admin', 'sub_a
                 profile.full_name || 'Trader',
                 String(mt5Login),
                 masterPassword,
-                'AURO MARKETS',
+                'STOX PIPS LIMITED',
                 investorPassword
             ).catch(err => console.error("Async Email Error:", err));
         }
@@ -419,7 +419,7 @@ router.post('/change-password', authenticate, async (req: AuthRequest, res: Resp
 });
 
 // POST /api/mt5/admin/change-password
-router.post('/admin/change-password', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
+router.post('/admin/change-password', authenticate, requireRole(['super_admin', 'admin', 'sub_admin', 'risk_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { login, master_password, investor_password } = req.body;
 
@@ -454,7 +454,7 @@ router.post('/admin/change-password', authenticate, requireRole(['super_admin', 
     }
 });
 
-router.post('/sync-trades', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
+router.post('/sync-trades', authenticate, requireRole(['super_admin', 'admin', 'sub_admin', 'risk_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { login, user_id } = req.body;
 
@@ -642,7 +642,7 @@ router.post('/sync-trades', authenticate, requireRole(['super_admin', 'admin', '
 
 // POST /api/mt5/admin/disable
 // POST /api/mt5/admin/disable - Disable MT5 account (admin only)
-router.post('/admin/disable', authenticate, requireRole(['super_admin', 'admin', 'risk_admin', 'sub_admin']), sensitiveLimiter, async (req: AuthRequest, res: Response) => {
+router.post('/admin/disable', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), sensitiveLimiter, async (req: AuthRequest, res: Response) => {
     try {
         const { login } = req.body;
 
@@ -678,7 +678,7 @@ router.post('/admin/disable', authenticate, requireRole(['super_admin', 'admin',
 
 // POST /api/mt5/admin/stop-out
 // POST /api/mt5/admin/stop-out - Stop out MT5 account (admin only)
-router.post('/admin/stop-out', authenticate, requireRole(['super_admin', 'admin', 'risk_admin', 'sub_admin']), sensitiveLimiter, async (req: AuthRequest, res: Response) => {
+router.post('/admin/stop-out', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), sensitiveLimiter, async (req: AuthRequest, res: Response) => {
     try {
         const { login } = req.body;
 
@@ -713,7 +713,7 @@ router.post('/admin/stop-out', authenticate, requireRole(['super_admin', 'admin'
 
 // POST /api/mt5/admin/enable
 // POST /api/mt5/admin/enable - Enable MT5 account (admin only)
-router.post('/admin/enable', authenticate, requireRole(['super_admin', 'admin', 'risk_admin', 'sub_admin']), sensitiveLimiter, async (req: AuthRequest, res: Response) => {
+router.post('/admin/enable', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), sensitiveLimiter, async (req: AuthRequest, res: Response) => {
     try {
         const { login } = req.body;
 
@@ -759,7 +759,7 @@ router.post('/admin/enable', authenticate, requireRole(['super_admin', 'admin', 
 });
 
 // POST /api/mt5/admin/change-leverage - Change MT5 account leverage (admin only)
-router.post('/admin/change-leverage', authenticate, requireRole(['super_admin', 'admin', 'risk_admin', 'sub_admin']), sensitiveLimiter, validateRequest(mt5LeverageChangeSchema), async (req: AuthRequest, res: Response) => {
+router.post('/admin/change-leverage', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), sensitiveLimiter, validateRequest(mt5LeverageChangeSchema), async (req: AuthRequest, res: Response) => {
     try {
         const { login, leverage } = req.body;
 
@@ -792,7 +792,7 @@ router.post('/admin/change-leverage', authenticate, requireRole(['super_admin', 
 });
 
 // POST /api/mt5/admin/adjust-balance - Adjust MT5 balance (admin only)
-router.post('/admin/adjust-balance', authenticate, requireRole(['super_admin', 'admin', 'risk_admin', 'sub_admin']), sensitiveLimiter, validateRequest(mt5BalanceAdjustSchema), async (req: AuthRequest, res: Response) => {
+router.post('/admin/adjust-balance', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), sensitiveLimiter, validateRequest(mt5BalanceAdjustSchema), async (req: AuthRequest, res: Response) => {
     try {
         const { login, amount, comment } = req.body;
 
