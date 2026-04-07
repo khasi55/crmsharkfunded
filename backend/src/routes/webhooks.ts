@@ -558,6 +558,11 @@ async function handlePaymentWebhook(req: Request, res: Response) {
                 mt5Group = order.account_types.mt5_group_name;
             }
 
+            // Handle Bolt Fallback (if metadata was stripped or missing)
+            if (mt5Group === 'demo\\forex' && (order.model === 'bolt' || accountTypeName.includes('bolt'))) {
+                mt5Group = 'demo\\S\\0-Direct-SF';
+            }
+
             // Handle Competition Overrides
             if (isCompetition || order.metadata?.is_competition) {
                 leverage = 100;
@@ -635,7 +640,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
                     login: mt5Data.login,
                     master_password: (mt5Data as any).password,
                     investor_password: (mt5Data as any).investor_password || '',
-                    server: (mt5Data as any).server || 'ALFX Limited',
+                    server: (mt5Data as any).server || 'STOX PIPS LIMITED',
                     platform: order.platform,
                     leverage: leverage,
                     group: mt5Group, // Store actual used group
@@ -677,7 +682,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
                     fullName,
                     String(mt5Data.login),
                     (mt5Data as any).password,
-                    (mt5Data as any).server || 'ALFX Limited',
+                    (mt5Data as any).server || 'STOX PIPS LIMITED',
                     (mt5Data as any).investor_password
                 ).catch((e: any) => console.error('Failed to send credentials email:', e));
             }
@@ -780,7 +785,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
                             login: mt5DataFree.login,
                             master_password: mt5DataFree.password,
                             investor_password: mt5DataFree.investor_password || '',
-                            server: mt5DataFree.server || 'ALFX Limited',
+                            server: mt5DataFree.server || 'STOX PIPS LIMITED',
                             platform: order.platform,
                             leverage: leverage,
                             group: mt5Group,
@@ -799,7 +804,7 @@ async function handlePaymentWebhook(req: Request, res: Response) {
                                 fullName,
                                 String(mt5DataFree.login),
                                 mt5DataFree.password,
-                                mt5DataFree.server || 'ALFX Limited',
+                                mt5DataFree.server || 'STOX PIPS LIMITED',
                                 mt5DataFree.investor_password
                             ).catch((e: any) => console.error('Failed to send BOGO credentials email:', e));
                         }

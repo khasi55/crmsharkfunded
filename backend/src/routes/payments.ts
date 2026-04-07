@@ -92,8 +92,22 @@ router.post('/create-order', async (req: Request, res: Response) => {
         }
 
         if (expectedBasePrice === 0) {
-            console.error('[Payment API] Invalid configuration for pricing:', { type, model, size });
-            return res.status(400).json({ success: false, error: 'Invalid account configuration' });
+            console.error('[Payment API] Invalid configuration for pricing:', { 
+                type, 
+                model, 
+                size, 
+                configKey, 
+                sizeKey,
+                foundConfig: !!pricingConfig[configKey as keyof typeof pricingConfig],
+                availableConfigs: Object.keys(pricingConfig)
+            });
+            return res.status(400).json({ 
+                success: false, 
+                error: `Invalid account configuration: ${model || 'unknown'} ${type || 'unknown'} (${size || 0}). configKey: ${configKey}, sizeKey: ${sizeKey}`,
+                debug: {
+                    availableConfigs: Object.keys(pricingConfig)
+                }
+            });
         }
 
         // 2. Calculate Discount
@@ -213,6 +227,7 @@ router.post('/create-order', async (req: Request, res: Response) => {
             model: model,
             size: size,
             platform: metadata?.platform || 'MT5',
+            mt5_group: metadata?.mt5_group, // Preserve MT5 group for account creation
             coupon: metadata?.coupon,
             country: metadata?.country,
             phone: metadata?.phone,
