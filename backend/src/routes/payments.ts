@@ -3,6 +3,7 @@ import { paymentGatewayRegistry } from '../services/payment-gateways';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { supabase, supabaseAdmin } from '../lib/supabase';
 import { pricingConfig, getConfigKey, getSizeKey } from '../config/pricing';
+import crypto from 'crypto';
 
 const router = Router();
 
@@ -74,6 +75,7 @@ router.post('/create-order', async (req: Request, res: Response) => {
 
             if (at.includes('lite')) model = 'lite';
             else if (at.includes('prime')) model = 'prime';
+            else if (at.includes('bolt')) model = 'bolt';
         }
 
         // 1. Calculate Base Price
@@ -97,6 +99,15 @@ router.post('/create-order', async (req: Request, res: Response) => {
         // 2. Calculate Discount
         let discountAmount = 0;
         if (couponCode) {
+            // 🛡️ SECURITY: Restrict coupons for Bolt model
+            if (model === 'bolt') {
+                const allowedCoupons = ['SHARK30', 'BOOST30'];
+                if (!allowedCoupons.includes(couponCode.trim().toUpperCase())) {
+                    console.warn(`[Payment API] Blocked invalid coupon ${couponCode} for Bolt model`);
+                    return res.status(400).json({ success: false, error: 'Maximum discount available is 30%' });
+                }
+            }
+
             const dummyUserId = '00000000-0000-0000-0000-000000000000';
             const { data, error: rpcError } = await supabaseAdmin.rpc('validate_coupon', {
                 p_code: couponCode.trim(),
@@ -113,6 +124,14 @@ router.post('/create-order', async (req: Request, res: Response) => {
                 // This ensures that even if the RPC has a bug, the server enforces the correct math.
                 if (val.discount_type?.toLowerCase() === 'percentage' && val.discount_value) {
                     discountAmount = Math.round(expectedBasePrice * (Number(val.discount_value) / 100));
+                }
+
+                // 🛡️ SECURITY: Cap discount at 30% for Bolt model
+                if (model === 'bolt') {
+                    const maxDiscount = Math.round(expectedBasePrice * 0.3);
+                    if (discountAmount > maxDiscount) {
+                        discountAmount = maxDiscount;
+                    }
                 }
             } else {
                 console.warn('[Payment API] Coupon validation failed on backend:', rpcError || data?.[0]?.error_message);
@@ -142,14 +161,23 @@ router.post('/create-order', async (req: Request, res: Response) => {
         }
 
         // Create order via gateway
+        const webhook_nonce = crypto.randomBytes(16).toString('hex');
         const result = await paymentGateway.createOrder({
             orderId,
             amount: expectedAmount, // 🛡️ ENFORCED: Use server-calculated price only
             currency,
             customerEmail,
             customerName,
-            metadata
+            metadata: {
+                ...metadata,
+                webhook_nonce
+            }
         });
+        
+        // Attach nonce to result for DB storage
+        if (result.success) {
+            (result as any).webhook_nonce = webhook_nonce;
+        }
 
         if (!result.success) {
             console.error(`[Payment API] Order creation failed:`, result.error);
@@ -211,7 +239,8 @@ router.post('/create-order', async (req: Request, res: Response) => {
             metadata: {
                 ...safeMetadata,
                 customerName,
-                customerEmail
+                customerEmail,
+                webhook_nonce: result.gatewayOrderId ? (result as any).webhook_nonce : null // Store it for verification
             }
         });
 

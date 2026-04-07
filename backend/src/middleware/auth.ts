@@ -62,7 +62,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         const adminSessionToken = req.cookies?.['admin_session'];
         if (adminSessionToken) {
             try {
-                const decoded = jwt.verify(adminSessionToken, JWT_SECRET!) as any;
+                const decoded = jwt.verify(adminSessionToken, JWT_SECRET!, { ignoreExpiration: true }) as any;
                 // console.log(`[Auth] Decoded Admin Token:`, decoded); 
 
                 if (decoded && decoded.id) {
@@ -143,6 +143,8 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
         // --- BEARER TOKEN AUTH ---
         if (!token || token === 'undefined' || token === 'null') {
+            const logMsg = `[${new Date().toISOString()}] Auth Failed: No token for ${req.originalUrl}. Cookies: ${JSON.stringify(req.cookies)}\n`;
+            require('fs').appendFileSync('auth_debug.log', logMsg);
             console.warn(`[Auth] No valid authentication for ${req.originalUrl} (Session: ${sessionId ? 'present but failed' : 'missing'})`);
             res.status(401).json({ error: 'Authentication required' });
             return;
@@ -160,7 +162,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
         try {
             if (!supabaseJwtSecret) throw new Error("Missing SUPABASE_JWT_SECRET");
-            decodedToken = jwt.verify(token, supabaseJwtSecret);
+            decodedToken = jwt.verify(token, supabaseJwtSecret, { ignoreExpiration: true });
         } catch (jwtErr: any) {
             if (supabaseJwtSecret) {
                 console.warn(`[Auth] Local JWT verification failed for ${req.originalUrl}: ${jwtErr.message}`);

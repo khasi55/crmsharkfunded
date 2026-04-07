@@ -42,10 +42,17 @@ export const pricingConfig = {
         '25K': { price: '$199' },
         '50K': { price: '$349' },
         '100K': { price: '$599' },
+    },
+    Bolt: {
+        '1.5K': { price: '$45' },
+        '3K': { price: '$81' },
+        '6K': { price: '$159' },
+        '9K': { price: '$301' },
     }
 } as const;
 
 export const getSizeKey = (size: number): string => {
+    if (size === 1500) return '1.5K';
     if (size >= 1000) {
         return `${size / 1000}K`;
     }
@@ -56,6 +63,7 @@ export const getConfigKey = (type: string, model: string): keyof typeof pricingC
     const t = type.toLowerCase();
     const m = model.toLowerCase();
 
+    if (m === 'bolt') return 'Bolt';
     if (t === 'funded' || t === 'direct_funded') {
         return 'DirectFunded';
     }

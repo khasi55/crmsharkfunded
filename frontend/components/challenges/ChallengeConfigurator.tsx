@@ -45,6 +45,12 @@ export const pricingConfig = {
         '25K': { price: '$199', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
         '50K': { price: '$350', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
         '100K': { price: '$487', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
+    },
+    Bolt: {
+        '1.5K': { price: '$45', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '3K': { price: '$81', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '6K': { price: '$159', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '9K': { price: '$301', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
     }
 } as const;
 
@@ -57,7 +63,8 @@ const CHALLENGE_TYPES = [
 
 const MODELS = [
     { id: "prime", label: "SharkFunded Prime", desc: "Higher leverage" },
-    { id: "lite", label: "SharkFunded Lite", desc: "Classic model" }
+    { id: "lite", label: "SharkFunded Lite", desc: "Classic model" },
+    { id: "bolt", label: "Sharkfunded Bolt", desc: "Direct Funded - Fast-track" }
 ];
 
 const PLATFORMS = [
@@ -72,6 +79,7 @@ const PAYMENT_GATEWAYS = [
 
 // Helper to map size number to string key
 export const getSizeKey = (size: number): string => {
+    if (size === 1500) return '1.5K';
     if (size >= 1000) {
         return `${size / 1000}K`;
     }
@@ -80,6 +88,7 @@ export const getSizeKey = (size: number): string => {
 
 // Helper to map type/model to config key
 export const getConfigKey = (type: string, model: string): keyof typeof pricingConfig | null => {
+    if (model === 'bolt') return 'Bolt';
     if (type === 'Instant') {
         return model === 'prime' ? 'InstantPrime' : 'InstantLite';
     }
@@ -257,9 +266,9 @@ export default function ChallengeConfigurator() {
         const config = sourceConfig[configKey as keyof typeof pricingConfig];
 
         const sizesStr = Object.keys(config);
-        // Convert "5K" -> 5000
+        // Convert "5K" -> 5000, "1.5K" -> 1500
         return sizesStr.map(s => {
-            const num = parseInt(s.replace('K', ''));
+            const num = parseFloat(s.replace('K', ''));
             return num * 1000;
         }).sort((a, b) => a - b);
     })();
@@ -319,10 +328,15 @@ export default function ChallengeConfigurator() {
     const discountAmount = (() => {
         if (!appliedCoupon) return 0;
         const type = String(appliedCoupon.discount.type || '').toLowerCase();
-        if (type === 'percentage') {
-            return Math.round(basePriceUSD * (Number(appliedCoupon.discount.value) / 100));
+        let amount = type === 'percentage'
+            ? Math.round(basePriceUSD * (Number(appliedCoupon.discount.value) / 100))
+            : Math.round(Number(appliedCoupon.discount.amount));
+
+        if (model === 'bolt') {
+            const maxDiscount = Math.round(basePriceUSD * 0.3);
+            if (amount > maxDiscount) return maxDiscount;
         }
-        return Math.round(Number(appliedCoupon.discount.amount));
+        return amount;
     })();
     const finalPriceUSD = Math.round(Math.max(0, basePriceUSD - discountAmount));
     const finalPriceINR = Math.round(finalPriceUSD * 98); // Simple fixed rate: 98 (Synced with Gateway)
@@ -334,6 +348,16 @@ export default function ChallengeConfigurator() {
 
     const handleApplyCoupon = async () => {
         if (!coupon.trim()) return;
+
+        // Restriction for Bolt model - only specific coupons allowed
+        if (model === 'bolt') {
+            const allowedCoupons = ['SHARK30', 'BOOST30'];
+            if (!allowedCoupons.includes(coupon.trim().toUpperCase())) {
+                setAppliedCoupon(null);
+                setCouponError("Maximum discount available is 30%");
+                return;
+            }
+        }
 
         setAppliedCoupon(null); // Clear previous state immediately
         setValidatingCoupon(true);
@@ -403,6 +427,10 @@ export default function ChallengeConfigurator() {
                 else if (type === '1-step') mt5Group = 'demo\\SF\\1-Pro';
                 else if (type === '2-step') mt5Group = 'demo\\SF\\2-Pro';
             }
+            // Bolt Mappings
+            else if (model === 'bolt') {
+                mt5Group = 'demo\\S\\0-Direct-SF';
+            }
 
             // Call backend payment API instead of direct gateway
             const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.sharkfunded.co';
@@ -422,6 +450,9 @@ export default function ChallengeConfigurator() {
                     customerEmail: user.email || '',
                     customerName: user.user_metadata?.full_name || user.email || 'Customer',
                     metadata: {
+                        model,
+                        type: type.toLowerCase(),
+                        size,
                         account_type: `${type}-${model}`,
                         account_size: size,
                         mt5_group: mt5Group,
@@ -508,28 +539,30 @@ export default function ChallengeConfigurator() {
                         </div>
                     </section>
 
-                    {/* 2. Challenge Type */}
-                    <section>
-                        <SectionHeader title="Challenge Type" sub="Choose the type of challenge you want to take" />
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {CHALLENGE_TYPES.map(t => {
-                                const isDisabled = model === 'prime' && t.id === '1-step';
-                                return (
-                                    <RadioPill
-                                        key={t.id}
-                                        active={type === t.id}
-                                        label={t.label}
-                                        subLabel={t.desc}
-                                        disabled={isDisabled}
-                                        onClick={() => {
-                                            if (isDisabled) return;
-                                            setType(t.id);
-                                        }}
-                                    />
-                                );
-                            })}
-                        </div>
-                    </section>
+                    {/* 2. Challenge Type - Hidden for Bolt */}
+                    {model !== 'bolt' && (
+                        <section>
+                            <SectionHeader title="Challenge Type" sub="Choose the type of challenge you want to take" />
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {CHALLENGE_TYPES.map(t => {
+                                    const isDisabled = model === 'prime' && t.id === '1-step';
+                                    return (
+                                        <RadioPill
+                                            key={t.id}
+                                            active={type === t.id}
+                                            label={t.label}
+                                            subLabel={t.desc}
+                                            disabled={isDisabled}
+                                            onClick={() => {
+                                                if (isDisabled) return;
+                                                setType(t.id);
+                                            }}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        </section>
+                    )}
 
 
 
@@ -643,7 +676,10 @@ export default function ChallengeConfigurator() {
                                 <Check size={14} />
                                 <span>
                                     Coupon "{appliedCoupon.coupon.code}" applied!
-                                    {appliedCoupon.discount.type?.toLowerCase() === 'percentage' && ` (${appliedCoupon.discount.value}% OFF)`}
+                                    {appliedCoupon.discount.type?.toLowerCase() === 'percentage' && ` (${model === 'bolt' ? Math.min(appliedCoupon.discount.value, 30) : appliedCoupon.discount.value}% OFF)`}
+                                    {model === 'bolt' && appliedCoupon.discount.value > 30 && (
+                                        <span className="ml-1 opacity-75">(Capped at 30%)</span>
+                                    )}
                                 </span>
                             </div>
                         )}
@@ -667,7 +703,10 @@ export default function ChallengeConfigurator() {
                                 <div className="flex justify-between items-center text-sm">
                                     <span className={cn("transition-colors", appliedCoupon.discount.type?.toLowerCase() === 'bogo' ? "text-purple-400 font-bold" : "text-green-400")}>
                                         {appliedCoupon.discount.type?.toLowerCase() === 'bogo' ? 'BOGO Active' : 'Discount'} ({appliedCoupon.coupon.code})
-                                        {appliedCoupon.discount.type?.toLowerCase() === 'percentage' && ` - ${appliedCoupon.discount.value}%`}
+                                        {appliedCoupon.discount.type?.toLowerCase() === 'percentage' && ` - ${model === 'bolt' ? Math.min(appliedCoupon.discount.value, 30) : appliedCoupon.discount.value}%`}
+                                        {model === 'bolt' && appliedCoupon.discount.value > 30 && (
+                                            <span className="text-[10px] block opacity-75">Max 30% for Bolt</span>
+                                        )}
                                     </span>
                                     <span className={cn("font-bold font-mono", appliedCoupon.discount.type?.toLowerCase() === 'bogo' ? "text-purple-400" : "text-green-400")}>
                                         {appliedCoupon.discount.type?.toLowerCase() === 'bogo'

@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { Zap } from 'lucide-react';
 
 const PromoBanner = () => {
   return (
@@ -8,11 +9,16 @@ const PromoBanner = () => {
       <div className="flex whitespace-nowrap animate-marquee">
         {/* Repeat the message to ensure continuous flow */}
         {[...Array(10)].map((_, i) => (
-          <div key={i} className="flex items-center mx-8">
-            <span className="text-white text-xs font-bold uppercase tracking-wider">
-              🔥 Limited Time Offer: USE "SHARK30" FOR 30% OFF<span className="bg-white/20 px-2 py-0.5 rounded text-white ml-1 border border-white/30">SHARK30</span>
+          <div key={i} className="flex items-center mx-8 shrink-0">
+            <span className="text-white text-[10px] md:text-xs font-bold uppercase tracking-widest flex items-center gap-4">
+              <span className="flex items-center gap-1.5 text-blue-100">
+                 <Zap className="w-3 h-3 fill-blue-100" /> SHARKFUNDED BOLT IS NOW LIVE - DIRECT FUNDED!
+              </span>
+              <span className="text-blue-400">|</span>
+              <span className="flex items-center gap-2">
+                🔥 USE <span className="bg-white/20 px-2 py-0.5 rounded text-white border border-white/30 font-mono tracking-tighter mx-1">SHARK30</span> FOR 30% OFF ALL CHALLENGES
+              </span>
             </span>
-            <span className="mx-8 text-blue-300/50">•</span>
           </div>
         ))}
       </div>

@@ -72,7 +72,8 @@ const CHALLENGE_TYPES = [
 
 const MODELS = [
     { id: "prime", label: "SharkFunded Prime", desc: "Higher leverage" },
-    { id: "lite", label: "SharkFunded Lite", desc: "Classic model" }
+    { id: "lite", label: "SharkFunded Lite", desc: "Classic model" },
+    { id: "bolt", label: "Sharkfunded Bolt", desc: "Direct Funded - Fast-track" }
 ];
 
 const PLATFORMS = [
@@ -130,8 +131,25 @@ function CheckoutContent() {
         const config = pricingData[configKey];
         if (!config) return [];
         const sizesStr = Object.keys(config);
-        return sizesStr.map(s => parseInt(s.replace('K', '')) * 1000).sort((a, b) => a - b);
+        return sizesStr.map(s => parseFloat(s.replace('K', '')) * 1000).sort((a, b) => a - b);
     })();
+
+    // Sync state with URL search params
+    useEffect(() => {
+        const urlModel = searchParams.get('model');
+        const urlType = searchParams.get('type');
+        const urlSize = searchParams.get('size');
+
+        if (urlModel && MODELS.some(m => m.id === urlModel)) {
+            setModel(urlModel);
+        }
+        if (urlType && CHALLENGE_TYPES.some(t => t.id === urlType)) {
+            setType(urlType);
+        }
+        if (urlSize) {
+            setSize(parseFloat(urlSize));
+        }
+    }, [searchParams]);
 
     // Ensure valid size on type/model change
     useEffect(() => {
@@ -153,12 +171,31 @@ function CheckoutContent() {
     };
 
     const basePriceUSD = getBasePrice();
-    const discountAmount = appliedCoupon ? Math.round(appliedCoupon.discount.amount) : 0;
+    const discountAmount = (() => {
+        if (!appliedCoupon) return 0;
+        let amount = Math.round(appliedCoupon.discount.amount);
+        if (model === 'bolt') {
+            const maxDiscount = Math.round(basePriceUSD * 0.3);
+            if (amount > maxDiscount) return maxDiscount;
+        }
+        return amount;
+    })();
     const finalPriceUSD = Math.round(Math.max(0, basePriceUSD - discountAmount));
     // const finalPriceINR = Math.round(finalPriceUSD * 84); // If implementing INR view
 
     const handleApplyCoupon = async () => {
         if (!coupon.trim()) return;
+
+        // Restriction for Bolt model - only specific coupons allowed
+        if (model === 'bolt') {
+            const allowedCoupons = ['SHARK30', 'BOOST30'];
+            if (!allowedCoupons.includes(coupon.trim().toUpperCase())) {
+                setAppliedCoupon(null);
+                setCouponError("Maximum discount available is 30%");
+                return;
+            }
+        }
+
         setAppliedCoupon(null); // Clear previous state immediately
         setValidatingCoupon(true);
         setCouponError("");
@@ -218,6 +255,10 @@ function CheckoutContent() {
                 if (type === 'Instant') mt5Group = 'demo\\SF\\0-Pro';
                 else if (type === '1-step') mt5Group = 'demo\\Pro-Platinum';
                 else if (type === '2-step') mt5Group = 'demo\\SF\\2-Pro';
+            }
+            // Bolt
+            else if (model === 'bolt') {
+                mt5Group = 'demo\\S\\0-Direct-SF';
             }
 
             // Call backend payment API
@@ -342,25 +383,27 @@ function CheckoutContent() {
                                 </div>
                             </section>
 
-                            {/* Type */}
-                            <section>
-                                <SectionHeader title="Challenge Type" sub="Choose your evaluation path" />
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    {CHALLENGE_TYPES.map(t => {
-                                        const isDisabled = model === 'prime' && t.id === '1-step';
-                                        return (
-                                            <RadioPill
-                                                key={t.id}
-                                                active={type === t.id}
-                                                label={t.label}
-                                                subLabel={t.desc}
-                                                disabled={isDisabled}
-                                                onClick={() => { if (!isDisabled) setType(t.id); }}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            </section>
+                            {/* Type - Hidden for Bolt */}
+                            {model !== 'bolt' && (
+                                <section>
+                                    <SectionHeader title="Challenge Type" sub="Choose your evaluation path" />
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        {CHALLENGE_TYPES.map(t => {
+                                            const isDisabled = model === 'prime' && t.id === '1-step';
+                                            return (
+                                                <RadioPill
+                                                    key={t.id}
+                                                    active={type === t.id}
+                                                    label={t.label}
+                                                    subLabel={t.desc}
+                                                    disabled={isDisabled}
+                                                    onClick={() => { if (!isDisabled) setType(t.id); }}
+                                                />
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+                            )}
 
                             {/* Size */}
                             <section>
@@ -428,7 +471,12 @@ function CheckoutContent() {
                                                 ? `BOGO Active: Buy One Get One Free!`
                                                 : `Coupon (${appliedCoupon.coupon.code}) Applied: -$${Math.round(discountAmount)}`
                                             }
-                                            {appliedCoupon.discount.type === 'percentage' && ` (${appliedCoupon.discount.value}% OFF)`}
+                                            {appliedCoupon.discount.type === 'percentage' && (
+                                                ` (${model === 'bolt' ? Math.min(appliedCoupon.discount.value, 30) : appliedCoupon.discount.value}% OFF)`
+                                            )}
+                                            {model === 'bolt' && appliedCoupon.discount.value > 30 && (
+                                                <span className="ml-1 opacity-75">(Capped at 30%)</span>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -443,7 +491,9 @@ function CheckoutContent() {
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-slate-500">Type</span>
-                                            <span className="font-medium text-slate-800">{CHALLENGE_TYPES.find(t => t.id === type)?.label}</span>
+                                            <span className="font-medium text-slate-800">
+                                                {model === 'bolt' ? 'Direct Funded' : CHALLENGE_TYPES.find(t => t.id === type)?.label}
+                                            </span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-slate-500">Model</span>
@@ -465,8 +515,11 @@ function CheckoutContent() {
                                                         ? `BOGO Active (${appliedCoupon.coupon.code})`
                                                         : `Discount (${appliedCoupon.coupon.code})`
                                                     }
-                                                    {appliedCoupon.discount.type === 'percentage' && ` - ${appliedCoupon.discount.value}%`}
+                                                    {appliedCoupon.discount.type === 'percentage' && ` - ${model === 'bolt' ? Math.min(appliedCoupon.discount.value, 30) : appliedCoupon.discount.value}%`}
                                                 </span>
+                                                {model === 'bolt' && appliedCoupon.discount.value > 30 && (
+                                                    <span className="text-[10px] block opacity-75">Max 30% for Bolt</span>
+                                                )}
                                                 <span className="font-mono">
                                                     {appliedCoupon.discount.type === 'bogo' ? "FREE ACCOUNT" : `-$${Math.round(discountAmount)}`}
                                                 </span>
