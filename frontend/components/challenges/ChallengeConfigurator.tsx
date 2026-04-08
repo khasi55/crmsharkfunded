@@ -299,14 +299,19 @@ export default function ChallengeConfigurator() {
     useEffect(() => {
         const configKey = getConfigKey(type, model);
         if (configKey && size) {
+            const basePrice = getBasePrice();
             trackAxonEvent("view_item", {
-                item_id: `${type}-${model}-${size}`,
-                item_name: `${type} ${model} Challenge`,
-                price: getBasePrice(),
                 currency: 'USD',
-                category: model,
-                variant: type,
-                value: size
+                value: basePrice,
+                price: basePrice,
+                items: [{
+                    item_id: `${type}-${model}-${size}`,
+                    item_name: `${type} ${model} Challenge`,
+                    price: basePrice,
+                    quantity: 1,
+                    item_category_id: 8,
+                    item_variant_id: `${type}-${model}`
+                }]
             });
         }
     }, [type, model, size]);
@@ -420,23 +425,32 @@ export default function ChallengeConfigurator() {
 
         // Track Add to Cart and Begin Checkout
         trackAxonEvent("add_to_cart", {
-            item_id: `${type}-${model}-${size}`,
-            item_name: `${type} ${model} Challenge`,
-            price: basePriceUSD,
             currency: 'USD',
-            quantity: 1,
-            discount: discountAmount
+            value: basePriceUSD,
+            price: basePriceUSD,
+            items: [{
+                item_id: `${type}-${model}-${size}`,
+                item_name: `${type} ${model} Challenge`,
+                price: basePriceUSD,
+                quantity: 1,
+                item_category_id: 8,
+                item_variant_id: `${type}-${model}`,
+                discount: discountAmount
+            }]
         });
 
         trackAxonEvent("begin_checkout", {
+            currency: 'USD',
+            value: finalPriceUSD,
+            price: finalPriceUSD,
             items: [{
                 item_id: `${type}-${model}-${size}`,
                 item_name: `${type} ${model} Challenge`,
                 price: finalPriceUSD,
-                currency: 'USD'
+                quantity: 1,
+                item_category_id: 8,
+                item_variant_id: `${type}-${model}`
             }],
-            value: finalPriceUSD,
-            currency: 'USD',
             coupon: appliedCoupon?.coupon?.code || null
         });
 
