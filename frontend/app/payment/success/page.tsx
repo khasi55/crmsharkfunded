@@ -19,6 +19,20 @@ function PaymentSuccessContent() {
         // Simulate a brief verification delay for "WOW" factor
         const checkTimer = setTimeout(() => {
             setIsChecking(false);
+            
+            // Track Purchase Event
+            if (typeof window !== 'undefined' && (window as any).axon) {
+                try {
+                    (window as any).axon("track", "purchase", {
+                        transaction_id: orderId || `SF-${Date.now()}`,
+                        value: amount ? parseFloat(amount) : 0,
+                        currency: 'USD'
+                    });
+                    console.log("[Tracking] Axon purchase event fired:", orderId, amount);
+                } catch (err) {
+                    console.warn("Axon purchase tracking failed:", err);
+                }
+            }
         }, 2000);
 
         const timer = setInterval(() => {

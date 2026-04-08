@@ -8,6 +8,17 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { fetchFromBackend } from "@/lib/backend-api";
 
+// Axon Tracking Helper
+const trackAxonEvent = (event: string, data?: any) => {
+    if (typeof window !== 'undefined' && (window as any).axon) {
+        try {
+            (window as any).axon("track", event, data);
+        } catch (err) {
+            console.warn(`Axon tracking failed for ${event}:`, err);
+        }
+    }
+};
+
 
 export const pricingConfig = {
     Prime: {
@@ -284,6 +295,22 @@ export default function ChallengeConfigurator() {
         }
     }, [type, model, availableSizes, size]);
 
+    // Track View Item
+    useEffect(() => {
+        const configKey = getConfigKey(type, model);
+        if (configKey && size) {
+            trackAxonEvent("view_item", {
+                item_id: `${type}-${model}-${size}`,
+                item_name: `${type} ${model} Challenge`,
+                price: getBasePrice(),
+                currency: 'USD',
+                category: model,
+                variant: type,
+                value: size
+            });
+        }
+    }, [type, model, size]);
+
     const [platform, setPlatform] = useState("mt5");
     const [gateway, setGateway] = useState("sharkpay");
     const [coupon, setCoupon] = useState("");
@@ -390,6 +417,29 @@ export default function ChallengeConfigurator() {
 
     const handlePurchase = async () => {
         setIsPurchasing(true);
+
+        // Track Add to Cart and Begin Checkout
+        trackAxonEvent("add_to_cart", {
+            item_id: `${type}-${model}-${size}`,
+            item_name: `${type} ${model} Challenge`,
+            price: basePriceUSD,
+            currency: 'USD',
+            quantity: 1,
+            discount: discountAmount
+        });
+
+        trackAxonEvent("begin_checkout", {
+            items: [{
+                item_id: `${type}-${model}-${size}`,
+                item_name: `${type} ${model} Challenge`,
+                price: finalPriceUSD,
+                currency: 'USD'
+            }],
+            value: finalPriceUSD,
+            currency: 'USD',
+            coupon: appliedCoupon?.coupon?.code || null
+        });
+
         try {
             // Check authentication
             const { data: { user } } = await supabase.auth.getUser();
