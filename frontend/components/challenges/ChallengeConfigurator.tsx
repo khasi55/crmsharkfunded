@@ -381,15 +381,7 @@ export default function ChallengeConfigurator() {
     const handleApplyCoupon = async () => {
         if (!coupon.trim()) return;
 
-        // Restriction for Bolt model - only specific coupons allowed
-        if (model === 'bolt') {
-            const allowedCoupons = ['SHARK30', 'BOOST30', 'NEW30'];
-            if (!allowedCoupons.includes(coupon.trim().toUpperCase())) {
-                setAppliedCoupon(null);
-                setCouponError("Maximum discount available is 30%");
-                return;
-            }
-        }
+        // Allows all valid coupons for all models. Bolt model cap is handled in pricing calculation.
 
         setAppliedCoupon(null); // Clear previous state immediately
         setValidatingCoupon(true);

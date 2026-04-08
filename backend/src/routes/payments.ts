@@ -113,14 +113,7 @@ router.post('/create-order', async (req: Request, res: Response) => {
         // 2. Calculate Discount
         let discountAmount = 0;
         if (couponCode) {
-            // 🛡️ SECURITY: Restrict coupons for Bolt model
-            if (model === 'bolt') {
-                const allowedCoupons = ['SHARK30', 'BOOST30', 'NEW30'];
-                if (!allowedCoupons.includes(couponCode.trim().toUpperCase())) {
-                    console.warn(`[Payment API] Blocked invalid coupon ${couponCode} for Bolt model`);
-                    return res.status(400).json({ success: false, error: 'Maximum discount available is 30%' });
-                }
-            }
+            // All coupons are allowed, Bolt model discount cap of 30% is handled during final amount calculation.
 
             const dummyUserId = '00000000-0000-0000-0000-000000000000';
             const { data, error: rpcError } = await supabaseAdmin.rpc('validate_coupon', {
