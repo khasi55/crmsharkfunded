@@ -83,6 +83,18 @@ const PLATFORMS = [
 function CheckoutContent() {
     const searchParams = useSearchParams();
 
+    // Axon Tracking Helper
+    const trackAxonEvent = (event: string, payload: any) => {
+        if (typeof window !== 'undefined' && (window as any).axon) {
+            try {
+                (window as any).axon("track", event, payload);
+                console.log(`[Tracking] Axon ${event} event fired:`, payload);
+            } catch (err) {
+                console.warn(`Axon ${event} tracking failed:`, err);
+            }
+        }
+    };
+
     // Configurator State
     const [type, setType] = useState("2-step");
     const [model, setModel] = useState("lite");
@@ -226,8 +238,46 @@ function CheckoutContent() {
         if (coupon.trim()) {
             handleApplyCoupon();
         }
+        
+        // Track View Item on Config Change
+        const basePrice = getBasePrice();
+        if (basePrice > 0) {
+            trackAxonEvent("view_item", {
+                currency: 'USD',
+                value: basePrice,
+                price: basePrice,
+                items: [{
+                    item_id: `${type}-${model}-${size}`,
+                    item_name: `${type} ${model} Challenge`,
+                    price: basePrice,
+                    quantity: 1,
+                    item_category_id: 8,
+                    item_variant_id: `${type}-${model}`
+                }]
+            });
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [size, type, model]);
+
+    // Track Begin Checkout on Initial Load / Step 1
+    useEffect(() => {
+        const basePrice = getBasePrice();
+        if (basePrice > 0) {
+            trackAxonEvent("begin_checkout", {
+                currency: 'USD',
+                value: basePrice,
+                price: basePrice,
+                items: [{
+                    item_id: `${type}-${model}-${size}`,
+                    item_name: `${type} ${model} Challenge`,
+                    price: basePrice,
+                    quantity: 1,
+                    item_category_id: 8,
+                    item_variant_id: `${type}-${model}`
+                }]
+            });
+        }
+    }, []);
 
 
     const handleContinue = () => {
@@ -295,6 +345,21 @@ function CheckoutContent() {
             if (!response.ok) throw new Error(data.error || 'Failed to create order');
 
             if (data.paymentUrl) {
+                // Track Add to Cart on Successful Submission
+                trackAxonEvent("add_to_cart", {
+                    currency: 'USD',
+                    value: finalPriceUSD,
+                    price: finalPriceUSD,
+                    items: [{
+                        item_id: `${type}-${model}-${size}`,
+                        item_name: `${type} ${model} Challenge`,
+                        price: finalPriceUSD,
+                        quantity: 1,
+                        item_category_id: 8,
+                        item_variant_id: `${type}-${model}`
+                    }]
+                });
+
                 const gatewayLower = selectedGateway.toLowerCase();
                 if (gatewayLower === 'epay' || gatewayLower === 'sharkpay' || gatewayLower === 'cregis') {
                     // Redirect directly for these gateways to avoid iframe issues
