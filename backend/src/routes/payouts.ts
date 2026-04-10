@@ -136,7 +136,11 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
         const totalPaid = payoutList
             .filter((p: any) => p.status === 'processed')
             .reduce((sum: number, p: any) => {
-                const val = p.metadata?.requested_amount ? Number(p.metadata.requested_amount) : (Number(p.amount) / 0.8);
+                const challengeId = p.metadata?.challenge_id;
+                const challenge = accountsRaw?.find(a => a.id === challengeId);
+                const isBolt = challenge?.challenge_type === 'direct_funded';
+                const split = isBolt ? 0.7 : 0.8;
+                const val = p.metadata?.requested_amount ? Number(p.metadata.requested_amount) : (Number(p.amount) / split);
                 return sum + val;
             }, 0);
 
@@ -158,7 +162,11 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
                 return !ticket || !syncedTickets.has(String(ticket));
             })
             .reduce((sum: number, p: any) => {
-                const val = p.metadata?.requested_amount ? Number(p.metadata.requested_amount) : (Number(p.amount) / 0.8);
+                const challengeId = p.metadata?.challenge_id;
+                const challenge = accountsRaw?.find(a => a.id === challengeId);
+                const isBolt = challenge?.challenge_type === 'direct_funded';
+                const split = isBolt ? 0.7 : 0.8;
+                const val = p.metadata?.requested_amount ? Number(p.metadata.requested_amount) : (Number(p.amount) / split);
                 return sum + val;
             }, 0);
 
@@ -590,7 +598,9 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
         }
 
         // 4. Create Payout Request
-        const actualPayoutAmount = amount * 0.8; // User receives 80% Net
+        const isBolt = account.challenge_type === 'direct_funded';
+        const split = isBolt ? 0.7 : 0.8;
+        const actualPayoutAmount = amount * split; // Bolt receives 70%, Others receive 80% Net
 
         const { error: insertError } = await supabase
             .from('payout_requests')
@@ -602,7 +612,7 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
                 wallet_address: (req as any).payoutDestination,
                 metadata: {
                     requested_amount: grossDeduction, // Full Gross amount
-                    profit_split_deduction: grossDeduction * 0.2, // The 20% cut
+                    profit_split_deduction: grossDeduction * (1 - split), // The 30% or 20% cut
                     challenge_id: account.id,
                     mt5_login: account.login,
                     mt5_ticket: mt5Ticket,
@@ -625,7 +635,7 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
 
             await NotificationService.createNotification(
                 'New Payout Request',
-                `${userName} requested a payout of $${actualPayoutAmount} (80% of $${amount} profit) via ${method || 'crypto'}.`,
+                `${userName} requested a payout of $${actualPayoutAmount} (${Math.round(split * 100)}% of $${amount} profit) via ${method || 'crypto'}.`,
                 'payout',
                 user.id,
                 { payout_request_id: 'pending', amount: actualPayoutAmount, challenge_id: account.id }
@@ -683,18 +693,28 @@ router.get('/admin', authenticate, requireRole(['super_admin', 'payouts_admin', 
             throw error;
         }
 
-        // Manual fetch for profiles
+        // Manual fetch for profiles with chunking to avoid URL length limits
         let profilesMap: Record<string, any> = {};
         if (requests && requests.length > 0) {
-            const userIds = [...new Set(requests.map((r: any) => r.user_id).filter(Boolean))];
-            const { data: profiles } = await supabase
-                .from('profiles')
-                .select('id, full_name, email')
-                .in('id', userIds);
+            const userIds = [...new Set(requests.map((r: any) => String(r.user_id)).filter(id => id && id !== 'null' && id !== 'undefined'))];
+            
+            // Chunking into groups of 100 to stay well within limits
+            const chunkSize = 100;
+            for (let i = 0; i < userIds.length; i += chunkSize) {
+                const chunk = userIds.slice(i, i + chunkSize);
+                const { data: profiles, error: profError } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, email')
+                    .in('id', chunk);
 
-            profiles?.forEach((p: any) => {
-                profilesMap[p.id] = p;
-            });
+                if (profError) {
+                    console.error(`[Admin Payouts] Error fetching profile chunk ${i / chunkSize}:`, profError);
+                } else if (profiles) {
+                    profiles.forEach((p: any) => {
+                        profilesMap[String(p.id)] = p;
+                    });
+                }
+            }
         }
 
         // Fetch account details for each payout
@@ -730,7 +750,7 @@ router.get('/admin', authenticate, requireRole(['super_admin', 'payouts_admin', 
 
             return {
                 ...req,
-                profiles: profilesMap[req.user_id] || { full_name: 'Unknown', email: 'Unknown' },
+                profiles: profilesMap[String(req.user_id)] || { full_name: 'Unknown', email: 'Unknown' },
                 account_info: accountInfo
             };
         }));
@@ -760,23 +780,27 @@ router.get('/admin/wallets', authenticate, requireRole(['super_admin', 'payouts_
             throw error;
         }
 
-        // Manual fetch for profiles since there is no direct FK to profiles table
+        // Manual fetch for profiles with chunking
         if (wallets && wallets.length > 0) {
-            const userIds = [...new Set(wallets.map((w: any) => w.user_id).filter(Boolean))];
-
-            const { data: profiles } = await supabase
-                .from('profiles')
-                .select('id, full_name, email')
-                .in('id', userIds);
-
+            const userIds = [...new Set(wallets.map((w: any) => String(w.user_id)).filter(id => id && id !== 'null' && id !== 'undefined'))];
             const profilesMap: Record<string, any> = {};
-            profiles?.forEach((p: any) => {
-                profilesMap[p.id] = p;
-            });
+
+            const chunkSize = 100;
+            for (let i = 0; i < userIds.length; i += chunkSize) {
+                const chunk = userIds.slice(i, i + chunkSize);
+                const { data: profiles } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, email')
+                    .in('id', chunk);
+
+                profiles?.forEach((p: any) => {
+                    profilesMap[String(p.id)] = p;
+                });
+            }
 
             const walletsWithProfiles = wallets.map((w: any) => ({
                 ...w,
-                profiles: profilesMap[w.user_id] || { full_name: 'Unknown', email: 'Unknown' }
+                profiles: profilesMap[String(w.user_id)] || { full_name: 'Unknown', email: 'Unknown' }
             }));
 
             res.json({ wallets: walletsWithProfiles });
@@ -816,21 +840,25 @@ router.get('/admin/bank-details', authenticate, requireRole(['super_admin', 'pay
         }
 
         if (banks && banks.length > 0) {
-            const userIds = [...new Set(banks.map((b: any) => b.user_id).filter(Boolean))];
-
-            const { data: profiles } = await supabase
-                .from('profiles')
-                .select('id, full_name, email')
-                .in('id', userIds);
-
+            const userIds = [...new Set(banks.map((b: any) => String(b.user_id)).filter(id => id && id !== 'null' && id !== 'undefined'))];
             const profilesMap: Record<string, any> = {};
-            profiles?.forEach((p: any) => {
-                profilesMap[p.id] = p;
-            });
+
+            const chunkSize = 100;
+            for (let i = 0; i < userIds.length; i += chunkSize) {
+                const chunk = userIds.slice(i, i + chunkSize);
+                const { data: profiles } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, email')
+                    .in('id', chunk);
+
+                profiles?.forEach((p: any) => {
+                    profilesMap[String(p.id)] = p;
+                });
+            }
 
             const banksWithProfiles = banks.map((b: any) => ({
                 ...b,
-                profiles: profilesMap[b.user_id] || { full_name: 'Unknown', email: 'Unknown' }
+                profiles: profilesMap[String(b.user_id)] || { full_name: 'Unknown', email: 'Unknown' }
             }));
 
             res.json({ bankDetails: banksWithProfiles });
