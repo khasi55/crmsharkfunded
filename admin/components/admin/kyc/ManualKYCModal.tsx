@@ -14,7 +14,7 @@ import {
     ChevronDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fetchFromBackend } from "@/lib/backend-api";
+import { searchUsersAction, createManualKYCAction } from "@/app/actions/kyc-actions";
 import { createClient } from "@/utils/supabase/client";
 
 interface UserInfo {
@@ -105,10 +105,12 @@ export default function ManualKYCModal({ isOpen, onClose, onSuccess }: ManualKYC
         }
         try {
             setSearching(true);
-            const data = await fetchFromBackend(`/api/admin/users/search?q=${q}`);
-            setUsers(data.users || []);
-        } catch (err) {
+            const result = await searchUsersAction(q);
+            if (result.error) throw new Error(result.error);
+            setUsers(result.users || []);
+        } catch (err: any) {
             console.error("Search users error:", err);
+            setError(err.message);
         } finally {
             setSearching(false);
         }
@@ -165,17 +167,16 @@ export default function ManualKYCModal({ isOpen, onClose, onSuccess }: ManualKYC
             if (files.back) back_id_url = await uploadFile(files.back, `${selectedUser.id}/back`);
             if (files.selfie) selfie_url = await uploadFile(files.selfie, `${selectedUser.id}/selfie`);
 
-            // 2. Submit to backend
-            await fetchFromBackend('/api/kyc/admin/create-manual', {
-                method: 'POST',
-                body: JSON.stringify({
-                    user_id: selectedUser.id,
-                    ...formData,
-                    front_id_url,
-                    back_id_url,
-                    selfie_url
-                })
+            // 2. Submit to backend via Server Action
+            const result = await createManualKYCAction({
+                user_id: selectedUser.id,
+                ...formData,
+                front_id_url,
+                back_id_url,
+                selfie_url
             });
+
+            if (result.error) throw new Error(result.error);
 
             onSuccess();
             onClose();
