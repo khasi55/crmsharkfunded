@@ -5,6 +5,10 @@ import { ChevronRight, FileText, Search, Filter, Inbox } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { format } from "date-fns";
+import ManualKYCModal from "./ManualKYCModal";
+import { Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "react-hot-toast";
 
 interface KYCRequest {
     id: string;
@@ -25,6 +29,8 @@ interface KYCTableProps {
 export function KYCTable({ requests = [] }: KYCTableProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const router = useRouter();
 
     // Filter logic
     const filteredRequests = requests.filter(req => {
@@ -86,18 +92,39 @@ export function KYCTable({ requests = [] }: KYCTableProps) {
                     ))}
                 </div>
 
-                {/* Search */}
-                <div className="relative w-full md:w-72">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <input
-                        type="text"
-                        placeholder="Search users..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full rounded-lg bg-gray-50 border border-transparent pl-10 pr-4 py-2 text-sm text-gray-900 placeholder-gray-500 hover:bg-white hover:border-gray-200 focus:bg-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-                    />
+                {/* Actions */}
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                    {/* Search */}
+                    <div className="relative flex-1 md:w-72">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder="Search users..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full rounded-lg bg-gray-50 border border-transparent pl-10 pr-4 py-2 text-sm text-gray-900 placeholder-gray-500 hover:bg-white hover:border-gray-200 focus:bg-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                        />
+                    </div>
+
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95"
+                    >
+                        <Plus size={16} />
+                        <span className="hidden sm:inline">Add Manual KYC</span>
+                        <span className="sm:hidden">Add</span>
+                    </button>
                 </div>
             </div>
+
+            <ManualKYCModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onSuccess={() => {
+                    toast.success("Manual KYC entries added successfully!");
+                    router.refresh();
+                } }
+            />
 
             {/* Stats Summary - Optional Polish */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

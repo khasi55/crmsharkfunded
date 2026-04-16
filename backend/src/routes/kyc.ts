@@ -727,6 +727,102 @@ router.post('/admin/:id/reject', authenticate, requireRole(['super_admin', 'admi
 });
 
 
+// POST /api/kyc/admin/create-manual - Manually create an approved KYC session (admin only)
+router.post('/admin/create-manual', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
+    try {
+        const {
+            user_id,
+            first_name,
+            last_name,
+            date_of_birth,
+            nationality,
+            document_type,
+            document_number,
+            document_country,
+            address_line1,
+            address_line2,
+            city,
+            state,
+            postal_code,
+            country,
+            front_id_url,
+            back_id_url,
+            selfie_url
+        } = req.body;
+
+        if (!user_id) {
+            res.status(400).json({ error: 'User ID is required' });
+            return;
+        }
+
+        const kycData: any = {
+            user_id,
+            first_name,
+            last_name,
+            date_of_birth,
+            nationality,
+            document_type,
+            document_number,
+            document_country,
+            address_line1,
+            address_line2,
+            city,
+            state,
+            postal_code,
+            country,
+            front_id_url,
+            back_id_url,
+            selfie_url,
+            status: 'approved',
+            kyc_mode: 'manual',
+            approved_by: req.user?.id,
+            approved_at: new Date().toISOString(),
+            completed_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+
+        const { data, error } = await supabase
+            .from('kyc_sessions')
+            .insert(kycData)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error creating manual KYC:', error);
+            throw error;
+        }
+
+        // Send notification
+        import('../services/notification-service').then(({ NotificationService }) => {
+            NotificationService.createNotification(
+                'KYC Manually Approved',
+                `Your identity verification has been completed manually by an admin.`,
+                'success',
+                user_id,
+                { session_id: data.id }
+            );
+        });
+
+        const { data: userProfile } = await supabase.from('profiles').select('email').eq('id', user_id).single();
+        AuditLogger.info(req.user?.email || 'admin', `Manually created and approved KYC for ${userProfile?.email || user_id}`, {
+            id: data.id,
+            user_id,
+            category: 'KYC'
+        });
+
+        res.json({
+            success: true,
+            message: 'Manual KYC session created and approved successfully',
+            session: data
+        });
+
+    } catch (error: any) {
+        console.error('Create manual KYC error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // PATCH /api/kyc/admin/:id - Update KYC session details (admin only)
 router.patch('/admin/:id', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
     try {
