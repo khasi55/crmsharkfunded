@@ -330,6 +330,9 @@ export default function ChallengeConfigurator() {
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentUrl, setPaymentUrl] = useState("");
 
+    // Payment Gateway Upgrade Flag
+    const isPaymentsPaused = true;
+
     // Clear applied coupon when configuration changes
     useEffect(() => {
         if (appliedCoupon) {
@@ -413,6 +416,7 @@ export default function ChallengeConfigurator() {
     };
 
     const handlePurchase = async () => {
+        if (isPaymentsPaused) return;
         setIsPurchasing(true);
 
         // Track Add to Cart and Begin Checkout
@@ -809,12 +813,26 @@ export default function ChallengeConfigurator() {
                                 </ul>
                             </div>
 
+                            {isPaymentsPaused && (
+                                <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 flex gap-3 mb-4">
+                                    <Info className="shrink-0 text-orange-500" size={18} />
+                                    <p className="text-xs text-orange-200/90">
+                                        Buying is temporarily restricted while we upgrade our payment gateway. Please check back shortly!
+                                    </p>
+                                </div>
+                            )}
+
                             <button
                                 onClick={handlePurchase}
-                                disabled={isPurchasing || validatingCoupon || !agreedToTerms}
+                                disabled={isPurchasing || validatingCoupon || !agreedToTerms || isPaymentsPaused}
                                 className="w-full py-4 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100 disabled:cursor-not-allowed"
                             >
-                                {isPurchasing ? (
+                                {isPaymentsPaused ? (
+                                    <>
+                                        <Lock size={20} />
+                                        Payments Paused
+                                    </>
+                                ) : isPurchasing ? (
                                     <>
                                         <Loader2 size={20} className="animate-spin" />
                                         Creating Order...
