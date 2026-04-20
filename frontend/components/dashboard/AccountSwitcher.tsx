@@ -1,5 +1,6 @@
-import { Search, ChevronDown, TrendingUp, Briefcase, ShoppingCart, Loader2, Filter, RefreshCw, Plus } from "lucide-react";
-import { useState, useMemo } from "react";
+import { Search, ChevronDown, TrendingUp, Briefcase, ShoppingCart, Loader2, Filter, RefreshCw, Plus, Archive, X, AlertCircle } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { useAccount } from "@/contexts/AccountContext";
 import { fetchFromBackend } from "@/lib/backend-api";
@@ -14,9 +15,11 @@ interface AccountSwitcherProps {
 }
 
 export default function AccountSwitcher({ isOpen, onClose, className }: AccountSwitcherProps = {}) {
-    const { accounts, selectedAccount, setSelectedAccount, loading, refreshAccounts } = useAccount();
+    const { accounts, selectedAccount, setSelectedAccount, loading, refreshAccounts, archiveAccount } = useAccount();
     const [searchQuery, setSearchQuery] = useState("");
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [showArchived, setShowArchived] = useState(false);
+    const [archiveTarget, setArchiveTarget] = useState<any | null>(null);
 
     // Filter states
     const [typeFilter, setTypeFilter] = useState("All Types");
@@ -57,6 +60,9 @@ export default function AccountSwitcher({ isOpen, onClose, className }: AccountS
     const filteredAccounts = useMemo(() => {
         let filtered = accounts;
 
+        // Apply Archival Filter
+        filtered = filtered.filter(acc => (acc.is_archived === true) === showArchived);
+
         // Apply search filter
         if (searchQuery.trim()) {
             const query = searchQuery.toLowerCase();
@@ -73,12 +79,7 @@ export default function AccountSwitcher({ isOpen, onClose, className }: AccountS
             filtered = filtered.filter(acc => {
                 const type = acc.account_type || '';
                 if (typeFilter === "Buy") return type.toLowerCase().includes('challenge'); // Assumption based on "Buy" usually meaning new challenges
-                // If "Buy" and "Sell" maps to something else, adjust here. 
-                // Based on UI options "Buy", "Sell" usually implies order types but here it filters accounts.
-                // Assuming "Type" refers to Demo vs Live or similar, but the user asked for "Buy", "Sell" in options previously.
-                // Re-reading user request: "Type -> All Types, Buy, Sell". 
-                // Accounts don't usually have "Buy/Sell" type. 
-                // Let's assume standard account filtering. If 'account_type' contains the string.
+            
                 return true;
             });
         }
@@ -111,7 +112,7 @@ export default function AccountSwitcher({ isOpen, onClose, className }: AccountS
         }
 
         return filtered;
-    }, [accounts, searchQuery, typeFilter, stateFilter, phaseFilter]);
+    }, [accounts, searchQuery, typeFilter, stateFilter, phaseFilter, showArchived]);
 
 
     // Calculate PnL based on equity (floating) or balance (closed)
@@ -193,6 +194,10 @@ export default function AccountSwitcher({ isOpen, onClose, className }: AccountS
                             getPnL={getPnL}
                             getStatusLabel={getStatusLabel}
                             isMobile={true}
+                            showArchived={showArchived}
+                            setShowArchived={setShowArchived}
+                            archiveAccount={archiveAccount}
+                            onArchiveClick={(acc: any) => setArchiveTarget(acc)}
                             // Filter Props
                             typeFilter={typeFilter} setTypeFilter={setTypeFilter}
                             stateFilter={stateFilter} setStateFilter={setStateFilter}
@@ -227,6 +232,10 @@ export default function AccountSwitcher({ isOpen, onClose, className }: AccountS
                 getPnL={getPnL}
                 getStatusLabel={getStatusLabel}
                 isMobile={false}
+                showArchived={showArchived}
+                setShowArchived={setShowArchived}
+                archiveAccount={archiveAccount}
+                onArchiveClick={(acc: any) => setArchiveTarget(acc)}
 
                 // Filter Props
                 typeFilter={typeFilter} setTypeFilter={setTypeFilter}
@@ -236,6 +245,96 @@ export default function AccountSwitcher({ isOpen, onClose, className }: AccountS
                 showStateDropdown={showStateDropdown} setShowStateDropdown={setShowStateDropdown}
                 showPhaseDropdown={showPhaseDropdown} setShowPhaseDropdown={setShowPhaseDropdown}
             />
+
+            {/* Archive Confirmation Modal - Rendered via Portal for full screen coverage */}
+            {typeof document !== 'undefined' && createPortal(
+                <AnimatePresence>
+                    {archiveTarget && (
+                        <div className="fixed inset-0 z-[10000] flex items-center justify-center px-4 overflow-hidden">
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                onClick={() => setArchiveTarget(null)}
+                                className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                            />
+                            <motion.div
+                                initial={{ scale: 0.95, opacity: 0, y: 30 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.95, opacity: 0, y: 30 }}
+                                transition={{ type: "spring", damping: 25, stiffness: 400 }}
+                                className="relative bg-[#050714]/80 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] w-full max-w-[420px] p-8 sm:p-10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] overflow-hidden"
+                            >
+                                {/* Premium Shimmer Border */}
+                                <div className="absolute inset-0 pointer-events-none rounded-[2.5rem] border border-white/10 [mask-image:linear-gradient(to_bottom,black,transparent)]" />
+                                
+                                <button 
+                                    onClick={() => setArchiveTarget(null)}
+                                    className="absolute top-6 right-6 p-2 text-gray-500 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition-all"
+                                >
+                                    <X size={18} />
+                                </button>
+
+                                <div className="flex flex-col items-center text-center">
+                                    <div className="relative mb-8">
+                                        <div className="w-24 h-24 rounded-3xl bg-blue-600/10 flex items-center justify-center text-blue-500 border border-blue-500/20 rotate-12" />
+                                        <div className="absolute inset-0 w-24 h-24 rounded-3xl bg-blue-600 flex items-center justify-center text-white shadow-xl shadow-blue-600/40 -rotate-3 transition-transform hover:rotate-0 duration-300">
+                                            <Archive size={42} strokeWidth={1.5} />
+                                        </div>
+                                    </div>
+                                    
+                                    <h3 className="text-3xl font-extrabold text-white mb-3 tracking-tight">
+                                        {archiveTarget.is_archived ? "Restore Account" : "Archive Account"}
+                                    </h3>
+                                    
+                                    <p className="text-gray-400 text-sm leading-relaxed mb-10 max-w-[280px]">
+                                        {archiveTarget.is_archived 
+                                            ? "Bringing this account back to your main list for active monitoring."
+                                            : "This will move the account to your storage. You can access it anytime from the Archived view."
+                                        }
+                                    </p>
+
+                                    <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 mb-10 flex items-center gap-4 text-left">
+                                        <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
+                                            <TrendingUp size={20} />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-0.5">Selected Account</p>
+                                            <p className="text-sm font-semibold text-white truncate">#{archiveTarget.login}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
+                                        <button
+                                            onClick={() => setArchiveTarget(null)}
+                                            className="w-full sm:flex-1 h-14 rounded-2xl bg-white/5 text-gray-300 font-bold text-sm hover:bg-white/10 hover:text-white transition-all active:scale-[0.98]"
+                                        >
+                                            Dismiss
+                                        </button>
+                                        <button
+                                            onClick={async () => {
+                                                const targetId = archiveTarget.id;
+                                                const nextState = !archiveTarget.is_archived;
+                                                setArchiveTarget(null);
+                                                try {
+                                                    await archiveAccount(targetId, nextState);
+                                                } catch (err) {
+                                                    console.error("Archive operation failed");
+                                                }
+                                            }}
+                                            className="w-full sm:flex-1 h-14 rounded-2xl bg-blue-600 text-white font-extrabold text-sm hover:bg-blue-500 shadow-lg shadow-blue-600/30 active:scale-[0.98] transition-all relative overflow-hidden group"
+                                        >
+                                            <span className="relative z-10">Confirm Action</span>
+                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
         </div>
     );
 }
@@ -253,41 +352,82 @@ function AccountSwitcherContent({
     filteredAccounts,
     getPnL,
     getStatusLabel,
-    isMobile,
+    showArchived, setShowArchived,
+    archiveAccount,
+    onArchiveClick,
     // Filter Props
     typeFilter, setTypeFilter,
     stateFilter, setStateFilter,
     phaseFilter, setPhaseFilter,
     showTypeDropdown, setShowTypeDropdown,
     showStateDropdown, setShowStateDropdown,
-    showPhaseDropdown, setShowPhaseDropdown
+    showPhaseDropdown, setShowPhaseDropdown,
+    isMobile
 }: any) {
     return (
         <>
             <div className="p-4 sm:p-6 pb-4">
-                <div className="flex items-center gap-3 mb-4 sm:mb-6">
-                    <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center overflow-hidden">
-                        <Image
-                            src="/shark-icon.svg"
-                            alt="SharkFunded"
-                            width={24}
-                            height={24}
-                            className="object-contain"
-                        />
-                    </div>
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h3 className="font-bold text-white text-base sm:text-lg leading-tight">Trading Accounts</h3>
-                            <button
-                                onClick={handleRefresh}
-                                disabled={isRefreshing}
-                                className="text-gray-500 hover:text-white transition-colors"
-                                title="Sync Trades & Reload"
-                            >
-                                <RefreshCw size={14} className={cn(isRefreshing && "animate-spin")} />
-                            </button>
+                <div className="flex flex-col gap-6 mb-6">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-600/10 flex items-center justify-center p-2.5 border border-blue-500/10">
+                            <Image
+                                src="/shark-icon.svg"
+                                alt="SharkFunded"
+                                width={32}
+                                height={32}
+                                className="object-contain"
+                            />
                         </div>
-                        <p className="text-sm text-gray-500">{accounts.length} accounts</p>
+                        <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-0.5">
+                                <h3 className="font-bold text-white text-lg sm:text-xl tracking-tight leading-none">Trading Accounts</h3>
+                                <button
+                                    onClick={handleRefresh}
+                                    disabled={isRefreshing}
+                                    className="p-1 text-gray-500 hover:text-white hover:bg-white/5 rounded-md transition-all"
+                                    title="Sync Trades & Reload"
+                                >
+                                    <RefreshCw size={14} className={cn(isRefreshing && "animate-spin")} />
+                                </button>
+                            </div>
+                            <p className="text-sm font-medium text-gray-500">
+                                {filteredAccounts.length} {showArchived ? 'archived' : 'active'} accounts
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="relative flex items-center bg-[#0D1017]/50 backdrop-blur-sm p-1 rounded-2xl border border-white/5 shadow-inner w-full">
+                        {/* Sliding Indicator */}
+                        <motion.div
+                            layoutId={isMobile ? "tab-indicator-mobile" : "tab-indicator-desktop"}
+                            className="absolute inset-y-1 bg-blue-600 rounded-xl shadow-lg shadow-blue-500/30"
+                            initial={false}
+                            animate={{
+                                x: showArchived ? '100%' : '0%',
+                                width: 'calc(50% - 4px)',
+                                left: '4px'
+                            }}
+                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                        />
+                        
+                        <button
+                            onClick={() => setShowArchived(false)}
+                            className={cn(
+                                "relative flex-1 py-3 text-[11px] font-bold uppercase tracking-wider rounded-xl transition-all z-10 whitespace-nowrap",
+                                !showArchived ? "text-white" : "text-gray-500 hover:text-gray-300"
+                            )}
+                        >
+                            Active List
+                        </button>
+                        <button
+                            onClick={() => setShowArchived(true)}
+                            className={cn(
+                                "relative flex-1 py-3 text-[11px] font-bold uppercase tracking-wider rounded-xl transition-all z-10 whitespace-nowrap",
+                                showArchived ? "text-white" : "text-gray-500 hover:text-gray-300"
+                            )}
+                        >
+                            Archived List
+                        </button>
                     </div>
                 </div>
 
@@ -316,11 +456,12 @@ function AccountSwitcherContent({
             {/* Account List */}
             <div className="flex-1 overflow-y-auto min-h-0 px-4 pb-20 sm:pb-6 space-y-3 custom-scrollbar touch-pan-y">
                 {filteredAccounts.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                        No accounts found
+                    <div className="text-center py-12 text-gray-500 bg-[#13161C]/50 rounded-2xl border border-dashed border-white/5">
+                        <Archive className="mx-auto mb-3 opacity-20" size={32} />
+                        <p className="text-sm font-medium">No {showArchived ? 'archived' : 'active'} accounts found</p>
                     </div>
                 ) : (
-                    filteredAccounts.map((acc: typeof selectedAccount) => {
+                    filteredAccounts.map((acc: any) => {
                         const isSelected = selectedAccount?.id === acc.id;
                         const pnl = getPnL(acc);
                         const status = getStatusLabel(acc.status);
@@ -362,6 +503,16 @@ function AccountSwitcherContent({
                                     )}>
                                         {status}
                                     </span>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onArchiveClick(acc);
+                                        }}
+                                        className="p-1.5 text-gray-500 hover:text-white hover:bg-white/10 rounded-md transition-all ml-1 opacity-0 group-hover:opacity-100"
+                                        title={acc.is_archived ? "Restore Account" : "Archive Account"}
+                                    >
+                                        <Archive size={14} className={acc.is_archived ? "text-blue-400" : ""} />
+                                    </button>
                                 </div>
 
                                 <div className="flex justify-between items-end">

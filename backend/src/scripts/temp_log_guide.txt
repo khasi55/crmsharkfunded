@@ -1,0 +1,11 @@
+select
+  timestamp,
+  user_name,
+  application_name,
+  connection_from,
+  parsed[1]->>'query' as query_text
+from postgres_logs
+where 
+  REGEXP_CONTAINS(parsed[1]->>'query', r"(?i)UPDATE.*wallet_addresses")
+order by timestamp desc
+limit 50;

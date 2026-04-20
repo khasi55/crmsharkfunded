@@ -30,7 +30,16 @@ export function PaymentReportsClient() {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [searchQuery, setSearchQuery] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [copiedId, setCopiedId] = useState<string | null>(null);
+
+    // Debounce search query
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchQuery);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
 
     const fetchPayments = async () => {
         setLoading(true);
@@ -38,7 +47,8 @@ export function PaymentReportsClient() {
             const queryParams = new URLSearchParams({
                 page: page.toString(),
                 limit: "50",
-                status: statusFilter
+                status: statusFilter,
+                search: debouncedSearch.trim()
             });
             const res = await fetch(`/api/admin/payments?${queryParams}`);
             if (res.ok) {
@@ -53,17 +63,17 @@ export function PaymentReportsClient() {
         }
     };
 
+    // Fetch payments when page, status or debounced search changes
     useEffect(() => {
         fetchPayments();
-    }, [page, statusFilter]);
+    }, [page, statusFilter, debouncedSearch]);
 
-    // Client-side search filtering (on top of server-side pagination/filtering)
-    // Note: Ideally search should also be server-side for large datasets
-    const filteredPayments = payments.filter(payment =>
-        payment.user_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        payment.user_email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        payment.order_id.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    // Reset to page 1 when filters change
+    useEffect(() => {
+        setPage(1);
+    }, [statusFilter, debouncedSearch]);
+
+    const filteredPayments = payments; // Now handled server-side
 
     const handleCopy = (text: string, id: string) => {
         navigator.clipboard.writeText(text);
@@ -73,12 +83,13 @@ export function PaymentReportsClient() {
     };
 
     const handleExport = () => {
-        const headers = ["Date", "Order ID", "User Name", "User Email", "Gateway", "Method", "Amount", "Account Size", "Account Type", "Coupon", "Currency", "Status"];
+        const headers = ["Date", "Order ID", "Cregis ID", "User Name", "User Email", "Gateway", "Method", "Amount", "Account Size", "Account Type", "Coupon", "Currency", "Status"];
         const csvContent = [
             headers.join(","),
             ...filteredPayments.map(p => [
                 format(new Date(p.created_at), 'yyyy-MM-dd HH:mm:ss'),
                 p.order_id,
+                p.payment_id || '',
                 `"${p.user_name}"`, // Quote to handle commas in names
                 p.user_email,
                 p.payment_gateway || 'gateway',

@@ -20,24 +20,26 @@ export default async function AdminUsersPage({
     // Use admin client to bypass RLS
     const supabase = createAdminClient();
 
-    let userQuery = supabase
+    let queryBuilder = supabase
         .from("profiles")
         .select("*", { count: "exact" })
         .order("created_at", { ascending: false })
         .range(from, to);
 
     if (query) {
-        // Simple regex to check if query looks like a UUID
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(query);
-
-        if (isUuid) {
-            userQuery = userQuery.or(`full_name.ilike.%${query}%,id.eq.${query},email.ilike.%${query}%`);
-        } else {
-            userQuery = userQuery.or(`full_name.ilike.%${query}%,email.ilike.%${query}%`);
-        }
+        // Simple search across name, email, and ID
+        queryBuilder = queryBuilder.or(
+            `full_name.ilike.%${query}%,email.ilike.%${query}%,id.ilike.%${query}%`
+        );
     }
 
-    const { data: users, count, error } = await userQuery;
+    const { data: users, count, error } = await queryBuilder;
+
+    if (error) {
+        console.error("Error fetching users:", error);
+    }
+
+    const totalCount = count || 0;
 
     return (
         <div className="space-y-6">
@@ -89,19 +91,19 @@ export default async function AdminUsersPage({
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <StatusBadge status="Active" />
+                                        <StatusBadge status={user.kyc_status || 'Active'} />
                                     </td>
-                                    <td className="px-6 py-4 font-bold text-gray-900">
-                                        ${user.total_commission || 0}
+                                    <td className="px-6 py-4 font-medium text-emerald-600">
+                                        ${(Number(user.total_commission) || 0).toLocaleString()}
                                     </td>
                                     <td className="px-6 py-4 text-gray-600">
                                         {user.country || '-'}
                                     </td>
-                                    <td className="px-6 py-4 text-gray-600 text-xs">
-                                        {user.phone || user.phone_number || '-'}
+                                    <td className="px-6 py-4 text-gray-600 text-xs font-mono">
+                                        {user.phone_number || user.phone || '-'}
                                     </td>
-                                    <td className="px-6 py-4 text-gray-600">{user.total_referrals || 0}</td>
-                                    <td className="px-6 py-4 text-gray-600">
+                                    <td className="px-6 py-4 text-gray-600 font-medium">{user.total_referrals || 0}</td>
+                                    <td className="px-6 py-4 text-gray-500 text-xs">
                                         {new Date(user.created_at).toLocaleDateString()}
                                     </td>
                                     <td className="px-6 py-4 text-right">
@@ -117,7 +119,7 @@ export default async function AdminUsersPage({
                             ))}
                             {users?.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                                         No users found matching your search.
                                     </td>
                                 </tr>
@@ -127,7 +129,7 @@ export default async function AdminUsersPage({
                 </div>
             </div>
 
-            <Pagination totalPages={Math.ceil((count || 0) / pageSize)} currentPage={page} />
+            <Pagination totalPages={Math.ceil(totalCount / pageSize)} currentPage={page} />
         </div>
     );
 }

@@ -15,7 +15,7 @@ import { ChevronRight, Key, RotateCw, Plus, LayoutDashboard, Rocket, LogOut, Sha
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { AccountProvider, useAccount } from "@/contexts/AccountContext";
-import { DashboardDataProvider } from "@/contexts/DashboardDataContext";
+import { DashboardDataProvider, useDashboardData } from "@/contexts/DashboardDataContext";
 import { useState, useEffect } from "react";
 import CredentialsModal from "@/components/dashboard/CredentialsModal";
 import ShareModal from "@/components/dashboard/ShareModal";
@@ -26,6 +26,7 @@ import { fetchFromBackend } from "@/lib/backend-api";
 
 function DashboardContent() {
     const { selectedAccount, loading, accounts, refreshAccounts } = useAccount();
+    const { data: dashboardData } = useDashboardData();
     const { toast } = useToast();
     const [syncing, setSyncing] = useState(false);
     const [showCredentials, setShowCredentials] = useState(false);
@@ -98,7 +99,7 @@ function DashboardContent() {
 
         // 2. Fallback to Group Parsing
         const group = account.group || '';
-        
+
         // Explicitly check for Direct Funded before Lite / Prime group parse
         if (group.includes('Direct-SF') || account.account_type === 'direct_funded' || account.challenge_type === 'direct_funded') {
             return 'Direct Funded';
@@ -176,17 +177,17 @@ function DashboardContent() {
             />
 
             <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 hover:scrollbar-thumb-gray-700">
-                <div className="p-4 md:p-8 max-w-[1920px] mx-auto min-h-full">
-                    {/* Top Header Row: Breadcrumbs & Actions (Always visible) */}
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-4 mb-6 md:mb-8">
-                        <div className="flex items-center gap-2 text-xs md:text-sm text-slate-500 font-medium overflow-x-auto">
-                            <span className="whitespace-nowrap">Dashboard</span>
+                <div className="p-6 max-w-[1920px] mx-auto min-h-full">
+                    {/* Top Header Row: Breadcrumbs & Actions */}
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-4 mb-6">
+                        <div className="flex items-center gap-2 text-[11px] md:text-xs text-slate-500 font-medium overflow-x-auto">
+                            <span className="whitespace-nowrap opacity-70">Dashboard</span>
                             {!loading && accounts.length > 0 && (
                                 <>
-                                    <ChevronRight size={12} className="text-slate-400 flex-shrink-0" />
-                                    <span className="whitespace-nowrap">All Challenges</span>
-                                    <ChevronRight size={12} className="text-slate-400 flex-shrink-0" />
-                                    <span className="text-black font-semibold whitespace-nowrap">Account {selectedAccount?.account_number || "..."}</span>
+                                    <ChevronRight size={10} className="text-slate-400 flex-shrink-0" />
+                                    <span className="whitespace-nowrap opacity-70">All Challenges</span>
+                                    <ChevronRight size={10} className="text-slate-400 flex-shrink-0" />
+                                    <span className="text-black font-bold whitespace-nowrap">Account {selectedAccount?.account_number || "..."}</span>
                                 </>
                             )}
                         </div>
@@ -394,7 +395,7 @@ function DashboardContent() {
 
                                                     <span className={cn(
                                                         "px-2.5 py-0.5 rounded text-[10px] font-bold border uppercase",
-                                                        selectedAccount.status?.toLowerCase() === 'failed'
+                                                        (selectedAccount.status?.toLowerCase() === 'failed' || selectedAccount.status?.toLowerCase() === 'breached')
                                                             ? "bg-red-500/20 text-red-400 border-red-500/20"
                                                             : "bg-green-500/20 text-green-400 border-green-500/20"
                                                     )}>
@@ -412,7 +413,7 @@ function DashboardContent() {
                                                     <p className="text-gray-500 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1">Status</p>
                                                     <p className={cn(
                                                         "font-bold text-base sm:text-lg",
-                                                        selectedAccount.status?.toLowerCase() === 'failed' ? "text-red-500" : "text-blue-400"
+                                                        (selectedAccount.status?.toLowerCase() === 'failed' || selectedAccount.status?.toLowerCase() === 'breached') ? "text-red-500" : "text-blue-400"
                                                     )}>{formatStatus(selectedAccount.status)}</p>
                                                 </div>
                                                 <div className="flex items-center gap-2 sm:gap-3">

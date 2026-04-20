@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Check, X, Filter, Loader2, Wallet, Calendar, User, CreditCard, ChevronDown, ChevronRight, Users, LayoutList, Network, Tag, Eye } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Copy } from "lucide-react";
-
+import { getAffiliateWithdrawals, getAffiliateTree, getAffiliateReferrals, getAffiliateUserAccounts } from "@/app/actions/affiliate-actions";
 
 interface Withdrawal {
     id: string;
@@ -96,7 +96,6 @@ export default function AdminAffiliatesClient() {
     const [transactionId, setTransactionId] = useState("");
 
 
-
     const copyToClipboard = (text: string, label: string) => {
         navigator.clipboard.writeText(text);
         toast.success(`${label} copied to clipboard`);
@@ -134,14 +133,11 @@ export default function AdminAffiliatesClient() {
     const fetchWithdrawals = async () => {
         setLoading(true);
         try {
-            // Fix: Use Admin API endpoint to see ALL withdrawals, not just own
-            const res = await fetch('/api/admin/affiliates/withdrawals');
-            const data = await res.json();
-            if (res.ok) {
-                setWithdrawals(data.withdrawals || []);
-            }
+            const data = await getAffiliateWithdrawals();
+            setWithdrawals(data as any);
         } catch (error) {
             console.error("Error fetching withdrawals:", error);
+            toast.error("Failed to fetch withdrawals");
         } finally {
             setLoading(false);
         }
@@ -152,19 +148,12 @@ export default function AdminAffiliatesClient() {
         else setIsRefreshing(true);
 
         try {
-            const params = new URLSearchParams({
-                page: page.toString(),
-                limit: limit.toString(),
-                search: searchQuery
-            });
-            const res = await fetch(`/api/admin/affiliates/tree?${params.toString()}`);
-            if (res.ok) {
-                const data = await res.json();
-                setAffiliateTree(data.tree || []);
-                setTotalAffiliates(data.total || 0);
-            }
+            const result = await getAffiliateTree(page, limit, searchQuery);
+            setAffiliateTree(result.tree as any);
+            setTotalAffiliates(result.total);
         } catch (error) {
             console.error("Error fetching tree:", error);
+            toast.error("Failed to fetch affiliate tree");
         } finally {
             setLoadingTree(false);
             setIsRefreshing(false);
@@ -172,23 +161,19 @@ export default function AdminAffiliatesClient() {
     };
 
     const fetchReferrals = async (affiliateId: string) => {
-        // Find the node
         const node = affiliateTree.find(n => n.id === affiliateId);
-        if (!node || node.referred_users.length > 0) return; // Already loaded
+        if (!node || (node.referred_users && node.referred_users.length > 0)) return;
 
-        // Mark as loading
         setAffiliateTree(prev => prev.map(n => n.id === affiliateId ? { ...n, loadingReferrals: true } : n));
 
         try {
-            const res = await fetch(`/api/admin/affiliates/tree/${affiliateId}/referrals`);
-            if (res.ok) {
-                const data = await res.json();
-                setAffiliateTree(prev => prev.map(n =>
-                    n.id === affiliateId ? { ...n, referred_users: data.referrals || [], loadingReferrals: false } : n
-                ));
-            }
+            const data = await getAffiliateReferrals(affiliateId);
+            setAffiliateTree(prev => prev.map(n =>
+                n.id === affiliateId ? { ...n, referred_users: data as any, loadingReferrals: false } : n
+            ));
         } catch (error) {
             console.error("Error fetching referrals:", error);
+            toast.error("Failed to fetch referrals");
             setAffiliateTree(prev => prev.map(n => n.id === affiliateId ? { ...n, loadingReferrals: false } : n));
         }
     };
@@ -196,9 +181,8 @@ export default function AdminAffiliatesClient() {
     const fetchAccounts = async (userId: string, affiliateId: string) => {
         const node = affiliateTree.find(n => n.id === affiliateId);
         const user = node?.referred_users.find(u => u.id === userId);
-        if (!user || user.accounts.length > 0) return;
+        if (!user || (user.accounts && user.accounts.length > 0)) return;
 
-        // Mark as loading
         setAffiliateTree(prev => prev.map(n =>
             n.id === affiliateId ? {
                 ...n,
@@ -207,20 +191,18 @@ export default function AdminAffiliatesClient() {
         ));
 
         try {
-            const res = await fetch(`/api/admin/affiliates/tree/user/${userId}/accounts`);
-            if (res.ok) {
-                const data = await res.json();
-                setAffiliateTree(prev => prev.map(n =>
-                    n.id === affiliateId ? {
-                        ...n,
-                        referred_users: n.referred_users.map(u =>
-                            u.id === userId ? { ...u, accounts: data.accounts || [], loadingAccounts: false } : u
-                        )
-                    } : n
-                ));
-            }
+            const data = await getAffiliateUserAccounts(userId);
+            setAffiliateTree(prev => prev.map(n =>
+                n.id === affiliateId ? {
+                    ...n,
+                    referred_users: n.referred_users.map(u =>
+                        u.id === userId ? { ...u, accounts: data as any, loadingAccounts: false } : u
+                    )
+                } : n
+            ));
         } catch (error) {
             console.error("Error fetching accounts:", error);
+            toast.error("Failed to fetch user accounts");
             setAffiliateTree(prev => prev.map(n =>
                 n.id === affiliateId ? {
                     ...n,

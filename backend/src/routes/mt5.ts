@@ -266,7 +266,7 @@ router.post('/assign', authenticate, requireRole(['super_admin', 'admin', 'sub_a
                 login: mt5Login,
                 master_password: masterPassword,
                 investor_password: investorPassword,
-                server: 'STOX PIPS LIMITED',
+                server: 'OCEAN MARKETS  LIMITED',
                 platform: 'MT5',
                 group: finalGroup, // Save the assigned group
                 leverage: 100,
@@ -319,7 +319,7 @@ router.post('/assign', authenticate, requireRole(['super_admin', 'admin', 'sub_a
                 profile.full_name || 'Trader',
                 String(mt5Login),
                 masterPassword,
-                'STOX PIPS LIMITED',
+                'OCEAN MARKETS  LIMITED',
                 investorPassword
             ).catch(err => console.error("Async Email Error:", err));
         }
@@ -976,7 +976,9 @@ router.post('/trades/webhook', async (req: Request, res: Response) => {
                 });
             }
 
-            res.json({ success: true, processed: validTrades.length });
+
+
+                res.json({ success: true, processed: validTrades.length });
             return;
         }
 

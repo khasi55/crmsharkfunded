@@ -2,9 +2,12 @@ import { Server as SocketIOServer } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import WebSocket from 'ws';
 import { supabase } from '../lib/supabase';
+import { RulesService } from './rules-service';
+import { performance } from 'perf_hooks';
 
 let io: SocketIOServer | null = null;
 const DEBUG = process.env.DEBUG === 'true'; // STRICT: Silence socket logs in dev
+const LATENCY_DEBUG = process.env.WS_LATENCY_DEBUG === 'true'; 
 
 
 export function initializeSocket(httpServer: HTTPServer) {
@@ -104,6 +107,52 @@ const loginToChallengeMap = new Map<number, string>();
 let bridgeStatus: 'connected' | 'disconnected' | 'connecting' | 'error' = 'disconnected';
 let lastBridgeError: string | null = null;
 
+interface ChallengeMetadata {
+    id: string;
+    initialBalance: number;
+    startOfDayEquity: number;
+    maxDailyLossPercent: number;
+    maxTotalLossPercent: number;
+    lastFetched: number;
+}
+
+const challengeMetadataCache = new Map<number, ChallengeMetadata>();
+const CACHE_TTL = 60 * 1000; // 1 minute
+
+async function getChallengeMetadata(login: number): Promise<ChallengeMetadata | null> {
+    const cached = challengeMetadataCache.get(login);
+    if (cached && (Date.now() - cached.lastFetched < CACHE_TTL)) {
+        return cached;
+    }
+
+    try {
+        const { data: challenge, error } = await supabase
+            .from('challenges')
+            .select('id, initial_balance, start_of_day_equity, group, challenge_type')
+            .eq('login', login)
+            .single();
+
+        if (challenge && !error) {
+            const rules = await RulesService.getRules(challenge.group, challenge.challenge_type);
+            const metadata: ChallengeMetadata = {
+                id: challenge.id,
+                initialBalance: Number(challenge.initial_balance),
+                startOfDayEquity: Number(challenge.start_of_day_equity || challenge.initial_balance),
+                maxDailyLossPercent: rules.max_daily_loss_percent,
+                maxTotalLossPercent: rules.max_total_loss_percent,
+                lastFetched: Date.now()
+            };
+            challengeMetadataCache.set(login, metadata);
+            // Also update the short-term login map
+            loginToChallengeMap.set(login, challenge.id);
+            return metadata;
+        }
+    } catch (err) {
+        console.error(`❌ WS Relay: Metadata lookup failed for login ${login}:`, err);
+    }
+    return null;
+}
+
 async function getChallengeIdByLogin(login: number): Promise<string | null> {
     if (loginToChallengeMap.has(login)) {
         return loginToChallengeMap.get(login)!;
@@ -145,8 +194,12 @@ export function initializeBridgeWS() {
 
     bridgeWs.on('message', async (data) => {
         try {
+            const startProcessing = performance.now();
             const message = JSON.parse(data.toString());
             const { event, login } = message;
+
+            // latency tracking
+            const bridgeTimestamp = message.timestamp || Date.now();
 
             // Uncommented for active debugging of all traffic
             // if (DEBUG) console.log(`📥 WS Relay: Received ${event} for login ${login}`);
@@ -157,12 +210,47 @@ export function initializeBridgeWS() {
             }
 
             if (event === 'account_update') {
-                // if (DEBUG) console.log(`⚡️ Relay Balance→Frontend for challenge_${challengeId} (Eq: ${message.equity}, FPL: ${message.floating_pl})`);
-                broadcastBalanceUpdate(challengeId, {
-                    equity: message.equity,
-                    floating_pl: message.floating_pl,
-                    timestamp: message.timestamp
-                });
+                const metadata = await getChallengeMetadata(login);
+                if (metadata) {
+                    const currentEquity = Number(message.equity);
+                    const initialBalance = metadata.initialBalance;
+                    const startOfDayEquity = metadata.startOfDayEquity;
+
+                    // Calculate Daily Drawdown
+                    const dailyNet = currentEquity - startOfDayEquity;
+                    const dailyLoss = dailyNet >= 0 ? 0 : Math.round(Math.abs(dailyNet) * 100) / 100;
+                    const maxDailyLossAmount = Math.round(initialBalance * (metadata.maxDailyLossPercent / 100) * 100) / 100;
+                    const dailyBreachLevel = Math.round((startOfDayEquity - maxDailyLossAmount) * 100) / 100;
+                    const dailyRemaining = Math.max(0, Math.round((currentEquity - dailyBreachLevel) * 100) / 100);
+
+                    // Calculate Total Drawdown
+                    const totalNet = currentEquity - initialBalance;
+                    const totalLoss = totalNet >= 0 ? 0 : Math.round(Math.abs(totalNet) * 100) / 100;
+                    const maxTotalLossAmount = Math.round(initialBalance * (metadata.maxTotalLossPercent / 100) * 100) / 100;
+                    const totalBreachLevel = Math.round((initialBalance - maxTotalLossAmount) * 100) / 100;
+                    const totalRemaining = Math.max(0, Math.round((currentEquity - totalBreachLevel) * 100) / 100);
+
+                    // if (DEBUG) console.log(`⚡️ Relay Metrics→Frontend for challenge_${metadata.id} (Eq: ${currentEquity}, DailyLoss: ${dailyLoss}, TotalLoss: ${totalLoss})`);
+                    
+                    broadcastBalanceUpdate(metadata.id, {
+                        equity: Math.round(currentEquity * 100) / 100,
+                        balance: Math.round(Number(message.balance) * 100) / 100,
+                        floating_pl: Math.round(Number(message.floating_pl) * 100) / 100,
+                        daily_drawdown: dailyLoss,
+                        daily_remaining: dailyRemaining,
+                        max_drawdown: totalLoss,
+                        total_remaining: totalRemaining,
+                        timestamp: bridgeTimestamp
+                    });
+
+                    if (LATENCY_DEBUG) {
+                        const endProcessing = performance.now();
+                        const processingTime = (endProcessing - startProcessing).toFixed(2);
+                        const bridgeLat = (Date.now() - bridgeTimestamp);
+                        console.log(`⏱️ [WS_LATENCY] Login: ${login} | Bridge→Relay: ${bridgeLat}ms | Processing: ${processingTime}ms`);
+                    }
+                }
+
 
                 // If trades were closed in this update, relay them too
                 if (message.trades_closed && Array.isArray(message.trades)) {
@@ -252,7 +340,10 @@ export function broadcastBalanceUpdate(challengeId: string, balanceData: any) {
     const roomName = `challenge_${challengeId}`;
     const roomSize = io?.sockets?.adapter?.rooms?.get(roomName)?.size || 0;
     // if (DEBUG) console.log(`📤 balance_update → ${roomName} (${roomSize} listeners)`, { equity: balanceData.equity, floating_pl: balanceData.floating_pl });
-    io.to(roomName).emit('balance_update', balanceData);
+    io.to(roomName).emit('balance_update', {
+        ...balanceData,
+        challenge_id: challengeId
+    });
 }
 
 export function broadcastToUser(userId: string, event: string, data: any) {

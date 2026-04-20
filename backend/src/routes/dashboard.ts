@@ -398,9 +398,6 @@ router.get('/objectives', authenticate, objectivesLimiter, async (req: AuthReque
         const currentEquity = Number(challenge.current_equity);
         const startOfDayEquity = Number(challenge.start_of_day_equity ?? initialBalance); // Fallback to Initial if NULL (e.g. Day 1)
 
-        console.log(`[DEBUG_OBJECTIVES] Challenge: ${challenge_id}`);
-        console.log(`[DEBUG_OBJECTIVES] Initial: ${initialBalance}, Equity: ${currentEquity}, SOD: ${startOfDayEquity}`);
-        console.log(`[DEBUG_OBJECTIVES] MaxDaily: ${maxDailyLoss}, MaxTotal: ${maxTotalLoss}`);
 
         // 1. Daily Loss Calculation
         // Formula: How much have we lost since Start of Day?
@@ -418,7 +415,6 @@ router.get('/objectives', authenticate, objectivesLimiter, async (req: AuthReque
             dailyProfit = 0;
         }
 
-        console.log(`[DEBUG_OBJECTIVES] DailyNet: ${dailyNet}, DailyLoss: ${dailyLoss}`);
 
         // 2. Total Loss Calculation
         // Formula: How much have we lost from Initial Balance?
@@ -434,7 +430,6 @@ router.get('/objectives', authenticate, objectivesLimiter, async (req: AuthReque
             totalProfit = 0;
         }
 
-        console.log(`[DEBUG_OBJECTIVES] TotalNet: ${totalNet}, TotalLoss: ${totalLoss}`);
 
         // 3. REMAINING BUFFER CALCULATION
         // Daily Remaining = (SOD Equity - DailyLimitAmount) - CurrentEquity ?
@@ -454,6 +449,20 @@ router.get('/objectives', authenticate, objectivesLimiter, async (req: AuthReque
 
         // Pass-through Trade Analysis for specific dashboard charts if needed (optional)
         // ... (keeping trade fetch above for consistency check if needed, or remove to optimize)
+
+        // Payout Eligibility Calculation
+        const { data: latestPayout } = await supabase
+            .from('payout_requests')
+            .select('created_at')
+            .filter('metadata->>challenge_id', 'eq', String(challenge_id))
+            .eq('status', 'processed')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        const lastPayoutDate = latestPayout ? new Date(latestPayout.created_at) : new Date(challenge.created_at);
+        const minProfitAmount = initialBalance * 0.0025;
+        const currentProfit = currentEquity - initialBalance;
 
         const responseData = {
             objectives: {
@@ -477,6 +486,12 @@ router.get('/objectives', authenticate, objectivesLimiter, async (req: AuthReque
                     remaining: Math.max(0, profitTarget - totalProfit),
                     threshold: profitTarget,
                     status: totalProfit >= profitTarget ? 'passed' : 'ongoing'
+                },
+                payout_eligibility: {
+                    min_profit_amount: minProfitAmount,
+                    current_profit: currentProfit,
+                    profit_met: currentProfit >= minProfitAmount,
+                    last_payout_date: lastPayoutDate.toISOString()
                 },
                 stats: {
                     net_pnl: totalNet
@@ -731,11 +746,7 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
         }
 
         // Fetch everything in parallel
-        // 1. Trades (Optimized select)
-        // 2. Risk violations
-        // 3. Consistency data
-        // 4. Challenge data
-        const [analyticsTradesResponse, recentTradesResponse, riskResponse, advancedRiskResponse, consistencyResponse, challengeResponse] = await Promise.all([
+        const [analyticsTradesResponse, recentTradesResponse, riskResponse, advancedRiskResponse, consistencyResponse, challengeResponse, latestPayoutResponse] = await Promise.all([
             // 1. Analytics Trades: Fetch ALL rows but ONLY columns needed for stats (Lightweight)
             supabase.from('trades')
                 .select('profit_loss, commission, swap, lots, type, close_time, symbol, comment') // Minimal columns
@@ -751,7 +762,8 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
             supabase.from('risk_violations').select('*').eq('challenge_id', targetId).order('created_at', { ascending: false }),
             supabase.from('advanced_risk_flags').select('*').eq('challenge_id', targetId).order('created_at', { ascending: false }),
             supabase.from('consistency_scores').select('*').eq('challenge_id', targetId).order('date', { ascending: false }).limit(30),
-            supabase.from('challenges').select('*').eq('id', targetId).single()
+            supabase.from('challenges').select('*').eq('id', targetId).single(),
+            supabase.from('payout_requests').select('created_at').filter('metadata->>challenge_id', 'eq', targetId).eq('status', 'processed').order('created_at', { ascending: false }).limit(1).maybeSingle()
         ]);
 
         if (challengeResponse.error || !challengeResponse.data) {
@@ -768,16 +780,7 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
         const hardViolations = riskResponse.data || [];
         const softViolations = advancedRiskResponse.data || [];
         const consistencyHistory = consistencyResponse.data || [];
-
-        // Normalize and merge Risk Violations
-        const combinedViolations = [
-            ...(hardViolations || []),
-            ...(softViolations || []).map((v: any) => ({
-                ...v,
-                violation_type: v.flag_type,
-                is_soft_breach: true
-            }))
-        ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        const latestPayout = latestPayoutResponse?.data || null;
 
         // CALCULATE OBJECTIVES & RULES
         const { maxDailyLoss, maxTotalLoss, profitTarget, rules } = await RulesService.calculateObjectives(targetId);
@@ -785,6 +788,11 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
         const initialBalance = Number(challengeResponse.data.initial_balance);
         const currentEquity = Number(challengeResponse.data.current_equity);
         const startOfDayEquity = Number(challengeResponse.data.start_of_day_equity ?? initialBalance);
+
+        // Payout Eligibility Calculation
+        const lastPayoutDate = latestPayout ? new Date(latestPayout.created_at) : new Date(challengeResponse.data.created_at);
+        const payoutMinProfitAmount = initialBalance * 0.0025;
+        const curProfit = currentEquity - initialBalance;
 
         try {
             const fs = require('fs');
@@ -971,6 +979,40 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
             displayHistory[0].score = calculatedConsistencyScore;
         }
 
+        // Normalize and merge Risk Violations
+        const combinedViolations = [
+            ...(hardViolations || []),
+            ...(softViolations || []).map((v: any) => ({
+                ...v,
+                violation_type: v.flag_type,
+                is_soft_breach: true
+            }))
+        ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        // Extract Primary Breach Reason if Failed/Breached
+        let breachReason = null;
+        const currentStatus = (challengeResponse.data.status || '').toLowerCase();
+        
+        if (currentStatus === 'failed' || currentStatus === 'breached') {
+            const primaryViolation = combinedViolations.find(v => !v.is_soft_breach) || combinedViolations[0];
+            if (primaryViolation) {
+                const type = (primaryViolation.violation_type || 'Unknown Rule').replace(/_/g, ' ').replace(/\b\w/g, (l: any) => l.toUpperCase());
+                breachReason = `${type}: ${primaryViolation.description || 'Account limit reached.'}`;
+            } else {
+                // FALLBACK: Derive from Objectives if Logs are Missing
+                const dailyBreachLevel = startOfDayEquity - maxDailyLoss;
+                const totalBreachLevel = initialBalance - maxTotalLoss;
+                
+                if (currentEquity <= dailyBreachLevel) {
+                    breachReason = "Maximum Daily Loss Breach: Your equity dropped below the daily limit.";
+                } else if (currentEquity <= totalBreachLevel) {
+                    breachReason = "Maximum Total Loss Breach: Your equity dropped below the total account drawdown limit.";
+                } else {
+                    breachReason = "Account Breach: Rule violation detected (e.g. Martingale, IP violation, or manual breach).";
+                }
+            }
+        }
+
         const bulkData = {
             objectives: {
                 daily_loss: {
@@ -995,18 +1037,26 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
                     threshold: profitTarget,
                     status: (profitTarget > 0 && currentProfitMetric >= profitTarget) ? 'passed' : 'ongoing'
                 },
+                payout_eligibility: {
+                    min_profit_amount: payoutMinProfitAmount,
+                    current_profit: curProfit,
+                    profit_met: curProfit >= payoutMinProfitAmount,
+                    last_payout_date: lastPayoutDate.toISOString()
+                },
                 rules: {
                     max_daily_loss_percent: rules.max_daily_loss_percent,
                     max_total_loss_percent: rules.max_total_loss_percent,
                     profit_target_percent: rules.profit_target_percent
                 },
                 challenge: challengeResponse.data,
+                breach_reason: breachReason,
                 stats: {
                     total_trades: totalTrades,
                     total_lots: Number(totalLots.toFixed(2)),
                     biggest_win: biggestWin,
                     biggest_loss: biggestLoss,
-                    net_pnl: currentEquity - initialBalance
+                    net_pnl: currentEquity - initialBalance,
+                    trading_days: dailyStats.length
                 }
             },
             risk: {
@@ -1075,6 +1125,56 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
 
     } catch (error) {
         console.error('Bulk API error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// POST /api/dashboard/archive-account
+// Toggles archive status for a user's account
+router.post('/archive-account', authenticate, async (req: AuthRequest, res: Response) => {
+    try {
+        const { challenge_id, is_archived } = req.body;
+        const user = req.user;
+
+        if (!challenge_id) {
+            return res.status(400).json({ error: 'Missing challenge_id' });
+        }
+
+        // Security check: Ensure user owns this challenge
+        const { data: challenge, error: checkError } = await supabase
+            .from('challenges')
+            .select('user_id')
+            .eq('id', challenge_id)
+            .single();
+
+        if (checkError || !challenge) {
+            return res.status(404).json({ error: 'Account not found' });
+        }
+
+        if (challenge.user_id !== user.id) {
+            return res.status(403).json({ error: 'Access denied: You do not own this account.' });
+        }
+
+        const { error: updateError } = await supabase
+            .from('challenges')
+            .update({ is_archived: !!is_archived })
+            .eq('id', challenge_id);
+
+        if (updateError) {
+            console.error('Error archiving account:', updateError);
+            if (updateError.code === '42703') {
+                return res.status(400).json({ 
+                    error: 'Database schema mismatch: is_archived column is missing. Please run the SQL migration.',
+                    code: 'MISSING_COLUMN'
+                });
+            }
+            return res.status(500).json({ error: 'Failed to update account status' });
+        }
+
+        res.json({ success: true, is_archived: !!is_archived });
+
+    } catch (error) {
+        console.error('Archive error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

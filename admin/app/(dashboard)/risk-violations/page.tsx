@@ -3,6 +3,7 @@ import { AlertTriangle, ShieldAlert, RefreshCw, Scale, Zap, Newspaper } from "lu
 import ViolationsFilters from "@/components/admin/ViolationsFilters";
 import ViolationDetailsRow from "@/components/admin/ViolationDetailsRow";
 import AllViolationsClient from "@/components/admin/AllViolationsClient";
+import { AdminPagination } from "@/components/admin/AdminPagination";
 
 export default async function RiskViolationsPage({
     searchParams,
@@ -173,6 +174,13 @@ export default async function RiskViolationsPage({
 
             {/* Violations Table - Grouped by Account */}
             <AllViolationsClient enrichedAccounts={enrichedAccounts} />
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <div className="mt-4">
+                    <AdminPagination currentPage={page} totalPages={totalPages} />
+                </div>
+            )}
 
             {/* Summary Stats */}
             {typeCounts && Object.keys(typeCounts).length > 0 && (

@@ -5,6 +5,8 @@ import { format } from "date-fns";
 import { Search, Loader2, User, Tag, Calendar, DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { getAffiliateSales } from "@/app/actions/affiliate-actions";
+
 interface Sale {
     id: string;
     order_id: string;
@@ -28,7 +30,7 @@ export default function AffiliateSalesClient() {
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(0);
     const [searchQuery, setSearchQuery] = useState("");
-    const [total, setTotal] = useState(0); // Renamed to total, as totalSales is for summary
+    const [total, setTotal] = useState(0); 
     const limit = 20;
 
     const affiliateSummaries = useMemo(() => {
@@ -54,17 +56,28 @@ export default function AffiliateSalesClient() {
     const fetchSales = async () => {
         setLoading(true);
         try {
-            const params = new URLSearchParams({
-                page: page.toString(),
-                limit: limit.toString(),
-                search: searchQuery
-            });
-            const res = await fetch(`/api/admin/affiliates/sales?${params.toString()}`);
-            if (res.ok) {
-                const data = await res.json();
-                setSales(data.sales || []);
-                setTotal(data.total || 0);
-            }
+            const result = await getAffiliateSales(page, limit, searchQuery);
+            
+            const formattedSales = result.sales.map((s: any) => ({
+                id: s.id,
+                order_id: s.order_id || 'N/A',
+                amount: s.amount,
+                currency: 'USD',
+                status: s.status,
+                coupon_code: s.metadata?.coupon_code || 'NONE',
+                created_at: s.created_at,
+                customer: s.referred ? {
+                    email: s.referred.email,
+                    full_name: s.referred.full_name
+                } : null,
+                affiliate: s.referrer ? {
+                    email: s.referrer.email,
+                    full_name: s.referrer.full_name
+                } : null
+            }));
+
+            setSales(formattedSales);
+            setTotal(result.total);
         } catch (error) {
             console.error("Error fetching sales:", error);
         } finally {

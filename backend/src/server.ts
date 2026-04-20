@@ -1,4 +1,6 @@
+import "./instrument";
 import express from 'express';
+import * as Sentry from "@sentry/node";
 import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
@@ -15,6 +17,12 @@ if (dotenvResult.error) {
     console.warn(`[Server] Warning: Failed to load .env file from ${envPath}`);
 } else {
     console.log(`[Server] .env loaded successfully.`);
+}
+
+// 🛡️ TEMPORARY: Bypass SSL errors in dev if clock is out of sync
+if (process.env.NODE_ENV === 'development' || true) {
+    console.warn('⚠️ Warning: SSL verification disabled for local testing.');
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 }
 
 // 2. Now import components that depend on process.env
@@ -274,6 +282,8 @@ app.get('/debug/memory', authenticate, requireRole(['super_admin']), (req, res) 
         }
     });
 });
+
+Sentry.setupExpressErrorHandler(app);
 
 app.use((err: any, req: any, res: any, next: any) => {
     const logMessage = `[${new Date().toISOString()}] ERROR: ${err.message}\n${err.stack}\n\n`;

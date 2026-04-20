@@ -58,7 +58,9 @@ router.post('/validate', async (req: AuthRequest, res: Response) => {
 
         // Calculate final amounts for response (Recalculate percentage if necessary for accuracy)
         let discountAmount = Math.round(validation.discount_amount);
-        if (validation.discount_type === 'percentage' && validation.discount_value) {
+        const discountType = String(validation.discount_type || '').toLowerCase();
+        
+        if (discountType === 'percentage' && validation.discount_value) {
             discountAmount = Math.round(amount * (validation.discount_value / 100));
         }
         const finalAmount = Math.round(amount - discountAmount);

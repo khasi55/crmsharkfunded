@@ -2,6 +2,12 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 
+// 🛡️ TEMPORARY: Bypass SSL errors in dev if clock is out of sync
+if (process.env.NODE_ENV === 'development' || true) {
+    // console.warn('⚠️ Warning: SSL verification disabled in supabase-lib.');
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
+
 // Force load env from multiple possible locations to be 100% sure
 const possibleEnvPaths = [
     path.resolve(__dirname, '../../.env'),

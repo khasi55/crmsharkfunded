@@ -62,11 +62,12 @@ export class SharkPayGateway implements PaymentGateway {
             // Frontend and backend URLs
             const frontendUrl = process.env.FRONTEND_URL || 'https://app.sharkfunded.com';
             const backendUrl = process.env.BACKEND_URL || 'https://api.sharkfunded.co';
-            // 🛡️ SECURITY: Use a per-order signature that includes the expected status and amount
+            // 🛡️ SECURITY: Use a per-order signature that includes the expected status, currency, and a one-time nonce
             const masterWebhookSecret = process.env.PAYMENT_WEBHOOK_SECRET || 'shark_secret_fallback';
-            // We lock the signature to the orderId + 'paid' status + currency
-            const signature = crypto.createHmac('sha256', masterWebhookSecret).update(`${params.orderId}:paid:${params.currency}`).digest('hex');
-            const webhookUrl = `${backendUrl}/api/webhooks/payment?gateway=sharkpay&sig=${signature}`;
+            const nonce = params.metadata?.webhook_nonce || '';
+            // We lock the signature to the orderId + status + currency + nonce
+            const signature = crypto.createHmac('sha256', masterWebhookSecret).update(`${params.orderId}:paid:${params.currency}:${nonce}`).digest('hex');
+            const webhookUrl = `${backendUrl}/api/webhooks/payment?gateway=sharkpay&sig=${signature}${nonce ? `&nonce=${nonce}` : ''}`;
 
             const payload = {
                 amount: amountINR,
@@ -149,13 +150,43 @@ export class SharkPayGateway implements PaymentGateway {
                 const orderId = body.reference_id || body.order_id;
                 
                 if (receivedSig && orderId && webhookSecret) {
-                    // Re-calculate the expected signature for a 'paid' status
-                    // We check if the signature matches 'paid' for this specific order
+                    const receivedNonce = String(body.nonce || '');
+                    
+                    // 🛡️ ONE-TIME NONCE VERIFICATION
+                    // Fetch the stored nonce from the database to ensure it's a one-time use link
+                    const { data: orderData } = await supabase
+                        .from('payment_orders')
+                        .select('metadata')
+                        .eq('order_id', orderId)
+                        .single();
+                    
+                    const storedNonce = orderData?.metadata?.webhook_nonce || '';
+                    
+                    if (!storedNonce || storedNonce !== receivedNonce) {
+                        console.warn(`[SharkPay] Nonce mismatch or already used for ${orderId}`);
+                        return false;
+                    }
+
+                    // Re-calculate the expected signature using the nonce
                     const currency = body.currency || 'USD';
-                    const expectedSig = crypto.createHmac('sha256', webhookSecret).update(`${orderId}:paid:${currency}`).digest('hex');
+                    const expectedSig = crypto.createHmac('sha256', webhookSecret).update(`${orderId}:paid:${currency}:${storedNonce}`).digest('hex');
                     
                     if (receivedSig === expectedSig) {
-                        console.log(`[SharkPay] Webhook verified via per-order signature for ${orderId}`);
+                        console.log(`[SharkPay] Webhook verified via per-order signature and nonce for ${orderId}`);
+                        
+                        // 🛡️ INVALIDATE NONCE: Clear it from the database so it can't be used again
+                        if (orderData) {
+                            await supabase
+                                .from('payment_orders')
+                                .update({ 
+                                    metadata: { 
+                                        ...orderData.metadata, 
+                                        webhook_nonce: null 
+                                    } 
+                                })
+                                .eq('order_id', orderId);
+                        }
+                            
                         return true;
                     }
                 }

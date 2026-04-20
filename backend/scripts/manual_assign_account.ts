@@ -102,7 +102,7 @@ async function run() {
                 login: mt5Data.login,
                 master_password: mt5Data.password,
                 investor_password: mt5Data.investor_password || '',
-                server: mt5Data.server || 'AURO MARKETS',
+                server: mt5Data.server || 'OCEAN MARKETS LIMITED',
                 platform: order.platform,
                 leverage: leverage,
                 group: mt5Group,

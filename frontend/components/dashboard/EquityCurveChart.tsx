@@ -194,41 +194,32 @@ export default function EquityCurveChart({ account, trades: initialTrades, initi
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-[#050923] border border-white/10 rounded-2xl overflow-hidden relative shadow-2xl shadow-blue-900/20"
+            className="bg-[#06000a] border border-white/10 rounded-3xl overflow-hidden relative"
         >
-            {/* Background Glow */}
-            <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 blur-[120px] rounded-full translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
-
             {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 p-4 sm:p-6 md:p-8 pb-2 relative z-10">
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 p-6 pb-2 relative z-10">
                 <div>
-                    <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                        <Activity size={16} className="text-blue-400 sm:w-[18px] sm:h-[18px]" />
-                        <h3 className="font-bold text-base sm:text-lg text-white font-sans uppercase tracking-wider">Equity Curve</h3>
+                    <div className="flex items-center gap-2 mb-2">
+                        <Activity size={14} className="text-blue-400" />
+                        <h3 className="font-bold text-[14px] text-white uppercase tracking-widest leading-none">Equity Curve</h3>
                     </div>
                     <div className="flex flex-col">
-                        <p className="text-xs sm:text-sm text-gray-500 font-bold uppercase tracking-widest mb-1 font-sans">Current Equity</p>
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-1">
-                            <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tighter font-sans">
+                        <div className="flex flex-wrap items-center gap-3 mb-1">
+                            <p className="text-2xl font-black text-white tracking-tighter">
                                 ${currentEquityVal.toLocaleString()}
                             </p>
                             <div className={cn(
-                                "flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md border text-xs sm:text-sm font-bold whitespace-nowrap",
+                                "flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-bold whitespace-nowrap",
                                 currentPnL >= 0
                                     ? "bg-green-500/10 text-green-400 border-green-500/20"
                                     : "bg-red-500/10 text-red-400 border-red-500/20"
                             )}>
-                                {currentPnL >= 0 ? <TrendingUp size={12} className="sm:w-[14px] sm:h-[14px]" /> : <TrendingDown size={12} className="sm:w-[14px] sm:h-[14px]" />}
-                                <span className="">{currentPnL >= 0 ? '+' : ''}${Math.abs(currentPnL).toLocaleString()}</span>
-                                <span className={cn(
-                                    "text-[10px] ml-1 opacity-70",
-                                    currentPnL >= 0 ? "text-green-400" : "text-red-400"
-                                )}>
-                                    ({currentPercent.toFixed(2)}%)
-                                </span>
+                                {currentPnL >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                                <span>{currentPnL >= 0 ? '+' : ''}${Math.abs(currentPnL).toLocaleString()}</span>
+                                <span className="text-[9px] ml-1 opacity-70">({currentPercent.toFixed(2)}%)</span>
                             </div>
                         </div>
-                        <p className="text-[10px] sm:text-xs text-gray-600 font-bold uppercase tracking-widest font-sans">TOTAL PERFORMANCE DATA</p>
+                        <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest">Performance History</p>
                     </div>
                 </div>
 
@@ -259,7 +250,7 @@ export default function EquityCurveChart({ account, trades: initialTrades, initi
                     <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                         <defs>
                             <linearGradient id="equityGradient" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
                                 <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                             </linearGradient>
                         </defs>
@@ -267,26 +258,29 @@ export default function EquityCurveChart({ account, trades: initialTrades, initi
                         <XAxis
                             dataKey="displayDate"
                             stroke="#374151"
-                            tick={{ fill: '#4b5563', fontSize: 10, fontWeight: 700 }}
+                            tick={{ fill: '#4b5563', fontSize: 9, fontWeight: 700 }}
                             tickLine={false}
                             axisLine={false}
-                            dy={10}
+                            dy={5}
                         />
                         <YAxis
-                            domain={['auto', 'auto']}
+                            domain={['dataMin - 5000', 'dataMax + 5000']}
                             stroke="#374151"
-                            tick={{ fill: '#4b5563', fontSize: 10, fontWeight: 700 }}
+                            tick={{ fill: '#4b5563', fontSize: 9, fontWeight: 700 }}
                             tickLine={false}
                             axisLine={false}
                             tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`}
-                            dx={-10}
+                            dx={-5}
                         />
-                        <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#ffffff10', strokeWidth: 1 }} />
+                        <Tooltip 
+                            content={<CustomTooltip />} 
+                            cursor={{ stroke: '#ffffff10', strokeWidth: 1 }} 
+                        />
                         <Area
                             type="monotone"
                             dataKey="equity"
                             stroke="#3b82f6"
-                            strokeWidth={3}
+                            strokeWidth={2}
                             fill="url(#equityGradient)"
                             animationDuration={1500}
                         />

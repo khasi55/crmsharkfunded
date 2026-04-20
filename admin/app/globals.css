@@ -2,23 +2,29 @@
 
 :root {
   /* Light Theme Palette */
-  --background: 0 0% 100%; /* #ffffff */
-  --foreground: 222.2 84% 4.9%; /* #020617 */
+  --background: 0 0% 100%;
+  /* #ffffff */
+  --foreground: 222.2 84% 4.9%;
+  /* #020617 */
 
-  --card: 0 0% 100%; /* #ffffff */
+  --card: 0 0% 100%;
+  /* #ffffff */
   --card-foreground: 222.2 84% 4.9%;
 
   --popover: 0 0% 100%;
   --popover-foreground: 222.2 84% 4.9%;
 
-  --primary: 221.2 83.2% 53.3%; /* #2563eb Blue 600 */
+  --primary: 221.2 83.2% 53.3%;
+  /* #2563eb Blue 600 */
   --primary-foreground: 210 40% 98%;
 
-  --secondary: 210 40% 96.1%; /* #f1f5f9 Slate 100 */
+  --secondary: 210 40% 96.1%;
+  /* #f1f5f9 Slate 100 */
   --secondary-foreground: 222.2 47.4% 11.2%;
 
   --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%; /* #64748b Slate 500 */
+  --muted-foreground: 215.4 16.3% 46.9%;
+  /* #64748b Slate 500 */
 
   --accent: 210 40% 96.1%;
   --accent-foreground: 222.2 47.4% 11.2%;
@@ -26,15 +32,18 @@
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 40% 98%;
 
-  --border: 214.3 31.8% 91.4%; /* #e2e8f0 Slate 200 */
+  --border: 214.3 31.8% 91.4%;
+  /* #e2e8f0 Slate 200 */
   --input: 214.3 31.8% 91.4%;
   --ring: 221.2 83.2% 53.3%;
 
   --radius: 0.5rem;
 
   /* Custom "Trading Terminal" Variables - Adjusted for Light */
-  --color-up: #10b981; /* Green */
-  --color-down: #ef4444; /* Red */
+  --color-up: #10b981;
+  /* Green */
+  --color-down: #ef4444;
+  /* Red */
 }
 
 @theme {
@@ -145,6 +154,8 @@
 }
 
 .scrollbar-none {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }

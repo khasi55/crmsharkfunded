@@ -14,7 +14,7 @@
   "login": 900909493453,
   "master_password": "6ea#ImRsgxy9",
   "investor_password": "k%9vWw9WYV",
-  "server": "ALFX Limited",
+  "server": "AURO MARKETS",
   "platform": "MT5",
   "model": null,
   "leverage": 100,

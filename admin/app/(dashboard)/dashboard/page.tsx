@@ -28,256 +28,147 @@ async function fetchAllRows(supabase: any, table: string, selectFields: string, 
 }
 
 async function getStats() {
-    // Use admin client to bypass RLS
     const supabase = createAdminClient();
-
-    // 1. Fetch Counts & Amounts
-    const [
-        { count: usersCount },
-        { count: kycCount },
-        { count: payoutsCount },
-        { count: violationsCount },
-        { count: affiliateWithdrawalsCount }
-    ] = await Promise.all([
-        supabase.from("profiles").select("*", { count: "exact", head: true }),
-        supabase.from("kyc_sessions").select("*", { count: "exact", head: true }).in("status", ["pending", "requires_review"]),
-        supabase.from("payout_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("advanced_risk_flags").select("*", { count: "exact", head: true }), // Count all violations
-        supabase.from("affiliate_withdrawals").select("*", { count: "exact", head: true }).eq("status", "pending")
-    ]);
-
-    const [
-        { data: paidOrders },
-        { data: allChallenges },
-        { data: processedPayouts },
-        { data: pendingUpgrades }, // Accounts waiting for upgrade
-        { data: allProfiles } // Fetch all profiles for user curve
-    ] = await Promise.all([
-        fetchAllRows(supabase, "payment_orders", "amount, created_at, payment_gateway", q => q.eq("status", "paid")),
-        fetchAllRows(supabase, "challenges", "challenge_type, status, upgraded_to"),
-        fetchAllRows(supabase, "payout_requests", "amount, processed_at, created_at", q => q.in("status", ["approved", "processed"])),
-        fetchAllRows(supabase, "challenges", "id, challenge_type, status", q => q.eq("status", "passed")),
-        fetchAllRows(supabase, "profiles", "id, created_at")
-    ]);
-
-    // 2. Calculate Revenue
-    const totalRevenue = paidOrders?.reduce((sum, order) => sum + (Number(order.amount) || 0), 0) || 0;
-
-    // 2.5 Calculate Revenue by Gateway
-    const revenueByGateway: Record<string, number> = {};
-    paidOrders?.forEach(order => {
-        const gateway = order.payment_gateway || 'Other';
-        const displayGateway = gateway.charAt(0).toUpperCase() + gateway.slice(1);
-        revenueByGateway[displayGateway] = (revenueByGateway[displayGateway] || 0) + (Number(order.amount) || 0);
-    });
-
-    // 3. Calculate Account Categories
-    let phase1Count = 0;
-    let phase2Count = 0;
-    let liveCount = 0;
-    let instantCount = 0;
-    let breachedCount = 0;
-
-    allChallenges?.forEach(c => {
-        const type = (c.challenge_type || '').toLowerCase();
-        const status = (c.status || '').toLowerCase();
-        const upgradedTo = c.upgraded_to;
-
-        // If breached/failed/disabled/upgraded OR has been upgraded to a new account, count in breached category
-        if (status === 'breached' || status === 'failed' || status === 'disabled' || status === 'upgraded' || !!upgradedTo) {
-            breachedCount++;
-            return; // Skip type categorization for stopped accounts
-        }
-
-        // Regular type categorization (only for non-breached accounts)
-        if (type.includes('instant')) {
-            instantCount++;
-        } else if (type.includes('funded') || type.includes('master') || type.includes('live')) {
-            liveCount++;
-        } else if (type.includes('phase 2') || type.includes('phase_2') || type.includes('step 2') || type.includes('step_2')) {
-            phase2Count++;
-        } else if (type.includes('phase 1') || type.includes('phase_1') || type.includes('step 1') || type.includes('step_1') || type.includes('evaluation')) {
-            phase1Count++;
-        } else {
-            // Default to Phase 1 for anything else that isn't clearly categorized
-            phase1Count++;
-        }
-    });
-
-    // 4. Detailed Financial Metrics (Daily, Weekly, Monthly, Yearly)
     const now = new Date();
-    const oneDay = 24 * 60 * 60 * 1000;
-    const oneWeek = 7 * oneDay;
-    const oneMonth = 30 * oneDay;
-    const oneYear = 365 * oneDay;
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
+    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString();
 
-    // Calculate Start of Day in IST (UTC+5:30)
-    const IST_OFFSET = 5.5 * 60 * 60 * 1000;
-    const getISTDate = (date: Date) => new Date(date.getTime() + IST_OFFSET);
+    const [
+        { count: totalUsers },
+        { count: pendingKYC },
+        { count: pendingPayouts },
+        { count: pendingUpgrades },
+        { count: phase1Count },
+        { count: phase2Count },
+        { count: fundedCount },
+        { count: instantCount },
+        { count: breachedCount },
+        { count: violationsCount },
+        { count: pendingAffiliateWithdrawals },
+        { data: allRevenueData },
+        { data: allPayoutsData },
+        { data: monthRevenueData },
+        { data: monthPayoutsData },
+        { data: newUsersData }
+    ] = await Promise.all([
+        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('kyc_sessions').select('*', { count: 'exact', head: true }).eq('status', 'requires_review'),
+        supabase.from('payout_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('challenges').select('*', { count: 'exact', head: true }).eq('status', 'passed'),
+        supabase.from('challenges').select('*', { count: 'exact', head: true }).or('challenge_type.ilike.%Phase 1%,challenge_type.ilike.%Phase_1%'),
+        supabase.from('challenges').select('*', { count: 'exact', head: true }).or('challenge_type.ilike.%Phase 2%,challenge_type.ilike.%Phase_2%'),
+        supabase.from('challenges').select('*', { count: 'exact', head: true }).or('challenge_type.ilike.%Funded%,challenge_type.ilike.%Master%'),
+        supabase.from('challenges').select('*', { count: 'exact', head: true }).or('challenge_type.ilike.%Instant%,challenge_type.ilike.%Rapid%'),
+        supabase.from('challenges').select('*', { count: 'exact', head: true }).eq('status', 'breached'),
+        supabase.from('risk_violations').select('*', { count: 'exact', head: true }),
+        supabase.from('affiliate_withdrawals').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('payment_orders').select('amount, payment_gateway').eq('status', 'paid'),
+        supabase.from('payout_requests').select('amount').eq('status', 'processed'),
+        supabase.from('payment_orders').select('amount, created_at').eq('status', 'paid').gte('created_at', thirtyDaysAgoStr),
+        supabase.from('payout_requests').select('amount, created_at').eq('status', 'processed').gte('created_at', thirtyDaysAgoStr),
+        supabase.from('profiles').select('created_at').gte('created_at', thirtyDaysAgoStr)
+    ]);
 
-    const getISTStartOfDay = () => {
-        const istTime = getISTDate(new Date());
-        istTime.setUTCHours(0, 0, 0, 0);
-        return new Date(istTime.getTime() - IST_OFFSET);
-    };
-    const startOfDayIST = getISTStartOfDay();
+    const totalRevenue = (allRevenueData || []).reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+    const totalPayoutsSum = (allPayoutsData || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
-    const sumByPeriod = (items: any[], dateField: string, amountField: string = 'amount') => {
-        const stats = { daily: 0, weekly: 0, monthly: 0, yearly: 0, total: 0 };
-
-        items?.forEach(item => {
-            const date = new Date(item[dateField] || item.created_at || now);
-            const diff = now.getTime() - date.getTime();
-            const amount = Number(item[amountField]) || 0;
-
-            if (date >= startOfDayIST) stats.daily += amount;
-            if (diff <= oneWeek) stats.weekly += amount;
-            if (diff <= oneMonth) stats.monthly += amount;
-            if (diff <= oneYear) stats.yearly += amount;
-            stats.total += amount;
-        });
-        return stats;
-    };
-
-    const paymentStats = sumByPeriod(paidOrders || [], 'created_at');
-    const payoutStats = sumByPeriod(processedPayouts || [], 'processed_at');
-
-    const equityStats = {
-        daily: paymentStats.daily - payoutStats.daily,
-        weekly: paymentStats.weekly - payoutStats.weekly,
-        monthly: paymentStats.monthly - payoutStats.monthly,
-        yearly: paymentStats.yearly - payoutStats.yearly,
-        total: paymentStats.total - payoutStats.total
-    };
-
-    // Count pending upgrades (passed Phase 1 and Phase 2 accounts only)
-    const pendingUpgradesCount = pendingUpgrades?.filter(account => {
-        const type = (account.challenge_type || '').toLowerCase();
-        return type.includes('phase 1') || type.includes('phase 2') ||
-            type.includes('step 1') || type.includes('step 2') ||
-            type.includes('1_step') || type.includes('2_step');
-    }).length || 0;
-
-    // 5. Chart Data (Time Series)
-    const dateMap = new Map<string, { date: string, rawDate: string, revenue: number, payouts: number, newUsers: number }>();
-    const getDateKey = (d: Date) => getISTDate(d).toISOString().split('T')[0];
-    const getDisplayDate = (d: Date) => getISTDate(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-
-    // Populate with orders
-    paidOrders?.forEach(order => {
-        const d = new Date(order.created_at);
-        const key = getDateKey(d);
-        if (!dateMap.has(key)) dateMap.set(key, { date: getDisplayDate(d), rawDate: key, revenue: 0, payouts: 0, newUsers: 0 });
-
-        const entry = dateMap.get(key)!;
-        entry.revenue += Number(order.amount) || 0;
+    // Revenue by gateway
+    const revenueByGateway: Record<string, number> = {};
+    allRevenueData?.forEach(r => {
+        const gateway = r.payment_gateway || 'Other';
+        revenueByGateway[gateway] = (revenueByGateway[gateway] || 0) + (Number(r.amount) || 0);
     });
 
-    // Populate with payouts
-    processedPayouts?.forEach(payout => {
-        const d = new Date(payout.processed_at || payout.created_at);
-        const key = getDateKey(d);
-        if (!dateMap.has(key)) dateMap.set(key, { date: getDisplayDate(d), rawDate: key, revenue: 0, payouts: 0, newUsers: 0 });
-
-        const entry = dateMap.get(key)!;
-        entry.payouts += Number(payout.amount) || 0;
-    });
-
-    // Populate with new users
-    allProfiles?.forEach(profile => {
-        const d = new Date(profile.created_at || now);
-        const key = getDateKey(d);
-        if (!dateMap.has(key)) dateMap.set(key, { date: getDisplayDate(d), rawDate: key, revenue: 0, payouts: 0, newUsers: 0 });
-
-        const entry = dateMap.get(key)!;
-        entry.newUsers += 1;
-    });
-
-    // Sort full history
-    const sortedDailyData = Array.from(dateMap.values())
-        .sort((a, b) => a.rawDate.localeCompare(b.rawDate));
-
-    // Calculate Rolling Equity and Users on Full History
-    let rollingEquity = 0;
-    let rollingUsers = 0;
-    const fullHistoryWithEquity = sortedDailyData.map(day => {
-        const net = day.revenue - day.payouts;
-        rollingEquity += net;
-        rollingUsers += day.newUsers;
-        return {
-            ...day,
-            net,
-            cumulativeEquity: rollingEquity,
-            cumulativeUsers: rollingUsers
-        };
-    });
-
-    // Extract Last 30 Days (filling gaps)
-    const last30Days = [];
-    const historyMap = new Map(fullHistoryWithEquity.map(d => [d.rawDate, d]));
-
-    // Find equity start point (equity at t-30)
-    const t30 = new Date();
-    t30.setDate(t30.getDate() - 30);
-    const t30Key = getDateKey(t30);
-
-    let currentEquity = 0;
-    let currentUsers = 0;
-    // Find last known equity before window
-    for (const d of fullHistoryWithEquity) {
-        if (d.rawDate < t30Key) {
-            currentEquity = d.cumulativeEquity;
-            currentUsers = d.cumulativeUsers;
-        } else {
-            break;
-        }
-    }
-
+    // Chart Data processing
+    const dateMap = new Map();
     for (let i = 29; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        const key = getDateKey(d);
-
-        const actualData = historyMap.get(key);
-        const net = actualData ? actualData.net : 0;
-        const newUsers = actualData ? actualData.newUsers : 0;
-
-        currentEquity += net;
-        currentUsers += newUsers;
-
-        last30Days.push({
-            date: getDisplayDate(d),
+        const key = d.toISOString().split('T')[0];
+        dateMap.set(key, {
+            date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
             rawDate: key,
-            revenue: actualData ? actualData.revenue : 0,
-            payouts: actualData ? actualData.payouts : 0,
-            newUsers: newUsers,
-            net: net,
-            cumulativeEquity: currentEquity,
-            cumulativeUsers: currentUsers
+            revenue: 0,
+            payouts: 0,
+            newUsers: 0,
+            net: 0,
+            cumulativeEquity: 0,
+            cumulativeUsers: 0
         });
     }
 
-    return {
-        totalUsers: usersCount || 0,
-        pendingKYC: kycCount || 0,
-        pendingPayouts: payoutsCount || 0,
-        pendingAffiliateWithdrawals: affiliateWithdrawalsCount || 0,
-        pendingUpgrades: pendingUpgradesCount, // New stat for pending upgrades
-        violationsCount: violationsCount || 0, // Risk violations count
-        totalRevenue: paymentStats.total,
-        phase1Count,
-        phase2Count,
-        liveCount,
-        instantCount,
-        breachedCount,
-        totalAccounts: allChallenges?.length || 0, // Total count of ALL challenges
-        financials: {
-            payments: paymentStats,
-            payouts: payoutStats,
-            equity: equityStats
+    monthRevenueData?.forEach(r => {
+        const key = new Date(r.created_at).toISOString().split('T')[0];
+        if (dateMap.has(key)) dateMap.get(key).revenue += (Number(r.amount) || 0);
+    });
+
+    monthPayoutsData?.forEach(p => {
+        const key = new Date(p.created_at).toISOString().split('T')[0];
+        if (dateMap.has(key)) dateMap.get(key).payouts += (Number(p.amount) || 0);
+    });
+
+    newUsersData?.forEach(u => {
+        const key = new Date(u.created_at).toISOString().split('T')[0];
+        if (dateMap.has(key)) dateMap.get(key).newUsers += 1;
+    });
+
+    const chartData = Array.from(dateMap.values()).map(day => {
+        day.net = day.revenue - day.payouts;
+        return day;
+    });
+
+    // Financial Breakdown stats
+    const todayStr = new Date().toISOString().split('T')[0];
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString();
+
+    const sumByPeriod = (data: any[], filterFn: (item: any) => boolean) => 
+        data.filter(filterFn).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+
+    const financialsView = {
+        payments: {
+            daily: sumByPeriod(monthRevenueData || [], r => r.created_at.startsWith(todayStr)),
+            weekly: sumByPeriod(monthRevenueData || [], r => r.created_at >= sevenDaysAgoStr),
+            monthly: sumByPeriod(monthRevenueData || [], () => true),
+            total: totalRevenue
         },
+        payouts: {
+            daily: sumByPeriod(monthPayoutsData || [], p => p.created_at.startsWith(todayStr)),
+            weekly: sumByPeriod(monthPayoutsData || [], p => p.created_at >= sevenDaysAgoStr),
+            monthly: sumByPeriod(monthPayoutsData || [], () => true),
+            total: totalPayoutsSum
+        },
+        equity: {
+            daily: 0, weekly: 0, monthly: 0, total: 0
+        }
+    };
+
+    financialsView.equity.daily = financialsView.payments.daily - financialsView.payouts.daily;
+    financialsView.equity.weekly = financialsView.payments.weekly - financialsView.payouts.weekly;
+    financialsView.equity.monthly = financialsView.payments.monthly - financialsView.payouts.monthly;
+    financialsView.equity.total = financialsView.payments.total - financialsView.payouts.total;
+
+    return {
+        totalUsers: totalUsers || 0,
+        pendingKYC: pendingKYC || 0,
+        pendingPayouts: pendingPayouts || 0,
+        pendingAffiliateWithdrawals: pendingAffiliateWithdrawals || 0,
+        pendingUpgrades: pendingUpgrades || 0,
+        violationsCount: violationsCount || 0,
+        totalRevenue: totalRevenue,
+        phase1Count: phase1Count || 0,
+        phase2Count: phase2Count || 0,
+        liveCount: fundedCount || 0,
+        instantCount: instantCount || 0,
+        breachedCount: breachedCount || 0,
+        totalAccounts: (phase1Count || 0) + (phase2Count || 0) + (fundedCount || 0) + (instantCount || 0),
+        financials: financialsView,
         revenueByGateway,
-        chartData: last30Days
+        chartData
     };
 }
 

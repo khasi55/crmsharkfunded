@@ -5,11 +5,6 @@ import {
     WebhookData
 } from './types';
 
-/**
- * Paymentservice.me (EPay) Gateway Implementation v2
- * Docs Ref: Section 1.1 - 1.5, 2.1, 3.1
- * MID: 976697204360081
- */
 export class EPayGateway implements PaymentGateway {
     name = 'epay';
     private merchantId: string;
@@ -22,7 +17,7 @@ export class EPayGateway implements PaymentGateway {
 
     async createOrder(params: CreateOrderParams): Promise<CreateOrderResponse> {
         try {
-            // Mapping to EPay's confirmed payload format
+
             const payload = {
                 channelId: "WEB",
                 customerId: params.customerEmail,
@@ -48,7 +43,6 @@ export class EPayGateway implements PaymentGateway {
             };
 
             const endpoint = `${this.apiUrl}/create-new-order`;
-            console.log(`[EPay] Initiating order at: ${endpoint}`, payload);
 
             const response = await fetch(endpoint, {
                 method: 'POST',
@@ -65,7 +59,6 @@ export class EPayGateway implements PaymentGateway {
             }
 
             const data = await response.json() as any;
-            console.log('[EPay] Order Response:', data);
 
             if (data.status !== 'success' && data.status !== 'ok') {
                 throw new Error(data.message || 'EPay order creation failed');

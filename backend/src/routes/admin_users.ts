@@ -106,7 +106,7 @@ router.post('/create', authenticate, requireRole(['super_admin']), async (req: A
 });
 
 // GET /api/admin/users/search - Search users for dropdown (limit 50)
-router.get('/search', authenticate, requireRole(['super_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
+router.get('/search', authenticate, requireRole(['super_admin', 'admin', 'sub_admin', 'risk_admin', 'payouts_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const query = req.query.q as string || '';
 

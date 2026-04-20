@@ -184,7 +184,7 @@ router.post('/send-account-credentials', authenticate, requireRole(['super_admin
                         </tr>
                         <tr>
                             <td style="padding: 8px 0;"><strong>Server:</strong></td>
-                            <td style="padding: 8px 0;">OCEAN MARKETS INVESTMENT LIMITED</td>
+                            <td style="padding: 8px 0;">OCEAN MARKETS LTD</td>
                         </tr>
                         <tr>
                             <td style="padding: 8px 0;"><strong>MT5 Group:</strong></td>
@@ -211,7 +211,7 @@ router.post('/send-account-credentials', authenticate, requireRole(['super_admin
         `;
 
         const textContent = `
-Welcome to Ocean Markets Investment Limited!
+Welcome to SharkFunded
 
 Hi ${name},
 
@@ -223,7 +223,7 @@ Account Details:
 - MT5 Login: ${login}
 - Master Password: ${masterPassword}
 - Investor Password: ${investorPassword}
-- Server: OCEAN MARKETS INVESTMENT LIMITED
+- Server: OCEAN MARKETS LIMITED
 - MT5 Group: ${mt5Group}
 
 IMPORTANT: Keep your master password secure. Never share it with anyone.
@@ -236,7 +236,7 @@ Next Steps:
 If you have any questions, please contact our support team.
 
 Best regards,
-Ocean Markets Investment Limited Team
+SharkFunded
         `;
 
         // Send the email using the Nodemailer service
@@ -245,7 +245,7 @@ Ocean Markets Investment Limited Team
             name,
             login,
             masterPassword,
-            'OCEAN MARKETS INVESTMENT LIMITED',
+            'OCEAN MARKETS LIMITED',
             investorPassword
         );
 

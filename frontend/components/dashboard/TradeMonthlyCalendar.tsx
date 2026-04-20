@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Calendar, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Calendar, TrendingUp, TrendingDown, Minus, ChevronLeft, ChevronRight } from "lucide-react";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
 
 interface DayData {
@@ -22,6 +22,7 @@ export default function TradeMonthlyCalendar({ trades: initialTrades, isPublic }
     const { data: dashboardData, loading: dashboardLoading } = useDashboardData();
     const [currentDate, setCurrentDate] = useState(() => {
         const now = new Date();
+        // Force UTC Month/Year to avoid timezone offsets causing a month jump
         return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     });
     const [calendarData, setCalendarData] = useState<DayData[]>([]);
@@ -210,18 +211,18 @@ export default function TradeMonthlyCalendar({ trades: initialTrades, isPublic }
                 <div className="flex items-center gap-1.5 sm:gap-2">
                     <button
                         onClick={() => changeMonth(-1)}
-                        className="px-2 sm:px-3 py-1 bg-white/5 active:bg-white/10 rounded-lg text-xs sm:text-sm font-medium transition-all"
+                        className="px-2 sm:px-3 py-1 bg-white/5 hover:bg-white/10 active:scale-95 rounded-lg text-white transition-all flex items-center justify-center"
                     >
-                        ←
+                        <ChevronLeft size={16} />
                     </button>
                     <span className="text-xs sm:text-sm font-bold text-white min-w-[100px] sm:min-w-[140px] text-center">
-                        {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+                        {monthNames[currentDate.getUTCMonth()]} {currentDate.getUTCFullYear()}
                     </span>
                     <button
                         onClick={() => changeMonth(1)}
-                        className="px-2 sm:px-3 py-1 bg-white/5 active:bg-white/10 rounded-lg text-xs sm:text-sm font-medium transition-all"
+                        className="px-2 sm:px-3 py-1 bg-white/5 hover:bg-white/10 active:scale-95 rounded-lg text-white transition-all flex items-center justify-center"
                     >
-                        →
+                        <ChevronRight size={16} />
                     </button>
                 </div>
             </div>

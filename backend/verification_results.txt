@@ -1,0 +1,142 @@
+Login	Name	Provided Group	Database Group	Match?
+900909609618	Kutteddula kasi Viswanath reddy	demo\S\ImAccount	demo\S\2-SF	NO
+900909609619	Chetan Chouhan	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609620	Nithyapoojesh	demo\S\ImAccount	demo\S\2-SF	NO
+900909609621	Rohit Tupe	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609622	RAHUL SONAWANE	demo\S\ImAccount	demo\S\2-SF	NO
+900909609623	Ronak pandurang shedage	demo\S\ImAccount	demo\S\2-SF	NO
+900909609624	nikhil	demo\S\ImAccount	demo\S\1-SF	NO
+900909609625	Balram Sahu	demo\S\ImAccount	demo\S\2-SF	NO
+900909609626	Viswanath	demo\S\ImAccount	demo\S\2-SF	NO
+900909609627	Viswanath	demo\S\ImAccount	demo\S\2-SF	NO
+900909609628	shubh bhardwaj	demo\S\ImAccount	demo\S\2-SF	NO
+900909609629	Khushi kasana	demo\S\ImAccount	demo\S\2-SF	NO
+900909609630	Kishan Pawar	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609631	Shaik Abdul Kareem Anas	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609632	Mohd Parvez	demo\S\ImAccount	demo\S\2-SF	NO
+900909609633	Sonu Kumar	demo\S\ImAccount	demo\S\2-SF	NO
+900909609634	KULESHWAR PRASAD	demo\S\ImAccount	demo\SF\2-Pro	NO
+900909609635	Arsh Beg	demo\S\ImAccount	demo\S\0-SF	NO
+900909609636	Ayush Khatri	demo\S\ImAccount	demo\S\0-SF	NO
+900909609637	Karanjeet Singh	demo\S\ImAccount	demo\S\0-SF	NO
+900909609638	Riyaz B	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609639	Manish Manish	demo\S\ImAccount	demo\S\2-SF	NO
+900909609640	Gagan gupta	demo\S\ImAccount	demo\S\2-SF	NO
+900909609641	Aakash	demo\S\ImAccount	demo\SF\2-Pro	NO
+900909609642	Anshuman Soni	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609643	Heet Patel	demo\S\ImAccount	demo\S\2-SF	NO
+900909609644	Shaik Abdul Kareem Anas	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609645	Rohan Ghadge	demo\S\ImAccount	demo\S\2-SF	NO
+900909609646	Aqsam	demo\S\ImAccount	demo\SF\2-Pro	NO
+900909609647	KOUSHIK ADHIKARI	demo\S\ImAccount	demo\S\2-SF	NO
+900909609648	Vihang Morje	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609649	Gurinder Kumar	demo\S\ImAccount	demo\SF\2-Pro	NO
+900909609650	Manoj Tomar	demo\S\ImAccount	demo\S\2-SF	NO
+900909609651	Raghav makkar	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609652	Nilesh Dhopare	demo\S\ImAccount	demo\S\2-SF	NO
+900909609653	Nilesh Dhopare	demo\S\ImAccount	demo\S\2-SF	NO
+900909609654	Himanshu khatwani	demo\S\ImAccount	demo\S\2-SF	NO
+900909609655	d3devansh12	demo\S\ImAccount	demo\S\2-SF	NO
+900909609656	Bipin Kumbhar	demo\S\ImAccount	demo\S\2-SF	NO
+900909609657	Ashok Kumar	demo\S\ImAccount	demo\S\0-SF	NO
+900909609658	Gurinder Kumar	demo\S\ImAccount	demo\SF\2-Pro	NO
+900909609659	Roushan Kumar	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609660	Sultan mohammed	demo\S\ImAccount	demo\S\0-SF	NO
+900909609661	Aqsam	demo\S\ImAccount	demo\SF\2-Pro	NO
+900909609662	Suraj Shaikh	demo\S\ImAccount	demo\SF\2-Pro	NO
+900909609663	Sultan mohammed	demo\S\ImAccount	demo\S\0-SF	NO
+900909609664	harshfx	demo\S\ImAccount	demo\S\2-SF	NO
+900909609665	Ashutosh Hendwe	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609666	tajinderpal singh roopra	demo\S\ImAccount	demo\SF\2-Pro	NO
+900909609667	Vikrant Oraon	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609668	Rahul Singh	demo\S\ImAccount	demo\S\2-SF	NO
+900909609669	Safvan Imran Patel	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609670	Aditya kiran Lal	demo\S\ImAccount	demo\S\0-SF	NO
+900909609671	SUBIN NP	demo\S\ImAccount	demo\S\2-SF	NO
+900909609672	Santosh Kumar Mahanta	demo\S\ImAccount	demo\S\2-SF	NO
+900909609673	Roushan Kumar	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609674	Vanshika	demo\S\ImAccount	demo\S\2-SF	NO
+900909609675	sujal vijay	demo\S\ImAccount	demo\S\2-SF	NO
+900909609676	Pranav gorakhnath kalel	demo\S\ImAccount	demo\S\2-SF	NO
+900909609677	Algi Luthwika Mulki	demo\S\ImAccount	demo\S\1-SF	NO
+900909609678	Pavan Motwani	demo\S\ImAccount	demo\S\0-SF	NO
+900909609679	Heet Kajavadra	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609680	Heet Kajavadra	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609681	Krushna Baravkar	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609682	Praveen Kumar	demo\S\ImAccount	demo\S\2-SF	NO
+900909609683	Neeraj Malbhage	demo\S\ImAccount	demo\S\2-SF	NO
+900909609684	PRASHANT KUMAR	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609685	Yogesh Dixit	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609686	Giriraj SINGH Panwar	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609687	Pravin Khandekar	demo\S\ImAccount	demo\S\2-SF	NO
+900909609688	Suraj Verma	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609689	Pravin Khandekar	demo\S\ImAccount	demo\S\2-SF	NO
+900909609690	Nilesh Sonwane	demo\S\ImAccount	demo\S\2-SF	NO
+900909609691	beepin Kumar	demo\S\ImAccount	demo\S\1-SF	NO
+900909609692	Nilesh Sonwane	demo\S\ImAccount	demo\S\2-SF	NO
+900909609693	Amrit Pritam Sahoo	demo\S\ImAccount	demo\S\2-SF	NO
+900909609694	Suraj dewle	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609695	Bipin Kumbhar	demo\S\ImAccount	demo\S\2-SF	NO
+900909609696	PRASHANT KUMAR	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609697	Jay Patel	demo\S\ImAccount	demo\S\2-SF	NO
+900909609698	Anshuman kalta	demo\S\ImAccount	demo\S\1-SF	NO
+900909609699	Mitesh	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609700	prathmesh khambalkar	demo\S\ImAccount	demo\S\0-SF	NO
+900909609701	PRASHANT KUMAR	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609702	ABHISHEK SINGH	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609703	Akshay Sawant	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609704	Akshay Sawant	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609705	Lokesh J s	demo\S\ImAccount	demo\S\2-SF	NO
+900909609706	Shaik Abdul Kareem Anas	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609707	Venkat Mohan Krishna V	demo\S\ImAccount	demo\SF\2-Pro	NO
+900909609708	Rohan Achaniya	demo\S\ImAccount	demo\S\0-SF	NO
+900909609709	Duddu Vilson babu	demo\S\ImAccount	demo\S\2-SF	NO
+900909609710	anam sharma	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609711	N/A	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609712	HITESH	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609713	SACHIN PARMAR	demo\S\ImAccount	demo\S\2-SF	NO
+900909609714	Pranav gorakhnath kalel	demo\S\ImAccount	demo\S\2-SF	NO
+900909609715	BIBHISHAN BALAJI LOKHANDE	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609716	Gulashan sahu	demo\S\ImAccount	demo\S\2-SF	NO
+900909609717	Raghawendra Chaurasiya	demo\S\ImAccount	demo\S\1-SF	NO
+900909609718	Ayesha Ali	demo\S\ImAccount	demo\SF\2-Pro	NO
+900909609719	Siddharth Dalbanjan	demo\S\ImAccount	demo\S\2-SF	NO
+900909609720	mohd Arsh	demo\S\ImAccount	demo\S\2-SF	NO
+900909609721	Subham Kumar	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609722	Bobby Paswan	demo\S\ImAccount	demo\S\2-SF	NO
+900909609723	ABHISHEK SINGH	demo\S\ImAccount	NOT FOUND	NO
+900909609724	Aasim Makhamalla	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609725	Vansh Movalia	demo\S\ImAccount	demo\S\0-SF	NO
+900909609726	MOHITHA PIPAL	demo\S\ImAccount	demo\S\2-SF	NO
+900909609727	Vedant Hemane	demo\S\ImAccount	demo\S\2-SF	NO
+900909609728	Jony Molla	demo\S\ImAccount	demo\SF\2-Pro	NO
+900909609729	SEELAM ILLARAM NARAYANA REDDY	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609730	ABHISHEK SINGH	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609731	SUMESH U S	demo\S\ImAccount	demo\S\0-SF	NO
+900909609732	Gulshan Kowe	demo\S\ImAccount	demo\SF\2-Pro	NO
+900909609733	Gulashan sahu	demo\S\ImAccount	demo\SF\2-Pro	NO
+900909609734	Sougata Pal	demo\S\ImAccount	demo\S\2-SF	NO
+900909609735	vijender	demo\S\ImAccount	demo\S\0-SF	NO
+900909609736	ABHISHEK SINGH	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609737	Deepanshu Sharma	demo\S\ImAccount	demo\SF\0-Pro	NO
+900909609738	VANLALPEKHLUA	demo\S\ImAccount	demo\S\2-SF	NO
+900909609739	Sonu Saini	demo\S\ImAccount	demo\SF\2-Pro	NO
+900909609740	Shaik Abdul Kareem Anas	demo\S\ImAccount	NOT FOUND	NO
+900909609745	Ganesh shankar yadav	demo\S\ImAccount	NOT FOUND	NO
+900909609746	MANOJKUMAR KANTILAL RANA	demo\S\ImAccount	NOT FOUND	NO
+900909609747	Parvez N	demo\S\ImAccount	NOT FOUND	NO
+900909609748	Sushil	demo\S\ImAccount	NOT FOUND	NO
+900909609749	Rajesh ray	demo\S\ImAccount	NOT FOUND	NO
+900909609750	KANTEPALLI SANKARAMMA	demo\S\ImAccount	NOT FOUND	NO
+900909609751	Aditya Rathod	demo\S\ImAccount	NOT FOUND	NO
+900909609752	Tanishak Sabharwal	demo\S\ImAccount	NOT FOUND	NO
+900909609753	Steve	demo\S\ImAccount	NOT FOUND	NO
+900909609754	Om Gaikwad	demo\S\ImAccount	NOT FOUND	NO
+900909609755	Nikhil Ks	demo\S\ImAccount	NOT FOUND	NO
+900909609756	Yogesh Ramchandra Sawant	demo\S\ImAccount	NOT FOUND	NO
+900909609757	Raju Singh	demo\S\ImAccount	NOT FOUND	NO
+900909609758	Vsv Sujal	demo\S\ImAccount	NOT FOUND	NO
+900909609759	Sunit	demo\S\ImAccount	NOT FOUND	NO
+900909609760	Mayank Khachariya	demo\S\ImAccount	NOT FOUND	NO
+900909609761	Sajid ali	demo\S\ImAccount	NOT FOUND	NO
+900909609762	Salim Shaikh	demo\S\ImAccount	NOT FOUND	NO

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Activity } from "lucide-react";
 
@@ -8,6 +9,12 @@ interface BalanceHistoryChartProps {
 }
 
 export default function BalanceHistoryChart({ data }: BalanceHistoryChartProps) {
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
     if (!data || data.length === 0) {
         return (
             <div className="lg:col-span-4 bg-[#121826]/30 border border-white/5 rounded-2xl p-6 relative overflow-hidden group min-h-[350px] flex flex-col">
@@ -37,7 +44,8 @@ export default function BalanceHistoryChart({ data }: BalanceHistoryChartProps) 
             </h3>
 
             <div className="flex-1 w-full min-h-[200px]">
-                <ResponsiveContainer width="100%" height="100%">
+                {isMounted ? (
+                    <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={data}>
                         <defs>
                             <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
@@ -72,7 +80,10 @@ export default function BalanceHistoryChart({ data }: BalanceHistoryChartProps) 
                             strokeWidth={2}
                         />
                     </AreaChart>
-                </ResponsiveContainer>
+                    </ResponsiveContainer>
+                ) : (
+                    <div className="w-full h-full bg-white/5 animate-pulse rounded-xl" />
+                )}
             </div>
 
             <div className="flex items-center justify-between mt-4 px-2">

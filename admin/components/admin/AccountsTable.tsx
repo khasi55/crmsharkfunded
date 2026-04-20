@@ -136,10 +136,12 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
         if (typeStr.includes('prime')) plan = 'Prime';
         else if (typeStr.includes('lite')) plan = 'Lite';
         else if (typeStr.includes('instant')) plan = 'Instant';
+        else if (typeStr.includes('direct') || typeStr.includes('direct-sf')) plan = 'Direct';
 
         // 2. Fallback to MT5 Group path for legacy/generic types
         if (!plan) {
             if (groupStr.includes('\\sf\\') || groupStr.includes('pro')) plan = 'Prime';
+            else if (groupStr.includes('direct-sf') || groupStr.includes('direct')) plan = 'Direct';
             else if (groupStr.includes('-sf') || (groupStr.includes('\\s\\') && !groupStr.includes('\\sf\\'))) plan = 'Lite';
             else if (groupStr.includes('instant')) plan = 'Instant';
             else plan = account.plan_type || 'Lite';
@@ -245,10 +247,12 @@ export function AccountsTable({ accounts, currentPage, totalPages, groups, curre
 
                                                 const isTypePrime = typeStr.includes('prime');
                                                 const isTypeLite = typeStr.includes('lite');
+                                                const isTypeDirect = typeStr.includes('direct') || typeStr.includes('direct-sf');
                                                 const isGroupPrime = groupStr.includes('\\sf\\') || groupStr.includes('pro');
-                                                const isGroupLite = (groupStr.includes('\\s\\') && !groupStr.includes('\\sf\\')) || groupStr.includes('-sf');
+                                                const isGroupDirect = groupStr.includes('direct-sf') || groupStr.includes('direct');
+                                                const isGroupLite = ((groupStr.includes('\\s\\') && !groupStr.includes('\\sf\\')) || groupStr.includes('-sf')) && !isGroupDirect;
 
-                                                if ((isTypePrime && isGroupLite) || (isTypeLite && isGroupPrime)) {
+                                                if ((isTypePrime && isGroupLite) || (isTypeLite && isGroupPrime) || (isTypeDirect && (isGroupLite || isGroupPrime))) {
                                                     return (
                                                         <span title="Type/Group Mismatch: This account may have incorrect risk rules applied." className="text-amber-500">
                                                             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

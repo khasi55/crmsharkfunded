@@ -195,12 +195,7 @@ export default function TradingObjectives({ objectives: initialObjectives, accou
     const [resetTimer, setResetTimer] = useState("--:--:--");
     const [rules, setRules] = useState<ChallengeRules | null>(null);
 
-    // Debug Logs
-    useEffect(() => {
-        if (rules) {
-            console.log('[TradingObjectives] Rules Updated:', JSON.stringify(rules, null, 2));
-        }
-    }, [rules]);
+    // Debug Logs removed
 
     // Calculate time until midnight UTC (daily reset)
     useEffect(() => {
@@ -225,7 +220,6 @@ export default function TradingObjectives({ objectives: initialObjectives, accou
     // Sync with DashboardData
     useEffect(() => {
         if (initialObjectives) {
-            console.log('[TradingObjectives] Using initialObjectives:', !!initialObjectives.daily_loss);
             setRules({
                 max_daily_loss_percent: initialObjectives.daily_loss?.max_allowed_percent ?? 5,
                 max_total_loss_percent: initialObjectives.total_loss?.max_allowed_percent ?? 10,
@@ -247,7 +241,6 @@ export default function TradingObjectives({ objectives: initialObjectives, accou
 
         if (dashboardData.objectives) {
             if (!dashboardData.objectives.daily_loss) {
-                console.warn('[TradingObjectives] objectives found but daily_loss is missing structure! Structure:', Object.keys(dashboardData.objectives));
                 return;
             }
 

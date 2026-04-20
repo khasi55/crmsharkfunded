@@ -14,49 +14,45 @@ export default async function PassedAccountsPage({
     const query = (await searchParams)?.query || "";
     const page = parseInt((await searchParams)?.page || "1");
     const PAGE_SIZE = 50;
+    const from = (page - 1) * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    let queryBuilder = supabase
+        .from('challenges')
+        .select(`*`, { count: 'exact' })
+        .eq('status', 'passed')
+        .is('upgraded_to', null)
+        .order('updated_at', { ascending: false })
+        .range(from, to);
 
-    // Build Query - Show active passed challenges (waiting for upgrade)
-    let dbQuery = supabase
-        .from("challenges")
-        .select("*", { count: "exact" })
-        .eq("status", "passed") // Only show passed accounts waiting for upgrade
-        .or('challenge_type.ilike.%phase 1%,challenge_type.ilike.%phase 2%,challenge_type.ilike.%step 1%,challenge_type.ilike.%step 2%,challenge_type.ilike.%1_step%,challenge_type.ilike.%2_step%')
-        .order("updated_at", { ascending: false })
-        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
-
-    // Apply Search
     if (query) {
-        // Search logic similar to accounts page if needed
-        // For now, simple ID/Login search
-        if (!isNaN(Number(query))) {
-            dbQuery = dbQuery.eq('login', query);
-        } else {
-            // Text search logic could go here
-        }
+        // Search by login ID
+        queryBuilder = queryBuilder.ilike('login', `%${query}%`);
     }
 
-    const { data: accounts, count, error } = await dbQuery;
+    const { data: accountsData, count: totalCount, error } = await queryBuilder;
 
     if (error) {
         console.error("Error fetching passed accounts:", error);
     }
 
-    // Fetch profiles separately
-    const userIds = [...new Set(accounts?.map((a: any) => a.user_id).filter(Boolean))];
-    const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .in('id', userIds);
+    // Manual join with profiles since Supabase might not have the relationship defined in schema
+    const userIds = Array.from(new Set(accountsData?.map(a => (a as any).user_id).filter(Boolean) || []));
+    let profilesData: any[] = [];
+    
+    if (userIds.length > 0) {
+        const { data: pData } = await supabase
+            .from('profiles')
+            .select('id, full_name, email')
+            .in('id', userIds);
+        profilesData = pData || [];
+    }
 
-    const profilesMap = new Map(profiles?.map((p: any) => [p.id, p]));
+    const eligibleAccounts = accountsData?.map(acc => ({
+        ...acc,
+        profiles: profilesData.find(p => p.id === (acc as any).user_id) || { full_name: 'Unknown', email: 'Unknown' }
+    }));
 
-    // Enrich accounts with profile data
-    const eligibleAccounts = accounts?.map((account: any) => ({
-        ...account,
-        profiles: profilesMap.get(account.user_id)
-    })) || [];
-
-    const totalPages = Math.ceil((count || 0) / PAGE_SIZE);
+    const totalPages = Math.ceil((totalCount || 0) / PAGE_SIZE);
 
     const formatCurrency = (val: number | string | undefined) => {
         if (val === undefined || val === null) return '-';

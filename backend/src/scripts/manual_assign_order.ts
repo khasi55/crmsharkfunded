@@ -84,7 +84,7 @@ async function main() {
         login: login,
         master_password: password,
         investor_password: investorPassword,
-        server: 'ALFX Limited', // Default
+        server: 'OCEAN MARKETS LIMITED', // Default
         platform: 'mt5',
         leverage: leverage,
         group: group,

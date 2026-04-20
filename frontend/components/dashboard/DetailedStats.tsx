@@ -32,13 +32,14 @@ export default function DetailedStats() {
             ];
         }
 
+        const days = statsData?.trading_days || 1;
         const trades = statsData?.total_trades || 0;
         const lots = statsData?.total_lots || 0;
         const win = statsData?.biggest_win || 0;
         const loss = statsData?.biggest_loss || 0;
 
         return [
-            { label: "Number of Days", value: "1", icon: Calendar },
+            { label: "Number of Days", value: String(days), icon: Calendar },
             { label: "Total Trades Taken", value: String(trades), icon: Hash },
             { label: "Total Lots Used", value: (lots).toFixed(2), icon: BarChart3 },
             { label: "Biggest Win", value: win > 0 ? `+$${win.toFixed(2)}` : "$0.00", icon: TrendingUp, color: "text-green-400" },

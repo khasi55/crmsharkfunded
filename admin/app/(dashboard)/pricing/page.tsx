@@ -42,6 +42,14 @@ const DEFAULT_PRICING = {
         '25K': { price: '$199', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
         '50K': { price: '$350', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
         '100K': { price: '$487', dailyLoss: '4%', maxLoss: '7%', target1: '-', target2: '-', consistencyRule: 'Yes' },
+    },
+    DirectFunded: {
+        '1K': { price: '$19', dailyLoss: '1%', maxLoss: '5%', target1: '-', target2: '-' },
+        '5K': { price: '$49', dailyLoss: '1%', maxLoss: '5%', target1: '-', target2: '-' },
+        '10K': { price: '$89', dailyLoss: '1%', maxLoss: '5%', target1: '-', target2: '-' },
+        '25K': { price: '$199', dailyLoss: '1%', maxLoss: '5%', target1: '-', target2: '-' },
+        '50K': { price: '$349', dailyLoss: '1%', maxLoss: '5%', target1: '-', target2: '-' },
+        '100K': { price: '$599', dailyLoss: '1%', maxLoss: '5%', target1: '-', target2: '-' },
     }
 };
 

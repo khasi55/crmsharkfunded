@@ -53,7 +53,7 @@ export class RulesService {
                 : 0;
         } else {
             const DEBUG = process.env.DEBUG === 'true';
-            if (DEBUG) console.warn(`[RulesService] No DB rule found for mapped type '${normalizedType}' (Original: ${challengeType}), using defaults`);
+            // if (DEBUG) console.warn(`[RulesService] No DB rule found for mapped type '${normalizedType}' (Original: ${challengeType}), using defaults`);
         }
 
         /* 
@@ -148,7 +148,7 @@ export class RulesService {
         // Fetch account details
         const { data: challenge, error } = await supabase
             .from('challenges')
-            .select('initial_balance, group, challenge_type, current_equity, start_of_day_equity, status')
+            .select('initial_balance, group, challenge_type, current_equity, start_of_day_equity, status, created_at')
             .eq('id', challengeId)
             .single();
 

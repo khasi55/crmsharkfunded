@@ -254,7 +254,7 @@ export default function RiskAnalysis({ account: initialAccount, data: initialDat
                     // 1% Loss Rule: Only show for Instant/Funded accounts
                     if (rule.key === 'loss_limit') {
                         const type = (selectedAccount?.account_type || '').toLowerCase();
-                        return type.includes('instant') || type.includes('funded');
+                        return type.includes('instant') || type.includes('funded') || type.includes('direct_funded');
                     }
                     return true;
                 }).map(rule => {

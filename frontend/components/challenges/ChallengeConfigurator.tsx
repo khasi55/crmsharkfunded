@@ -212,7 +212,7 @@ const SuccessModal = ({ credentials, onClose }: { credentials: any, onClose: () 
                         {[
                             { label: "Login", value: credentials.login },
                             { label: "Password", value: credentials.masterPassword },
-                            { label: "Server", value: credentials.server?.includes('AURO') ? 'STOX PIPS LIMITED' : (credentials.server || 'STOX PIPS LIMITED') },
+                            { label: "Server", value: credentials.server?.includes('AURO') ? 'OCEAN MARKETS  LIMITED' : (credentials.server || 'OCEAN MARKETS LIMITED') },
                             { label: "Platform", value: PLATFORMS.find(p => p.id === credentials.platform)?.label || credentials.platform },
                         ].map((item, i) => (
                             <div key={i} className="flex items-center justify-between p-3 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">

@@ -171,7 +171,7 @@ router.post('/:id/join', authenticate, async (req: AuthRequest, res: Response) =
                         login: mt5Data.login,
                         master_password: mt5Data.password,
                         investor_password: mt5Data.investor_password || '',
-                        server: 'ALFX Limited', // Using updated server name
+                        server: 'OCEAN MARKETS  LIMITED', // Using updated server name
                         platform: 'MT5',
                         leverage: 100,
                         challenge_type: 'Competition', // Correct type for competitions
@@ -209,7 +209,7 @@ router.post('/:id/join', authenticate, async (req: AuthRequest, res: Response) =
                             profile.full_name || 'Trader',
                             String(mt5Data.login),
                             mt5Data.password,
-                            'ALFX Limited',
+                            'OCEAN MARKETS  LIMITED',
                             mt5Data.investor_password
                         );
                     } catch (emailErr) {

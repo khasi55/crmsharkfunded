@@ -1,0 +1,11 @@
+select
+  timestamp,
+  user_name,
+  application_name,
+  connection_from,
+  JSON_EXTRACT_SCALAR(parsed[OFFSET(0)], '$.query') as query_text
+from postgres_logs
+where 
+  REGEXP_CONTAINS(JSON_EXTRACT_SCALAR(parsed[OFFSET(0)], '$.query'), r"(?i)UPDATE.*wallet_addresses")
+order by timestamp desc
+limit 50;

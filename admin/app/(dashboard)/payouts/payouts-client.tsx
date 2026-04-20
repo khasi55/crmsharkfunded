@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronRight, Copy, Eye, EyeOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { getPayoutRequests, getWalletAddresses, getBankDetails } from "@/app/actions/payout-actions";
 
 interface PayoutRequest {
     id: string;
@@ -81,7 +82,7 @@ export default function AdminPayoutsClient() {
         } else {
             fetchBankDetails();
         }
-    }, [activeTab]);
+    }, [activeTab, requestStatusFilter]);
 
     // Reset pagination when search query or filter changes
     useEffect(() => {
@@ -90,18 +91,13 @@ export default function AdminPayoutsClient() {
 
     async function fetchPayouts() {
         setLoading(true);
+        setError(null);
         try {
-            const response = await fetch('/api/payouts/admin');
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to fetch payouts');
-            }
-
-            setRequests(data.payouts || []);
+            const data = await getPayoutRequests(requestStatusFilter);
+            setRequests(data as any);
         } catch (err: any) {
-            console.error('Error fetching payouts:', err);
-            setError(err.message);
+            console.error("Error fetching payouts:", err);
+            setError("Failed to fetch payout requests");
         } finally {
             setLoading(false);
         }
@@ -109,18 +105,13 @@ export default function AdminPayoutsClient() {
 
     async function fetchWallets() {
         setLoading(true);
+        setError(null);
         try {
-            const response = await fetch('/api/payouts/admin/wallets');
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to fetch wallets');
-            }
-
-            setWallets(data.wallets || []);
+            const data = await getWalletAddresses();
+            setWallets(data as any);
         } catch (err: any) {
-            console.error('Error fetching wallets:', err);
-            setError(err.message);
+            console.error("Error fetching wallets:", err);
+            setError("Failed to fetch wallet addresses");
         } finally {
             setLoading(false);
         }
@@ -128,18 +119,13 @@ export default function AdminPayoutsClient() {
 
     async function fetchBankDetails() {
         setLoading(true);
+        setError(null);
         try {
-            const response = await fetch('/api/payouts/admin/bank-details');
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to fetch bank details');
-            }
-
-            setBankDetails(data.bankDetails || []);
+            const data = await getBankDetails();
+            setBankDetails(data as any);
         } catch (err: any) {
-            console.error('Error fetching bank details:', err);
-            setError(err.message);
+            console.error("Error fetching bank details:", err);
+            setError("Failed to fetch bank details");
         } finally {
             setLoading(false);
         }

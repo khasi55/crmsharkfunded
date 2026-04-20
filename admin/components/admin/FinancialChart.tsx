@@ -2,7 +2,7 @@
 
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, ComposedChart, Line } from 'recharts';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface FinancialDataPoint {
     date: string;
@@ -21,6 +21,11 @@ interface FinancialChartProps {
 
 export function FinancialChart({ data }: FinancialChartProps) {
     const [view, setView] = useState<'cumulative' | 'daily'>('cumulative');
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const formatCurrency = (value: number) =>
         new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
@@ -55,7 +60,8 @@ export function FinancialChart({ data }: FinancialChartProps) {
             </div>
 
             <div className="h-[380px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
+                {isMounted ? (
+                    <ResponsiveContainer width="100%" height="100%">
                     {view === 'cumulative' ? (
                         <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
@@ -120,7 +126,10 @@ export function FinancialChart({ data }: FinancialChartProps) {
                             <Line type="monotone" dataKey="net" name="Net Daily" stroke="#3b82f6" strokeWidth={3} dot={false} activeDot={{ r: 6, strokeWidth: 0 }} />
                         </ComposedChart>
                     )}
-                </ResponsiveContainer>
+                    </ResponsiveContainer>
+                ) : (
+                    <div className="w-full h-full bg-gray-50/50 animate-pulse rounded-xl" />
+                )}
             </div>
         </div>
     );

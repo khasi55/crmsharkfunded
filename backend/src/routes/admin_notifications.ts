@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 const router = Router();
 
 // GET /api/admin/notifications
-router.get('/', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, requireRole(['super_admin', 'admin', 'sub_admin', 'risk_admin', 'payouts_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { data, error } = await supabase
             .from('notifications')
@@ -23,7 +23,7 @@ router.get('/', authenticate, requireRole(['super_admin', 'admin']), async (req:
 });
 
 // POST /api/admin/notifications/mark-read
-router.post('/mark-read', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
+router.post('/mark-read', authenticate, requireRole(['super_admin', 'admin', 'sub_admin', 'risk_admin', 'payouts_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { id, all } = req.body;
 
@@ -50,7 +50,7 @@ router.post('/mark-read', authenticate, requireRole(['super_admin', 'admin']), a
 });
 
 // DELETE /api/admin/notifications/:id
-router.delete('/:id', authenticate, requireRole(['super_admin', 'admin']), async (req: AuthRequest, res: Response) => {
+router.delete('/:id', authenticate, requireRole(['super_admin', 'admin', 'sub_admin', 'risk_admin', 'payouts_admin']), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const { error } = await supabase

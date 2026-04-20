@@ -427,3 +427,103 @@ PayloadTooLargeError: request entity too large
     at next (/Users/viswanathreddy/Desktop/Sharkfunded/crmsharkfunded/backend/node_modules/express/lib/router/index.js:280:10)
     at cors (/Users/viswanathreddy/Desktop/Sharkfunded/crmsharkfunded/backend/node_modules/cors/lib/index.js:188:7)
 
+[2026-02-27T10:00:34.131Z] ERROR: My first Sentry error!
+Error: My first Sentry error!
+    at mainHandler (/Users/viswanathreddy/Desktop/Desktop - VISWANATH’s MacBook Pro/Sharkfunded/SharkfundedCRM/crmsharkfunded/backend/src/server.ts:288:11)
+    at Layer.handle [as handle_request] (/Users/viswanathreddy/Desktop/Desktop - VISWANATH’s MacBook Pro/Sharkfunded/SharkfundedCRM/crmsharkfunded/backend/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/viswanathreddy/Desktop/Desktop - VISWANATH’s MacBook Pro/Sharkfunded/SharkfundedCRM/crmsharkfunded/backend/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/viswanathreddy/Desktop/Desktop - VISWANATH’s MacBook Pro/Sharkfunded/SharkfundedCRM/crmsharkfunded/backend/node_modules/express/lib/router/route.js:119:3)
+    at <anonymous> (/Users/viswanathreddy/Desktop/Desktop - VISWANATH’s MacBook Pro/Sharkfunded/SharkfundedCRM/crmsharkfunded/backend/node_modules/@opentelemetry/context-async-hooks/src/AbstractAsyncHooksContextManager.ts:75:49)
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+    at SentryContextManager.with (/Users/viswanathreddy/Desktop/Desktop - VISWANATH’s MacBook Pro/Sharkfunded/SharkfundedCRM/crmsharkfunded/backend/node_modules/@opentelemetry/context-async-hooks/src/AsyncLocalStorageContextManager.ts:40:36)
+    at SentryContextManager.with (/Users/viswanathreddy/Desktop/Desktop - VISWANATH’s MacBook Pro/Sharkfunded/SharkfundedCRM/crmsharkfunded/backend/node_modules/@sentry/opentelemetry/src/contextManager.ts:83:24)
+    at contextWrapper (/Users/viswanathreddy/Desktop/Desktop - VISWANATH’s MacBook Pro/Sharkfunded/SharkfundedCRM/crmsharkfunded/backend/node_modules/@opentelemetry/context-async-hooks/src/AbstractAsyncHooksContextManager.ts:75:26)
+    at patched (/Users/viswanathreddy/Desktop/Desktop - VISWANATH’s MacBook Pro/Sharkfunded/SharkfundedCRM/crmsharkfunded/backend/node_modules/@opentelemetry/instrumentation-express/src/instrumentation.ts:308:57)
+
+[2026-03-19T12:20:04.723Z] SYNC ERROR for 900909503742: TypeError: fetch failed
+undefined
+
+[2026-03-19T12:20:06.036Z] SYNC ERROR for 900909502428: TypeError: fetch failed
+undefined
+
+[2026-03-21T00:00:17.070Z] SYNC ERROR for 900909504105: TypeError: fetch failed
+undefined
+
+[2026-03-21T00:00:17.345Z] SYNC ERROR for 900909503632: TypeError: fetch failed
+undefined
+
+[2026-03-21T00:00:17.538Z] SYNC ERROR for 900909504816: TypeError: fetch failed
+undefined
+
+[2026-03-23T01:04:52.110Z] SYNC ERROR for 900909504298: TypeError: fetch failed
+undefined
+
+[2026-03-24T06:33:36.413Z] SYNC ERROR for 900909501540: TypeError: fetch failed
+undefined
+
+[2026-03-24T06:57:23.516Z] SYNC ERROR for 900909493362: TypeError: fetch failed
+undefined
+
+[2026-03-24T06:58:38.927Z] SYNC ERROR for 900909505311: TypeError: fetch failed
+undefined
+
+[2026-03-24T06:58:39.131Z] SYNC ERROR for 900909503493: TypeError: fetch failed
+undefined
+
+[2026-03-24T06:58:39.132Z] SYNC ERROR for 900909499528: TypeError: fetch failed
+undefined
+
+[2026-03-24T06:58:39.166Z] SYNC ERROR for 900909504242: TypeError: fetch failed
+undefined
+
+[2026-03-24T06:58:39.167Z] SYNC ERROR for 900909502298: TypeError: fetch failed
+undefined
+
+[2026-03-24T06:58:39.167Z] SYNC ERROR for 900909505491: TypeError: fetch failed
+undefined
+
+[2026-03-24T06:58:39.168Z] SYNC ERROR for 900909503771: TypeError: fetch failed
+undefined
+
+[2026-03-24T08:15:30.287Z] SYNC ERROR for 900909505427: TypeError: fetch failed
+undefined
+
+[2026-03-24T09:19:19.177Z] SYNC ERROR for 900909494719: TypeError: fetch failed
+undefined
+
+[2026-03-24T12:11:27.596Z] SYNC ERROR for 900909497443: TypeError: fetch failed
+undefined
+
+[2026-03-24T12:11:28.097Z] SYNC ERROR for 900909504309: TypeError: fetch failed
+undefined
+
+[2026-03-24T12:11:28.098Z] SYNC ERROR for 900909505528: TypeError: fetch failed
+undefined
+
+[2026-03-24T13:05:34.885Z] SYNC ERROR for 900909505653: TypeError: fetch failed
+undefined
+
+[2026-03-24T13:05:34.913Z] SYNC ERROR for 900909504559: TypeError: fetch failed
+undefined
+
+[2026-03-24T13:05:34.940Z] SYNC ERROR for 900909495194: TypeError: fetch failed
+undefined
+
+[2026-03-24T13:05:34.989Z] SYNC ERROR for 900909505659: TypeError: fetch failed
+undefined
+
+[2026-03-24T13:05:35.090Z] SYNC ERROR for 900909505634: TypeError: fetch failed
+undefined
+
+[2026-03-24T13:18:47.134Z] SYNC ERROR for 900909505160: TypeError: fetch failed
+undefined
+
+[2026-03-24T13:18:47.157Z] SYNC ERROR for 900909505006: TypeError: fetch failed
+undefined
+
+[2026-04-11T21:56:25.925Z] SYNC ERROR for 900909504390: TypeError: fetch failed
+undefined
+
+[2026-04-11T21:56:26.740Z] SYNC ERROR for 900909501417: TypeError: fetch failed
+undefined
+

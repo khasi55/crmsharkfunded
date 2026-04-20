@@ -18,17 +18,19 @@ interface StatProps {
 
 function StatBox({ label, value, icon: Icon, isNegative, isPositive }: StatProps) {
     return (
-        <div className="bg-[#050923] border border-white/5 rounded-xl p-5 flex flex-col gap-3 min-w-[200px] hover:bg-[#050923]/80 transition-colors shadow-sm relative overflow-hidden">
-            <div className="flex items-center gap-2 text-slate-400">
-                <Icon size={14} className="opacity-70" />
-                <span className="text-xs font-medium tracking-wide">{label}</span>
+        <div className="bg-[#06000a] border border-white/10 rounded-3xl p-5 flex flex-col gap-2 min-w-[200px] hover:bg-white/[0.02] transition-colors relative overflow-hidden group">
+            <div className="flex items-center gap-2 text-slate-500">
+                <Icon size={12} className="opacity-70 group-hover:text-blue-400 transition-colors" />
+                <span className="text-[10px] font-bold uppercase tracking-widest leading-none">{label}</span>
             </div>
             <p className={cn(
-                "text-xl font-medium tracking-tight",
-                isNegative ? "text-red-500" : isPositive ? "text-green-500" : "text-white"
+                "text-lg font-black tracking-tight",
+                isNegative ? "text-[#ff5666]" : isPositive ? "text-[#04d97c]" : "text-white"
             )}>
                 {value}
             </p>
+            {/* Ambient Corner Glow */}
+            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 blur-2xl rounded-full translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
     );
 }
@@ -72,7 +74,7 @@ export default function AccountOverviewStats() {
     const initialBalance = selectedAccount.initial_balance || 100000;
 
     // Format dates - these could come from the account/challenge data
-    const created = (selectedAccount as any).created_at || new Date().toISOString();
+    const created = selectedAccount.created_at || new Date().toISOString();
     const startDate = new Date(created).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
     // Display PnL: Calculate directly from Equity/Balance relative to Initial Balance

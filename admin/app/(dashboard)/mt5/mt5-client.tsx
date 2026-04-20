@@ -260,6 +260,7 @@ export default function AdminMT5Client() {
         { label: "Prime - Instant Funding", value: "demo\\SF\\0-Pro" },
         { label: "Prime - 1-Step Challenge", value: "demo\\SF\\1-Pro" },
         { label: "Prime - 2-Step Challenge", value: "demo\\SF\\2-Pro" },
+        { label: "Direct - Funded", value: "demo\\S\\0-Direct-SF" },
         { label: "Funded Live Account", value: "SF Funded Live" },
     ];
 
@@ -475,6 +476,7 @@ export default function AdminMT5Client() {
                                                             const typeStr = (account.challenge_type || '').toLowerCase();
                                                             const groupStr = (account.mt5_group || account.group || '').toLowerCase();
                                                             if (typeStr.includes('prime') || groupStr.includes('pro')) return 'Prime';
+                                                            if (typeStr.includes('direct') || groupStr.includes('direct-sf')) return 'Direct';
                                                             if (typeStr.includes('lite') || groupStr.includes('-sf')) return 'Lite';
                                                             return 'Standard';
                                                         })()}
@@ -539,9 +541,21 @@ export default function AdminMT5Client() {
                                 <ChevronLeft className="h-4 w-4" />
                             </button>
                             <div className="flex items-center gap-1 px-2">
-                                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                    const pageNum = i + 1;
-                                    return (
+                                {(() => {
+                                    const pages = [];
+                                    const showMax = 5;
+                                    let startPage = Math.max(1, currentPage - Math.floor(showMax / 2));
+                                    let endPage = Math.min(totalPages, startPage + showMax - 1);
+
+                                    if (endPage - startPage + 1 < showMax) {
+                                        startPage = Math.max(1, endPage - showMax + 1);
+                                    }
+
+                                    for (let p = startPage; p <= endPage; p++) {
+                                        pages.push(p);
+                                    }
+
+                                    return pages.map(pageNum => (
                                         <button
                                             key={pageNum}
                                             onClick={() => setCurrentPage(pageNum)}
@@ -552,8 +566,8 @@ export default function AdminMT5Client() {
                                         >
                                             {pageNum}
                                         </button>
-                                    );
-                                })}
+                                    ));
+                                })()}
                             </div>
                             <button
                                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}

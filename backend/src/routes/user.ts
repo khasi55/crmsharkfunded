@@ -236,7 +236,10 @@ router.put('/update-password', authenticate, sensitiveLimiter, validateRequest(p
 });
 
 // POST /api/user/request-financial-otp - Request OTP for wallet/bank change
-router.post('/request-financial-otp', authenticate, sensitiveLimiter, validateRequest(requestFinancialOTPSchema), async (req: AuthRequest, res: Response) => {
+router.post('/request-financial-otp', authenticate, sensitiveLimiter, (req, res, next) => {
+    console.log('📬 OTP Request:', req.body);
+    next();
+}, validateRequest(requestFinancialOTPSchema), async (req: AuthRequest, res: Response) => {
     try {
         const user = req.user!;
         const { type } = req.body;

@@ -19,7 +19,7 @@ interface CredentialsModalProps {
 export default function CredentialsModal({ isOpen, onClose, account }: CredentialsModalProps) {
     const [showPassword, setShowPassword] = useState(false);
     const [copiedField, setCopiedField] = useState<string | null>(null);
-    
+
     // Password Change states
     const [isEditing, setIsEditing] = useState(false);
     const [newPassword, setNewPassword] = useState("");
@@ -41,13 +41,13 @@ export default function CredentialsModal({ isOpen, onClose, account }: Credentia
         const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
         const digits = "23456789";
         const symbols = "!@#$%^&*";
-        
+
         let password = "";
         password += lower[Math.floor(Math.random() * lower.length)];
         password += upper[Math.floor(Math.random() * upper.length)];
         password += digits[Math.floor(Math.random() * digits.length)];
         password += symbols[Math.floor(Math.random() * symbols.length)];
-        
+
         for (let i = 4; i < length; i++) {
             password += charset[Math.floor(Math.random() * charset.length)];
         }
@@ -190,7 +190,7 @@ export default function CredentialsModal({ isOpen, onClose, account }: Credentia
                         <div className="bg-slate-50 border-2 border-blue-500/50 rounded-xl p-4 space-y-3 animate-in zoom-in-95">
                             <div className="flex justify-between items-center">
                                 <label className="text-xs text-slate-500 font-bold uppercase tracking-wider">New Master Password</label>
-                                <button 
+                                <button
                                     onClick={() => setIsEditing(false)}
                                     className="text-xs text-slate-400 hover:text-slate-600 font-bold"
                                 >
@@ -198,14 +198,14 @@ export default function CredentialsModal({ isOpen, onClose, account }: Credentia
                                 </button>
                             </div>
                             <div className="relative">
-                                <input 
+                                <input
                                     type="text"
                                     value={newPassword}
                                     onChange={(e) => setNewPassword(e.target.value)}
                                     placeholder="Enter new password..."
                                     className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none"
                                 />
-                                <button 
+                                <button
                                     onClick={() => setNewPassword(generateRandomPassword())}
                                     className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-blue-50 text-blue-500 rounded-md transition-all"
                                     title="Auto-generate"
@@ -238,7 +238,7 @@ export default function CredentialsModal({ isOpen, onClose, account }: Credentia
 
                     <CredentialRow
                         label="Server"
-                        value={account.server?.includes('AURO') ? 'OCEAN MARKETS INVESTMENT LIMITED' : (account.server || 'OCEAN MARKETS INVESTMENT LIMITED')}
+                        value={account.server?.includes('AURO') ? 'OCEAN MARKETS  LIMITED' : (account.server || 'OCEAN MARKETS LIMITED')}
                         field="server"
                         icon={Server}
                     />
