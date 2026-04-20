@@ -1,8 +1,10 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { fetchFromBackend } from '@/lib/backend-api';
+import { useSocket } from './SocketContext';
+import { useChallengeSubscription } from '@/hooks/useChallengeSocket';
 
 interface Account {
     id: string;
@@ -21,6 +23,8 @@ interface Account {
     metadata?: any;
     is_public?: boolean;
     share_token?: string;
+    is_archived?: boolean;
+    created_at?: string;
 }
 
 interface AccountContextType {
@@ -29,6 +33,7 @@ interface AccountContextType {
     accounts: Account[];
     loading: boolean;
     refreshAccounts: () => Promise<void>;
+    archiveAccount: (id: string, isArchived: boolean) => Promise<void>;
 }
 
 const AccountContext = createContext<AccountContextType | undefined>(undefined);
@@ -37,6 +42,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [loading, setLoading] = useState(true);
+    const lastSocketUpdateRef = useRef<number>(0);
 
     useEffect(() => {
         // Realtime Subscription for Account Updates
@@ -52,24 +58,46 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
         fetchAccounts();
 
-        const channel = supabase
-            .channel('realtime-accounts')
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'challenges',
-                },
-                (payload) => {
+        const initRealtime = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
 
-                    fetchAccounts(); // Refresh accounts when any change happens
-                }
-            )
-            .subscribe();
+            const filter = `user_id=eq.${user.id}`;
+
+            const channel = supabase
+                .channel(`realtime-accounts-${user.id}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'UPDATE',
+                        schema: 'public',
+                        table: 'challenges',
+                        filter: filter
+                    },
+                    (payload) => {
+                        // Only refresh if NOT a minor equity change already handled by WebSocket
+                        // or if we haven't had a socket update in the last 2 seconds
+                        const now = Date.now();
+                        if (now - lastSocketUpdateRef.current > 2000) {
+                            fetchAccounts();
+                        } else {
+                            // If it's a status change, we MUST refresh regardless
+                            if (payload.new.status !== payload.old.status) {
+                                fetchAccounts();
+                            }
+                        }
+                    }
+                )
+                .subscribe();
+
+            return channel;
+        };
+
+        let activeChannel: any = null;
+        initRealtime().then(ch => { activeChannel = ch; });
 
         return () => {
-            supabase.removeChannel(channel);
+            if (activeChannel) supabase.removeChannel(activeChannel);
         };
     }, []);
 
@@ -90,7 +118,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                     user_id: challenge.user_id,
                     login: challenge.login,
                     password: challenge.master_password,
-                    server: challenge.server?.includes('AURO') ? 'BULGE GROUP INVESTMENT LIMITED' : (challenge.server || 'BULGE GROUP INVESTMENT LIMITED'),
+                    server: challenge.server?.includes('AURO') ? 'OCEAN MARKETS INVESTMENT LIMITED' : (challenge.server || 'OCEAN MARKETS INVESTMENT LIMITED'),
                     account_number: challenge.challenge_number || `SF-${challenge.id.slice(0, 8)}`,
                     account_type: challenge.challenge_type || 'Phase 1',
                     balance: Number(challenge.current_balance),
@@ -101,6 +129,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                     metadata: challenge.metadata,
                     is_public: challenge.is_public,
                     share_token: challenge.share_token,
+                    is_archived: !!challenge.is_archived,
+                    created_at: challenge.created_at,
                 }));
 
                 // Optimize: Only update state if data actually changed
@@ -116,29 +146,99 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                     // Update currently selected account with fresh data
                     const updatedCurrent = accountsData.find((a: any) => a.id === selectedAccount.id);
                     if (updatedCurrent) {
-                        // Only update if data changed to prevent excessive re-renders
-                        // We compare key metrics: balance, equity, status
-                        if (
-                            updatedCurrent.balance !== selectedAccount.balance ||
-                            updatedCurrent.equity !== selectedAccount.equity ||
-                            updatedCurrent.status !== selectedAccount.status ||
-                            updatedCurrent.is_public !== selectedAccount.is_public ||
-                            updatedCurrent.share_token !== selectedAccount.share_token
-                        ) {
+                        // FRESHNESS LOCK: If we had a socket update in the last 3s,
+                        // don't let the DB fetch overwrite the high-precision equity/balance
+                        // unless there's a significant gap.
+                        const now = Date.now();
+                        const isRecentlyUpdatedBySocket = (now - lastSocketUpdateRef.current) < 3000;
+
+                        const hasStatusChanged = updatedCurrent.status !== selectedAccount.status;
+                        const hasEquityChangedSignificant = Math.abs(updatedCurrent.equity - selectedAccount.equity) > 0.01;
+
+                        if (hasStatusChanged || (!isRecentlyUpdatedBySocket && hasEquityChangedSignificant)) {
                             setSelectedAccount(updatedCurrent);
                         }
                     }
                 }
             }
         } catch (error) {
-            console.error('Error fetching accounts:', error);
+            // Error logged silently in production
         } finally {
             setLoading(false);
         }
     };
 
+    // WebSocket Listener for real-time updates
+    const { socket } = useSocket();
+    useChallengeSubscription(selectedAccount?.id);
+
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleBalanceUpdate = (update: any) => {
+            // Update freshness lock
+            lastSocketUpdateRef.current = Date.now();
+
+            // Update the selected account if it matches
+            setSelectedAccount(prev => {
+                if (!prev) return null;
+                const matches = prev.id === update.challenge_id || prev.id === update.id;
+                
+                if (matches) {
+                    // Update only if values changed
+                    if (prev.equity !== update.equity || prev.balance !== update.balance) {
+                        return {
+                            ...prev,
+                            equity: update.equity,
+                            balance: update.balance || prev.balance
+                        };
+                    }
+                }
+                return prev;
+            });
+
+            // Update in the accounts list too
+            setAccounts(prev => {
+                return prev.map(acc => {
+                    const matches = acc.id === update.challenge_id || acc.id === update.id;
+                    if (matches) {
+                        if (acc.equity !== update.equity || acc.balance !== update.balance) {
+                            return {
+                                ...acc,
+                                equity: update.equity,
+                                balance: update.balance || acc.balance
+                            };
+                        }
+                    }
+                    return acc;
+                });
+            });
+        };
+
+        socket.on('balance_update', handleBalanceUpdate);
+        return () => {
+            socket.off('balance_update', handleBalanceUpdate);
+        };
+    }, [socket]);
+
+    const archiveAccount = async (id: string, isArchived: boolean) => {
+        try {
+            await fetchFromBackend('/api/dashboard/archive-account', {
+                method: 'POST',
+                body: JSON.stringify({
+                    challenge_id: id,
+                    is_archived: isArchived
+                })
+            });
+            await fetchAccounts();
+        } catch (error) {
+            console.error('Failed to archive account:', error);
+            throw error;
+        }
+    };
+
     return (
-        <AccountContext.Provider value={{ selectedAccount, setSelectedAccount, accounts, loading, refreshAccounts: fetchAccounts }}>
+        <AccountContext.Provider value={{ selectedAccount, setSelectedAccount, accounts, loading, refreshAccounts: fetchAccounts, archiveAccount }}>
             {children}
         </AccountContext.Provider>
     );

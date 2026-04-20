@@ -152,10 +152,10 @@ router.post('/send-account-credentials', authenticate, requireRole(['super_admin
         }
 
         // Create email content
-        const subject = `Your Bulge Group Investment Limited MT5 Account Credentials - ${planType}`;
+        const subject = `Your SharkFunded  MT5 Account Credentials - ${planType}`;
         const htmlContent = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #4F46E5;">Welcome to Bulge Group Investment Limited!</h2>
+                <h2 style="color: #4F46E5;">Welcome to Ocean Markets Investment Limited!</h2>
                 <p>Hi ${name},</p>
                 <p>Your MT5 trading account has been successfully created. Here are your credentials:</p>
                 
@@ -184,7 +184,7 @@ router.post('/send-account-credentials', authenticate, requireRole(['super_admin
                         </tr>
                         <tr>
                             <td style="padding: 8px 0;"><strong>Server:</strong></td>
-                            <td style="padding: 8px 0;">BULGE GROUP INVESTMENT LIMITED</td>
+                            <td style="padding: 8px 0;">OCEAN MARKETS INVESTMENT LIMITED</td>
                         </tr>
                         <tr>
                             <td style="padding: 8px 0;"><strong>MT5 Group:</strong></td>
@@ -206,12 +206,12 @@ router.post('/send-account-credentials', authenticate, requireRole(['super_admin
 
                 <p style="color: #6B7280; margin-top: 30px;">If you have any questions, please contact our support team.</p>
                 
-                <p style="color: #6B7280;">Best regards,<br><strong>Bulge Group Investment Limited Team</strong></p>
+                <p style="color: #6B7280;">Best regards,<br><strong>Ocean Markets Investment Limited Team</strong></p>
             </div>
         `;
 
         const textContent = `
-Welcome to Bulge Group Investment Limited!
+Welcome to Ocean Markets Investment Limited!
 
 Hi ${name},
 
@@ -223,7 +223,7 @@ Account Details:
 - MT5 Login: ${login}
 - Master Password: ${masterPassword}
 - Investor Password: ${investorPassword}
-- Server: BULGE GROUP INVESTMENT LIMITED
+- Server: OCEAN MARKETS INVESTMENT LIMITED
 - MT5 Group: ${mt5Group}
 
 IMPORTANT: Keep your master password secure. Never share it with anyone.
@@ -236,7 +236,7 @@ Next Steps:
 If you have any questions, please contact our support team.
 
 Best regards,
-Bulge Group Investment Limited Team
+Ocean Markets Investment Limited Team
         `;
 
         // Send the email using the Nodemailer service
@@ -245,7 +245,7 @@ Bulge Group Investment Limited Team
             name,
             login,
             masterPassword,
-            'BULGE GROUP INVESTMENT LIMITED',
+            'OCEAN MARKETS INVESTMENT LIMITED',
             investorPassword
         );
 

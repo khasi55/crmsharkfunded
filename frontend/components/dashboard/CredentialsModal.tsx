@@ -91,7 +91,7 @@ export default function CredentialsModal({ isOpen, onClose, account }: Credentia
                 </div>
                 <div className="min-w-0 flex-1">
                     <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-0.5">{label}</p>
-                    <p className="text-slate-900 font-mono font-medium text-lg tracking-wide select-all truncate">
+                    <p className="text-slate-900 font-mono font-medium text-sm sm:text-base tracking-wide select-all break-all sm:break-normal">
                         {isPassword && !showPassword ? '••••••••••' : value}
                     </p>
                 </div>
@@ -238,7 +238,7 @@ export default function CredentialsModal({ isOpen, onClose, account }: Credentia
 
                     <CredentialRow
                         label="Server"
-                        value={account.server?.includes('AURO') ? 'BULGE GROUP INVESTMENT LIMITED' : (account.server || 'BULGE GROUP INVESTMENT LIMITED')}
+                        value={account.server?.includes('AURO') ? 'OCEAN MARKETS INVESTMENT LIMITED' : (account.server || 'OCEAN MARKETS INVESTMENT LIMITED')}
                         field="server"
                         icon={Server}
                     />
