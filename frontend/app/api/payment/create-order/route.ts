@@ -37,6 +37,8 @@ export async function POST(request: NextRequest) {
                 if (type === 'instant') mt5Group = 'demo\\SF\\0-Pro';
                 else if (type === '1-step') mt5Group = 'demo\\SF\\1-Pro';
                 else if (type === '2-step') mt5Group = 'demo\\SF\\2-Pro';
+            } else if (model === 'bolt') {
+                mt5Group = 'demo\\S\\0-Direct-SF';
             }
         }
 

@@ -286,21 +286,26 @@ function CheckoutContent() {
         try {
             // 1. Determine MT5 Group based on Brand
             let mt5Group = '';
+
             // Lite (S folders)
-            if (model === 'lite') {
-                if (type === 'Instant') mt5Group = 'OC\\contest\\S\\2';
-                else if (type === '1-step') mt5Group = 'OC\\contest\\S\\3';
-                else if (type === '2-step') mt5Group = 'OC\\contest\\S\\4';
+            if (model === 'lite' || model === 'standard') {
+                if (type === 'Instant') mt5Group = 'demo\\S\\0-SF';
+                else if (type === '1-step') mt5Group = 'demo\\S\\1-SF';
+                else if (type === '2-step') mt5Group = 'demo\\S\\2-SF';
             }
             // Prime (SF folders)
-            else if (model === 'prime') {
-                if (type === 'Instant') mt5Group = 'OC\\contest\\S\\6';
-                else if (type === '1-step') mt5Group = 'OC\\contest\\S\\7';
-                else if (type === '2-step') mt5Group = 'OC\\contest\\S\\8';
+            else if (model === 'prime' || model === 'pro' || model === 'prime-pro') {
+                if (type === 'Instant') mt5Group = 'demo\\SF\\0-Pro';
+                else if (type === '1-step') mt5Group = 'demo\\SF\\1-Pro';
+                else if (type === '2-step') mt5Group = 'demo\\SF\\2-Pro';
             }
             // Bolt
             else if (model === 'bolt') {
-                mt5Group = 'OC\\contest\\S\\1';
+                mt5Group = 'demo\\S\\0-Direct-SF';
+            }
+            // Competition
+            else if (type === 'competition' || model === 'competition') {
+                mt5Group = 'demo\\SF\\0-Demo\\comp';
             }
 
             // Call backend payment API

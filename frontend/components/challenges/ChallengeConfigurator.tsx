@@ -477,19 +477,19 @@ export default function ChallengeConfigurator() {
 
             // Lite Mappings
             if (model === 'lite' || model === 'standard') {
-                if (type === 'Instant') mt5Group = 'OC\\contest\\S\\2';
-                else if (type === '1-step') mt5Group = 'OC\\contest\\S\\3';
-                else if (type === '2-step') mt5Group = 'OC\\contest\\S\\4';
+                if (type === 'Instant') mt5Group = 'demo\\S\\0-SF';
+                else if (type === '1-step') mt5Group = 'demo\\S\\1-SF';
+                else if (type === '2-step') mt5Group = 'demo\\S\\2-SF';
             }
             // Prime Mappings
             else if (model === 'prime' || model === 'pro') {
-                if (type === 'Instant') mt5Group = 'OC\\contest\\S\\6';
-                else if (type === '1-step') mt5Group = 'OC\\contest\\S\\7';
-                else if (type === '2-step') mt5Group = 'OC\\contest\\S\\8';
+                if (type === 'Instant') mt5Group = 'demo\\SF\\0-Pro';
+                else if (type === '1-step') mt5Group = 'demo\\SF\\1-Pro';
+                else if (type === '2-step') mt5Group = 'demo\\SF\\2-Pro';
             }
             // Bolt Mappings
             else if (model === 'bolt') {
-                mt5Group = 'OC\\contest\\S\\1';
+                mt5Group = 'demo\\S\\0-Direct-SF';
             }
 
             // Call backend payment API instead of direct gateway
