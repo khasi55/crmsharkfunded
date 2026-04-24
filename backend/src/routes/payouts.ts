@@ -103,7 +103,8 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
 
             const challengeData = accountsRaw?.find(a => a.id === acc.id);
             const refDate = latestPayout ? new Date(latestPayout.created_at) : new Date(challengeData?.created_at || Date.now());
-            const minProfitReq = Number(challengeData?.initial_balance || 0) * 0.0025;
+            const isBolt = challengeData?.challenge_type === 'direct_funded' || (challengeData?.mt5_group || '').toLowerCase().includes('direct');
+            const minProfitReq = Number(challengeData?.initial_balance || 0) * (isBolt ? 0.01 : 0.0025);
             const curProfit = Number(challengeData?.current_balance || 0) - Number(challengeData?.initial_balance || 0);
 
             const payoutEligibility = {
@@ -121,7 +122,7 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
         }));
 
         const availablePayout = accountsWithEligibility.reduce((sum: number, acc: any) => sum + acc.available, 0);
-        const profitTargetMet = availablePayout > 0;
+        const profitTargetMet = accountsWithEligibility.some((acc: any) => acc.payout_eligibility?.profit_met === true);
 
         // Fetch payout history
         const { data: payouts } = await supabase
@@ -461,48 +462,32 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
 
         // if (DEBUG) console.log(`[Payout Request] Proceeding with account: ${account.id}, Account Type: ${account.account_type_id}`);
 
-        // 2.2 New Payout Rules Enforcement (0.25% Profit Share Requirement)
-        const { data: lastProcessedPayout } = await supabase
-            .from('payout_requests')
-            .select('created_at')
-            .filter('metadata->>challenge_id', 'eq', account.id)
-            .eq('status', 'processed')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-        /* 
-        const minProfitRequired = Number(account.initial_balance) * 0.0025;
-        const currentProf = Number(account.current_balance) - Number(account.initial_balance);
-
-        if (currentProf < minProfitRequired) {
-            return res.status(400).json({
-                error: `Minimum profit requirement not met. You need at least $${minProfitRequired.toFixed(2)} total profit (Current: $${currentProf.toFixed(2)}).`
-            });
-        }
-        */
-
-        // 2. Validate Consistency (INSTANT ACCOUNTS ONLY)
+        // 1. Resolve Account Type and MT5 Group
         let mt5Group = '';
         let isInstant = false;
 
         if (account.account_type_id) {
-            const { data: accountType, error: acTypeError } = await supabase
+            const { data: accountType } = await supabase
                 .from('account_types')
                 .select('mt5_group_name')
                 .eq('id', account.account_type_id)
                 .maybeSingle();
 
-            if (acTypeError) {
-                // console.error('[Payout Request] Account type fetch error:', acTypeError);
-            } else if (accountType) {
+            if (accountType) {
                 mt5Group = accountType.mt5_group_name || '';
             }
-        } else {
-            // if (DEBUG) console.warn(`[Payout Request] Account ${account.id} has NO account_type_id. Skipping strict group check.`);
         }
 
-        // if (DEBUG) console.log(`[Payout Request] Resolved MT5 Group: ${mt5Group} (from ID: ${account.account_type_id})`);
+        const isBoltAccount = account.challenge_type === 'direct_funded' || (mt5Group || '').toLowerCase().includes('direct');
+        const minProfitRequired = Number(account.initial_balance) * (isBoltAccount ? 0.01 : 0.0025);
+        const currentProf = Number(account.current_balance) - Number(account.initial_balance);
+
+        if (currentProf < minProfitRequired) {
+            return res.status(400).json({
+                error: `Minimum profit requirement not met. ${isBoltAccount ? 'Bolt accounts require 1% total profit' : 'You need at least 0.25% total profit'} (Required: $${minProfitRequired.toFixed(2)}, Current: $${currentProf.toFixed(2)}).`
+            });
+        }
+
 
         // Fallback: Check challenge_type if mt5Group logic didn't catch it
         if (mt5Group) {

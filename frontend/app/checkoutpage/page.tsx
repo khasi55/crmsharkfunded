@@ -2,10 +2,8 @@
 
 import { useSearchParams } from "next/navigation";
 import { useState, useEffect, Suspense, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { Check, Loader2, ArrowRight, Wallet, ShieldCheck, Zap, Trophy, Globe, Info, CreditCard, X } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import Link from "next/link";
 import PublicSidebar from "@/components/layout/PublicSidebar";
 import { COUNTRIES } from "@/lib/countries";
 import { pricingConfig, getSizeKey, getConfigKey } from "@/components/challenges/ChallengeConfigurator";
@@ -230,7 +228,7 @@ function CheckoutContent() {
         if (coupon.trim()) {
             handleApplyCoupon();
         }
-        
+
         // Track View Item on Config Change
         const basePrice = getBasePrice();
         if (basePrice > 0) {
@@ -494,6 +492,26 @@ function CheckoutContent() {
                                             onClick={() => setPlatform(p.id)}
                                         />
                                     ))}
+                                </div>
+                            </section>
+
+                            {/* Trading Rules / Payout Eligibility */}
+                            <section className="bg-blue-50/50 rounded-2xl p-6 border border-blue-100">
+                                <div className="flex items-center gap-2 mb-4 text-blue-600">
+                                    <ShieldCheck size={20} />
+                                    <h3 className="text-lg font-bold">Trading Rules</h3>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="flex flex-col gap-1 p-3 bg-white border border-slate-200 rounded-xl">
+                                        <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Payout Eligibility</span>
+                                        <span className="text-sm font-bold text-slate-800">
+                                            {model === 'bolt' ? 'Min. 1% Profit of Equity Required' : 'Standard Payout Rules Apply'}
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col gap-1 p-3 bg-white border border-slate-200 rounded-xl">
+                                        <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Trading Days</span>
+                                        <span className="text-sm font-bold text-slate-800 font-mono">Minimum 3 Trading Days</span>
+                                    </div>
                                 </div>
                             </section>
                         </div>

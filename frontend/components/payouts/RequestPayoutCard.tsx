@@ -255,8 +255,8 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                                     className="bg-[#0a0f2d] border border-shark-blue/30 rounded-xl p-4 space-y-3"
                                 >
                                     <div className="flex items-center gap-2 mb-1">
-                                        <Shield size={14} className="text-shark-blue" />
-                                        <span className="text-[10px] text-shark-blue uppercase font-black tracking-widest">Verification Code</span>
+                                        <Shield size={14} className="text-[#3b82f6]" />
+                                        <span className="text-[10px] text-[#3b82f6] uppercase font-black tracking-widest">Verification Code</span>
                                     </div>
                                     <input
                                         type="text"
@@ -264,9 +264,9 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                                         value={otpCode}
                                         onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
                                         placeholder="Enter 6-digit OTP"
-                                        className="w-full bg-black/40 border border-white/10 rounded-lg py-3 text-center text-xl font-bold tracking-[0.5em] text-white focus:outline-none focus:border-shark-blue placeholder:text-gray-600 placeholder:tracking-normal placeholder:text-sm"
+                                        className="w-full bg-black/40 border border-white/10 rounded-lg py-3 text-center text-xl font-bold tracking-[0.5em] text-white focus:outline-none focus:border-blue-500 placeholder:text-gray-400 placeholder:tracking-normal placeholder:text-sm"
                                     />
-                                    <p className="text-[10px] text-gray-400 text-center">Check your email for the code</p>
+                                    <p className="text-[10px] text-gray-300 text-center font-medium opacity-80">Check your email for the 6-digit code</p>
                                 </motion.div>
                             )}
                         </div>
@@ -355,6 +355,22 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                                         </select>
                                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
                                     </div>
+                                    {selectedAccountId && getSelectedAccount()?.payout_eligibility && (
+                                        <div className={cn(
+                                            "mt-2 mb-4 p-3 rounded-lg border flex items-center justify-between transition-colors",
+                                            getSelectedAccount()?.payout_eligibility?.profit_met 
+                                                ? "bg-green-500/10 border-green-500/20 text-green-400" 
+                                                : "bg-orange-500/10 border-orange-500/20 text-orange-400"
+                                        )}>
+                                            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
+                                                {getSelectedAccount()?.payout_eligibility?.profit_met ? <CheckCircle size={14} /> : <AlertTriangle size={14} />}
+                                                Profit Requirement: {getSelectedAccount()?.payout_eligibility?.profit_met ? 'Met' : 'Not Met'}
+                                            </div>
+                                            <span className="text-xs font-mono">
+                                                ${getSelectedAccount()?.payout_eligibility?.current_profit.toFixed(0)} / ${getSelectedAccount()?.payout_eligibility?.min_profit_amount.toFixed(0)}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 

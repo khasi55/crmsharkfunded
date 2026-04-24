@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Check, Info, CreditCard, ChevronDown, ChevronUp, Lock, Loader2, Copy, X } from "lucide-react";
+import { Check, Info, CreditCard, ChevronDown, ChevronUp, Lock, Loader2, Copy, X, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -695,6 +695,26 @@ export default function ChallengeConfigurator() {
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    </section>
+                    
+                    {/* 7. Trading Rules / Payout Eligibility */}
+                    <section className="bg-primary/5 rounded-2xl p-6 border border-primary/20">
+                        <div className="flex items-center gap-2 mb-4 text-primary">
+                            <ShieldCheck size={20} />
+                            <h3 className="text-lg font-bold">Trading Rules</h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="flex flex-col gap-1 p-3 bg-card border border-border rounded-xl shadow-sm hover:border-primary/50 transition-colors">
+                                <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Payout Eligibility</span>
+                                <span className="text-sm font-bold">
+                                    {model === 'bolt' ? 'Min. 1% Profit of Equity Required' : 'Standard Payout Rules Apply'}
+                                </span>
+                            </div>
+                            <div className="flex flex-col gap-1 p-3 bg-card border border-border rounded-xl shadow-sm hover:border-primary/50 transition-colors">
+                                <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Trading Days</span>
+                                <span className="text-sm font-bold font-mono">Minimum 3 Trading Days</span>
+                            </div>
                         </div>
                     </section>
 

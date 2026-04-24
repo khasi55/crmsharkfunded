@@ -181,9 +181,10 @@ export default function PayoutsPage() {
                         <ul className="space-y-3">
                             {[
                                 { label: "Funded Account Active", status: eligibility.fundedAccountActive },
+                                { label: "KYC Verified", status: eligibility.kycVerified },
+                                { label: "Profit Target Met", status: eligibility.profitTargetMet },
                                 { label: "Wallet Connected", status: eligibility.walletConnected },
                                 { label: "Bank Details Connected", status: eligibility.bankDetailsConnected },
-                                { label: "KYC Verified", status: eligibility.kycVerified },
                             ].map((item, i) => (
                                 <li key={i} className="flex items-center justify-between text-sm">
                                     <span className="text-gray-300 font-medium">{item.label}</span>
