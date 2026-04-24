@@ -14,94 +14,67 @@ interface DayPerformanceChartProps {
 
 export default function DayPerformanceChart({ data }: DayPerformanceChartProps) {
     const defaultData = [
-        { label: "MON", value: 50 },
-        { label: "TUE", value: -70 },
-        { label: "WED", value: 110 },
-        { label: "THU", value: 150 },
-        { label: "FRI", value: -90 },
+        { label: "Mon", value: 0 },
+        { label: "Tue", value: 0 },
+        { label: "Wed", value: 0 },
+        { label: "Thu", value: 0 },
+        { label: "Fri", value: 0 },
     ];
 
-    const days = (data || defaultData).map(d => ({
-        ...d,
-        value: Math.round(d.value) // Ensure integers to prevent overlap
-    }));
+    const days = data || defaultData;
 
-    const maxValue = Math.max(...days.map(d => Math.abs(d.value)), 1);
+
+    const maxValue = Math.max(...days.map(d => Math.abs(d.value)));
     const bestDay = days.reduce((a, b) => a.value > b.value ? a : b);
 
     return (
-        <div className="bg-[#06000a] border-[0.5px] border-[#e5e5e580] rounded-3xl p-6 relative overflow-hidden flex flex-col h-full min-h-[300px] group">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6 relative z-10">
-                <h3 className="text-[#e5e5e5] text-[18px] font-semibold tracking-[-0.6px]">
-                    Daily Performance
-                </h3>
-                <div className="flex items-center gap-[8px]">
-                    <span className="text-[#666] text-[11px] font-semibold uppercase whitespace-nowrap">BEST DAY</span>
-                    <div className="bg-[#091c2b] border-[0.5px] border-[#04d97c80] px-[10px] py-[4px] rounded-[5px]">
-                        <span className="text-[#04d97c] text-[11px] font-bold">{bestDay.label}</span>
-                    </div>
+        <div className="flex flex-col h-full justify-between pb-2 bg-[#050923] rounded-2xl border border-white/5 p-6 relative overflow-hidden group">
+            <h3 className="text-white font-medium text-lg relative z-10 flex justify-between items-center mb-6">
+                Daily Performance
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase font-semibold text-gray-500">Best Day</span>
+                    <span className="text-xs font-bold text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded-md">{bestDay.label}</span>
                 </div>
-            </div>
+            </h3>
 
-            <div className="flex-1 flex flex-col relative z-10 w-full min-h-0">
-                {/* Chart Area */}
-                <div className="flex-[0.6] flex items-end justify-around relative mb-6 w-full px-2 mt-4">
-                    {/* Background Grid Lines */}
-                    <div className="absolute inset-x-0 bottom-0 top-0 flex flex-col justify-between pointer-events-none opacity-20 h-full">
-                        {[...Array(5)].map((_, i) => (
-                            <div key={i} className="w-full h-px border-t border-dashed border-[#808080]" />
-                        ))}
-                    </div>
+            <div className="flex-1 flex items-end justify-between gap-4 mt-2 px-2 relative">
+                {/* Background Grid */}
+                <div className="absolute inset-0 z-0 flex flex-col justify-between pointer-events-none opacity-20">
+                    <div className="w-full h-px bg-dashed border-t border-gray-600"></div>
+                    <div className="w-full h-px bg-dashed border-t border-gray-600"></div>
+                    <div className="w-full h-px bg-dashed border-t border-gray-600"></div>
+                </div>
 
-                    {days.map((day, i) => {
-                        const heightPercentage = (Math.abs(day.value) / maxValue) * 100;
-                        const isPositive = day.value >= 0;
+                {days.map((day, i) => {
+                    const height = (Math.abs(day.value) / maxValue) * 100;
+                    const isPositive = day.value >= 0;
 
-                        return (
-                            <div key={day.label} className="relative flex flex-col items-center w-[16%] h-full justify-end group">
+                    return (
+                        <div key={day.label} className="flex flex-col items-center gap-3 flex-1 group z-10">
+                            <div className="w-full h-[150px] flex items-end justify-center rounded-2xl bg-[#0a0f1c] border border-white/5 overflow-hidden relative shadow-inner">
+                                {/* Bar */}
                                 <motion.div
                                     initial={{ height: 0 }}
-                                    animate={{ height: `${Math.max(heightPercentage, 4)}%` }}
-                                    transition={{ duration: 0.8, delay: i * 0.1, ease: "easeOut" }}
-                                    className="w-full rounded-t-[8px] relative z-10"
-                                    style={{
-                                        background: isPositive 
-                                            ? "linear-gradient(180deg, #05d97c 0%, #03a65e 100%)" 
-                                            : "linear-gradient(180deg, #ff5666 0%, #c43a48 100%)",
-                                        boxShadow: isPositive 
-                                            ? "0 4px 15px rgba(5, 217, 124, 0.2)" 
-                                            : "0 4px 15px rgba(255, 86, 102, 0.2)"
-                                    }}
-                                />
-                            </div>
-                        );
-                    })}
-                </div>
-
-                {/* Values and Labels Row */}
-                <div className="flex justify-around items-center w-full px-2">
-                    {days.map((day) => {
-                        const isPositive = day.value >= 0;
-                        return (
-                            <div key={day.label} className="flex flex-col items-center gap-2 w-[16%]">
-                                <span 
-                                    className="text-[13px] lg:text-[16px] font-bold tracking-tight text-center"
-                                    style={{ color: isPositive ? '#04d97c' : '#ff5666' }}
+                                    animate={{ height: `${height}%` }}
+                                    transition={{ duration: 0.8, delay: i * 0.1, type: "spring", stiffness: 100 }}
+                                    className={`w-1/2 rounded-t-lg relative group-hover:w-3/4 transition-all duration-300 ${isPositive ? 'bg-gradient-to-t from-green-600 to-green-400' : 'bg-gradient-to-t from-red-600 to-red-400'}`}
                                 >
-                                    {isPositive ? '+' : ''}{day.value}
-                                </span>
-                                <span className="text-[#808080] text-[10px] lg:text-[13px] font-medium uppercase tracking-wider">
-                                    {day.label}
-                                </span>
+                                    {/* Top Glow */}
+                                    <div className={`absolute top-0 left-0 right-0 h-[2px] ${isPositive ? 'bg-green-300 shadow-[0_0_10px_rgba(34,197,94,0.8)]' : 'bg-red-300 shadow-[0_0_10px_rgba(239,68,68,0.8)]'}`} />
+                                </motion.div>
                             </div>
-                        );
-                    })}
-                </div>
-            </div>
 
-            {/* Background Glows (Approximate) */}
-            <div className="absolute top-[152px] left-[357px] w-[511px] h-[511px] bg-[#04d97c0a] rounded-full blur-[100px] pointer-events-none" />
+                            {/* Labels */}
+                            <div className="text-center">
+                                <p className={`text-[10px] font-bold ${isPositive ? 'text-green-400' : 'text-red-400'} mb-0.5`}>
+                                    {isPositive ? '+' : ''}${Math.abs(day.value) >= 1000 ? `${(Math.abs(day.value) / 1000).toFixed(1)}k` : Math.abs(day.value).toFixed(2)}
+                                </p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold group-hover:text-white transition-colors">{day.label}</p>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 }

@@ -1,83 +1,93 @@
 "use client";
 
 import { motion } from "framer-motion";
-
-const imgMedal = "https://raw.githubusercontent.com/Shubham-S-Tiwari/Sharkfunded-Assets/main/medal_bronze.png";
+import { Award, Star } from "lucide-react";
 
 export default function LevelBadge() {
     return (
-        <div className="bg-[#06000a] border-[0.5px] border-[#e5e5e580] rounded-3xl overflow-hidden relative flex items-center justify-between p-4 min-h-[140px] group">
-            {/* Background Decorative Glows */}
-            <div className="absolute top-[-100px] left-[50px] w-[150px] h-[150px] bg-[#eab55308] rounded-full blur-[80px] pointer-events-none" />
-            
-            {/* Left Content Column */}
-            <div className="relative z-10 flex flex-col gap-3 items-start w-[240px]">
-                {/* Header: Next Tier & Tier Name */}
-                <div className="flex gap-4 items-end w-full">
-                    <div className="flex flex-col gap-1">
-                        <div className="bg-[#e2a546] px-1.5 py-0.5 rounded-[4px] shadow-[0px_0px_5px_#e9b452] w-fit">
-                            <span className="text-[#1a1a1a] text-[9px] font-bold uppercase whitespace-nowrap">Current Tier</span>
+        <div className="relative h-full w-full flex items-center justify-between p-8 overflow-hidden group bg-[#050923] rounded-2xl border border-white/5">
+            {/* Background Image / Gradient */}
+            <div className="absolute inset-0 z-0">
+                {/* mesh gradient */}
+                <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-gradient-to-bl from-[#7c2d12]/20 via-[#451a03]/10 to-transparent blur-[80px]" />
+                <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-gradient-to-tr from-[#7c2d12]/10 to-transparent blur-[60px]" />
+                {/* Radial highlights */}
+                <div className="absolute top-1/2 left-1/4 w-64 h-64 bg-amber-500/5 rounded-full blur-[100px]" />
+            </div>
+
+            {/* Left Content */}
+            <div className="relative z-10 flex flex-col justify-center h-full gap-6">
+                <div>
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="px-2 py-0.5 rounded-md bg-[#050923] border border-amber-500/20 text-amber-500 text-[10px] font-bold uppercase tracking-wider">
+                            Current Tier
                         </div>
-                        <h2 className="text-[28px] font-extrabold tracking-[-0.8px] bg-clip-text text-transparent bg-gradient-to-br from-[#eab553] to-[#cd7a22] leading-none mt-1">
-                            Bronze
-                        </h2>
                     </div>
-                    <div className="flex items-center gap-1 pb-1">
-                        <span className="text-[#e5e5e5] text-[11px] font-bold">75%</span>
-                    </div>
+                    <h2 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-amber-100 via-amber-400 to-amber-600 tracking-tight drop-shadow-sm">
+                        Bronze
+                    </h2>
                 </div>
 
-                {/* Progress Bar */}
-                <div className="relative w-full h-[4px] bg-[#1a1a1a] rounded-[15px] overflow-hidden">
-                    <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: "75%" }}
-                        transition={{ duration: 1.5, ease: "easeOut" }}
-                        className="h-full bg-gradient-to-r from-[#4e2671] to-[#a044f2] relative rounded-full"
-                    />
-                </div>
-
-                {/* Stats Row */}
-                <div className="flex gap-[12px] items-center w-full">
-                    {/* Total Reward */}
-                    <div className="flex flex-col gap-[2px] whitespace-nowrap">
-                        <span className="text-[#808080] text-[9px] font-medium tracking-tight uppercase">Total Reward</span>
-                        <span className="text-[#e5e5e5] text-[13px] font-bold tracking-tight">$320.00</span>
+                <div className="flex gap-8 mt-2">
+                    <div className="flex flex-col">
+                        <p className="text-gray-500 text-[10px] uppercase font-bold tracking-wider mb-1">Total Reward</p>
+                        <p className="text-2xl font-bold text-white tracking-tight">$0.00</p>
                     </div>
-
-                    <div className="h-[18px] w-[1px] bg-[#e5e5e533] rotate-12" />
-
-                    {/* Highest Reward */}
-                    <div className="flex flex-col gap-[2px] whitespace-nowrap">
-                        <span className="text-[#808080] text-[9px] font-medium tracking-tight uppercase">Highest PnL</span>
-                        <span className="text-[#e5e5e5] text-[13px] font-bold tracking-tight">$180.00</span>
+                    <div className="w-[1px] h-full bg-white/10" />
+                    <div className="flex flex-col">
+                        <p className="text-gray-500 text-[10px] uppercase font-bold tracking-wider mb-1">Highest Reward</p>
+                        <p className="text-2xl font-bold text-white tracking-tight">$0.00</p>
                     </div>
-
-                    <div className="h-[18px] w-[1px] bg-[#e5e5e533] rotate-12" />
-
-                    {/* Count */}
-                    <div className="flex flex-col gap-[2px] whitespace-nowrap">
-                        <span className="text-[#808080] text-[9px] font-medium tracking-tight uppercase">Count</span>
-                        <span className="text-[#e5e5e5] text-[13px] font-bold tracking-tight">24</span>
+                    <div className="w-[1px] h-full bg-white/10" />
+                    <div className="flex flex-col">
+                        <p className="text-gray-500 text-[10px] uppercase font-bold tracking-wider mb-1">Count</p>
+                        <p className="text-2xl font-bold text-white tracking-tight">0</p>
                     </div>
                 </div>
             </div>
 
-            {/* Right Side: Medal Graphic Placeholder */}
-            <div className="relative z-10 w-[80px] h-[80px] flex items-center justify-center">
-                {/* Image asset with glow */}
+            {/* Right Badge Graphic */}
+            <div className="relative z-10 w-[240px] h-full flex items-center justify-center">
+                {/* Glowing Orb behind badge */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] bg-amber-600/10 rounded-full blur-[50px]" />
+
+                {/* Badge Icon */}
                 <motion.div
-                    animate={{ y: [-3, 3, -3] }}
-                    transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                    className="relative w-full h-full"
+                    initial={{ scale: 0.9, rotate: -5 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{
+                        type: "spring",
+                        stiffness: 50,
+                        damping: 10,
+                        repeat: Infinity,
+                        repeatType: "reverse",
+                        duration: 4
+                    }}
+                    className="relative"
                 >
-                    <img 
-                        src={imgMedal} 
-                        alt="3D Bronze Medal" 
-                        className="w-full h-full object-contain relative z-10 drop-shadow-[0_10px_30px_rgba(234,181,83,0.3)]"
-                    />
-                    {/* Secondary glow behind medal */}
-                    <div className="absolute inset-0 bg-amber-500/10 rounded-full blur-[40px] scale-75 z-0" />
+                    {/* Glass Card for Badge */}
+                    <div className="w-36 h-48 bg-[#050923] backdrop-blur-md rounded-2xl flex items-center justify-center shadow-2xl border border-white/10 relative overflow-hidden group-hover:border-amber-500/30 transition-colors duration-500">
+                        {/* Internal shimmer */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent skew-x-12 translate-x-[-150%] animate-shimmer" />
+
+                        <Award className="w-20 h-20 text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.6)]" strokeWidth={1.5} />
+                    </div>
+
+                    {/* Floating Particles */}
+                    <motion.div
+                        animate={{ y: [-8, 8, -8], x: [2, -2, 2], opacity: [0.5, 1, 0.5] }}
+                        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                        className="absolute -top-6 -right-6"
+                    >
+                        <Star className="w-8 h-8 text-amber-200 fill-amber-200 blur-[1px]" />
+                    </motion.div>
+                    <motion.div
+                        animate={{ y: [6, -6, 6], x: [-3, 3, -3], opacity: [0.3, 0.8, 0.3] }}
+                        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                        className="absolute bottom-4 -left-8"
+                    >
+                        <Star className="w-5 h-5 text-amber-600 fill-amber-600 blur-[0.5px]" />
+                    </motion.div>
                 </motion.div>
             </div>
         </div>
