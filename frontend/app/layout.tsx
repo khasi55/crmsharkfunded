@@ -42,18 +42,17 @@ export default function RootLayout({
                         axon("init");
                     `}
                 </Script>
-                {/* Google Tag Manager (GTM) - Placeholder */}
-                {/* If you have a GTM ID, you can use the script below:
+                {/* Google Tag Manager */}
                 <Script id="gtm-script" strategy="afterInteractive">
-                    {\`
+                    {`
                         (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
                         new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
                         j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
                         'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-                        })(window,document,'script','dataLayer','GTM-XXXXXXX');
-                    \`}
+                        })(window,document,'script','dataLayer','GTM-WB5JVZNF');
+                    `}
                 </Script>
-                */}
+
                 {/* Meta Pixel Code */}
                 <Script id="facebook-pixel" strategy="afterInteractive">
                     {`
@@ -65,17 +64,26 @@ export default function RootLayout({
                         t.src=v;s=b.getElementsByTagName(e)[0];
                         s.parentNode.insertBefore(t,s)}(window, document,'script',
                         'https://connect.facebook.net/en_US/fbevents.js');
-                        fbq('init', '1770586814122775');
+                        fbq('init', '3399437100225491');
                         fbq('track', 'PageView');
                     `}
                 </Script>
                 <noscript>
                     <img height="1" width="1" style={{ display: 'none' }}
-                        src="https://www.facebook.com/tr?id=1770586814122775&ev=PageView&noscript=1"
+                        src="https://www.facebook.com/tr?id=3399437100225491&ev=PageView&noscript=1"
                     />
                 </noscript>
             </head>
             <body className={inter.className}>
+                {/* Google Tag Manager (noscript) */}
+                <noscript>
+                    <iframe 
+                        src="https://www.googletagmanager.com/ns.html?id=GTM-WB5JVZNF"
+                        height="0" 
+                        width="0" 
+                        style={{ display: 'none', visibility: 'hidden' }}
+                    />
+                </noscript>
                 <PromoBanner />
                 {children}
             </body>
