@@ -527,3 +527,6 @@ undefined
 [2026-04-11T21:56:26.740Z] SYNC ERROR for 900909501417: TypeError: fetch failed
 undefined
 
+[2026-04-21T16:40:05.989Z] SYNC ERROR for 900909496809: TypeError: fetch failed
+undefined
+

@@ -24,13 +24,16 @@ CREATE INDEX IF NOT EXISTS idx_account_types_status ON public.account_types(stat
 -- 3. Insert default account types
 INSERT INTO public.account_types (name, mt5_group_name, leverage, status, description)
 VALUES
-    ('Instant Funding', 'demo\S\0-SF', 30, 'active', 'Instant funding account'),
-    ('1 Step', 'demo\S\1-SF', 50, 'active', 'One step challenge account'),
-    ('2 Step', 'demo\S\2-SF', 50, 'active', 'Two step challenge account'),
-    ('SF Funded Live', 'SF Funded Live', 10, 'active', 'Live funded trading account'),
-    ('Instant Funding Pro', 'demo\SF\0-Pro', 5, 'active', 'Pro instant funding account'),
-    ('1 Step Pro', 'demo\SF\1-Pro', 100, 'active', 'Pro one step challenge'),
-    ('2 Step Pro', 'demo\SF\2-Pro', 100, 'active', 'Pro two step challenge')
+    ('Bolt Challenge', 'OC\contest\S\1', 100, 'active', 'High speed challenge account'),
+    ('Instant Funding', 'OC\contest\S\2', 30, 'active', 'Instant funding account'),
+    ('1 Step', 'OC\contest\S\3', 50, 'active', 'One step challenge account'),
+    ('2 Step', 'OC\contest\S\4', 50, 'active', 'Two step challenge account'),
+    ('Binary Options', 'OC\contest\S\5', 100, 'active', 'Binary options trading account'),
+    ('Instant Funding Pro', 'OC\contest\S\6', 5, 'active', 'Pro instant funding account'),
+    ('1 Step Pro', 'OC\contest\S\7', 100, 'active', 'Pro one step challenge'),
+    ('2 Step Pro', 'OC\contest\S\8', 100, 'active', 'Pro two step challenge'),
+    ('Competition', 'OC\contest\S\9', 100, 'active', 'Competition trading account'),
+    ('SF Funded Live', 'SF Funded Live', 10, 'active', 'Live funded trading account')
 ON CONFLICT (name) DO NOTHING;
 
 -- 4. Enable RLS

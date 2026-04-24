@@ -26,21 +26,25 @@ async function seedRiskGroups() {
     const ruleFunded = { max: 10.0, daily: 5.0 };
 
     const groups = [
+        // BOLT
+        { group_name: 'OC\\contest\\S\\1', max_drawdown_percent: ruleInstant.max, daily_drawdown_percent: ruleInstant.daily, profit_target_percent: 0 },
         // PRIME (demo\S\...) - "Prime Instant Funding"
-        { group_name: 'demo\\S\\0-SF', max_drawdown_percent: ruleInstant.max, daily_drawdown_percent: ruleInstant.daily, profit_target_percent: 0 },
-        { group_name: 'demo\\S\\1-SF', max_drawdown_percent: rule1Step.max, daily_drawdown_percent: rule1Step.daily, profit_target_percent: 8 },
-        { group_name: 'demo\\S\\2-SF', max_drawdown_percent: rule2Step.max, daily_drawdown_percent: rule2Step.daily, profit_target_percent: 5 },
+        { group_name: 'OC\\contest\\S\\2', max_drawdown_percent: ruleInstant.max, daily_drawdown_percent: ruleInstant.daily, profit_target_percent: 0 },
+        { group_name: 'OC\\contest\\S\\3', max_drawdown_percent: rule1Step.max, daily_drawdown_percent: rule1Step.daily, profit_target_percent: 8 },
+        { group_name: 'OC\\contest\\S\\4', max_drawdown_percent: rule2Step.max, daily_drawdown_percent: rule2Step.daily, profit_target_percent: 5 },
 
-        // LITE (demo\SF\...) - "Lite Instant Funding" - "Pro" in name usually implies Lite in this legacy schema
-        { group_name: 'demo\\SF\\0-Pro', max_drawdown_percent: ruleInstant.max, daily_drawdown_percent: ruleInstant.daily, profit_target_percent: 0 },
-        { group_name: 'demo\\SF\\1-SF', max_drawdown_percent: rule1Step.max, daily_drawdown_percent: rule1Step.daily, profit_target_percent: 8 },
-        { group_name: 'demo\\SF\\2-SF', max_drawdown_percent: rule2Step.max, daily_drawdown_percent: rule2Step.daily, profit_target_percent: 5 },
+        // BIN
+        { group_name: 'OC\\contest\\S\\5', max_drawdown_percent: ruleInstant.max, daily_drawdown_percent: ruleInstant.daily, profit_target_percent: 0 },
+        // LITE (demo\SF\...) - "Lite Instant Funding"
+        { group_name: 'OC\\contest\\S\\6', max_drawdown_percent: ruleInstant.max, daily_drawdown_percent: ruleInstant.daily, profit_target_percent: 0 },
+        { group_name: 'OC\\contest\\S\\7', max_drawdown_percent: rule1Step.max, daily_drawdown_percent: rule1Step.daily, profit_target_percent: 8 },
+        { group_name: 'OC\\contest\\S\\8', max_drawdown_percent: rule2Step.max, daily_drawdown_percent: rule2Step.daily, profit_target_percent: 5 },
 
         // FUNDED LIVE
         { group_name: 'SF Funded Live', max_drawdown_percent: ruleFunded.max, daily_drawdown_percent: ruleFunded.daily, profit_target_percent: 0 },
 
         // COMPETITION (Default)
-        { group_name: 'demo\\SF\\0-Demo\\comp', max_drawdown_percent: 10.0, daily_drawdown_percent: 5.0, profit_target_percent: 0 },
+        { group_name: 'OC\\contest\\S\\9', max_drawdown_percent: 10.0, daily_drawdown_percent: 5.0, profit_target_percent: 0 },
     ];
 
     for (const group of groups) {

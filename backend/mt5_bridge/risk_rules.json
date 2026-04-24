@@ -1,51 +1,63 @@
 {
-    "demo\\S\\0-SF": {
+    "OC\\contest\\S\\1": {
+        "max_drawdown_percent": 10.0,
+        "daily_drawdown_percent": 4.0,
+        "profit_target_percent": 0,
+        "reset_hour_gmt": 0
+    },
+    "OC\\contest\\S\\2": {
         "max_drawdown_percent": 7.0,
         "daily_drawdown_percent": 4.0,
         "profit_target_percent": 0,
         "reset_hour_gmt": 0
     },
-    "demo\\S\\1-SF": {
+    "OC\\contest\\S\\3": {
         "max_drawdown_percent": 7.0,
         "daily_drawdown_percent": 4.0,
         "profit_target_percent": 9,
         "reset_hour_gmt": 0
     },
-    "demo\\S\\2-SF": {
+    "OC\\contest\\S\\4": {
         "max_drawdown_percent": 6.0,
         "daily_drawdown_percent": 3.0,
         "profit_target_phase1_percent": 6.0,
         "profit_target_phase2_percent": 6.0,
         "reset_hour_gmt": 0
     },
-    "demo\\SF\\0-Pro": {
+    "OC\\contest\\S\\5": {
+        "max_drawdown_percent": 7.0,
+        "daily_drawdown_percent": 4.0,
+        "profit_target_percent": 0,
+        "reset_hour_gmt": 0
+    },
+    "OC\\contest\\S\\6": {
         "max_drawdown_percent": 3.0,
         "daily_drawdown_percent": 0.0,
         "profit_target_percent": 8,
         "reset_hour_gmt": 0
     },
-    "demo\\SF\\1-Pro": {
+    "OC\\contest\\S\\7": {
         "max_drawdown_percent": 6.0,
         "daily_drawdown_percent": 3.0,
         "profit_target_percent": 9,
         "reset_hour_gmt": 0
     },
-    "demo\\SF\\2-Pro": {
+    "OC\\contest\\S\\8": {
         "max_drawdown_percent": 6.0,
         "daily_drawdown_percent": 3.0,
         "profit_target_phase1_percent": 6,
         "profit_target_phase2_percent": 6,
         "reset_hour_gmt": 0
     },
+    "OC\\contest\\S\\9": {
+        "max_drawdown_percent": 6.0,
+        "daily_drawdown_percent": 3.0,
+        "reset_hour_gmt": 0
+    },
     "SF Funded Live": {
         "max_drawdown_percent": 7.0,
         "daily_drawdown_percent": 4.0,
         "profit_target_percent": 0,
-        "reset_hour_gmt": 0
-    },
-    "demo\\SF\\0-Demo\\comp": {
-        "max_drawdown_percent": 6.0,
-        "daily_drawdown_percent": 3.0,
         "reset_hour_gmt": 0
     }
 }

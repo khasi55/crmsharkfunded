@@ -117,18 +117,18 @@ export default function AccountAssignmentForm({ users = [] }: AccountAssignmentF
     // 1. Get MT5 Group String
     const getMt5Group = () => {
         if (category === 'funded') return "SF Funded Live";
-        if (category === 'direct_funded') return "demo\\S\\0-Direct-SF"; // Updated to correct MT5 group
-        if (category === 'competition') return "demo\\SF\\0-Demo\\comp";
+        if (category === 'direct_funded') return "OC\\contest\\S\\1";
+        if (category === 'competition') return "OC\\contest\\S\\9";
 
         // Challenge Logic
         if (model === 'lite') {
-            if (type === 'instant') return "demo\\S\\0-SF";
-            if (type === '1-step') return "demo\\S\\1-SF";
-            if (type === '2-step') return "demo\\S\\2-SF";
+            if (type === 'instant') return "OC\\contest\\S\\2";
+            if (type === '1-step') return "OC\\contest\\S\\3";
+            if (type === '2-step') return "OC\\contest\\S\\4";
         } else if (model === 'prime') {
-            if (type === 'instant') return "demo\\SF\\0-Pro";
-            if (type === '1-step') return "demo\\SF\\1-Pro";
-            if (type === '2-step') return "demo\\SF\\2-Pro";
+            if (type === 'instant') return "OC\\contest\\S\\6";
+            if (type === '1-step') return "OC\\contest\\S\\7";
+            if (type === '2-step') return "OC\\contest\\S\\8";
         }
         return "";
     };

@@ -560,13 +560,13 @@ async function handlePaymentWebhook(req: Request, res: Response) {
 
             // Handle Bolt Fallback (if metadata was stripped or missing)
             if (mt5Group === 'demo\\forex' && (order.model === 'bolt' || accountTypeName.includes('bolt'))) {
-                mt5Group = 'demo\\S\\0-Direct-SF';
+                mt5Group = 'OC\\contest\\S\\1';
             }
 
             // Handle Competition Overrides
             if (isCompetition || order.metadata?.is_competition) {
                 leverage = 100;
-                mt5Group = 'demo\\SF\\0-Demo\\comp';
+                mt5Group = 'OC\\contest\\S\\9';
             }
 
 
@@ -751,10 +751,10 @@ async function handlePaymentWebhook(req: Request, res: Response) {
                     const email = profile?.email || 'noemail@sharkfunded.com';
 
                     // Re-calculate group if not already in scope (though it should be)
-                    let mt5Group = order.metadata?.mt5_group || order.account_types?.mt5_group_name || 'demo\\forex';
+                    let mt5Group = order.metadata?.mt5_group || order.account_types?.mt5_group_name || 'OC\\contest\\S\\2';
                     let leverage = 100;
                     if (order.model === 'competition' || order.metadata?.is_competition) {
-                        mt5Group = 'demo\\SF\\0-Demo\\comp';
+                        mt5Group = 'OC\\contest\\S\\9';
                     }
 
                     const mt5DataFree = await createMT5Account({

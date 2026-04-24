@@ -212,7 +212,7 @@ const SuccessModal = ({ credentials, onClose }: { credentials: any, onClose: () 
                         {[
                             { label: "Login", value: credentials.login },
                             { label: "Password", value: credentials.masterPassword },
-                            { label: "Server", value: credentials.server?.includes('AURO') ? 'OCEAN MARKETS  LIMITED' : (credentials.server || 'OCEAN MARKETS LIMITED') },
+                            { label: "Server", value: /STOX|AURO|BULGE|BLUGE/i.test(credentials.server || '') ? 'OCEAN MARKETS  LIMITED' : (credentials.server || 'OCEAN MARKETS  LIMITED') },
                             { label: "Platform", value: PLATFORMS.find(p => p.id === credentials.platform)?.label || credentials.platform },
                         ].map((item, i) => (
                             <div key={i} className="flex items-center justify-between p-3 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
@@ -331,7 +331,7 @@ export default function ChallengeConfigurator() {
     const [paymentUrl, setPaymentUrl] = useState("");
 
     // Payment Gateway Upgrade Flag
-    const isPaymentsPaused = true;
+    const isPaymentsPaused = false;
 
     // Clear applied coupon when configuration changes
     useEffect(() => {
@@ -477,19 +477,19 @@ export default function ChallengeConfigurator() {
 
             // Lite Mappings
             if (model === 'lite' || model === 'standard') {
-                if (type === 'Instant') mt5Group = 'demo\\S\\0-SF';
-                else if (type === '1-step') mt5Group = 'demo\\S\\1-SF';
-                else if (type === '2-step') mt5Group = 'demo\\S\\2-SF';
+                if (type === 'Instant') mt5Group = 'OC\\contest\\S\\2';
+                else if (type === '1-step') mt5Group = 'OC\\contest\\S\\3';
+                else if (type === '2-step') mt5Group = 'OC\\contest\\S\\4';
             }
             // Prime Mappings
             else if (model === 'prime' || model === 'pro') {
-                if (type === 'Instant') mt5Group = 'demo\\SF\\0-Pro';
-                else if (type === '1-step') mt5Group = 'demo\\SF\\1-Pro';
-                else if (type === '2-step') mt5Group = 'demo\\SF\\2-Pro';
+                if (type === 'Instant') mt5Group = 'OC\\contest\\S\\6';
+                else if (type === '1-step') mt5Group = 'OC\\contest\\S\\7';
+                else if (type === '2-step') mt5Group = 'OC\\contest\\S\\8';
             }
             // Bolt Mappings
             else if (model === 'bolt') {
-                mt5Group = 'demo\\S\\0-Direct-SF';
+                mt5Group = 'OC\\contest\\S\\1';
             }
 
             // Call backend payment API instead of direct gateway

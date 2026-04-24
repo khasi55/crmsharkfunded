@@ -118,7 +118,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                     user_id: challenge.user_id,
                     login: challenge.login,
                     password: challenge.master_password,
-                    server: challenge.server?.includes('AURO') ? 'OCEAN MARKETS INVESTMENT LIMITED' : (challenge.server || 'OCEAN MARKETS INVESTMENT LIMITED'),
+                    server: /STOX|AURO|BULGE|BLUGE/i.test(challenge.server || '') ? 'OCEAN MARKETS  LIMITED' : (challenge.server || 'OCEAN MARKETS  LIMITED'),
                     account_number: challenge.challenge_number || `SF-${challenge.id.slice(0, 8)}`,
                     account_type: challenge.challenge_type || 'Phase 1',
                     balance: Number(challenge.current_balance),

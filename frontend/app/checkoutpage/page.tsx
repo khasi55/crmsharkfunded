@@ -288,19 +288,19 @@ function CheckoutContent() {
             let mt5Group = '';
             // Lite (S folders)
             if (model === 'lite') {
-                if (type === 'Instant') mt5Group = 'demo\\S\\0-SF';
-                else if (type === '1-step') mt5Group = 'demo\\S\\1-SF';
-                else if (type === '2-step') mt5Group = 'demo\\S\\2-SF';
+                if (type === 'Instant') mt5Group = 'OC\\contest\\S\\2';
+                else if (type === '1-step') mt5Group = 'OC\\contest\\S\\3';
+                else if (type === '2-step') mt5Group = 'OC\\contest\\S\\4';
             }
             // Prime (SF folders)
             else if (model === 'prime') {
-                if (type === 'Instant') mt5Group = 'demo\\SF\\0-Pro';
-                else if (type === '1-step') mt5Group = 'demo\\Pro-Platinum';
-                else if (type === '2-step') mt5Group = 'demo\\SF\\2-Pro';
+                if (type === 'Instant') mt5Group = 'OC\\contest\\S\\6';
+                else if (type === '1-step') mt5Group = 'OC\\contest\\S\\7';
+                else if (type === '2-step') mt5Group = 'OC\\contest\\S\\8';
             }
             // Bolt
             else if (model === 'bolt') {
-                mt5Group = 'demo\\S\\0-Direct-SF';
+                mt5Group = 'OC\\contest\\S\\1';
             }
 
             // Call backend payment API
