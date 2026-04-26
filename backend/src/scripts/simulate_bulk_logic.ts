@@ -14,7 +14,7 @@ async function test() {
             payout_destination_updated: walletAddress,
             update_reason: 'Admin requested update'
         }
-    }).url.toString()
+    }).url.toString() as any
   );
 
   // Simulate with eq
@@ -27,7 +27,7 @@ async function test() {
             payout_destination_updated: walletAddress,
             update_reason: 'Admin requested update'
         }
-    }).eq("id", reqId).url.toString()
+    }).eq("id", reqId).url.toString() as any
   );
 }
 test();

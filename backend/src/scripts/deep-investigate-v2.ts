@@ -64,6 +64,7 @@ async function main() {
         console.log(`No specific risk rules found for group ${challenge.group}, checking defaults...`);
         const { data: defaultRules } = await supabase
             .from('risk_rules')
+            .select('*')
             .eq('group_name', 'DEFAULT')
             .single();
         if (defaultRules) console.log('Default Rules:', defaultRules);

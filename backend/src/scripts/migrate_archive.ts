@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../src/lib/supabase';
+import { supabaseAdmin } from '../lib/supabase';
 
 async function migrate() {
     console.log('🚀 Starting migration: Add is_archived to challenges');

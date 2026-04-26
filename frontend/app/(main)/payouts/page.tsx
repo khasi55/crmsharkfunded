@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Wallet, DollarSign, Clock, AlertCircle } from "lucide-react";
+import { Wallet, DollarSign, Clock, AlertCircle, Timer } from "lucide-react";
 import PayoutStats from "@/components/payouts/PayoutStats";
 import PayoutHistoryTable from "@/components/payouts/PayoutHistoryTable";
 import RequestPayoutCard from "@/components/payouts/RequestPayoutCard";
+import CountdownTimer from "@/components/payouts/CountdownTimer";
 
 import { fetchFromBackend } from "@/lib/backend-api";
 
@@ -28,6 +29,7 @@ export default function PayoutsPage() {
     const [bankDetails, setBankDetails] = useState<any | null>(null);
     const [history, setHistory] = useState<any[]>([]);
     const [requesting, setRequesting] = useState(false);
+    const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
     const [debugInfo, setDebugInfo] = useState<any>(null); // State for debug info
 
     useEffect(() => {
@@ -133,6 +135,62 @@ export default function PayoutsPage() {
                 </div>
             </div>
 
+            {/* Cooling Period Banner */}
+            {eligibleAccounts.some(acc => acc.payout_eligibility && !acc.payout_eligibility.time_met) && (
+                <motion.div 
+                    initial={{ opacity: 0, y: -20, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    className="relative overflow-hidden bg-[#050923] border border-blue-500/30 rounded-2xl p-0 shadow-[0_0_40px_rgba(59,130,246,0.15)] group"
+                >
+                    {/* Animated Background Glow */}
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 blur-[80px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                    
+                    <div className="relative flex flex-col md:flex-row items-stretch">
+                        {/* Status Section */}
+                        <div className="flex-1 p-5 flex items-center gap-5 border-b md:border-b-0 md:border-r border-white/5">
+                            <div className="relative">
+                                <div className="absolute inset-0 bg-blue-500/20 blur-lg rounded-full animate-pulse" />
+                                <div className="relative w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center border border-blue-500/30">
+                                    <Clock className="text-blue-400 group-hover:rotate-12 transition-transform duration-500" size={24} />
+                                </div>
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h3 className="text-white font-bold text-base tracking-tight">Active Cooling Period</h3>
+                                    <span className="bg-blue-500/20 text-blue-400 text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest border border-blue-500/20">System Rule</span>
+                                </div>
+                                <p className="text-gray-400 text-xs mt-1 max-w-md font-medium leading-relaxed">
+                                    Next payout for account <span className="text-blue-400 font-bold">{eligibleAccounts.find(a => a.id === (selectedAccountId || eligibleAccounts.find(ea => ea.payout_eligibility && !ea.payout_eligibility.time_met)?.id))?.login || "Selected Account"}</span>.
+                                    <span className="text-gray-500 ml-1">(24h rule)</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Countdown Section */}
+                        <div className="bg-white/5 p-5 md:px-10 flex flex-col items-center justify-center gap-1 min-w-[240px]">
+                            <span className="text-gray-500 text-[10px] uppercase font-black tracking-[0.2em]">Next Unlock In</span>
+                            <CountdownTimer 
+                                targetDate={
+                                    (() => {
+                                        const selected = eligibleAccounts.find(a => a.id === selectedAccountId);
+                                        if (selected?.payout_eligibility && !selected.payout_eligibility.time_met) {
+                                            return selected.payout_eligibility.next_payout_date;
+                                        }
+                                        // Fallback to the first account in cooling if no selection or selection not in cooling
+                                        return eligibleAccounts
+                                            .filter(a => a.payout_eligibility && !a.payout_eligibility.time_met)
+                                            .map(a => a.payout_eligibility!.next_payout_date)
+                                            .sort()[0] || "";
+                                    })()
+                                }
+                                className="text-2xl font-mono font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 tracking-tighter"
+                            />
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+
+
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <PayoutStats
@@ -168,6 +226,7 @@ export default function PayoutsPage() {
                         accounts={eligibleAccounts}
                         isKycVerified={eligibility.kycVerified}
                         bankDetails={bankDetails}
+                        onAccountSelect={(id) => setSelectedAccountId(id)}
                     />
 
                     {/* Eligibility / Rules Card */}

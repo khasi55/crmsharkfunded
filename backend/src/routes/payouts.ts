@@ -102,7 +102,42 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
                 .maybeSingle();
 
             const challengeData = accountsRaw?.find(a => a.id === acc.id);
-            const refDate = latestPayout ? new Date(latestPayout.created_at) : new Date(challengeData?.created_at || Date.now());
+
+            // 🛡️ 24-Hour Payout Rules:
+            // 1. Must wait 24 hours after the FIRST trade.
+            // 2. Must wait 24 hours between ANY payout requests.
+            
+            // Get FIRST trade
+            const { data: firstTrade } = await supabase
+                .from('trades')
+                .select('close_time, created_at')
+                .eq('challenge_id', acc.id)
+                .order('close_time', { ascending: true })
+                .limit(1)
+                .maybeSingle();
+
+            // Get LATEST payout request (any status)
+            const { data: lastAnyPayout } = await supabase
+                .from('payout_requests')
+                .select('created_at')
+                .filter('metadata->>challenge_id', 'eq', acc.id)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            const firstTradeDate = firstTrade ? new Date(firstTrade.close_time || firstTrade.created_at) : new Date(0);
+            const lastRequestDate = lastAnyPayout ? new Date(lastAnyPayout.created_at) : new Date(0);
+            const accountCreationDate = new Date(challengeData?.created_at || 0);
+
+            const refDateVal = new Date(Math.max(
+                firstTradeDate.getTime(),
+                lastRequestDate.getTime(),
+                accountCreationDate.getTime()
+            ));
+
+            const nextPayoutDate = new Date(refDateVal.getTime() + 24 * 60 * 60 * 1000);
+            const timeMet = Date.now() >= nextPayoutDate.getTime();
+
             const isBolt = challengeData?.challenge_type === 'direct_funded' || (challengeData?.mt5_group || '').toLowerCase().includes('direct');
             const minProfitReq = Number(challengeData?.initial_balance || 0) * (isBolt ? 0.01 : 0.0025);
             const curProfit = Number(challengeData?.current_balance || 0) - Number(challengeData?.initial_balance || 0);
@@ -111,7 +146,9 @@ router.get('/balance', authenticate, async (req: AuthRequest, res: Response) => 
                 min_profit_amount: minProfitReq,
                 current_profit: curProfit,
                 profit_met: curProfit >= minProfitReq,
-                last_payout_date: refDate.toISOString()
+                last_payout_date: lastRequestDate > new Date(0) ? lastRequestDate.toISOString() : accountCreationDate.toISOString(),
+                next_payout_date: nextPayoutDate.toISOString(),
+                time_met: timeMet
             };
 
             return {
@@ -397,7 +434,7 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
             maxPayout = totalProfit; // Allow 100% Gross
         }
 
-        // if (DEBUG) console.log(`[Payout Request] Max Payout: ${maxPayout}`);
+
 
         // Check already requested amounts (Pending + Processed)
         const { data: previousPayouts, error: prevPayoutsError } = await supabase
@@ -485,6 +522,49 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
         if (currentProf < minProfitRequired) {
             return res.status(400).json({
                 error: `Minimum profit requirement not met. ${isBoltAccount ? 'Bolt accounts require 1% total profit' : 'You need at least 0.25% total profit'} (Required: $${minProfitRequired.toFixed(2)}, Current: $${currentProf.toFixed(2)}).`
+            });
+        }
+
+        // 🛡️ 24-Hour Payout Rules:
+        // 1. Must wait 24 hours after the FIRST trade.
+        // 2. Must wait 24 hours between ANY payout requests (Approved or Rejected).
+
+        // Get FIRST trade
+        const { data: firstTr } = await supabase
+            .from('trades')
+            .select('close_time, created_at')
+            .eq('challenge_id', account.id)
+            .order('close_time', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+
+        // Get LATEST payout request (any status)
+        const { data: latestAnyReq } = await supabase
+            .from('payout_requests')
+            .select('created_at')
+            .filter('metadata->>challenge_id', 'eq', account.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        const firstTradeDt = firstTr ? new Date(firstTr.close_time || firstTr.created_at) : new Date(0);
+        const lastRequestDt = latestAnyReq ? new Date(latestAnyReq.created_at) : new Date(0);
+        const accCreatedDt = new Date(account.created_at || 0);
+
+        const referenceDt = new Date(Math.max(
+            firstTradeDt.getTime(),
+            lastRequestDt.getTime(),
+            accCreatedDt.getTime()
+        ));
+
+        const nextPayoutMinDate = new Date(referenceDt.getTime() + 24 * 60 * 60 * 1000);
+
+        if (Date.now() < nextPayoutMinDate.getTime()) {
+            const msRemaining = nextPayoutMinDate.getTime() - Date.now();
+            const hours = Math.floor(msRemaining / (1000 * 60 * 60));
+            const minutes = Math.floor((msRemaining % (1000 * 60 * 60)) / (1000 * 60));
+            return res.status(400).json({
+                error: `Payout cooling period active. Next request available in ${hours}h ${minutes}m.`
             });
         }
 
@@ -653,16 +733,12 @@ router.post('/request', authenticate, requireKYC, resourceIntensiveLimiter, vali
         res.json({ success: true, message: 'Payout request submitted successfully' });
 
     } catch (error: any) {
-        // console.error('Payout request error FULL OBJECT:', error); // Log full error object
-        // console.error('Payout request error MESSAGE:', error.message);
-        // console.error('Payout request error STACK:', error.stack);
+
         res.status(500).json({ error: error.message || 'Internal server error' });
     }
 });
 
-// ============================================
-// ADMIN ENDPOINTS
-// ============================================
+
 
 // GET /api/payouts/admin - Get all payout requests (admin only)
 router.get('/admin', authenticate, requireRole(['super_admin', 'payouts_admin', 'admin', 'sub_admin']), async (req: AuthRequest, res: Response) => {
@@ -682,7 +758,7 @@ router.get('/admin', authenticate, requireRole(['super_admin', 'payouts_admin', 
         let profilesMap: Record<string, any> = {};
         if (requests && requests.length > 0) {
             const userIds = [...new Set(requests.map((r: any) => String(r.user_id)).filter(id => id && id !== 'null' && id !== 'undefined'))];
-            
+
             // Chunking into groups of 100 to stay well within limits
             const chunkSize = 100;
             for (let i = 0; i < userIds.length; i += chunkSize) {

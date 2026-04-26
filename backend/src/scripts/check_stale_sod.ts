@@ -15,7 +15,7 @@ async function main() {
 
     // Fetch active challenges
     // We'll use pagination here too just to be safe and demonstrate the fix
-    let allChallenges = [];
+    let allChallenges: any[] = [];
     let from = 0;
     const PAGE_SIZE = 1000;
     let hasMore = true;

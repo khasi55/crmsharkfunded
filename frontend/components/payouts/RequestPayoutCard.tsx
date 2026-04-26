@@ -1,9 +1,11 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Wallet, AlertTriangle, CheckCircle, Loader2, ChevronDown, MapPin, Shield, Lock } from "lucide-react";
+import { ArrowRight, Wallet, AlertTriangle, CheckCircle, Loader2, ChevronDown, MapPin, Shield, Lock, Clock } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { fetchFromBackend } from "@/lib/backend-api";
+
+import CountdownTimer from "./CountdownTimer";
 
 export interface AccountOption {
     id: string;
@@ -23,6 +25,7 @@ export interface AccountOption {
         current_profit: number;
         profit_met: boolean;
         last_payout_date: string;
+        next_payout_date: string;
         profitable_days: number;
         days_required: number;
         time_met: boolean;
@@ -40,10 +43,23 @@ interface RequestPayoutCardProps {
         bank_name: string;
         account_number: string;
         is_locked: boolean;
+        beneficiary_name?: string;
+        iban?: string;
+        swift_code?: string;
     } | null;
+    onAccountSelect?: (id: string) => void;
 }
 
-export default function RequestPayoutCard({ availablePayout: globalAvailable, walletAddress, isLoading, onRequestPayout, accounts = [], isKycVerified, bankDetails }: RequestPayoutCardProps) {
+export default function RequestPayoutCard({ 
+    availablePayout: globalAvailable, 
+    walletAddress, 
+    isLoading, 
+    onRequestPayout, 
+    accounts = [], 
+    isKycVerified, 
+    bankDetails,
+    onAccountSelect 
+}: RequestPayoutCardProps) {
     console.log("RequestPayoutCard received accounts:", accounts);
     const [amount, setAmount] = useState("");
     const [method, setMethod] = useState<"crypto" | "bank">("crypto");
@@ -65,6 +81,12 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
             setSelectedAccountId(accounts[0].id);
         }
     }, [accounts]);
+
+    useEffect(() => {
+        if (selectedAccountId) {
+            onAccountSelect?.(selectedAccountId);
+        }
+    }, [selectedAccountId, onAccountSelect]);
 
     const getSelectedAccount = () => accounts.find(a => a.id === selectedAccountId);
 
@@ -105,6 +127,10 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
             const el = selectedAcc.payout_eligibility;
             if (!el.profit_met) {
                 setError(`Profit requirement not met ($${el.current_profit.toLocaleString()} / $${el.min_profit_amount.toLocaleString()})`);
+                return;
+            }
+            if (!el.time_met) {
+                setError("24-hour cooling period is still active for this account.");
                 return;
             }
         }
@@ -357,18 +383,49 @@ export default function RequestPayoutCard({ availablePayout: globalAvailable, wa
                                     </div>
                                     {selectedAccountId && getSelectedAccount()?.payout_eligibility && (
                                         <div className={cn(
-                                            "mt-2 mb-4 p-3 rounded-lg border flex items-center justify-between transition-colors",
+                                            "mt-2 mb-4 p-3 rounded-lg border flex flex-col gap-2 transition-colors",
                                             getSelectedAccount()?.payout_eligibility?.profit_met 
-                                                ? "bg-green-500/10 border-green-500/20 text-green-400" 
-                                                : "bg-orange-500/10 border-orange-500/20 text-orange-400"
+                                                ? "bg-green-500/10 border-green-500/20" 
+                                                : "bg-orange-500/10 border-orange-500/20"
                                         )}>
-                                            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
-                                                {getSelectedAccount()?.payout_eligibility?.profit_met ? <CheckCircle size={14} /> : <AlertTriangle size={14} />}
-                                                Profit Requirement: {getSelectedAccount()?.payout_eligibility?.profit_met ? 'Met' : 'Not Met'}
+                                            <div className="flex items-center justify-between">
+                                                <div className={cn(
+                                                    "flex items-center gap-2 text-[10px] font-black uppercase tracking-widest",
+                                                    getSelectedAccount()?.payout_eligibility?.profit_met ? "text-green-400" : "text-orange-400"
+                                                )}>
+                                                    {getSelectedAccount()?.payout_eligibility?.profit_met ? <CheckCircle size={12} /> : <AlertTriangle size={12} />}
+                                                    Profit: {getSelectedAccount()?.payout_eligibility?.profit_met ? 'READY' : 'REQUIRED'}
+                                                </div>
+                                                <span className={cn(
+                                                    "text-[10px] font-mono font-bold",
+                                                    getSelectedAccount()?.payout_eligibility?.profit_met ? "text-green-300" : "text-orange-300"
+                                                )}>
+                                                    ${getSelectedAccount()?.payout_eligibility?.current_profit.toFixed(0)} / ${getSelectedAccount()?.payout_eligibility?.min_profit_amount.toFixed(0)}
+                                                </span>
                                             </div>
-                                            <span className="text-xs font-mono">
-                                                ${getSelectedAccount()?.payout_eligibility?.current_profit.toFixed(0)} / ${getSelectedAccount()?.payout_eligibility?.min_profit_amount.toFixed(0)}
-                                            </span>
+
+                                            {/* Time Countdown */}
+                                            <div className="h-px bg-white/5 w-full my-1" />
+                                            
+                                            <div className="flex items-center justify-between">
+                                                <div className={cn(
+                                                    "flex items-center gap-2 text-[10px] font-black uppercase tracking-widest",
+                                                    getSelectedAccount()?.payout_eligibility?.time_met ? "text-green-400" : "text-blue-400"
+                                                )}>
+                                                    <Clock size={12} />
+                                                    Time Rule: {getSelectedAccount()?.payout_eligibility?.time_met ? 'READY' : 'COOLING'}
+                                                </div>
+                                                {!getSelectedAccount()?.payout_eligibility?.time_met ? (
+                                                    <CountdownTimer 
+                                                        targetDate={getSelectedAccount()?.payout_eligibility?.next_payout_date || ""} 
+                                                        onFinish={() => {
+                                                            // Optional: refresh data
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <span className="text-[10px] text-green-300 font-bold uppercase">UNLOCKED</span>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
