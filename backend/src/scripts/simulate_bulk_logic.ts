@@ -7,27 +7,27 @@ async function test() {
   // Simulate without eq
   console.log("Without eq:");
   console.log(
-    supabase.from('payout_requests')
+    (supabase.from('payout_requests')
     .update({
         wallet_address: walletAddress,
         metadata: {
             payout_destination_updated: walletAddress,
             update_reason: 'Admin requested update'
         }
-    }).url.toString() as any
+    }) as any).url.toString()
   );
 
   // Simulate with eq
   console.log("With eq:");
   console.log(
-    supabase.from('payout_requests')
+    (supabase.from('payout_requests')
     .update({
         wallet_address: walletAddress,
         metadata: {
             payout_destination_updated: walletAddress,
             update_reason: 'Admin requested update'
         }
-    }).eq("id", reqId).url.toString() as any
+    }).eq("id", reqId) as any).url.toString()
   );
 }
 test();
