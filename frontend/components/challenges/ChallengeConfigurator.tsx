@@ -22,25 +22,25 @@ const trackAxonEvent = (event: string, data?: any) => {
 
 export const pricingConfig = {
     Prime: {
-        '5K': { price: '$27', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
-        '10K': { price: '$49', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
-        '25K': { price: '$119', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
-        '50K': { price: '$249', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
-        '100K': { price: '$449', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '5K': { price: '$39', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '10K': { price: '$70', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '25K': { price: '$170', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '50K': { price: '$356', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '100K': { price: '$641', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
     },
     LiteTwoStep: {
-        '5K': { price: '$17', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
-        '10K': { price: '$33', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
-        '25K': { price: '$79', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
-        '50K': { price: '$149', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
-        '100K': { price: '$249', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
+        '5K': { price: '$24', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
+        '10K': { price: '$47', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
+        '25K': { price: '$113', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
+        '50K': { price: '$213', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
+        '100K': { price: '$356', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
     },
     LiteOneStep: {
-        '5K': { price: '$24', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
-        '10K': { price: '$44', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
-        '25K': { price: '$99', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
-        '50K': { price: '$209', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
-        '100K': { price: '$399', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
+        '5K': { price: '$34', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
+        '10K': { price: '$63', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
+        '25K': { price: '$141', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
+        '50K': { price: '$299', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
+        '100K': { price: '$570', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
     },
     InstantLite: {
         '3K': { price: '$44', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
@@ -630,14 +630,24 @@ export default function ChallengeConfigurator() {
                     <section>
                         <SectionHeader title="Account Size" sub="Choose your preferred account size" />
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                            {availableSizes.map(s => (
-                                <RadioPill
-                                    key={s}
-                                    active={size === s}
-                                    label={`$${s.toLocaleString()}`}
-                                    onClick={() => setSize(s)}
-                                />
-                            ))}
+                            {availableSizes.map(s => {
+                                const sizeKey = getSizeKey(s);
+                                const configKey = getConfigKey(type, model);
+                                const sourceConfig = (dynamicPricing && dynamicPricing[configKey!]) ? dynamicPricing : pricingConfig;
+                                const config = sourceConfig[configKey as keyof typeof pricingConfig] as any;
+                                const sizeConfig = config?.[sizeKey];
+                                const price = sizeConfig?.price || '';
+
+                                return (
+                                    <RadioPill
+                                        key={s}
+                                        active={size === s}
+                                        label={`$${s.toLocaleString()}`}
+                                        subLabel={price}
+                                        onClick={() => setSize(s)}
+                                    />
+                                );
+                            })}
                         </div>
                     </section>
 
@@ -755,8 +765,8 @@ export default function ChallengeConfigurator() {
                         <div className="p-6 space-y-6">
                             <div className="flex justify-between items-start text-sm">
                                 <span className="text-muted-foreground">${size.toLocaleString()} — {type === "1-step" ? "One Step" : type === "2-step" ? "Two Step" : "Instant"} {model === "lite" ? "Lite" : "Prime"}</span>
-                                <div className="text-right">
-                                    <span className="font-bold font-mono">{displayCurrency === 'INR' ? '₹' : '$'}{(gateway === 'sharkpay' ? Math.round(basePriceUSD * 98) : basePriceUSD).toLocaleString()}</span>
+                                <div className="text-right flex flex-col items-end">
+                                    <span className="font-bold font-mono text-lg">{displayCurrency === 'INR' ? '₹' : '$'}{(gateway === 'sharkpay' ? Math.round(basePriceUSD * 98) : basePriceUSD).toLocaleString()}</span>
                                 </div>
                             </div>
 
