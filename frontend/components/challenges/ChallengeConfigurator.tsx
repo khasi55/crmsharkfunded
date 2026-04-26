@@ -22,25 +22,25 @@ const trackAxonEvent = (event: string, data?: any) => {
 
 export const pricingConfig = {
     Prime: {
-        '5K': { price: '$85', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
-        '10K': { price: '$99', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
-        '25K': { price: '$340', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
-        '50K': { price: '$590', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
-        '100K': { price: '$870', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '5K': { price: '$27', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '10K': { price: '$49', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '25K': { price: '$119', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '50K': { price: '$249', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
+        '100K': { price: '$449', dailyLoss: '4%', maxLoss: '10%', target1: '9%', target2: '6%' },
     },
     LiteTwoStep: {
-        '5K': { price: '$33', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
-        '10K': { price: '$63', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
-        '25K': { price: '$141', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
-        '50K': { price: '$270', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
-        '100K': { price: '$630', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
+        '5K': { price: '$17', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
+        '10K': { price: '$33', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
+        '25K': { price: '$79', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
+        '50K': { price: '$149', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
+        '100K': { price: '$249', dailyLoss: '3%', maxLoss: '6%', target1: '6%', target2: '6%' },
     },
     LiteOneStep: {
-        '5K': { price: '$63', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
-        '10K': { price: '$99', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
-        '25K': { price: '$207', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
-        '50K': { price: '$307', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
-        '100K': { price: '$634', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
+        '5K': { price: '$24', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
+        '10K': { price: '$44', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
+        '25K': { price: '$99', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
+        '50K': { price: '$209', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
+        '100K': { price: '$399', dailyLoss: '3%', maxLoss: '6%', target1: '9%', target2: '-' },
     },
     InstantLite: {
         '3K': { price: '$44', dailyLoss: '-', maxLoss: '3%', target1: '8%', target2: '-', validity: '30 Days', consistencyRule: 'No' },
@@ -697,7 +697,7 @@ export default function ChallengeConfigurator() {
                             ))}
                         </div>
                     </section>
-                    
+
 
                 </div>
 
