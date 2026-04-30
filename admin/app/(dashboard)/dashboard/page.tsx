@@ -67,10 +67,10 @@ async function getStats() {
         supabase.from('affiliate_withdrawals').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
         supabase.from('payment_orders').select('amount, payment_gateway').eq('status', 'paid'),
         supabase.from('payout_requests').select('amount').eq('status', 'processed'),
-        fetchAllRows(supabase, 'payment_orders', 'amount, created_at', q => q.eq('status', 'paid').gte('created_at', thirtyDaysAgoStr)),
-        fetchAllRows(supabase, 'payout_requests', 'amount, created_at', q => q.eq('status', 'processed').gte('created_at', thirtyDaysAgoStr)),
-        fetchAllRows(supabase, 'profiles', 'created_at', q => q.gte('created_at', thirtyDaysAgoStr)),
-        fetchAllRows(supabase, 'challenges', 'updated_at', q => q.in('status', ['breached', 'failed']).gte('updated_at', thirtyDaysAgoStr))
+        supabase.from('payment_orders').select('amount, created_at').eq('status', 'paid').gte('created_at', thirtyDaysAgoStr).order('created_at', { ascending: false }).limit(1000),
+        supabase.from('payout_requests').select('amount, created_at').eq('status', 'processed').gte('created_at', thirtyDaysAgoStr).order('created_at', { ascending: false }).limit(1000),
+        supabase.from('profiles').select('created_at').gte('created_at', thirtyDaysAgoStr).order('created_at', { ascending: false }).limit(1000),
+        supabase.from('challenges').select('updated_at').in('status', ['breached', 'failed']).gte('updated_at', thirtyDaysAgoStr).order('updated_at', { ascending: false }).limit(1000)
     ]);
 
     const totalRevenue = (allRevenueData || []).reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
