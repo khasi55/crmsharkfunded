@@ -59,23 +59,15 @@ insert into public.risk_rules_config (
     consistency_enabled
 )
 values 
-  -- BOLT
-  ('OC\contest\S\1', 4.0, 10.0, 1.0, false),
-  -- LITE/REGULAR ACCOUNTS (S folders)
-  ('OC\contest\S\2', 4.0, 8.0, 1.0, false),        -- Instant Funding
-  ('OC\contest\S\3', 4.0, 6.0, 2.0, false),        -- 1 Step
-  ('OC\contest\S\4', 4.0, 8.0, 2.0, false),        -- 2 Step
+  -- LITE/REGULAR ACCOUNTS
+  ('demo\S\0-SF', 4.0, 8.0, 1.0, false),        -- Instant Funding (Funded -> 1% Risk)
+  ('demo\S\1-SF', 4.0, 6.0, 2.0, false),        -- 1 Step (Eval -> 2% Risk)
+  ('demo\S\2-SF', 4.0, 8.0, 2.0, false),        -- 2 Step (Eval -> 2% Risk)
   
-  -- BIN
-  ('OC\contest\S\5', 4.0, 8.0, 1.0, false),
-
-  -- PRIME/PRO ACCOUNTS (SF folders)
-  ('OC\contest\S\6', 5.0, 10.0, 1.0, false),     -- Instant Funding Pro
-  ('OC\contest\S\7', 5.0, 10.0, 2.0, false),     -- 1 Step Pro
-  ('OC\contest\S\8', 5.0, 10.0, 2.0, false),     -- 2 Step Pro
+  -- PRIME/PRO ACCOUNTS
+  ('demo\SF\0-Pro', 5.0, 10.0, 1.0, false),     -- Instant Funding Pro (Funded -> 1% Risk)
+  ('demo\SF\1-Pro', 5.0, 10.0, 2.0, false),     -- 1 Step Pro (Eval -> 2% Risk)
+  ('demo\SF\2-Pro', 5.0, 10.0, 2.0, false),     -- 2 Step Pro (Eval -> 2% Risk)
   
-  -- COMPETITION
-  ('OC\contest\S\9', 5.0, 10.0, 1.0, false),
-
   -- FUNDED LIVE
-  ('SF Funded Live', 5.0, 10.0, 1.0, false);
+  ('SF Funded Live', 5.0, 10.0, 1.0, false);    -- Master Account (Funded -> 1% Risk)

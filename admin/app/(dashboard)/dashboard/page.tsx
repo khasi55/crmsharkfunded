@@ -51,7 +51,8 @@ async function getStats() {
         { data: allPayoutsData },
         { data: monthRevenueData },
         { data: monthPayoutsData },
-        { data: newUsersData }
+        { data: newUsersData },
+        { data: monthBreachedData }
     ] = await Promise.all([
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
         supabase.from('kyc_sessions').select('*', { count: 'exact', head: true }).eq('status', 'requires_review'),
@@ -66,9 +67,10 @@ async function getStats() {
         supabase.from('affiliate_withdrawals').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
         supabase.from('payment_orders').select('amount, payment_gateway').eq('status', 'paid'),
         supabase.from('payout_requests').select('amount').eq('status', 'processed'),
-        supabase.from('payment_orders').select('amount, created_at').eq('status', 'paid').gte('created_at', thirtyDaysAgoStr),
-        supabase.from('payout_requests').select('amount, created_at').eq('status', 'processed').gte('created_at', thirtyDaysAgoStr),
-        supabase.from('profiles').select('created_at').gte('created_at', thirtyDaysAgoStr)
+        fetchAllRows(supabase, 'payment_orders', 'amount, created_at', q => q.eq('status', 'paid').gte('created_at', thirtyDaysAgoStr)),
+        fetchAllRows(supabase, 'payout_requests', 'amount, created_at', q => q.eq('status', 'processed').gte('created_at', thirtyDaysAgoStr)),
+        fetchAllRows(supabase, 'profiles', 'created_at', q => q.gte('created_at', thirtyDaysAgoStr)),
+        fetchAllRows(supabase, 'challenges', 'updated_at', q => q.in('status', ['breached', 'failed']).gte('updated_at', thirtyDaysAgoStr))
     ]);
 
     const totalRevenue = (allRevenueData || []).reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
@@ -93,6 +95,7 @@ async function getStats() {
             revenue: 0,
             payouts: 0,
             newUsers: 0,
+            breachedAccounts: 0,
             net: 0,
             cumulativeEquity: 0,
             cumulativeUsers: 0
@@ -112,6 +115,12 @@ async function getStats() {
     newUsersData?.forEach(u => {
         const key = new Date(u.created_at).toISOString().split('T')[0];
         if (dateMap.has(key)) dateMap.get(key).newUsers += 1;
+    });
+
+    monthBreachedData?.forEach(c => {
+        const breachDate = new Date(c.updated_at);
+        const key = breachDate.toISOString().split('T')[0];
+        if (dateMap.has(key)) dateMap.get(key).breachedAccounts += 1;
     });
 
     const chartData = Array.from(dateMap.values()).map(day => {

@@ -254,13 +254,13 @@ export default function AdminMT5Client() {
     const uniqueSizes = Array.from(new Set(accounts.map(a => a.initial_balance))).sort((a, b) => a - b);
 
     const MT5_GROUP_FILTERS = [
-        { label: "Lite - Instant Funding", value: "OC\\contest\\S\\2" },
-        { label: "Lite - 1-Step Challenge", value: "OC\\contest\\S\\3" },
-        { label: "Lite - 2-Step Challenge", value: "OC\\contest\\S\\4" },
-        { label: "Prime - Instant Funding", value: "OC\\contest\\S\\6" },
-        { label: "Prime - 1-Step Challenge", value: "OC\\contest\\S\\7" },
-        { label: "Prime - 2-Step Challenge", value: "OC\\contest\\S\\8" },
-        { label: "Direct - Funded", value: "OC\\contest\\S\\1" },
+        { label: "Lite - Instant Funding", value: "demo\\S\\0-SF" },
+        { label: "Lite - 1-Step Challenge", value: "demo\\S\\1-SF" },
+        { label: "Lite - 2-Step Challenge", value: "demo\\S\\2-SF" },
+        { label: "Prime - Instant Funding", value: "demo\\SF\\0-Pro" },
+        { label: "Prime - 1-Step Challenge", value: "demo\\SF\\1-Pro" },
+        { label: "Prime - 2-Step Challenge", value: "demo\\SF\\2-Pro" },
+        { label: "Direct - Funded", value: "demo\\S\\0-Direct-SF" },
         { label: "Funded Live Account", value: "SF Funded Live" },
     ];
 
@@ -475,9 +475,9 @@ export default function AdminMT5Client() {
                                                         {(() => {
                                                             const typeStr = (account.challenge_type || '').toLowerCase();
                                                             const groupStr = (account.mt5_group || account.group || '').toLowerCase();
-                                                            if (typeStr.includes('prime') || groupStr.includes('pro') || groupStr.includes('\\S\\6') || groupStr.includes('\\S\\7') || groupStr.includes('\\S\\8')) return 'Prime';
-                                                            if (typeStr.includes('direct') || groupStr.includes('direct-sf') || groupStr.includes('\\S\\1')) return 'Direct';
-                                                            if (typeStr.includes('lite') || groupStr.includes('-sf') || groupStr.includes('\\S\\2') || groupStr.includes('\\S\\3') || groupStr.includes('\\S\\4') || groupStr.includes('\\S\\5')) return 'Lite';
+                                                            if (typeStr.includes('prime') || groupStr.includes('pro')) return 'Prime';
+                                                            if (typeStr.includes('direct') || groupStr.includes('direct-sf')) return 'Direct';
+                                                            if (typeStr.includes('lite') || groupStr.includes('-sf')) return 'Lite';
                                                             return 'Standard';
                                                         })()}
                                                     </span>
