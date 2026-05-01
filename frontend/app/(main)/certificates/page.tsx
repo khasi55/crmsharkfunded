@@ -26,14 +26,26 @@ export default async function CertificatesPage() {
         .in("status", ["approved", "processed"])
         .order("created_at", { ascending: false });
 
+    // 4. Fetch achievement certificates
+    const { data: certificates } = await supabase
+        .from("certificates")
+        .select(`
+            *,
+            challenges (
+                balance
+            )
+        `)
+        .eq("user_id", user?.id)
+        .eq("status", "issued")
+        .order("issued_at", { ascending: false });
+
     return (
         <div className="space-y-12 max-w-6xl mx-auto p-6 min-h-screen font-sans">
-
-            {/* Header Removed - managed by CertificatesGrid */}
 
             {/* Interactive Grid with Popups */}
             <CertificatesGrid
                 payouts={payouts || []}
+                certificates={certificates || []}
                 profile={profile}
             />
         </div>

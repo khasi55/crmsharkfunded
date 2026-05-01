@@ -7,17 +7,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { fetchFromBackend } from "@/lib/backend-api";
+import { trackEvent, trackAddToCart, trackInitiateCheckout } from "@/lib/tracking";
 
-// Axon Tracking Helper
-const trackAxonEvent = (event: string, data?: any) => {
-    if (typeof window !== 'undefined' && (window as any).axon) {
-        try {
-            (window as any).axon("track", event, data);
-        } catch (err) {
-            console.warn(`Axon tracking failed for ${event}:`, err);
-        }
-    }
-};
+
+// Replaced by unified tracking utility
 
 
 export const pricingConfig = {
@@ -300,7 +293,7 @@ export default function ChallengeConfigurator() {
         const configKey = getConfigKey(type, model);
         if (configKey && size) {
             const basePrice = getBasePrice();
-            trackAxonEvent("view_item", {
+            trackEvent("ViewContent", {
                 currency: 'USD',
                 value: basePrice,
                 price: basePrice,
@@ -403,6 +396,11 @@ export default function ChallengeConfigurator() {
             if (data.valid) {
                 setAppliedCoupon(data);
                 setCouponError("");
+                trackEvent("ApplyCoupon", {
+                    coupon: coupon.trim(),
+                    discount_type: data.discount?.type,
+                    discount_value: data.discount?.value
+                });
             } else {
                 setAppliedCoupon(null);
                 setCouponError(data.error || 'Invalid coupon code');
@@ -420,7 +418,7 @@ export default function ChallengeConfigurator() {
         setIsPurchasing(true);
 
         // Track Add to Cart and Begin Checkout
-        trackAxonEvent("add_to_cart", {
+        trackAddToCart({
             currency: 'USD',
             value: basePriceUSD,
             price: basePriceUSD,
@@ -435,7 +433,7 @@ export default function ChallengeConfigurator() {
             }]
         });
 
-        trackAxonEvent("begin_checkout", {
+        trackInitiateCheckout({
             currency: 'USD',
             value: finalPriceUSD,
             price: finalPriceUSD,

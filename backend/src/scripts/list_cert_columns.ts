@@ -1,25 +1,28 @@
-
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 import dotenv from 'dotenv';
-dotenv.config();
+import path from 'path';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl!, supabaseKey!);
+dotenv.config({ path: path.join(__dirname, '../../.env') });
 
-async function checkColumns() {
-    console.log("🕵️ Listing columns for 'certificates' table...");
-
-    // Can't query information_schema directly via JS client usually, but let's try RPC if available, 
-    // OR just try to insert a known bad record to get a helpful error message.
-
-    const { error } = await supabase
+async function main() {
+    console.log("Fetching latest certificates...");
+    const { data, error } = await supabase
         .from('certificates')
-        .insert({ 'dummy_column': 'test' });
-
+        .select('*')
+        .order('issued_at', { ascending: false })
+        .limit(2);
+        
     if (error) {
-        console.log("Error details (might show columns):", error);
+        console.error("Error:", error);
+    } else if (data) {
+        data.forEach(cert => {
+            console.log(`--- Certificate: ${cert.title} ---`);
+            console.log(`User ID: ${cert.user_id}`);
+            console.log(`Image URL: ${cert.image_url}`);
+            console.log(`Description: ${cert.description}`);
+            console.log(`Issued At: ${cert.issued_at}`);
+        });
     }
 }
 
-checkColumns();
+main();

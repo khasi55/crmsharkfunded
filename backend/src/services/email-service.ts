@@ -576,4 +576,66 @@ Shark Funded Team
 
         return { sent, failed };
     }
+
+    /**
+     * Send Achievement Certificate Notification
+     */
+    static async sendAchievementCertificate(email: string, name: string, title: string, date: string, pdfBuffer?: Uint8Array | Buffer) {
+        const subject = `Your ${title} is Ready! - SharkFunded`;
+
+        const html = `
+            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #05080F; border-radius: 16px; overflow: hidden; color: #ffffff; box-shadow: 0 10px 40px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);">
+                
+                <div style="background: linear-gradient(135deg, #0d47a1 0%, #002171 100%); padding: 60px 40px; text-align: center;">
+                    <div style="display: inline-block; padding: 12px; background: rgba(255,255,255,0.1); border-radius: 50%; margin-bottom: 24px;">
+                        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#44A1FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="8" r="7"></circle>
+                            <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline>
+                        </svg>
+                    </div>
+                    <h1 style="margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -0.02em; color: #FFFFFF;">EXCELLENCE RECOGNIZED</h1>
+                    <p style="margin-top: 12px; font-size: 16px; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.2em;">Official Certificate of Achievement</p>
+                </div>
+
+                <div style="padding: 40px; text-align: center;">
+                    <h2 style="color: #FFFFFF; font-size: 24px; margin-bottom: 8px;">Congratulations, ${name}!</h2>
+                    <p style="color: #44A1FA; font-size: 18px; font-weight: 600; margin-bottom: 32px;">${title}</p>
+                    
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 24px; margin-bottom: 32px;">
+                        <p style="font-size: 15px; line-height: 1.6; color: rgba(255,255,255,0.8); margin: 0;">
+                            Your hard work has paid off. Your official certificate is attached to this email as a PDF. You can also view it in your dashboard anytime.
+                        </p>
+                    </div>
+
+                    <a href="https://crm.sharkfunded.co/certificates" style="display: inline-block; background: #44A1FA; color: #FFFFFF; text-decoration: none; padding: 16px 32px; border-radius: 12px; font-weight: 700; font-size: 16px; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(68, 161, 250, 0.3);">
+                        View Certificate in Dashboard
+                    </a>
+
+                    <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid rgba(255,255,255,0.1);">
+                        <p style="font-size: 14px; color: rgba(255,255,255,0.5);">Issued on: ${date}</p>
+                    </div>
+                </div>
+
+                <div style="background: #0A1220; padding: 20px; text-align: center; font-size: 12px; color: rgba(255,255,255,0.4);">
+                    <p>&copy; 2026 Shark Funded. All rights reserved.</p>
+                </div>
+            </div>
+        `;
+
+        const text = `Congratulations ${name}!\n\nYou have officially passed the ${title}.\n\nYour certificate is attached as a PDF.\n\nIssued on: ${date}`;
+
+        await this.transporter.sendMail({
+            from: `"${this.FROM_NAME}" <${this.FROM_EMAIL}>`,
+            to: email,
+            subject: subject,
+            text: text,
+            html: html,
+            attachments: pdfBuffer ? [
+                {
+                    filename: `SharkFunded-${title.replace(/\s+/g, '-')}.pdf`,
+                    content: Buffer.from(pdfBuffer)
+                }
+            ] : []
+        });
+    }
 }

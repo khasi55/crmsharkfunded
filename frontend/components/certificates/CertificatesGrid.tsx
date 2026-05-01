@@ -2,9 +2,10 @@
 
 import { useState, useRef } from "react";
 import { format } from "date-fns";
-import { Award, CheckCircle2, Eye, X, Download, Calendar, ShieldCheck } from "lucide-react";
+import { Award, CheckCircle2, Eye, X, Download, Calendar, ShieldCheck, Trophy } from "lucide-react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import PayoutCertificate, { PayoutCertificateRef } from "@/components/certificates/PayoutCertificate";
+import ChallengeCertificate, { ChallengeCertificateRef } from "@/components/certificates/ChallengeCertificate";
 
 interface Payout {
     id: string;
@@ -13,7 +14,19 @@ interface Payout {
     processed_at: string | null;
     status: string;
     transaction_id?: string;
+    certificate_type: 'payout';
 }
+
+interface Achievement {
+    id: string;
+    title: string;
+    description: string;
+    issued_at: string;
+    type: string; // 'achievement'
+    certificate_type: 'achievement';
+}
+
+type CertificateItem = Payout | Achievement;
 
 interface UserProfile {
     display_name?: string;
@@ -23,7 +36,8 @@ interface UserProfile {
 }
 
 interface CertificatesGridProps {
-    payouts: Payout[];
+    payouts: any[];
+    certificates: any[];
     profile: UserProfile | null;
 }
 
@@ -43,9 +57,19 @@ const itemVariants: Variants = {
     show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 50 } }
 };
 
-export default function CertificatesGrid({ payouts, profile }: CertificatesGridProps) {
-    const [selectedPayout, setSelectedPayout] = useState<Payout | null>(null);
-    const downloadRef = useRef<PayoutCertificateRef>(null);
+export default function CertificatesGrid({ payouts, certificates, profile }: CertificatesGridProps) {
+    const [selectedItem, setSelectedItem] = useState<CertificateItem | null>(null);
+    const downloadRef = useRef<any>(null);
+
+    // 1. Tag and Merge items
+    const taggedPayouts = payouts.map(p => ({ ...p, certificate_type: 'payout' as const }));
+    const taggedCertificates = certificates.map(c => ({ ...c, certificate_type: 'achievement' as const }));
+    
+    const allItems: CertificateItem[] = [...taggedPayouts, ...taggedCertificates].sort((a, b) => {
+        const dateA = 'processed_at' in a ? (a.processed_at || a.created_at) : a.issued_at;
+        const dateB = 'processed_at' in b ? (b.processed_at || b.created_at) : b.issued_at;
+        return new Date(dateB).getTime() - new Date(dateA).getTime();
+    });
 
     // Determine secure user name
     let userName = "Valued Trader";
@@ -66,53 +90,64 @@ export default function CertificatesGrid({ payouts, profile }: CertificatesGridP
                     </h2>
                 </div>
                 <p className="text-slate-500 text-base font-medium max-w-2xl">
-                    Professional, blockchain-verified proof of your SharkFunded trading success.
+                    Professional proof of your SharkFunded trading success.
                 </p>
             </div>
 
-            {/* Grid of "Direct" Certificates */}
+            {/* Grid of Certificates */}
             <motion.div
                 variants={containerVariants}
                 initial="hidden"
                 animate="show"
                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
             >
-                {payouts.map((payout) => (
+                {allItems.map((item) => (
                     <motion.div
-                        key={payout.id}
+                        key={item.id}
                         variants={itemVariants}
-                        layoutId={payout.id}
-                        onClick={() => setSelectedPayout(payout)}
+                        layoutId={item.id}
+                        onClick={() => setSelectedItem(item)}
                         whileHover={{ y: -8, scale: 1.01 }}
                         className="cursor-pointer group relative aspect-[1.4] rounded-2xl overflow-hidden shadow-2xl transition-all duration-500 bg-[#050923] ring-1 ring-white/10 hover:ring-blue-500/50"
                     >
                         {/* Premium Certificate Preview */}
                         <div className="absolute inset-x-0 inset-y-0 p-8 flex flex-col items-center justify-center text-center">
                             {/* Animated Gradient Background */}
-                            <div className="absolute inset-0 bg-gradient-to-br from-[#050923] via-[#0A1235] to-[#050923] group-hover:opacity-90 transition-opacity" />
+                            <div className={`absolute inset-0 bg-gradient-to-br transition-opacity group-hover:opacity-90 ${
+                                item.certificate_type === 'achievement' 
+                                ? 'from-[#0A1235] via-[#1A2255] to-[#0A1235]' 
+                                : 'from-[#050923] via-[#0A1235] to-[#050923]'
+                            }`} />
 
                             {/* Decorative Grid Pattern */}
                             <div className="absolute inset-0 opacity-[0.03] bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] pointer-events-none" />
 
-                            {/* Decorative Gold Frame */}
-                            <div className="absolute inset-4 border border-blue-500/20 rounded-xl pointer-events-none" />
-                            <div className="absolute inset-[1.25rem] border-[0.5px] border-white/5 rounded-lg pointer-events-none" />
+                            {/* Decorative Gold/Blue Frame */}
+                            <div className={`absolute inset-4 border rounded-xl pointer-events-none ${
+                                item.certificate_type === 'achievement' ? 'border-amber-500/20' : 'border-blue-500/20'
+                            }`} />
 
                             {/* Content */}
                             <div className="relative z-10 flex flex-col items-center w-full h-full">
-                                <Award className="text-blue-500 mb-4 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]" size={36} />
+                                {item.certificate_type === 'achievement' ? (
+                                    <Trophy className="text-amber-500 mb-4 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]" size={36} />
+                                ) : (
+                                    <Award className="text-blue-500 mb-4 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]" size={36} />
+                                )}
 
-                                <h3 className="text-white font-serif text-xl tracking-[0.3em] uppercase mb-1 opacity-90">
+                                <h3 className="text-white font-serif text-xl tracking-[0.3em] uppercase mb-1 opacity-90 text-center">
                                     Certificate
                                 </h3>
-                                <p className="text-blue-400/60 text-[10px] uppercase font-black tracking-[0.4em] mb-6">
-                                    Official Payout
+                                <p className={`${
+                                    item.certificate_type === 'achievement' ? 'text-amber-400/60' : 'text-blue-400/60'
+                                } text-[10px] uppercase font-black tracking-[0.4em] mb-6`}>
+                                    {item.certificate_type === 'achievement' ? 'Achievement Unlocked' : 'Official Payout'}
                                 </p>
 
-                                {/* Amount with Premium Gradient */}
+                                {/* Title/Amount */}
                                 <div className="mb-auto py-2">
-                                    <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-blue-400/80 font-sans tracking-tight">
-                                        ${parseFloat(payout.amount).toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                                    <h1 className="text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-blue-400/80 font-sans tracking-tight">
+                                        {item.certificate_type === 'achievement' ? (item as Achievement).title : `$${parseFloat((item as Payout).amount).toLocaleString()}`}
                                     </h1>
                                 </div>
 
@@ -122,18 +157,15 @@ export default function CertificatesGrid({ payouts, profile }: CertificatesGridP
                                         Presented to <span className="font-semibold text-white opacity-100">{userName}</span>
                                     </div>
 
-                                    <div className="flex items-center gap-3 text-[10px] font-bold tracking-widest text-slate-500 uppercase">
-                                        <span>{format(new Date(payout.processed_at || payout.created_at), "MMM dd, yyyy")}</span>
+                                    <div className="flex items-center justify-center gap-3 text-[10px] font-bold tracking-widest text-slate-500 uppercase">
+                                        <span>{format(new Date(
+                                            item.certificate_type === 'achievement' 
+                                            ? (item as Achievement).issued_at 
+                                            : ((item as Payout).processed_at || (item as Payout).created_at)
+                                        ), "MMM dd, yyyy")}</span>
                                         <span className="w-1 h-1 bg-slate-700 rounded-full" />
-                                        <span>ID: {payout.id.slice(0, 6)}</span>
+                                        <span>ID: {item.id.slice(0, 6)}</span>
                                     </div>
-                                </div>
-                            </div>
-
-                            {/* Corner Accents */}
-                            <div className="absolute top-6 right-6 z-20">
-                                <div className="bg-blue-500/10 backdrop-blur-md p-2 rounded-full border border-blue-500/30 group-hover:bg-blue-500/20 transition-all">
-                                    <CheckCircle2 size={16} className="text-blue-400" />
                                 </div>
                             </div>
                         </div>
@@ -149,32 +181,32 @@ export default function CertificatesGrid({ payouts, profile }: CertificatesGridP
             </motion.div>
 
             {/* Empty State */}
-            {payouts.length === 0 && (
+            {allItems.length === 0 && (
                 <div className="text-center py-24 bg-[#0B0F17]/50 rounded-3xl border border-dashed border-white/10">
                     <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
                         <Award className="text-gray-500" size={32} />
                     </div>
                     <h3 className="text-lg font-bold text-slate-900 mb-1">No Certificates Yet</h3>
                     <p className="text-gray-600 text-sm max-w-sm mx-auto">
-                        Your trading achievements will be displayed here as official certificates.
+                        Your trading achievements and payouts will be displayed here as official certificates.
                     </p>
                 </div>
             )}
 
             {/* Modal */}
             <AnimatePresence>
-                {selectedPayout && (
+                {selectedItem && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            onClick={() => setSelectedPayout(null)}
+                            onClick={() => setSelectedItem(null)}
                             className="absolute inset-0 bg-black/90 backdrop-blur-md cursor-pointer"
                         />
 
                         <motion.div
-                            layoutId={selectedPayout.id}
+                            layoutId={selectedItem.id}
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.9, opacity: 0 }}
@@ -196,7 +228,7 @@ export default function CertificatesGrid({ payouts, profile }: CertificatesGridP
                                         Download PNG
                                     </button>
                                     <button
-                                        onClick={() => setSelectedPayout(null)}
+                                        onClick={() => setSelectedItem(null)}
                                         className="p-2 text-gray-400 hover:text-white transition-colors"
                                     >
                                         <X size={20} />
@@ -207,13 +239,24 @@ export default function CertificatesGrid({ payouts, profile }: CertificatesGridP
                             {/* Canvas Container */}
                             <div className="p-8 md:p-12 bg-[#05080F] flex items-center justify-center overflow-auto max-h-[85vh]">
                                 <div className="w-full max-w-4xl shadow-2xl">
-                                    <PayoutCertificate
-                                        ref={downloadRef}
-                                        name={userName}
-                                        amount={parseFloat(selectedPayout.amount)}
-                                        date={selectedPayout.processed_at || selectedPayout.created_at}
-                                        transactionId={selectedPayout.transaction_id || selectedPayout.id}
-                                    />
+                                    {selectedItem.certificate_type === 'payout' ? (
+                                        <PayoutCertificate
+                                            ref={downloadRef}
+                                            name={userName}
+                                            amount={parseFloat((selectedItem as Payout).amount)}
+                                            date={(selectedItem as Payout).processed_at || (selectedItem as Payout).created_at}
+                                            transactionId={(selectedItem as Payout).transaction_id || selectedItem.id}
+                                        />
+                                    ) : (
+                                        <ChallengeCertificate
+                                            ref={downloadRef}
+                                            name={userName}
+                                            type={(selectedItem as any).title}
+                                            date={(selectedItem as any).issued_at}
+                                            certificateId={selectedItem.id}
+                                            balance={(selectedItem as any).challenges?.balance}
+                                        />
+                                    )}
                                 </div>
                             </div>
                         </motion.div>

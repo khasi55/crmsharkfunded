@@ -7,6 +7,7 @@ import { Loader2, Mail, Lock, ArrowRight, CheckCircle, User, Eye, EyeOff, Globe,
 import { COUNTRIES } from '@/lib/countries'
 import AuthCard from '@/components/auth/AuthCard'
 import { motion } from 'framer-motion'
+import { trackLead } from '@/lib/tracking'
 
 function SignupContent() {
     const [fullName, setFullName] = useState('')
@@ -56,6 +57,12 @@ function SignupContent() {
             if (!response.ok) {
                 throw new Error(data.error || 'Signup failed')
             }
+
+            // Track Lead event
+            trackLead({
+                email: email,
+                method: 'email'
+            });
 
             setSuccess(true)
         } catch (err: any) {

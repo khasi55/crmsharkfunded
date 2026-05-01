@@ -35,6 +35,9 @@ async function getStats() {
     thirtyDaysAgo.setHours(0, 0, 0, 0);
     const thirtyDaysAgoStr = thirtyDaysAgo.toISOString();
 
+    const { data: allRevenueData } = await fetchAllRows(supabase, 'payment_orders', 'amount, payment_gateway', q => q.eq('status', 'paid'));
+    const { data: allPayoutsData } = await fetchAllRows(supabase, 'payout_requests', 'amount', q => q.eq('status', 'processed'));
+
     const [
         { count: totalUsers },
         { count: pendingKYC },
@@ -47,8 +50,7 @@ async function getStats() {
         { count: breachedCount },
         { count: violationsCount },
         { count: pendingAffiliateWithdrawals },
-        { data: allRevenueData },
-        { data: allPayoutsData },
+        { count: totalAccountsCount },
         { data: monthRevenueData },
         { data: monthPayoutsData },
         { data: newUsersData },
@@ -58,15 +60,14 @@ async function getStats() {
         supabase.from('kyc_sessions').select('*', { count: 'exact', head: true }).eq('status', 'requires_review'),
         supabase.from('payout_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
         supabase.from('challenges').select('*', { count: 'exact', head: true }).eq('status', 'passed'),
-        supabase.from('challenges').select('*', { count: 'exact', head: true }).or('challenge_type.ilike.%Phase 1%,challenge_type.ilike.%Phase_1%'),
-        supabase.from('challenges').select('*', { count: 'exact', head: true }).or('challenge_type.ilike.%Phase 2%,challenge_type.ilike.%Phase_2%'),
-        supabase.from('challenges').select('*', { count: 'exact', head: true }).or('challenge_type.ilike.%Funded%,challenge_type.ilike.%Master%'),
-        supabase.from('challenges').select('*', { count: 'exact', head: true }).or('challenge_type.ilike.%Instant%,challenge_type.ilike.%Rapid%'),
+        supabase.from('challenges').select('*', { count: 'exact', head: true }).eq('status', 'active').or('challenge_type.ilike.%Phase 1%,challenge_type.ilike.%Phase_1%'),
+        supabase.from('challenges').select('*', { count: 'exact', head: true }).eq('status', 'active').or('challenge_type.ilike.%Phase 2%,challenge_type.ilike.%Phase_2%'),
+        supabase.from('challenges').select('*', { count: 'exact', head: true }).eq('status', 'active').or('challenge_type.ilike.%Funded%,challenge_type.ilike.%Master%'),
+        supabase.from('challenges').select('*', { count: 'exact', head: true }).eq('status', 'active').or('challenge_type.ilike.%Instant%,challenge_type.ilike.%Rapid%'),
         supabase.from('challenges').select('*', { count: 'exact', head: true }).eq('status', 'breached'),
         supabase.from('risk_violations').select('*', { count: 'exact', head: true }),
         supabase.from('affiliate_withdrawals').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-        supabase.from('payment_orders').select('amount, payment_gateway').eq('status', 'paid'),
-        supabase.from('payout_requests').select('amount').eq('status', 'processed'),
+        supabase.from('challenges').select('*', { count: 'exact', head: true }),
         supabase.from('payment_orders').select('amount, created_at').eq('status', 'paid').gte('created_at', thirtyDaysAgoStr).order('created_at', { ascending: false }).limit(1000),
         supabase.from('payout_requests').select('amount, created_at').eq('status', 'processed').gte('created_at', thirtyDaysAgoStr).order('created_at', { ascending: false }).limit(1000),
         supabase.from('profiles').select('created_at').gte('created_at', thirtyDaysAgoStr).order('created_at', { ascending: false }).limit(1000),
@@ -174,7 +175,8 @@ async function getStats() {
         liveCount: fundedCount || 0,
         instantCount: instantCount || 0,
         breachedCount: breachedCount || 0,
-        totalAccounts: (phase1Count || 0) + (phase2Count || 0) + (fundedCount || 0) + (instantCount || 0),
+        totalAccounts: totalAccountsCount || 0,
+        totalPayouts: totalPayoutsSum,
         financials: financialsView,
         revenueByGateway,
         chartData
@@ -194,6 +196,16 @@ export default async function AdminDashboardPage() {
             iconColor: "text-emerald-600",
             textColor: "text-emerald-600",
             href: null
+        },
+        {
+            title: "Total Payouts",
+            value: `$${stats.totalPayouts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            icon: Wallet,
+            color: "red",
+            bgColor: "bg-red-50",
+            iconColor: "text-red-600",
+            textColor: "text-red-600",
+            href: "/payouts"
         },
         {
             title: "Phase 1 Accounts",

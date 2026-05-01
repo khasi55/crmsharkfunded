@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Loader2, ArrowRight, Wallet, ShieldCheck, Zap } from 'lucide-react';
 import Link from 'next/link';
+import { trackPurchase } from '@/lib/tracking';
 
 function PaymentSuccessContent() {
     const router = useRouter();
@@ -21,27 +22,23 @@ function PaymentSuccessContent() {
             setIsChecking(false);
             
             // Track Purchase Event
-            if (typeof window !== 'undefined' && (window as any).axon) {
-                try {
-                    const finalAmount = amount ? parseFloat(amount) : 0;
-                    (window as any).axon("track", "purchase", {
-                        transaction_id: orderId || `SF-${Date.now()}`,
-                        value: finalAmount,
-                        currency: 'USD',
-                        shipping: 0,
-                        tax: 0,
-                        items: [{
-                            item_id: orderId || 'SF-UNKNOWN',
-                            item_name: 'SharkFunded Challenge Purchase',
-                            price: finalAmount,
-                            quantity: 1,
-                            item_category_id: 8
-                        }]
-                    });
-                    console.log("[Tracking] Axon refined purchase event fired:", orderId, finalAmount);
-                } catch (err) {
-                    console.warn("Axon purchase tracking failed:", err);
-                }
+            try {
+                const finalAmount = amount ? parseFloat(amount) : 0;
+                trackPurchase({
+                    transaction_id: orderId || `SF-${Date.now()}`,
+                    value: finalAmount,
+                    currency: 'USD',
+                    items: [{
+                        item_id: orderId || 'SF-UNKNOWN',
+                        item_name: 'SharkFunded Challenge Purchase',
+                        price: finalAmount,
+                        quantity: 1,
+                        item_category_id: 8
+                    }]
+                });
+                console.log("[Tracking] Purchase event fired:", orderId, finalAmount);
+            } catch (err) {
+                console.warn("Purchase tracking failed:", err);
             }
         }, 2000);
 
