@@ -64,6 +64,10 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizeCss: true,
   },
+  // @ts-ignore
+  turbopack: {
+    root: "../../",
+  },
 
   async redirects() {
     return [
