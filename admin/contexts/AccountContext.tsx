@@ -47,7 +47,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                 if (error) {
                     console.error('Error fetching accounts:', error);
                 } else if (data && data.length > 0) {
-                    const accountsData = data.map(challenge => ({
+                    const accountsData = data.map((challenge: any) => ({
                         id: challenge.id,
                         challenge_id: challenge.id,
                         account_number: challenge.challenge_number || `#${challenge.id.slice(0, 8)}`,

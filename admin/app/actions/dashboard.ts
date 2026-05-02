@@ -56,7 +56,7 @@ export async function getEquityCurveData(challengeId: string, initialBalance: nu
     let runningEquity = initialBalance;
     let runningProfit = 0;
 
-    const equityCurve = stats.map(day => {
+    const equityCurve = stats.map((day: any) => {
         runningEquity += Number(day.daily_profit);
         runningProfit += Number(day.daily_profit);
 

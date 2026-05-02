@@ -81,18 +81,18 @@ export async function getAffiliateTree(page: number, limit: number, search?: str
         throw new Error("Failed to fetch affiliate tree");
     }
 
-    const enrichedData = await Promise.all((data || []).map(async (aff) => {
+    const enrichedData = await Promise.all((data || []).map(async (aff: any) => {
         const { count: referredCount } = await supabase
             .from('profiles')
             .select('*', { count: 'exact', head: true })
             .eq('referred_by', aff.id);
-            
+
         const { data: earnings } = await supabase
             .from('affiliate_earnings')
             .select('amount')
             .eq('referrer_id', aff.id);
-            
-        const salesVolume = earnings?.reduce((sum, e) => sum + (Number(e.amount) || 0), 0) || 0;
+
+        const salesVolume = earnings?.reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0) || 0;
         const salesCount = earnings?.length || 0;
 
         return {
@@ -129,12 +129,12 @@ export async function getAffiliateReferrals(affiliateId: string) {
         throw new Error("Failed to fetch affiliate referrals");
     }
 
-    const enriched = await Promise.all((data || []).map(async (user) => {
+    const enriched = await Promise.all((data || []).map(async (user: any) => {
         const { count: accountCount } = await supabase
             .from('challenges')
             .select('*', { count: 'exact', head: true })
             .eq('user_id', user.id);
-            
+
         const { data: sales } = await supabase
             .from('affiliate_earnings')
             .select('*')
@@ -145,7 +145,7 @@ export async function getAffiliateReferrals(affiliateId: string) {
             ...user,
             account_count: accountCount || 0,
             coupon_used: (user as any).metadata?.coupon_used || null,
-            sales_details: sales?.map(s => ({
+            sales_details: sales?.map((s: any) => ({
                 order_id: s.order_id,
                 amount: s.amount,
                 currency: 'USD',
@@ -169,8 +169,8 @@ export async function getAffiliateUserAccounts(userId: string) {
         console.error("Error fetching affiliate user accounts:", error);
         throw new Error("Failed to fetch affiliate user accounts");
     }
-    
-    return data?.map(acc => ({
+
+    return data?.map((acc: any) => ({
         ...acc,
         plan_type: acc.challenge_type
     })) || [];

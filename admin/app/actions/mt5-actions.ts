@@ -164,7 +164,7 @@ export async function disableAccountsByGroup(groupName: string) {
         return { error: "Failed to fetch accounts for this group" };
     }
 
-    const logins = accounts.map(a => a.login).filter(Boolean);
+    const logins = accounts.map((a: any) => a.login).filter(Boolean);
 
     if (logins.length === 0) {
         return { error: "No accounts found in this group with valid logins." };

@@ -44,7 +44,7 @@ export default function AdminLoginPage() {
             formData.append("email", email);
             formData.append("password", password);
 
-            const result = await loginAdmin(formData);
+            const result = await loginAdmin(formData) as any;
             console.log("Login result:", result);
 
             if (result?.error) {
@@ -75,7 +75,7 @@ export default function AdminLoginPage() {
         setError(null);
         setLoading(true);
         try {
-            const result = await verifyTOTPLogin(twoFactorToken, totpCode);
+            const result = await verifyTOTPLogin(twoFactorToken, totpCode) as any;
             if ('success' in result && result.success) {
                 router.push("/dashboard");
                 router.refresh();
@@ -155,7 +155,7 @@ export default function AdminLoginPage() {
         setLoading(true);
         try {
             const options = await getWebAuthnRegistrationOptionsForSetup(twoFactorToken);
-            const authResponse = await startRegistration({ optionsJSON: options });
+            const authResponse = await startRegistration({ optionsJSON: options as any });
             const result = (await verifyWebAuthnRegistrationForSetup(twoFactorToken, authResponse)) as any;
 
             if (result.success) {
@@ -180,7 +180,7 @@ export default function AdminLoginPage() {
         if (!twoFactorToken) return;
         setLoading(true);
         try {
-            const result = await finalizeLoginFromSetup(twoFactorToken);
+            const result = await finalizeLoginFromSetup(twoFactorToken) as any;
             if ('success' in result && result.success) {
                 router.push("/dashboard");
                 router.refresh();
