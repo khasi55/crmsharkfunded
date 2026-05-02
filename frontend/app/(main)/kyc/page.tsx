@@ -86,7 +86,7 @@ export default function KYCPage() {
                     schema: 'public',
                     table: 'kyc_sessions',
                 },
-                (payload) => {
+                (payload: any) => {
                     console.log('🔄 KYC session updated:', payload);
                     fetchStatus();
                 }
