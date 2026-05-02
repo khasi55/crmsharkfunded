@@ -34,8 +34,8 @@ export default async function AccountViolationsPage({
 
     // Fetch trade details for violations that have trade_ids
     const tradeIds = violations
-        ?.filter(v => v.trade_id)
-        .map(v => v.trade_id) || [];
+        ?.filter((v: any) => v.trade_id)
+        .map((v: any) => v.trade_id) || [];
 
     let tradesMap = new Map();
     if (tradeIds.length > 0) {
@@ -44,7 +44,7 @@ export default async function AccountViolationsPage({
             .select("*")
             .in("id", tradeIds);
 
-        tradesMap = new Map(trades?.map(t => [t.id, t]) || []);
+        tradesMap = new Map(trades?.map((t: any) => [t.id, t]) || []);
     }
 
     const getViolationIcon = (type: string) => {
