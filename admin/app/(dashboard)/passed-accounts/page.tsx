@@ -36,7 +36,7 @@ export default async function PassedAccountsPage({
     }
 
     // Manual join with profiles since Supabase might not have the relationship defined in schema
-    const userIds = Array.from(new Set(accountsData?.map(a => (a as any).user_id).filter(Boolean) || []));
+    const userIds = Array.from(new Set(accountsData?.map((a: any) => (a as any).user_id).filter(Boolean) || []));
     let profilesData: any[] = [];
     
     if (userIds.length > 0) {
@@ -47,7 +47,7 @@ export default async function PassedAccountsPage({
         profilesData = pData || [];
     }
 
-    const eligibleAccounts = accountsData?.map(acc => ({
+    const eligibleAccounts = accountsData?.map((acc: any) => ({
         ...acc,
         profiles: profilesData.find(p => p.id === (acc as any).user_id) || { full_name: 'Unknown', email: 'Unknown' }
     }));

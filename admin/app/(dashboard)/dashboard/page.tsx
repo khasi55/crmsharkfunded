@@ -134,7 +134,7 @@ async function getStats() {
         }
     }
 
-    const chartData = Array.from(dateMap.values()).map(day => {
+    const chartData = Array.from(dateMap.values()).map((day: any) => {
         day.net = day.revenue - day.payouts;
         return day;
     });
@@ -352,7 +352,7 @@ export default async function AdminDashboardPage() {
             <div className="px-8 max-w-[1920px] mx-auto space-y-8">
                 {/* Main Stat Cards */}
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {statCards.map((stat) => {
+                    {statCards.map((stat: any) => {
                         const CardContent = () => (
                             <div className={`bg-white rounded-2xl border border-gray-100 p-6 flex flex-col justify-between h-full shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group/card`}>
                                 {/* Decorative background glow */}

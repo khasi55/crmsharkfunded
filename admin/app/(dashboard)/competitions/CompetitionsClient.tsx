@@ -201,7 +201,7 @@ export default function CompetitionsClient() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-800/50 text-gray-300">
-                        {Array.isArray(competitions) && competitions.map((comp) => (
+                        {Array.isArray(competitions) && competitions.map((comp: Competition) => (
                             <tr key={comp.id} className="hover:bg-white/[0.02] transition-colors">
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-3">
@@ -450,7 +450,7 @@ export default function CompetitionsClient() {
                                     ) : participants.length === 0 ? (
                                         <tr><td colSpan={7} className="p-4 text-center">No participants yet</td></tr>
                                     ) : (
-                                        participants.map((p) => (
+                                        participants.map((p: any) => (
                                             <tr
                                                 key={p.id}
                                                 onClick={() => fetchUserTrades(p.challenge_id, p.username)}
@@ -555,7 +555,7 @@ export default function CompetitionsClient() {
                                     ) : selectedUserTrades.length === 0 ? (
                                         <tr><td colSpan={8} className="p-4 text-center">No trades found for this user.</td></tr>
                                     ) : (
-                                        selectedUserTrades.map((t) => (
+                                        selectedUserTrades.map((t: any) => (
                                             <tr key={t.id} className="hover:bg-white/[0.02]">
                                                 <td className="px-4 py-3 font-mono text-gray-400">{t.ticket}</td>
                                                 <td className="px-4 py-3 font-medium text-white">{t.symbol}</td>
