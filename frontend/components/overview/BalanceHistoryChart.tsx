@@ -61,7 +61,7 @@ export default function BalanceHistoryChart({ data }: BalanceHistoryChartProps) 
                                 fontSize: '12px'
                             }}
                             itemStyle={{ color: '#fff' }}
-                            formatter={(value: number) => [`$${value.toLocaleString()}`, 'Balance']}
+                            formatter={(value: any) => [`$${Number(value).toLocaleString()}`, 'Balance']}
                         />
                         <Area
                             type="monotone"
