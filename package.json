@@ -1,4 +1,13 @@
 {
+  "name": "sharkfunded-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm install && npm run build",
+    "start": "cd frontend && npm run start",
+    "install-all": "npm install && cd frontend && npm install && cd ../admin && npm install"
+  },
   "dependencies": {
     "node-fetch": "^3.3.2",
     "qrcode": "^1.5.4"
