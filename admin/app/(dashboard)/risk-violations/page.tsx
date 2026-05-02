@@ -89,8 +89,8 @@ export default async function RiskViolationsPage({
         // Build enriched account-level data
         enrichedAccounts = paginatedChallengeIds.map((challengeId: any) => {
             const violations = violationsByAccount.get(challengeId) || [];
-            const challenge = challengeMap.get(challengeId);
-            const profile = profileMap.get(challenge?.user_id);
+            const challenge = challengeMap.get(challengeId) as any;
+            const profile = profileMap.get(challenge?.user_id) as any;
 
             // Count by type
             const violationCounts = violations.reduce((acc: any, v: any) => {
