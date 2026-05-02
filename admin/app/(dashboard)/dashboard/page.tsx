@@ -74,15 +74,17 @@ async function getStats() {
         supabase.from('challenges').select('updated_at').in('status', ['breached', 'failed']).gte('updated_at', thirtyDaysAgoStr).order('updated_at', { ascending: false }).limit(1000)
     ]);
 
-    const totalRevenue = (allRevenueData || []).reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
-    const totalPayoutsSum = (allPayoutsData || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    const totalRevenue = (allRevenueData || []).reduce((sum: number, r: any) => sum + (Number(r.amount) || 0), 0);
+    const totalPayoutsSum = (allPayoutsData || []).reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
 
     // Revenue by gateway
     const revenueByGateway: Record<string, number> = {};
-    allRevenueData?.forEach(r => {
-        const gateway = r.payment_gateway || 'Other';
-        revenueByGateway[gateway] = (revenueByGateway[gateway] || 0) + (Number(r.amount) || 0);
-    });
+    if (allRevenueData) {
+        for (const r of allRevenueData as any[]) {
+            const gateway = r.payment_gateway || 'Other';
+            revenueByGateway[gateway] = (revenueByGateway[gateway] || 0) + (Number(r.amount) || 0);
+        }
+    }
 
     // Chart Data processing
     const dateMap = new Map();
@@ -103,26 +105,34 @@ async function getStats() {
         });
     }
 
-    monthRevenueData?.forEach(r => {
-        const key = new Date(r.created_at).toISOString().split('T')[0];
-        if (dateMap.has(key)) dateMap.get(key).revenue += (Number(r.amount) || 0);
-    });
+    if (monthRevenueData) {
+        for (const r of monthRevenueData as any[]) {
+            const key = new Date(r.created_at).toISOString().split('T')[0];
+            if (dateMap.has(key)) dateMap.get(key).revenue += (Number(r.amount) || 0);
+        }
+    }
 
-    monthPayoutsData?.forEach(p => {
-        const key = new Date(p.created_at).toISOString().split('T')[0];
-        if (dateMap.has(key)) dateMap.get(key).payouts += (Number(p.amount) || 0);
-    });
+    if (monthPayoutsData) {
+        for (const p of monthPayoutsData as any[]) {
+            const key = new Date(p.created_at).toISOString().split('T')[0];
+            if (dateMap.has(key)) dateMap.get(key).payouts += (Number(p.amount) || 0);
+        }
+    }
 
-    newUsersData?.forEach(u => {
-        const key = new Date(u.created_at).toISOString().split('T')[0];
-        if (dateMap.has(key)) dateMap.get(key).newUsers += 1;
-    });
+    if (newUsersData) {
+        for (const u of newUsersData as any[]) {
+            const key = new Date(u.created_at).toISOString().split('T')[0];
+            if (dateMap.has(key)) dateMap.get(key).newUsers += 1;
+        }
+    }
 
-    monthBreachedData?.forEach(c => {
-        const breachDate = new Date(c.updated_at);
-        const key = breachDate.toISOString().split('T')[0];
-        if (dateMap.has(key)) dateMap.get(key).breachedAccounts += 1;
-    });
+    if (monthBreachedData) {
+        for (const c of monthBreachedData as any[]) {
+            const breachDate = new Date(c.updated_at);
+            const key = breachDate.toISOString().split('T')[0];
+            if (dateMap.has(key)) dateMap.get(key).breachedAccounts += 1;
+        }
+    }
 
     const chartData = Array.from(dateMap.values()).map(day => {
         day.net = day.revenue - day.payouts;
@@ -136,7 +146,7 @@ async function getStats() {
     sevenDaysAgo.setHours(0, 0, 0, 0);
     const sevenDaysAgoStr = sevenDaysAgo.toISOString();
 
-    const sumByPeriod = (data: any[], filterFn: (item: any) => boolean) => 
+    const sumByPeriod = (data: any[], filterFn: (item: any) => boolean) =>
         data.filter(filterFn).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 
     const financialsView = {
