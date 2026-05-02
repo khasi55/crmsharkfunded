@@ -11,7 +11,7 @@ import {
     MOCK_SYSTEM_HEALTH
 } from './mock-data';
 
-export async function fetchFromBackend(endpoint: string, options: RequestInit & { requireAuth?: boolean } = {}) {
+export async function fetchFromBackend(endpoint: string, options: RequestInit & { requireAuth?: boolean } = {}): Promise<any> {
     console.log(`[MOCK ADMIN API] ${options.method || 'GET'} ${endpoint}`);
 
     // Simulate network delay

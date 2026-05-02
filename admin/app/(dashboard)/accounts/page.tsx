@@ -48,7 +48,7 @@ export default async function AccountsListPage({
     }
 
     // Manual join with profiles
-    const userIds = Array.from(new Set(accountsData?.map(a => (a as any).user_id).filter(Boolean) || []));
+    const userIds = Array.from(new Set(accountsData?.map((a: any) => (a as any).user_id).filter(Boolean) || []));
     let profilesData: any[] = [];
     
     if (userIds.length > 0) {
@@ -59,7 +59,7 @@ export default async function AccountsListPage({
         profilesData = pData || [];
     }
 
-    const accountsWithProfiles = accountsData?.map(acc => ({
+    const accountsWithProfiles = accountsData?.map((acc: any) => ({
         ...acc,
         profile: profilesData.find(p => p.id === (acc as any).user_id) || { 
             full_name: 'Unknown', 
@@ -76,7 +76,7 @@ export default async function AccountsListPage({
         .from('challenges')
         .select('group')
         .not('group', 'is', null);
-    const uniqueGroups = Array.from(new Set(groupsData?.map(g => g.group).filter(Boolean) || []));
+    const uniqueGroups = Array.from(new Set(groupsData?.map((g: any) => g.group).filter(Boolean) || [])) as string[];
 
     return (
         <div className="space-y-6">

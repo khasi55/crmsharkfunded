@@ -87,7 +87,7 @@ export default function AdminMT5Client() {
     const fetchAccounts = async () => {
         setLoading(true);
         try {
-            const data = await fetchFromBackend('/api/mt5/accounts');
+            const data = await fetchFromBackend('/api/mt5/accounts') as any;
             setAccounts(data.accounts || []);
         } catch (error) {
             console.error('Error fetching MT5 accounts:', error);

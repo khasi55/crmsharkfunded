@@ -66,9 +66,9 @@ export const createAdminClient = () => {
                 }
                 return { data: null, error: null };
             },
-            update: () => builder,
+
             then: (resolve: any) => {
-                let data: any[] = [];
+                let data: any = [];
                 const t = table.toLowerCase();
                 if (t === 'profiles' || t === 'admin_users') data = MOCK_USERS_LIST;
                 else if (t === 'challenges') data = MOCK_CHALLENGES;
