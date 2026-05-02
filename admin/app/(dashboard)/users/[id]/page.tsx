@@ -51,8 +51,8 @@ export default async function AdminUserDetailsPage({
         supabase.from("bank_details").select("*").eq("user_id", id).maybeSingle(),
     ]);
 
-    const totalPaid = (paymentOrders || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-    const totalPayouts = (payoutRequests || []).filter(r => ['approved', 'processed'].includes(r.status)).reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+    const totalPaid = (paymentOrders || []).reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+    const totalPayouts = (payoutRequests || []).filter((r: any) => ['approved', 'processed'].includes(r.status)).reduce((sum: number, r: any) => sum + (Number(r.amount) || 0), 0);
 
     if (!profile) {
         notFound();
@@ -182,7 +182,7 @@ export default async function AdminUserDetailsPage({
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {challenges?.map((c) => (
+                            {challenges?.map((c: any) => (
                                 <tr key={c.id} className="hover:bg-gray-50/80 transition-colors">
                                     <td className="px-6 py-5">
                                         <div className="flex flex-col gap-0.5">
@@ -500,7 +500,7 @@ export default async function AdminUserDetailsPage({
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {/* Show sessions first then requests */}
-                                    {(kycSessions || []).map(req => (
+                                    {(kycSessions || []).map((req: any) => (
                                         <tr key={`session-${req.id}`} className="hover:bg-gray-50/80 transition-colors">
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
@@ -516,7 +516,7 @@ export default async function AdminUserDetailsPage({
                                             </td>
                                         </tr>
                                     ))}
-                                    {(kycRequests || []).map(req => (
+                                    {(kycRequests || []).map((req: any) => (
                                         <tr key={`request-${req.id}`} className="hover:bg-gray-50/80 transition-colors">
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
@@ -629,7 +629,7 @@ export default async function AdminUserDetailsPage({
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
-                                    {(payoutRequests || []).map(req => (
+                                    {(payoutRequests || []).map((req: any) => (
                                         <tr key={req.id} className="hover:bg-gray-50/80 transition-colors">
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col gap-0.5">
