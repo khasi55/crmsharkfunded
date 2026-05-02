@@ -5,5 +5,15 @@ export function middleware() {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/kyc/:path*', '/settings/:path*'],
+  matcher: [
+    '/dashboard',
+    '/dashboard/:path*',
+    '/kyc',
+    '/kyc/:path*',
+    '/settings',
+    '/settings/:path*',
+    '/checkoutpage',
+    '/login',
+    '/signup'
+  ],
 }
