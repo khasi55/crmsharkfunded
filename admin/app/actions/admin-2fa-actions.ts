@@ -64,24 +64,35 @@ export async function disable2FA() {
     return { success: true };
 }
 
-export async function getWebAuthnRegistrationOptionsForSetup(tempToken: string) {
-    return { challenge: 'mock-challenge' };
-}
-
-export async function verifyWebAuthnRegistrationForSetup(tempToken: string, attestationResponse: any) {
-    return { success: true };
-}
-
 export async function getWebAuthnRegistrationOptions() {
-    return { challenge: 'mock-challenge' };
+    return { 
+        challenge: 'bW9jay1jaGFsbGVuZ2U', // base64url mock
+        rp: { name: 'SharkFunded', id: 'localhost' },
+        user: { id: 'bW9jay11c2VyLWlk', name: 'admin@sharkfunded.com', displayName: 'Admin User' },
+        pubKeyCredParams: [{ alg: -7, type: 'public-key' }],
+        timeout: 60000,
+        attestation: 'none'
+    } as any;
+}
+
+export async function getWebAuthnRegistrationOptionsForSetup(tempToken: string) {
+    return await getWebAuthnRegistrationOptions();
 }
 
 export async function verifyWebAuthnRegistration(attestationResponse: any) {
     return { success: true };
 }
 
+export async function verifyWebAuthnRegistrationForSetup(tempToken: string, attestationResponse: any) {
+    return { success: true };
+}
+
 export async function getWebAuthnAuthenticationOptions(tempToken: string) {
-    return { challenge: 'mock-challenge' };
+    return { 
+        challenge: 'bW9jay1jaGFsbGVuZ2U',
+        timeout: 60000,
+        userVerification: 'preferred'
+    } as any;
 }
 
 export async function verifyWebAuthnLogin(tempToken: string, authResponse: any) {

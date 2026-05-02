@@ -43,7 +43,7 @@ export function SecuritySettingsClient({ initial2FAEnabled, initialWebAuthnEnabl
         if (!setupData || !verificationCode) return;
         setLoading(true);
         try {
-            const result = await enableTOTP(setupData.secret, verificationCode);
+            const result = await enableTOTP(setupData.secret, verificationCode) as any;
             if (result.success) {
                 setIs2FAEnabled(true);
                 setShowSetup(false);
@@ -64,7 +64,7 @@ export function SecuritySettingsClient({ initial2FAEnabled, initialWebAuthnEnabl
         if (!confirm("Are you sure you want to disable 2FA? This will decrease your account security.")) return;
         setLoading(true);
         try {
-            const result = await disable2FA();
+            const result = await disable2FA() as any;
             if (result.success) {
                 setIs2FAEnabled(false);
                 setWebauthnEnabled(false);
@@ -81,8 +81,8 @@ export function SecuritySettingsClient({ initial2FAEnabled, initialWebAuthnEnabl
         setLoading(true);
         try {
             const options = await getWebAuthnRegistrationOptions();
-            const attestationResponse = await startRegistration({ optionsJSON: options });
-            const verification = await verifyWebAuthnRegistration(attestationResponse);
+            const attestationResponse = await startRegistration({ optionsJSON: options as any });
+            const verification = await verifyWebAuthnRegistration(attestationResponse) as any;
 
             if (verification.success) {
                 setWebauthnEnabled(true);
