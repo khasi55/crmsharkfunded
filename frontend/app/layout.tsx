@@ -1,92 +1,52 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
-import PromoBanner from "@/components/layout/PromoBanner";
-import Script from "next/script";
+"use client";
 
-const inter = Inter({ subsets: ["latin"] });
+// Trigger HMR update
+import Sidebar from "@/components/layout/Sidebar";
+// import Header from "@/components/layout/Header"; // Removed
+import { useState } from "react";
+import { Menu } from "lucide-react";
+import { SocketProvider } from "@/contexts/SocketContext";
+import { AccountProvider } from "@/contexts/AccountContext";
 
-export const metadata: Metadata = {
-    title: "Dashboard | Demo Funded",
-    description: "Demo Funded Trading Platform",
-    icons: {
-        icon: "/shark-logo.png",
-    },
-};
+import { ToastProvider } from "@/contexts/ToastContext";
+import SessionGuard from "@/components/auth/SessionGuard";
 
-export default function RootLayout({
+export default function MainLayout({
     children,
 }: Readonly<{
     children: React.ReactNode;
 }>) {
-    return (
-        <html lang="en" suppressHydrationWarning>
-            <head>
-                {/* Axon Pixel Base Script */}
-                <Script id="axon-pixel-init" strategy="afterInteractive">
-                    {`
-                        var AXON_EVENT_KEY = "393f6aeb-d829-47d0-8ae6-9fdcae6daa69";
-                        !function(e,r){
-                            var t=["https://s.axon.ai/pixel.js","https://res4.applovin.com/p/l/loader.iife.js"];
-                            if(!e.axon){
-                                var a=e.axon=function(){
-                                    a.performOperation?a.performOperation.apply(a,arguments):a.operationQueue.push(arguments)
-                                };
-                                a.operationQueue=[],a.ts=Date.now(),a.eventKey=AXON_EVENT_KEY;
-                                for(var n=r.getElementsByTagName("script")[0],o=0;o<t.length;o++){
-                                    var i=r.createElement("script");
-                                    i.async=!0,i.src=t[o],n.parentNode.insertBefore(i,n)
-                                }
-                            }
-                        }(window,document);
-                        axon("init");
-                    `}
-                </Script>
-                {/* Google Tag Manager */}
-                <Script id="gtm-script" strategy="afterInteractive">
-                    {`
-                        (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-                        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-                        j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-                        'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-                        })(window,document,'script','dataLayer','GTM-WB5JVZNF');
-                    `}
-                </Script>
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-                {/* Meta Pixel Code */}
-                <Script id="facebook-pixel" strategy="afterInteractive">
-                    {`
-                        !function(f,b,e,v,n,t,s)
-                        {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-                        n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-                        if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-                        n.queue=[];t=b.createElement(e);t.async=!0;
-                        t.src=v;s=b.getElementsByTagName(e)[0];
-                        s.parentNode.insertBefore(t,s)}(window, document,'script',
-                        'https://connect.facebook.net/en_US/fbevents.js');
-                        fbq('init', '3399437100225491');
-                        fbq('track', 'PageView');
-                    `}
-                </Script>
-                <noscript>
-                    <img height="1" width="1" style={{ display: 'none' }}
-                        src="https://www.facebook.com/tr?id=3399437100225491&ev=PageView&noscript=1"
-                    />
-                </noscript>
-            </head>
-            <body className={inter.className}>
-                {/* Google Tag Manager (noscript) */}
-                <noscript>
-                    <iframe 
-                        src="https://www.googletagmanager.com/ns.html?id=GTM-WB5JVZNF"
-                        height="0" 
-                        width="0" 
-                        style={{ display: 'none', visibility: 'hidden' }}
-                    />
-                </noscript>
-                <PromoBanner />
-                {children}
-            </body>
-        </html>
+    return (
+        <SessionGuard>
+            <SocketProvider>
+                <AccountProvider>
+                    <ToastProvider>
+                        <div className="flex h-screen overflow-hidden bg-[#FFFFFF] relative">
+                            <Sidebar
+                                isOpen={isSidebarOpen}
+                                onClose={() => setIsSidebarOpen(false)}
+                            />
+
+                            {/* Mobile Menu Trigger */}
+                            <button
+                                onClick={() => setIsSidebarOpen(true)}
+                                className="md:hidden absolute top-4 left-4 z-[101] p-2 text-gray-400 hover:text-white bg-black/50 rounded-lg backdrop-blur-sm shadow-lg border border-white/10"
+                            >
+                                <Menu size={24} />
+                            </button>
+
+                            <div className="flex-1 flex flex-col h-full relative w-full bg-[#EDF6FE] md:rounded-3xl md:my-4 md:mr-4 overflow-hidden">
+                                {/* Header removed as per request to move dashboard up */}
+                                <main className="flex-1 overflow-y-auto w-full relative">
+                                    {children}
+                                </main>
+                            </div>
+                        </div>
+                    </ToastProvider>
+                </AccountProvider>
+            </SocketProvider>
+        </SessionGuard>
     );
 }
