@@ -97,7 +97,7 @@ export function FinancialChart({ data }: FinancialChartProps) {
                                 cursor={{ fill: '#f8fafc' }}
                                 contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #f1f5f9', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)', padding: '12px 16px' }}
                                 itemStyle={{ color: '#0f172a', fontWeight: '700', fontSize: '14px' }}
-                                formatter={(value: number, name: string) => [value, name]}
+                                formatter={(value: any, name: string) => [value, name]}
                                 labelStyle={{ color: '#64748b', marginBottom: '8px', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
                             />
                             <Bar dataKey="newUsers" name="New Clients" fill="#3b82f6" radius={[6, 6, 0, 0]} barSize={16} />
@@ -127,7 +127,7 @@ export function FinancialChart({ data }: FinancialChartProps) {
                                 cursor={{ fill: '#f8fafc' }}
                                 contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #f1f5f9', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)', padding: '12px 16px' }}
                                 itemStyle={{ color: '#0f172a', fontWeight: '600', fontSize: '13px' }}
-                                formatter={(value: number) => formatCurrency(value)}
+                                formatter={(value: any) => formatCurrency(value)}
                                 labelStyle={{ color: '#64748b', marginBottom: '8px', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
                             />
                             <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '13px', fontWeight: '500', color: '#64748b' }} />
@@ -166,7 +166,7 @@ export function FinancialChart({ data }: FinancialChartProps) {
                                 cursor={{ fill: '#f8fafc' }}
                                 contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #f1f5f9', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)', padding: '12px 16px' }}
                                 itemStyle={{ color: '#0f172a', fontWeight: '700', fontSize: '14px' }}
-                                formatter={(value: number, name: string) => [value, name]}
+                                formatter={(value: any, name: string) => [value, name]}
                                 labelStyle={{ color: '#64748b', marginBottom: '8px', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
                             />
                             <Area type="monotone" dataKey="breachedAccounts" name="Breached Accounts" stroke="#ef4444" strokeWidth={3} fillOpacity={1} fill="url(#colorBreached)" activeDot={{ r: 6, strokeWidth: 0 }} />
