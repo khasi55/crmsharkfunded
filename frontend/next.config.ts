@@ -66,6 +66,16 @@ const nextConfig: NextConfig = {
     optimizeCss: true, // Optimize CSS delivery
   },
 
+  async redirects() {
+    return [
+      {
+        source: '/',
+        destination: '/dashboard',
+        permanent: false,
+      },
+    ];
+  },
+
   async rewrites() {
     const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.sharkfunded.co';
     const ADMIN_URL = (process.env.ADMIN_URL || 'https://admin.sharkfunded.com').replace(/\/$/, '');
