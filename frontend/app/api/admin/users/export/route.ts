@@ -36,7 +36,7 @@ export async function GET() {
 
         const csvContent = [
             headers.join(","),
-            ...rows.map(row => row.join(","))
+            ...rows.map((row: any) => row.join(","))
         ].join("\n");
 
         // Return CSV file

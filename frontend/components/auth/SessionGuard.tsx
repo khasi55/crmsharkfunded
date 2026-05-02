@@ -49,7 +49,7 @@ export default function SessionGuard({ children }: { children: React.ReactNode }
         syncSession();
 
         // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any, session: any) => {
             if (event === 'SIGNED_IN' && session) {
                 // Clear sync flag on new login to force a re-sync
                 const wasSynced = sessionStorage.getItem('sf_backend_synced') === 'true';

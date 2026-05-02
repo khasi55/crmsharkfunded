@@ -51,7 +51,7 @@ export async function getEquityCurveData(challengeId: string, initialBalance: nu
             .not('close_time', 'is', null);
 
         if (priorTrades) {
-            priorPnL = priorTrades.reduce((sum, t) => sum + (t.profit_loss || 0) + (t.commission || 0) + (t.swap || 0), 0);
+            priorPnL = priorTrades.reduce((sum: number, t: any) => sum + (t.profit_loss || 0) + (t.commission || 0) + (t.swap || 0), 0);
         }
     }
 
@@ -74,7 +74,7 @@ export async function getEquityCurveData(challengeId: string, initialBalance: nu
     let runningEquity = initialBalance + priorPnL;
     let runningProfit = priorPnL;
 
-    const equityCurve = (trades || []).map(t => {
+    const equityCurve = (trades || []).map((t: any) => {
         const grossPnl = t.profit_loss || 0;
         const fees = (t.commission || 0) + (t.swap || 0);
         const netPnl = grossPnl + fees;

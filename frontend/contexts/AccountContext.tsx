@@ -74,7 +74,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                         table: 'challenges',
                         filter: filter
                     },
-                    (payload) => {
+                    (payload: any) => {
                         // Only refresh if NOT a minor equity change already handled by WebSocket
                         // or if we haven't had a socket update in the last 2 seconds
                         const now = Date.now();
