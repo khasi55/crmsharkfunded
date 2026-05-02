@@ -208,7 +208,7 @@ export default function AdminLoginPage() {
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-blue-500/20">
                             <Shield className="h-5 w-5 text-white" />
                         </div>
-                        <span className="text-2xl font-bold tracking-tight text-gray-900">SharkFunded</span>
+                        <span className="text-2xl font-bold tracking-tight text-gray-900">Demo Funded</span>
                     </div>
                 </div>
 
@@ -242,7 +242,7 @@ export default function AdminLoginPage() {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     className="block w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3 text-[15px] text-gray-900 transition-colors focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/10 placeholder:text-gray-400"
-                                    placeholder="admin@sharkfunded.com"
+                                    placeholder="admin@demofunded.com"
                                 />
                             </div>
 
@@ -452,7 +452,7 @@ export default function AdminLoginPage() {
                 </div>
 
                 <div className="mt-8 text-center text-[13px] text-gray-400 font-medium tracking-wide pb-12">
-                    SharkFunded Admin Portal &copy; {new Date().getFullYear()}
+                    Demo Funded Admin Portal &copy; {new Date().getFullYear()}
                 </div>
             </div>
         </div>

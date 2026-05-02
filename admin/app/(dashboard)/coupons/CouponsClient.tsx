@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, Search, Filter, Trash2, Edit, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import CreateCouponModal from "./CreateCouponModal";
+import { fetchFromBackend } from "@/lib/backend-api";
 
 interface Coupon {
     id: string;
@@ -65,11 +66,7 @@ export default function CouponsClient() {
     const fetchCoupons = async () => {
         setLoading(true);
         try {
-            const response = await fetch('/api/admin/coupons');
-            if (!response.ok) {
-                throw new Error('Failed to fetch coupons');
-            }
-            const data = await response.json();
+            const data = await fetchFromBackend('/api/admin/coupons');
             setCoupons(data.coupons || []);
         } catch (error) {
             console.error('Error fetching coupons:', error);
@@ -92,11 +89,11 @@ export default function CouponsClient() {
         if (!confirm("Are you sure you want to delete this coupon?")) return;
 
         try {
-            const response = await fetch(`/api/admin/coupons/${id}`, {
+            const response = await fetchFromBackend(`/api/admin/coupons/${id}`, {
                 method: 'DELETE',
             });
 
-            if (response.ok) {
+            if (response.success) {
                 setCoupons(coupons.filter(c => c.id !== id));
             } else {
                 alert("Failed to delete coupon");

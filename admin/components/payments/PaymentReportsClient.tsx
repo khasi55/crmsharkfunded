@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { Search, Download, Copy, Check, Filter } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { fetchFromBackend } from "@/lib/backend-api";
 
 interface PaymentOrder {
     id: string;
@@ -50,12 +51,9 @@ export function PaymentReportsClient() {
                 status: statusFilter,
                 search: debouncedSearch.trim()
             });
-            const res = await fetch(`/api/admin/payments?${queryParams}`);
-            if (res.ok) {
-                const { data, meta } = await res.json();
-                setPayments(data || []);
-                setTotalPages(meta?.totalPages || 1);
-            }
+            const data = await fetchFromBackend(`/api/admin/payments?${queryParams}`);
+            setPayments(data.data || []);
+            setTotalPages(data.meta?.totalPages || 1);
         } catch (error) {
             console.error("Failed to fetch payments", error);
         } finally {
@@ -345,4 +343,3 @@ export function PaymentReportsClient() {
         </div>
     );
 }
-

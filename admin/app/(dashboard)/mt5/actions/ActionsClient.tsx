@@ -5,6 +5,7 @@ import { Search, Loader2, Server, User, Mail, DollarSign, Activity, Gauge, Trend
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { AccountActions } from "@/components/admin/AccountActions";
 import { toast } from "sonner";
+import { fetchFromBackend } from "@/lib/backend-api";
 
 interface Account {
     id: string;
@@ -44,10 +45,7 @@ export default function MT5ActionsClient() {
         setAccount(null);
 
         try {
-            const response = await fetch(`/api/mt5/accounts?login=${login}`);
-            if (!response.ok) throw new Error("Search failed");
-
-            const data = await response.json();
+            const data = await fetchFromBackend(`/api/mt5/accounts?login=${login}`);
             // Since we filter by login in backend now, the first result should be it
             if (data.accounts && data.accounts.length > 0) {
                 setAccount(data.accounts[0]);

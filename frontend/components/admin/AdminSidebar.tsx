@@ -37,7 +37,7 @@ export function AdminSidebar() {
                         <Shield className="h-5 w-5 text-white" />
                     </div>
                     <div>
-                        <span className="block text-base font-semibold text-gray-900">SharkFunded</span>
+                        <span className="block text-base font-semibold text-gray-900">Demo Funded</span>
                         <span className="block text-xs text-gray-500">Admin Portal</span>
                     </div>
                 </div>
@@ -79,7 +79,7 @@ export function AdminSidebar() {
                     </div>
                     <div className="flex-1 overflow-hidden">
                         <p className="truncate text-sm font-medium text-gray-900">Super Admin</p>
-                        <p className="truncate text-xs text-gray-500">admin@sharkfunded.com</p>
+                        <p className="truncate text-xs text-gray-500">admin@demofunded.com</p>
                     </div>
                 </div>
 

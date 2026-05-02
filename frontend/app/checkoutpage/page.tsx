@@ -69,9 +69,9 @@ const CHALLENGE_TYPES = [
 ];
 
 const MODELS = [
-    { id: "prime", label: "SharkFunded Prime", desc: "Higher leverage" },
-    { id: "lite", label: "SharkFunded Lite", desc: "Classic model" },
-    { id: "bolt", label: "Sharkfunded Bolt", desc: "Direct Funded - Fast-track" }
+    { id: "prime", label: "Demo Funded Prime", desc: "Higher leverage" },
+    { id: "lite", label: "Demo Funded Lite", desc: "Classic model" },
+    { id: "bolt", label: "Demo Funded Bolt", desc: "Direct Funded - Fast-track" }
 ];
 
 const PLATFORMS = [
@@ -705,7 +705,7 @@ function CheckoutContent() {
                                     {selectedGateway === "Sharkpay" && <Check className="text-blue-500" size={20} />}
                                 </div>
                                 <h3 className="text-xl font-bold text-slate-800">UPI / Local</h3>
-                                <p className="text-slate-500 text-sm mt-1">Instant local payments via SharkPay</p>
+                                <p className="text-slate-500 text-sm mt-1">Instant local payments via Demo Pay</p>
                                 <div className="mt-4 text-lg font-bold text-blue-600">
                                     ₹{Math.round(finalPriceUSD * EXCHANGE_RATE_INR).toLocaleString()}
                                 </div>
@@ -758,7 +758,7 @@ function CheckoutContent() {
                         <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500 mt-6">
                             <Info size={14} className="inline mr-2 mb-0.5" />
                             {selectedGateway === "Sharkpay"
-                                ? "SharkPay provides instant UPI and local bank transfer options."
+                                ? "Demo Pay provides instant UPI and local bank transfer options."
                                 : selectedGateway === "Cregis"
                                     ? "Cregis supports multiple cryptocurrencies with instant verification."
                                     : "Select a payment method above."}
@@ -794,7 +794,7 @@ function CheckoutContent() {
                             {loading ? <Loader2 className="animate-spin" /> : (
                                 validatingCoupon ? "Validating Price..." : (
                                     currentStep === 3
-                                        ? (selectedGateway.toLowerCase() === 'cregis' ? "Pay with Crypto" : `Pay with ${selectedGateway === 'Sharkpay' ? 'UPI' : selectedGateway}`)
+                                        ? (selectedGateway.toLowerCase() === 'cregis' ? "Pay with Crypto" : `Pay with ${selectedGateway === 'Sharkpay' ? 'Demo Pay' : selectedGateway}`)
                                         : "Continue"
                                 )
                             )} <ArrowRight size={18} />

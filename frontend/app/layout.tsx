@@ -7,8 +7,8 @@ import Script from "next/script";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-    title: "Dashboard | SharkFunded ",
-    description: "SharkFunded Trading Platform",
+    title: "Dashboard | Demo Funded",
+    description: "Demo Funded Trading Platform",
     icons: {
         icon: "/shark-logo.png",
     },
@@ -20,7 +20,7 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <html lang="en">
+        <html lang="en" suppressHydrationWarning>
             <head>
                 {/* Axon Pixel Base Script */}
                 <Script id="axon-pixel-init" strategy="afterInteractive">

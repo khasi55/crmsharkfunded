@@ -30,7 +30,7 @@ const ChallengeCertificate = forwardRef<ChallengeCertificateRef, ChallengeCertif
             const canvas = canvasRef.current;
             if (canvas) {
                 const link = document.createElement("a");
-                link.download = `SharkFunded-${type.replace(/\s+/g, '-')}-${certificateId.slice(0, 8)}.png`;
+                link.download = `DemoFunded-${type.replace(/\s+/g, '-')}-${certificateId.slice(0, 8)}.png`;
                 link.href = canvas.toDataURL("image/png");
                 link.click();
             }

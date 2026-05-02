@@ -201,7 +201,7 @@ export default function CompetitionsClient() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-800/50 text-gray-300">
-                        {competitions.map((comp) => (
+                        {Array.isArray(competitions) && competitions.map((comp) => (
                             <tr key={comp.id} className="hover:bg-white/[0.02] transition-colors">
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-3">

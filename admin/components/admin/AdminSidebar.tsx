@@ -101,7 +101,7 @@ export function AdminSidebar({ user, onClose }: AdminSidebarProps & { onClose?: 
                             animate={{ opacity: 1, x: 0 }}
                             className="flex flex-col"
                         >
-                            <span className="text-sm font-bold text-white tracking-tight leading-none">SharkFunded</span>
+                            <span className="text-sm font-bold text-white tracking-tight leading-none">Demo Funded</span>
                             <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mt-0.5">Admin Portal</span>
                         </motion.div>
                     )}

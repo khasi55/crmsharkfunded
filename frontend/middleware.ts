@@ -13,15 +13,7 @@ const ALLOWED_IPS = [
     '5.192.18.70'    // New IP Added
 ];
 export async function middleware(request: NextRequest) {
-    const path = request.nextUrl.pathname;
-
-    // 🔒 Dashboard Protection Logic
-    // Protect /dashboard and other sensitive routes
-    // 🛡️ IP WHITELIST DISABLED
-    // Code removed to allow public access as per request
-    // if (path.startsWith('/dashboard') ... ) { ... }
-
-    return await updateSession(request)
+    return NextResponse.next();
 }
 
 export const config = {

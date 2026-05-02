@@ -1,29 +1,62 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { MOCK_USER } from '@/lib/mock-data';
 
 export async function createClient() {
-    const cookieStore = await cookies()
+    const mockQueryBuilder = (table: string) => {
+        const builder: any = {
+            select: () => builder,
+            eq: () => builder,
+            neq: () => builder,
+            gt: () => builder,
+            gte: () => builder,
+            lt: () => builder,
+            lte: () => builder,
+            like: () => builder,
+            ilike: () => builder,
+            is: () => builder,
+            in: () => builder,
+            contains: () => builder,
+            or: () => builder,
+            order: () => builder,
+            range: () => builder,
+            limit: () => builder,
+            not: () => builder,
+            match: () => builder,
+            filter: () => builder,
+            upsert: () => builder,
+            insert: () => builder,
+            delete: () => builder,
+            update: () => builder,
+            single: async () => ({ data: {}, error: null }),
+            maybeSingle: async () => ({ data: null, error: null }),
+            then: (resolve: any) => {
+                resolve({ data: [], error: null, count: 0 });
+            }
+        };
+        return builder;
+    };
 
-    return createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            cookies: {
-                getAll() {
-                    return cookieStore.getAll()
-                },
-                setAll(cookiesToSet) {
-                    try {
-                        cookiesToSet.forEach(({ name, value, options }) =>
-                            cookieStore.set(name, value, options)
-                        )
-                    } catch {
-                        // The `setAll` method was called from a Server Component.
-                        // This can be ignored if you have middleware refreshing
-                        // user sessions.
+    return {
+        auth: {
+            getSession: async () => ({
+                data: {
+                    session: {
+                        user: MOCK_USER,
+                        access_token: 'mock-token',
                     }
                 },
-            },
-        }
-    )
+                error: null
+            }),
+            getUser: async () => ({
+                data: { user: MOCK_USER },
+                error: null
+            }),
+            signInWithPassword: async () => ({
+                data: { user: MOCK_USER, session: { access_token: 'mock-token' } },
+                error: null
+            }),
+            signOut: async () => ({ error: null }),
+        },
+        from: mockQueryBuilder,
+        rpc: async () => ({ data: null, error: null }),
+    } as any;
 }

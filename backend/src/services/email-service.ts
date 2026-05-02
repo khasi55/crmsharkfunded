@@ -7,12 +7,12 @@ export class EmailService {
     // SMTP Credentials
     private static SMTP_HOST = process.env.ELASTIC_EMAIL_SMTP_HOST || 'smtp.elasticemail.com';
     private static SMTP_PORT = Number(process.env.ELASTIC_EMAIL_SMTP_PORT) || 2525; // Changed from 2525 to 587 for better reliability
-    private static SMTP_USER = process.env.ELASTIC_EMAIL_SMTP_USER || 'noreply@sharkfunded.com';
+    private static SMTP_USER = process.env.ELASTIC_EMAIL_SMTP_USER || 'noreply@demofunded.com';
     // Using hardcoded password as fallback from user request if env is missing
     private static SMTP_PASS = process.env.ELASTIC_EMAIL_SMTP_PASS || 'C26AD1121F3DDAFCE8CC1BD6F0F97F766132';
 
-    private static FROM_EMAIL = process.env.ELASTIC_EMAIL_FROM || 'noreply@sharkfunded.com';
-    private static FROM_NAME = 'Shark Funded';
+    private static FROM_EMAIL = process.env.ELASTIC_EMAIL_FROM || 'noreply@demofunded.com';
+    private static FROM_NAME = 'Demo Funded';
 
     private static transporter = nodemailer.createTransport({
         host: EmailService.SMTP_HOST,
@@ -72,7 +72,7 @@ export class EmailService {
                 </div>
 
                 <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #888; text-align: center;">
-                    <p>Sent by <strong>Shark Funded</strong></p>
+                    <p>Sent by <strong>Demo Funded</strong></p>
                     <p>If you no longer wish to receive these emails, you can update your preferences in your dashboard.</p>
                 </div>
             </div>
@@ -88,11 +88,11 @@ export class EmailService {
      * Send Account Credentials (Login, Password, Server)
      */
     static async sendAccountCredentials(email: string, name: string, login: string, password: string, server: string, investorPassword?: string) {
-        const subject = `Your New Trading Account Credentials - SharkFunded`;
+        const subject = `Your New Trading Account Credentials - Demo Funded`;
 
         const html = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                <h2 style="color: #333;">Welcome to SharkFunded</h2>
+                <h2 style="color: #333;">Welcome to Demo Funded</h2>
                 <p>Dear ${name},</p>
                 <p>Your new trading account has been successfully created. Here are your login details:</p>
                 
@@ -188,11 +188,11 @@ export class EmailService {
                 </div>
 
                 <p>You will receive your new credentials shortly via email if your challenge requires a new account creation.</p>
-                <p>Thank you for trading with Shark Funded!</p>
+                <p>Thank you for trading with Demo Funded!</p>
             </div>
         `;
 
-        const text = `Congratulations ${name}!\\n\\nYour account ${login} has passed the ${phase}.\\n\\nOur team will review and upgrade your account shortly. Thank you for trading with Shark Funded!`;
+        const text = `Congratulations ${name}!\\n\\nYour account ${login} has passed the ${phase}.\\n\\nOur team will review and upgrade your account shortly. Thank you for trading with Demo Funded!`;
 
         await this.sendEmail(email, subject, html, text);
     }
@@ -229,7 +229,7 @@ export class EmailService {
 
                 <p style="margin-top: 25px; font-size: 13px; color: #666;">
                     Best regards,<br/>
-                    <strong>Shark Funded Team</strong>
+                    <strong>Demo Funded Team</strong>
                 </p>
             </div>
         `;
@@ -246,7 +246,7 @@ Prepare your strategy and compete with the best.
 IMPORTANT: The competition starts this coming Monday. Trading begins on that day.
 
 Best regards,
-Shark Funded Team
+Demo Funded Team
         `;
 
         await this.sendEmail(email, subject, html, text);
@@ -271,7 +271,7 @@ Shark Funded Team
             <h2>Dear ${name},</h2>
 
             <p style="font-size: 16px; line-height: 1.6;">
-                We are delighted to invite you to the <strong>Shark Funded Community Event</strong> — an exclusive
+                We are delighted to invite you to the <strong>Demo Funded Community Event</strong> — an exclusive
                 in-person gathering for our valued traders and partners.
                 <br><br>
                 This event is designed to help you connect with our team, interact with fellow traders, 
@@ -313,7 +313,7 @@ Shark Funded Team
 
             <p style="text-align:center; font-size:13px;">
                 Warm Regards,<br>
-                <strong>Shark Funded Team</strong><br>
+                <strong>Demo Funded Team</strong><br>
                 <a href="https://sharkfunded.com">www.sharkfunded.com</a>
             </p>
         </div>
@@ -321,7 +321,7 @@ Shark Funded Team
     }
 
     static async sendEventInvite(email: string, name: string) {
-        const subject = `Invitation to Shark Funded Community Event – Mumbai`;
+        const subject = `Invitation to Demo Funded Community Event – Mumbai`;
 
         try {
             // Create Unique Pass in DB
@@ -331,7 +331,7 @@ Shark Funded Team
             const qrData = JSON.stringify({
                 name: name,
                 email: email,
-                event: 'Shark Funded Community Event',
+                event: 'Demo Funded Community Event',
                 date: '2026-01-30',
                 id: uniqueCode
             });
@@ -354,7 +354,7 @@ Dear ${name},
 
 You are invited!
 
-We are pleased to invite you to the Shark Funded Exclusive Event. This event brings together our community for an in-person trading meet up, networking, and reward ceremony.
+We are pleased to invite you to the Demo Funded Exclusive Event. This event brings together our community for an in-person trading meet up, networking, and reward ceremony.
 
 Date: 30th January  
 Venue: Aurika Hotel, Mumbai  
@@ -367,7 +367,7 @@ Requirement: Please bring your personal laptop.
 Please show the QR code attached to this email at the entrance.
 
 Regards,  
-Shark Funded Team
+Demo Funded Team
 `;
 
             await this.transporter.sendMail({
@@ -443,11 +443,11 @@ Shark Funded Team
                 </div>
 
                 <p>The funds should reach your designated account shortly depending on the payment method's processing time.</p>
-                <p>Thank you for trading with SharkFunded!</p>
+                <p>Thank you for trading with Demo Funded!</p>
             </div>
         `;
 
-        const text = `Dear ${name},\n\nYour payout request for $${amount.toFixed(2)} has been approved and processed. Transaction ID: ${transactionId}.\n\nThank you for trading with SharkFunded!`;
+        const text = `Dear ${name},\n\nYour payout request for $${amount.toFixed(2)} has been approved and processed. Transaction ID: ${transactionId}.\n\nThank you for trading with Demo Funded!`;
 
         await this.sendEmail(email, subject, html, text);
     }
@@ -581,7 +581,7 @@ Shark Funded Team
      * Send Achievement Certificate Notification
      */
     static async sendAchievementCertificate(email: string, name: string, title: string, date: string, pdfBuffer?: Uint8Array | Buffer) {
-        const subject = `Your ${title} is Ready! - SharkFunded`;
+        const subject = `Your ${title} is Ready! - Demo Funded`;
 
         const html = `
             <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #05080F; border-radius: 16px; overflow: hidden; color: #ffffff; box-shadow: 0 10px 40px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);">
@@ -617,7 +617,7 @@ Shark Funded Team
                 </div>
 
                 <div style="background: #0A1220; padding: 20px; text-align: center; font-size: 12px; color: rgba(255,255,255,0.4);">
-                    <p>&copy; 2026 Shark Funded. All rights reserved.</p>
+                    <p>&copy; 2026 Demo Funded. All rights reserved.</p>
                 </div>
             </div>
         `;
@@ -632,7 +632,7 @@ Shark Funded Team
             html: html,
             attachments: pdfBuffer ? [
                 {
-                    filename: `SharkFunded-${title.replace(/\s+/g, '-')}.pdf`,
+                    filename: `Demo Funded-${title.replace(/\s+/g, '-')}.pdf`,
                     content: Buffer.from(pdfBuffer)
                 }
             ] : []

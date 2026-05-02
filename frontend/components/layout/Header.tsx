@@ -36,7 +36,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 </div>
 
                 {/* Mobile Title (visible only on small screens) */}
-                <h1 className="md:hidden font-bold text-xl text-shark-dark">SharkFunded</h1>
+                <h1 className="md:hidden font-bold text-xl text-shark-dark">Demo Funded</h1>
             </div>
 
             {/* Right Actions */}

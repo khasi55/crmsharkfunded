@@ -82,7 +82,7 @@ export default function PublicSidebar({ isOpen = true, onClose }: SidebarProps) 
                         <div className="relative w-10 h-10 shrink-0">
                             <Image
                                 src="/shark-icon.svg"
-                                alt="SharkFunded"
+                                alt="Demo Funded"
                                 fill
                                 className="object-contain"
                                 priority
@@ -91,7 +91,7 @@ export default function PublicSidebar({ isOpen = true, onClose }: SidebarProps) 
 
                         {!isCollapsed && (
                             <span className="text-xl font-bold text-white tracking-wide">
-                                SharkFunded
+                                Demo Funded
                             </span>
                         )}
                     </Link>

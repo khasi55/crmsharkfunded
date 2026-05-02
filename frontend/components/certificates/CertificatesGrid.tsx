@@ -90,7 +90,7 @@ export default function CertificatesGrid({ payouts, certificates, profile }: Cer
                     </h2>
                 </div>
                 <p className="text-slate-500 text-base font-medium max-w-2xl">
-                    Professional proof of your SharkFunded trading success.
+                    Professional proof of your Demo Funded trading success.
                 </p>
             </div>
 

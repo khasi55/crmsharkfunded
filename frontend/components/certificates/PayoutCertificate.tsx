@@ -29,7 +29,7 @@ const PayoutCertificate = forwardRef<PayoutCertificateRef, PayoutCertificateProp
             const canvas = canvasRef.current;
             if (canvas) {
                 const link = document.createElement("a");
-                link.download = `SharkFunded-Certificate-${transactionId}.png`;
+                link.download = `DemoFunded-Certificate-${transactionId}.png`;
                 link.href = canvas.toDataURL("image/png");
                 link.click();
             }

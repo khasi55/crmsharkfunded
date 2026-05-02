@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Activity, Database, Wifi, Server, Clock, AlertCircle, CheckCircle, XCircle, RefreshCw, Layers, Zap, ShieldCheck, Mail, CreditCard, Terminal } from "lucide-react";
+import { fetchFromBackend } from "@/lib/backend-api";
 
 interface ServiceHealth {
     status: string;
@@ -33,9 +34,7 @@ export default function SystemHealthPage() {
     const fetchHealth = async () => {
         setIsRefreshing(true);
         try {
-            const response = await fetch(`/api/admin/health`);
-            if (!response.ok) throw new Error('Health check failed');
-            const data = await response.json();
+            const data = await fetchFromBackend(`/api/admin/health`);
             setHealthData(data);
         } catch (error) {
             console.error('Failed to fetch health data:', error);
@@ -93,7 +92,7 @@ export default function SystemHealthPage() {
             <div className="min-h-[80vh] flex flex-col items-center justify-center p-8">
                 <Activity className="w-10 h-10 animate-pulse text-indigo-500 mb-6" />
                 <h2 className="text-xl font-medium text-slate-800">Checking system status...</h2>
-                <p className="text-slate-500 mt-2">Connecting to Sharkfunded infrastructure</p>
+                <p className="text-slate-500 mt-2">Connecting to Demo Funded infrastructure</p>
             </div>
         );
     }
@@ -110,7 +109,7 @@ export default function SystemHealthPage() {
                         <h1 className="text-3xl font-bold tracking-tight text-slate-900">System Status</h1>
                         <p className="text-sm font-medium text-slate-500 mt-1.5 flex items-center gap-2">
                             <Activity className="w-4 h-4" />
-                            Sharkfunded Production Environment
+                            Demo Funded Production Environment
                         </p>
                     </div>
 
@@ -169,7 +168,7 @@ export default function SystemHealthPage() {
                     </div>
                     <div className="divide-y divide-slate-100">
                         {/* Backend API */}
-                        {healthData?.services.backend_api && (
+                        {healthData?.services?.backend_api && (
                             <ServiceRow
                                 title="REST API (Backend)"
                                 icon={<Terminal className="w-5 h-5 text-slate-400" />}
@@ -180,7 +179,7 @@ export default function SystemHealthPage() {
                             />
                         )}
                         {/* Auth */}
-                        {healthData?.services.auth && (
+                        {healthData?.services?.auth && (
                             <ServiceRow
                                 title="Authentication (Supabase Auth)"
                                 icon={<ShieldCheck className="w-5 h-5 text-slate-400" />}
@@ -191,7 +190,7 @@ export default function SystemHealthPage() {
                             />
                         )}
                         {/* Database */}
-                        {healthData?.services.database && (
+                        {healthData?.services?.database && (
                             <ServiceRow
                                 title="Primary Database"
                                 icon={<Database className="w-5 h-5 text-slate-400" />}
@@ -202,7 +201,7 @@ export default function SystemHealthPage() {
                             />
                         )}
                         {/* Redis */}
-                        {healthData?.services.redis && (
+                        {healthData?.services?.redis && (
                             <ServiceRow
                                 title="Redis Cache & Queue"
                                 icon={<Server className="w-5 h-5 text-slate-400" />}
@@ -213,7 +212,7 @@ export default function SystemHealthPage() {
                             />
                         )}
                         {/* WebSocket */}
-                        {healthData?.services.websocket && (
+                        {healthData?.services?.websocket && (
                             <ServiceRow
                                 title="Real-time WebSocket API"
                                 icon={<Wifi className="w-5 h-5 text-slate-400" />}
@@ -235,7 +234,7 @@ export default function SystemHealthPage() {
                     </div>
                     <div className="divide-y divide-slate-100">
                         {/* Email / SMTP */}
-                        {healthData?.services.email && (
+                        {healthData?.services?.email && (
                             <ServiceRow
                                 title="Email Delivery (SMTP)"
                                 icon={<Mail className="w-5 h-5 text-slate-400" />}
@@ -247,7 +246,7 @@ export default function SystemHealthPage() {
                             />
                         )}
                         {/* Payment Gateway */}
-                        {healthData?.services.payment_gateway && (
+                        {healthData?.services?.payment_gateway && (
                             <ServiceRow
                                 title="Payment Gateway"
                                 icon={<CreditCard className="w-5 h-5 text-slate-400" />}
@@ -259,7 +258,7 @@ export default function SystemHealthPage() {
                             />
                         )}
                         {/* MT5 Bridge Core */}
-                        {healthData?.services.mt5_bridge && (
+                        {healthData?.services?.mt5_bridge && (
                             <ServiceRow
                                 title="MT5 Bridge API"
                                 icon={<Server className="w-5 h-5 text-slate-400" />}
@@ -271,7 +270,7 @@ export default function SystemHealthPage() {
                             />
                         )}
                         {/* MT5 WS Relay */}
-                        {healthData?.services.websocket?.bridge_relay && (
+                        {healthData?.services?.websocket?.bridge_relay && (
                             <ServiceRow
                                 title="MT5 Trade Stream (Relay)"
                                 icon={<Wifi className="w-5 h-5 text-slate-400" />}
@@ -282,7 +281,7 @@ export default function SystemHealthPage() {
                     </div>
 
                     {/* Schedulers */}
-                    {healthData?.services.schedulers && Object.keys(healthData.services.schedulers).length > 0 && (
+                    {healthData?.services?.schedulers && Object.keys(healthData.services.schedulers).length > 0 && (
                         <>
                             <div className="px-6 py-5 border-y border-slate-100 bg-slate-50/50 mt-4">
                                 <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-2">

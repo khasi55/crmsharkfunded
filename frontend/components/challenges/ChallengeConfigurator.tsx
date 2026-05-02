@@ -66,9 +66,9 @@ const CHALLENGE_TYPES = [
 ];
 
 const MODELS = [
-    { id: "prime", label: "SharkFunded Prime", desc: "Higher leverage" },
-    { id: "lite", label: "SharkFunded Lite", desc: "Classic model" },
-    { id: "bolt", label: "Sharkfunded Bolt", desc: "Direct Funded - Fast-track" }
+    { id: "prime", label: "Demo Funded Prime", desc: "Higher leverage" },
+    { id: "lite", label: "Demo Funded Lite", desc: "Classic model" },
+    { id: "bolt", label: "Demo Funded Bolt", desc: "Direct Funded - Fast-track" }
 ];
 
 const PLATFORMS = [
@@ -76,7 +76,7 @@ const PLATFORMS = [
 ];
 
 const PAYMENT_GATEWAYS = [
-    { id: "sharkpay", label: "SharkPay", currency: "INR", desc: "Pay in Indian Rupees (₹)", icon: "🇮🇳" },
+    { id: "sharkpay", label: "Demo Pay", currency: "INR", desc: "Pay in Indian Rupees (₹)", icon: "🇮🇳" },
     { id: "epay", label: "Card (Epay)", currency: "USD", desc: "Credit/Debit Card", icon: "💳" },
     { id: "cregis", label: "Crypto (Cregis)", currency: "USD", desc: "Pay with BTC, ETH, USDT", icon: "🏆" }
 ];

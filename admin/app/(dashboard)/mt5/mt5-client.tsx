@@ -6,6 +6,7 @@ import { AccountActions } from "@/components/admin/AccountActions";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { fetchFromBackend } from "@/lib/backend-api";
 
 interface Account {
     id: string;
@@ -86,11 +87,7 @@ export default function AdminMT5Client() {
     const fetchAccounts = async () => {
         setLoading(true);
         try {
-            const response = await fetch('/api/mt5/accounts');
-            if (!response.ok) {
-                throw new Error('Failed to fetch accounts');
-            }
-            const data = await response.json();
+            const data = await fetchFromBackend('/api/mt5/accounts');
             setAccounts(data.accounts || []);
         } catch (error) {
             console.error('Error fetching MT5 accounts:', error);
