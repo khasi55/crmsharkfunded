@@ -50,7 +50,7 @@ export default async function RiskViolationsPage({
 
     // Group violations by account/challenge_id
     const violationsByAccount = new Map<string, any[]>();
-    allViolations?.forEach(violation => {
+    allViolations?.forEach((violation: any) => {
         const challengeId = violation.challenge_id;
         if (!violationsByAccount.has(challengeId)) {
             violationsByAccount.set(challengeId, []);
@@ -77,23 +77,23 @@ export default async function RiskViolationsPage({
             .select('id, login, challenge_type, status, user_id')
             .in('id', paginatedChallengeIds);
 
-        const userIds = [...new Set(challenges?.map(c => c.user_id).filter(Boolean))];
+        const userIds = [...new Set(challenges?.map((c: any) => c.user_id).filter(Boolean))];
         const { data: profiles } = await supabase
             .from('profiles')
             .select('id, full_name, email')
             .in('id', userIds);
 
-        const challengeMap = new Map(challenges?.map(c => [c.id, c]));
-        const profileMap = new Map(profiles?.map(p => [p.id, p]));
+        const challengeMap = new Map(challenges?.map((c: any) => [c.id, c]));
+        const profileMap = new Map(profiles?.map((p: any) => [p.id, p]));
 
         // Build enriched account-level data
-        enrichedAccounts = paginatedChallengeIds.map(challengeId => {
+        enrichedAccounts = paginatedChallengeIds.map((challengeId: any) => {
             const violations = violationsByAccount.get(challengeId) || [];
             const challenge = challengeMap.get(challengeId);
             const profile = profileMap.get(challenge?.user_id);
 
             // Count by type
-            const violationCounts = violations.reduce((acc, v) => {
+            const violationCounts = violations.reduce((acc: any, v: any) => {
                 acc[v.flag_type] = (acc[v.flag_type] || 0) + 1;
                 return acc;
             }, {} as Record<string, number>);
