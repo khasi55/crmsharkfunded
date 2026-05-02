@@ -3,6 +3,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import jwt from "jsonwebtoken";
 
 export async function loginAdmin(formData: FormData) {
     const email = formData.get("email") as string;
@@ -33,7 +34,6 @@ export async function loginAdmin(formData: FormData) {
 
     // Set a session cookie
     const cookieStore = await cookies();
-    const jwt = require("jsonwebtoken");
     const JWT_SECRET = process.env.JWT_SECRET;
     if (!JWT_SECRET) {
         console.error("CRITICAL: JWT_SECRET environment variable is missing!");
