@@ -27,7 +27,7 @@ import { fetchFromBackend } from "@/lib/backend-api";
 function DashboardContent() {
     const { selectedAccount, loading, accounts, refreshAccounts } = useAccount();
     const { data: dashboardData } = useDashboardData();
-    const { toast } = useToast();
+    const { showToast: toast } = useToast();
     const [syncing, setSyncing] = useState(false);
     const [showCredentials, setShowCredentials] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
