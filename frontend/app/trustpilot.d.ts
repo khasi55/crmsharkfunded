@@ -8,6 +8,9 @@ declare global {
           'businessunit-id'?: string;
           'template-id'?: string;
           'data-locale'?: string;
+          'class'?: string;
+          'id'?: string;
+          'ref'?: any;
         },
         HTMLElement
       >;

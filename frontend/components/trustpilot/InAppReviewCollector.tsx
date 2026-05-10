@@ -34,6 +34,8 @@ export const InAppReviewCollector = () => {
     <div className="flex justify-center items-center py-2">
       <trustbox-verified-review-collector
         ref={reviewCollectorRef}
+        class="trustpilot-widget"
+        id="tp-verified-widget"
         businessunit-id="695282147a37393f19ec82aa"
         template-id="617a26f0436d6a000109405b"
         data-locale="en-US"
