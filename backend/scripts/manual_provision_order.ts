@@ -130,7 +130,7 @@ async function main() {
                 login: mt5Data.login,
                 master_password: mt5Data.password,
                 investor_password: mt5Data.investor_password || '',
-                server: mt5Data.server || 'Xylo Markets Ltd',
+                server: mt5Data.server || 'OCEAN MARKETS LIMITED',
                 platform: order.platform || 'MT5',
                 leverage: leverage,
                 group: mt5Group,

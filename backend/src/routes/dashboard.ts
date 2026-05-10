@@ -728,8 +728,6 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ error: 'Missing challenge_id or accountId' });
         }
 
-        console.log(`[Bulk API] Fetching data for ${targetId}...`);
-
         // --- REDIS CACHE CHECK ---
         const redis = getRedis();
         const cacheKey = `dashboard:bulk:${targetId}`;
@@ -737,7 +735,7 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
         try {
             const cachedData = await redis.get(cacheKey);
             if (cachedData) {
-                console.log(`🚀 [Bulk API] Cache Hit for ${targetId}`);
+                // console.log(`🚀 [Bulk API] Cache Hit for ${targetId}`);
                 return res.json(JSON.parse(cachedData));
             }
         } catch (err: any) {
@@ -746,8 +744,6 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
                 console.error('Redis cache get error:', err);
             }
         }
-
-        console.log(`[Bulk API] Fetching from DB for ${targetId}...`);
 
         // Fetch everything in parallel
         const [analyticsTradesResponse, recentTradesResponse, riskResponse, advancedRiskResponse, consistencyResponse, challengeResponse, latestPayoutResponse] = await Promise.all([
@@ -770,16 +766,12 @@ router.get('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
             supabase.from('payout_requests').select('created_at').filter('metadata->>challenge_id', 'eq', targetId).eq('status', 'processed').order('created_at', { ascending: false }).limit(1).maybeSingle()
         ]);
 
-        console.log(`[Bulk API] DB Fetch completed for ${targetId}`);
-
         if (challengeResponse.error || !challengeResponse.data) {
-            console.error(`[Bulk API] Challenge not found: ${targetId}`, challengeResponse.error);
             return res.status(404).json({ error: 'Challenge not found' });
         }
 
         // Tenancy Check
         if (challengeResponse.data.user_id !== user.id) {
-            console.error(`[Bulk API] Access denied for ${user.id} on challenge ${targetId}`);
             return res.status(403).json({ error: 'Access denied' });
         }
 

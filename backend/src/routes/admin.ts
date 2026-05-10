@@ -122,7 +122,7 @@ router.post('/upgrade-account', authenticate, requireRole(['super_admin', 'admin
             mt5Login = mt5Data.login;
             mt5Password = mt5Data.password;
             mt5InvestorPassword = mt5Data.investor_password || '';
-            mt5Server = mt5Data.server || 'Xylo Markets Ltd';
+            mt5Server = mt5Data.server || 'OCEAN MARKETS  LIMITED';
         }
 
         let newChallenge;
@@ -228,7 +228,7 @@ router.post('/upgrade-account', authenticate, requireRole(['super_admin', 'admin
                 profile.full_name || 'Trader',
                 String(mt5Login),
                 mt5Password,
-                mt5Server || 'Xylo Markets Ltd',
+                mt5Server || 'OCEAN MARKETS  LIMITED',
                 mt5InvestorPassword
             ).catch(err => console.error("Async Email Error in Upgrade:", err));
         }

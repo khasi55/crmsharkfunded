@@ -266,7 +266,7 @@ router.post('/assign', authenticate, requireRole(['super_admin', 'admin', 'sub_a
                 login: mt5Login,
                 master_password: masterPassword,
                 investor_password: investorPassword,
-                server: 'Xylo Markets Ltd',
+                server: 'OCEAN MARKETS  LIMITED',
                 platform: 'MT5',
                 group: finalGroup, // Save the assigned group
                 leverage: 100,
@@ -319,7 +319,7 @@ router.post('/assign', authenticate, requireRole(['super_admin', 'admin', 'sub_a
                 profile.full_name || 'Trader',
                 String(mt5Login),
                 masterPassword,
-                'Xylo Markets Ltd',
+                'OCEAN MARKETS  LIMITED',
                 investorPassword
             ).catch(err => console.error("Async Email Error:", err));
         }

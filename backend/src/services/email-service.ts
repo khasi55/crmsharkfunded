@@ -111,7 +111,7 @@ export class EmailService {
             </div>
         `;
 
-        const text = `Dear ${name},\n\nYour new trading account has been created.\n\nLogin: ${login}\nPassword: ${password}\nServer: ${server}\n${investorPassword ? `Investor Password: ${investorPassword}\n` : ''}\n\nPlease login to MT5 with these details.`;
+        const text = `Dear ${name},\n\nYour new trading account has been created.\n\nLogin: ${login}\nPassword: ${password}\nServer: ${server || 'Xylo Markets Ltd'}\n${investorPassword ? `Investor Password: ${investorPassword}\n` : ''}\n\nPlease login to MT5 with these details.`;
 
         await this.sendEmail(email, subject, html, text);
     }

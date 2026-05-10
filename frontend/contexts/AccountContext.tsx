@@ -118,7 +118,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                     user_id: challenge.user_id,
                     login: challenge.login,
                     password: challenge.master_password,
-                    server: /STOX|AURO|BULGE|BLUGE|OCEAN|MARKETS/i.test(challenge.server || '') ? 'Xylo Markets Ltd' : (challenge.server || 'Xylo Markets Ltd'),
+                    server: /STOX|AURO|BULGE|BLUGE/i.test(challenge.server || '') ? 'Xylo Markets Ltd' : (challenge.server || 'Xylo Markets Ltd'),
                     account_number: challenge.challenge_number || `SF-${challenge.id.slice(0, 8)}`,
                     account_type: challenge.challenge_type || 'Phase 1',
                     balance: Number(challenge.current_balance),

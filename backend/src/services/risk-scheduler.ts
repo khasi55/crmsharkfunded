@@ -267,7 +267,9 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
 
                 // --- CACHE INVALIDATION ---
                 const redis = getRedis();
-                await Promise.all(statusUpdates.map(u => redis.del(`dashboard:bulk:${u.id}`).catch(() => {})));
+                for (const u of statusUpdates) {
+                    await redis.del(`dashboard:bulk:${u.id}`).catch(() => {});
+                }
             }
 
             if (equityUpdates.length > 0) {
@@ -282,7 +284,9 @@ async function processBatch(challenges: any[], riskGroups: any[], attempt = 1) {
 
                 // --- CACHE INVALIDATION ---
                 const redis = getRedis();
-                await Promise.all(equityUpdates.map(u => redis.del(`dashboard:bulk:${u.id}`).catch(() => {})));
+                for (const u of equityUpdates) {
+                    await redis.del(`dashboard:bulk:${u.id}`).catch(() => {});
+                }
             }
 
             /*

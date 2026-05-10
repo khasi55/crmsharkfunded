@@ -3,7 +3,6 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import PromoBanner from "@/components/layout/PromoBanner";
 import Script from "next/script";
-import { ToastProvider } from "@/contexts/ToastContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -74,8 +73,6 @@ export default function RootLayout({
                         src="https://www.facebook.com/tr?id=3399437100225491&ev=PageView&noscript=1"
                     />
                 </noscript>
-                {/* Trustpilot Review Collector */}
-                <Script src="https://reviewcollection.trustpilot.com/verifiedreviewcollector/main.js" strategy="afterInteractive" async />
             </head>
             <body className={inter.className}>
                 {/* Google Tag Manager (noscript) */}
@@ -87,10 +84,8 @@ export default function RootLayout({
                         style={{ display: 'none', visibility: 'hidden' }}
                     />
                 </noscript>
-                <ToastProvider>
-                    <PromoBanner />
-                    {children}
-                </ToastProvider>
+                <PromoBanner />
+                {children}
             </body>
         </html>
     );

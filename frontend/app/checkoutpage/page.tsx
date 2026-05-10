@@ -8,7 +8,6 @@ import PublicSidebar from "@/components/layout/PublicSidebar";
 import { COUNTRIES } from "@/lib/countries";
 import { pricingConfig, getSizeKey, getConfigKey } from "@/components/challenges/ChallengeConfigurator";
 import { fetchFromBackend } from "@/lib/backend-api";
-import { useToast } from "@/contexts/ToastContext";
 
 // --- Reusable UI Component ---
 const RadioPill = ({
@@ -131,7 +130,6 @@ function CheckoutContent() {
     const [formData, setFormData] = useState({
         firstName: "", lastName: "", email: "", country: "", phone: "", terms: false, referralCode: ""
     });
-    const { showToast } = useToast();
     const [selectedGateway, setSelectedGateway] = useState("sharkpay");
 
 
@@ -362,14 +360,15 @@ function CheckoutContent() {
                     // Redirect directly for these gateways to avoid iframe issues
                     window.location.href = data.paymentUrl;
                 } else {
-                    showToast('Order created but no payment URL returned.', 'error');
+                    setPaymentUrl(data.paymentUrl);
+                    setShowPaymentModal(true);
                 }
             } else {
-                showToast('Order created but no payment URL returned.', 'error');
+                alert('Order created but no payment URL returned.');
             }
         } catch (error: any) {
             console.error(error);
-            showToast(error.message || "Payment initialization failed", 'error');
+            alert(error.message || "Payment initialization failed");
         } finally {
             setLoading(false);
         }
@@ -614,7 +613,7 @@ function CheckoutContent() {
                         <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Form Inputs similar to original */}
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700">First Name</label>
+                                <label className="text-sm font-medium text-slate-700">First Name *</label>
                                 <input
                                     type="text"
                                     value={formData.firstName}
@@ -623,7 +622,7 @@ function CheckoutContent() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700">Last Name</label>
+                                <label className="text-sm font-medium text-slate-700">Last Name *</label>
                                 <input
                                     type="text"
                                     value={formData.lastName}
@@ -632,7 +631,7 @@ function CheckoutContent() {
                                 />
                             </div>
                             <div className="space-y-2 md:col-span-2">
-                                <label className="text-sm font-medium text-slate-700">Email</label>
+                                <label className="text-sm font-medium text-slate-700">Email *</label>
                                 <input
                                     type="email"
                                     value={formData.email}
@@ -641,7 +640,7 @@ function CheckoutContent() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700">Country</label>
+                                <label className="text-sm font-medium text-slate-700">Country *</label>
                                 <select
                                     value={formData.country}
                                     onChange={(e) => setFormData({ ...formData, country: e.target.value })}
@@ -652,7 +651,7 @@ function CheckoutContent() {
                                 </select>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700">Phone Number</label>
+                                <label className="text-sm font-medium text-slate-700">Phone Number *</label>
                                 <input
                                     type="tel"
                                     value={formData.phone}
@@ -789,7 +788,7 @@ function CheckoutContent() {
                         )}
                         <button
                             onClick={handleContinue}
-                            disabled={loading || validatingCoupon || (currentStep === 1 && !finalPriceUSD) || (currentStep === 2 && (!formData.email || !formData.terms))}
+                            disabled={loading || validatingCoupon || (currentStep === 1 && !finalPriceUSD) || (currentStep === 2 && (!formData.email || !formData.firstName || !formData.lastName || !formData.country || !formData.phone || !formData.terms))}
                             className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-blue-900/20 active:scale-[0.95] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100"
                         >
                             {loading ? <Loader2 className="animate-spin" /> : (

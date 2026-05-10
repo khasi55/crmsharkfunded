@@ -194,7 +194,7 @@ export default function EquityCurveChart({ account, trades: initialTrades, initi
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-[#06000a] border border-white/10 rounded-3xl overflow-hidden relative shadow-2xl shadow-black/20"
+            className="bg-[#06000a] border border-white/10 rounded-3xl overflow-hidden relative"
         >
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start gap-4 p-6 pb-2 relative z-10">

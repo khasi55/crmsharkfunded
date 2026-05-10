@@ -8,7 +8,6 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { fetchFromBackend } from "@/lib/backend-api";
 import { trackEvent, trackAddToCart, trackInitiateCheckout } from "@/lib/tracking";
-import { useToast } from "@/contexts/ToastContext";
 
 
 // Replaced by unified tracking utility
@@ -241,7 +240,6 @@ const SuccessModal = ({ credentials, onClose }: { credentials: any, onClose: () 
 export default function ChallengeConfigurator() {
     const router = useRouter();
     const supabase = createClient();
-    const { showToast } = useToast();
 
     // State
     const [type, setType] = useState("2-step");
@@ -465,7 +463,7 @@ export default function ChallengeConfigurator() {
             if (finalPriceUSD !== expectedTotal) {
                 console.warn(`[Security] Frontend price discrepancy detected! Recalculated: ${expectedTotal}, Current: ${finalPriceUSD}`);
                 // Force sync and prevent purchase if inconsistent
-                showToast("Pricing out of sync. Please refresh the page and try again.", "error");
+                alert("Pricing out of sync. Please refresh the page and try again.");
                 setIsPurchasing(false);
                 return;
             }
@@ -535,20 +533,20 @@ export default function ChallengeConfigurator() {
                         setShowPaymentModal(true);
                     }
                 } else {
-                    showToast('Payment URL not received. Please contact support.', 'error');
+                    alert('Payment URL not received. Please contact support.');
                 }
             } else {
                 // 🛡️ SECURITY FEEDBACK: If backend blocks price manipulation, show the specific error
                 const errorMsg = data.error || 'Failed to create order';
                 if (errorMsg.toLowerCase().includes('price mismatch')) {
-                    showToast(`🚨 SECURITY BLOCK: ${errorMsg}. The server detected that the price was modified externally.`, 'error');
+                    alert(`🚨 SECURITY BLOCK: ${errorMsg}\n\nThe server detected that the price was modified externally. Please use the official pricing.`);
                 } else {
-                    showToast(errorMsg, 'error');
+                    alert(errorMsg);
                 }
             }
         } catch (error) {
             console.error('Order creation error:', error);
-            showToast('Failed to connect to server', 'error');
+            alert('Failed to connect to server');
         } finally {
             setIsPurchasing(false);
         }
