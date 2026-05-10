@@ -9,7 +9,7 @@ const RECIPIENT = 'siddareddy1947@gmail.com';
 const NAME = 'Sidda Reddy';
 const LOGIN = '900909490696'; // Sample login
 const PASS = 'Shark777!';
-const SERVER = 'OCEAN MARKETS LIMITED';
+const SERVER = 'Xylo Markets Ltd LIMITED';
 
 async function main() {
     console.log(`🚀 Sending test Credentials notification to ${RECIPIENT}...`);

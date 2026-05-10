@@ -20,7 +20,7 @@ async function verifySwap() {
     const content = fs.readFileSync(csvPath, 'utf-8');
     const lines = content.split('\n').filter(l => l.trim() !== '');
     
-    // Skip header: Auro,Ocean Markets,
+    // Skip header: Auro,Xylo Markets Ltd,
     const accountPairs = lines.slice(1).map(line => {
         const [oldLogin, newLogin] = line.split(',').map(s => s.trim());
         return { oldLogin, newLogin };

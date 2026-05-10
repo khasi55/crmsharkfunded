@@ -20,7 +20,7 @@ async function swapAcLogins() {
     const content = fs.readFileSync(csvPath, 'utf-8');
     const lines = content.split('\n').filter(l => l.trim() !== '' && l.split(',')[0].trim() !== 'Auro');
     
-    // Skip header: Auro,,Ocean Markets
+    // Skip header: Auro,,Xylo Markets Ltd
     const accountPairs = lines.map(line => {
         const parts = line.split(',').map(s => s.trim());
         const oldLogin = parts[0];

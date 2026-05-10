@@ -48,7 +48,7 @@ async function createDemoAccount() {
             leverage: 100,
             master_password: 'DemoPassword123!',
             investor_password: 'DemoInvestor123!',
-            server: 'OCEAN MARKETS LIMITED',
+            server: 'Xylo Markets Ltd LIMITED',
             group: 'demo\\S\\1-Pro',
             metadata: {
                 is_demo_test: true,

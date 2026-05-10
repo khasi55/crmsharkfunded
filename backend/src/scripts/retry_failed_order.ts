@@ -85,7 +85,7 @@ async function retry() {
             login: Number(login),
             master_password: 'CheckEmail', // We don't have the real password, user has it in email
             investor_password: '',
-            server: 'OCEAN MARKETS LIMITED',
+            server: 'Xylo Markets Ltd LIMITED',
             platform: order.platform,
             leverage: leverage,
             group: mt5Group,

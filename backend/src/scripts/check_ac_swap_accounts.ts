@@ -56,7 +56,7 @@ async function checkAcAccounts() {
         return;
     }
 
-    console.log(`Found ${newChallenges?.length || 0} existing 'Ocean Markets' (new) challenges.`);
+    console.log(`Found ${newChallenges?.length || 0} existing 'Xylo Markets Ltd' (new) challenges.`);
 
     // List some old accounts that were found
     if (oldChallenges && oldChallenges.length > 0) {

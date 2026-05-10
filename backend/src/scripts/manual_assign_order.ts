@@ -84,7 +84,7 @@ async function main() {
         login: login,
         master_password: password,
         investor_password: investorPassword,
-        server: 'OCEAN MARKETS LIMITED', // Default
+        server: 'Xylo Markets Ltd LIMITED', // Default
         platform: 'mt5',
         leverage: leverage,
         group: group,

@@ -11,7 +11,7 @@ const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 async function checkLogins() {
     const testLogins = ['620841', '631142', '900909603742']; // Logins from the 3rd column
-    console.log(`🔍 Searching for test logins from Ocean Markets column: ${testLogins.join(', ')}`);
+    console.log(`🔍 Searching for test logins from Xylo Markets Ltd column: ${testLogins.join(', ')}`);
 
     for (const login of testLogins) {
         const { data: challenge, error } = await supabase
