@@ -3,7 +3,6 @@ import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { createMT5Account, disableMT5Account } from '../lib/mt5-bridge';
 import { EmailService } from '../services/email-service';
-import { CertificateService } from '../services/certificate-service';
 import { AuditLogger } from '../lib/audit-logger';
 
 const router = Router();
@@ -235,14 +234,6 @@ router.post('/upgrade-account', authenticate, requireRole(['super_admin', 'admin
 
         if (DEBUG) console.log(`Account ${account.login} upgraded → ${nextType} (Login: ${mt5Login})`);
 
-        // Issue Certificate if graduating from Phase 1 or Phase 2
-        if (isPhase1 || isPhase2) {
-            CertificateService.issueCertificate(
-                account.user_id,
-                account.id,
-                account.challenge_type
-            ).catch(err => console.error("Async Certificate Issuance Error:", err));
-        }
 
         res.json({
             success: true,
