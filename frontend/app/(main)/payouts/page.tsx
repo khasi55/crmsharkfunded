@@ -9,6 +9,7 @@ import RequestPayoutCard from "@/components/payouts/RequestPayoutCard";
 import CountdownTimer from "@/components/payouts/CountdownTimer";
 
 import { fetchFromBackend } from "@/lib/backend-api";
+import { useToast } from "@/contexts/ToastContext";
 
 export default function PayoutsPage() {
     const [loading, setLoading] = useState(true);
@@ -31,6 +32,7 @@ export default function PayoutsPage() {
     const [requesting, setRequesting] = useState(false);
     const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
     const [debugInfo, setDebugInfo] = useState<any>(null); // State for debug info
+    const { showToast } = useToast();
 
     useEffect(() => {
         fetchPayoutData();
@@ -80,17 +82,17 @@ export default function PayoutsPage() {
             setRequesting(true);
 
             if (method === 'crypto' && !walletAddress) {
-                alert("Please set up a wallet address first.");
+                showToast("Please set up a wallet address first.", "warning");
                 return false;
             }
 
             if (method === 'bank' && !bankDetails) {
-                alert("Please set up your bank details first.");
+                showToast("Please set up your bank details first.", "warning");
                 return false;
             }
 
             if (!otp || otp.length !== 6) {
-                alert("Please enter a valid 6-digit verification code.");
+                showToast("Please enter a valid 6-digit verification code.", "warning");
                 return false;
             }
 
@@ -114,11 +116,12 @@ export default function PayoutsPage() {
 
             // Refresh Data
             await fetchPayoutData();
+            showToast("Payout requested successfully. It will be processed within 24-48 hours.", "success");
             return true;
 
         } catch (error: any) {
             console.error("Payout request failed:", error);
-            alert(error.message || "Failed to request payout. Please contact support.");
+            showToast(error.message || "Failed to request payout. Please contact support.", "error");
             return false;
         } finally {
             setRequesting(false);

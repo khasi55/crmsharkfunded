@@ -142,6 +142,9 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         }
 
         // --- BEARER TOKEN AUTH ---
+        if (token && token !== 'undefined' && token !== 'null') {
+            console.log(`[Auth] Attempting token verification for ${req.originalUrl}...`);
+        }
         if (!token || token === 'undefined' || token === 'null') {
             const logMsg = `[${new Date().toISOString()}] Auth Failed: No token for ${req.originalUrl}. Cookies: ${JSON.stringify(req.cookies)}\n`;
             require('fs').appendFileSync('auth_debug.log', logMsg);
@@ -222,6 +225,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         req.user = fullUser;
         authCache.set(cacheKey, { user: fullUser, expires: Date.now() + CACHE_TTL });
 
+        console.log(`[Auth] ✅ Verification successful for ${fullUser.email} (${req.originalUrl})`);
         console.log(`[Auth] Debug: ID=${fullUser.id}, Role=${fullUser.role}, ProfileFound=${!!profile}`);
 
         next();

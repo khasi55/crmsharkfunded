@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import PageLoader from "@/components/ui/PageLoader";
 import { fetchFromBackend } from "@/lib/backend-api";
+import { useToast } from "@/contexts/ToastContext";
 import { useSocket } from "@/contexts/SocketContext";
 import PrizePoolModal from "@/components/competitions/PrizePoolModal";
 
@@ -46,6 +47,7 @@ export default function CompetitionDetailsClient({ competitionId }: { competitio
     const [successModal, setSuccessModal] = useState(false);
 
     const [showPrizeModal, setShowPrizeModal] = useState(false);
+    const { showToast } = useToast();
 
     const [showTradesModal, setShowTradesModal] = useState(false);
     const [selectedUserTrades, setSelectedUserTrades] = useState<any[]>([]);
@@ -124,7 +126,7 @@ export default function CompetitionDetailsClient({ competitionId }: { competitio
 
     const fetchUserTrades = async (challengeId: string, username: string) => {
         if (!challengeId) {
-            alert("No trading data available for this user yet.");
+            showToast("No trading data available for this user yet.", "info");
             return;
         }
         setTradesLoading(true);
@@ -133,14 +135,19 @@ export default function CompetitionDetailsClient({ competitionId }: { competitio
         try {
             const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'}/api/competitions/trades/${challengeId}`);
             if (response.ok) {
-                const data = await response.json();
-                setSelectedUserTrades(data);
+                const tradeData = await response.json();
+                if (!tradeData.trades || tradeData.trades.length === 0) {
+                    showToast("No trading data available for this user yet.", "info");
+                    setSelectedUserTrades([]);
+                } else {
+                    setSelectedUserTrades(tradeData.trades);
+                }
             } else {
                 setSelectedUserTrades([]);
             }
         } catch (error) {
             console.error("Failed to fetch user trades:", error);
-            alert("Failed to fetch trade data");
+            showToast("Failed to fetch trade data", "error");
         } finally {
             setTradesLoading(false);
         }
@@ -167,12 +174,12 @@ export default function CompetitionDetailsClient({ competitionId }: { competitio
                     if (data.paymentUrl) {
                         window.location.href = data.paymentUrl;
                     } else {
-                        alert("Order created but no payment URL received");
+                        showToast("Order created but no payment URL received", "error");
                         setJoining(false);
                     }
                 } else {
                     const err = await response.json();
-                    alert(`Failed to initiate join: ${err.error}`);
+                    showToast(`Failed to initiate join: ${err.error}`, "error");
                     setJoining(false);
                 }
             } else {
@@ -182,7 +189,7 @@ export default function CompetitionDetailsClient({ competitionId }: { competitio
                 const { data: { session } } = await supabase.auth.getSession();
 
                 if (!session?.access_token) {
-                    alert("Please login to join");
+                    showToast("Please login to join", "warning");
                     setJoining(false);
                     return;
                 }
@@ -199,18 +206,18 @@ export default function CompetitionDetailsClient({ competitionId }: { competitio
                 });
 
                 if (response.ok) {
-                    // Success! Show modal
+                    showToast("Joined successfully!", "success");
                     setSuccessModal(true);
                     setJoining(false);
                 } else {
                     const err = await response.json();
-                    alert(`Failed to join: ${err.error}`);
+                    showToast(`Failed to join: ${err.error}`, "error");
                     setJoining(false);
                 }
             }
         } catch (error) {
             console.error("Error joining:", error);
-            alert("Error joining competition");
+            showToast("Error joining competition", "error");
             setJoining(false);
         }
     };

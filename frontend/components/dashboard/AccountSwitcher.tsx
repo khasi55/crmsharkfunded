@@ -215,7 +215,7 @@ export default function AccountSwitcher({ isOpen, onClose, className }: AccountS
     // Desktop version
     return (
         <div className={cn(
-            "flex flex-col h-full bg-[#050923] border border-white/5 rounded-2xl overflow-hidden",
+            "flex flex-col h-full bg-[#050923] border border-white/5 rounded-2xl overflow-hidden shadow-2xl shadow-black/20",
             className
         )}>
             {/* Header Section */}
@@ -299,7 +299,7 @@ export default function AccountSwitcher({ isOpen, onClose, className }: AccountS
                                             <TrendingUp size={20} />
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-0.5">Selected Account</p>
+                                            <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-0.5">Selected Account</p>
                                             <p className="text-sm font-semibold text-white truncate">#{archiveTarget.login}</p>
                                         </div>
                                     </div>

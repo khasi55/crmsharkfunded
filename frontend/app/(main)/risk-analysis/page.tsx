@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Upload, FileText, AlertTriangle, CheckCircle, XCircle, TrendingDown, Clock, BarChart3, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { useToast } from "@/contexts/ToastContext";
 
 interface ParsedTrade {
     ticket_number: string;
@@ -33,6 +34,7 @@ export default function RiskAnalysisPage() {
     const [analyzing, setAnalyzing] = useState(false);
     const [results, setResults] = useState<AnalysisResult[]>([]);
     const [summary, setSummary] = useState<any>(null);
+    const { showToast } = useToast();
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const uploadedFile = e.target.files?.[0];
@@ -70,9 +72,10 @@ export default function RiskAnalysisPage() {
 
             setResults(analysisResults);
             calculateSummary(analysisResults);
+            showToast('Analysis completed successfully', 'success');
         } catch (error) {
             console.error('Analysis failed:', error);
-            alert('Failed to analyze trades. Please check the file format.');
+            showToast('Failed to analyze trades. Please check the file format.', 'error');
         } finally {
             setAnalyzing(false);
         }

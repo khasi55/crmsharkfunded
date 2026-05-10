@@ -8,6 +8,7 @@ import PublicSidebar from "@/components/layout/PublicSidebar";
 import { COUNTRIES } from "@/lib/countries";
 import { pricingConfig, getSizeKey, getConfigKey } from "@/components/challenges/ChallengeConfigurator";
 import { fetchFromBackend } from "@/lib/backend-api";
+import { useToast } from "@/contexts/ToastContext";
 
 // --- Reusable UI Component ---
 const RadioPill = ({
@@ -130,6 +131,7 @@ function CheckoutContent() {
     const [formData, setFormData] = useState({
         firstName: "", lastName: "", email: "", country: "", phone: "", terms: false, referralCode: ""
     });
+    const { showToast } = useToast();
     const [selectedGateway, setSelectedGateway] = useState("sharkpay");
 
 
@@ -360,15 +362,14 @@ function CheckoutContent() {
                     // Redirect directly for these gateways to avoid iframe issues
                     window.location.href = data.paymentUrl;
                 } else {
-                    setPaymentUrl(data.paymentUrl);
-                    setShowPaymentModal(true);
+                    showToast('Order created but no payment URL returned.', 'error');
                 }
             } else {
-                alert('Order created but no payment URL returned.');
+                showToast('Order created but no payment URL returned.', 'error');
             }
         } catch (error: any) {
             console.error(error);
-            alert(error.message || "Payment initialization failed");
+            showToast(error.message || "Payment initialization failed", 'error');
         } finally {
             setLoading(false);
         }

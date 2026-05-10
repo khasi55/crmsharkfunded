@@ -18,116 +18,30 @@ import { AccountProvider, useAccount } from "@/contexts/AccountContext";
 import { DashboardDataProvider, useDashboardData } from "@/contexts/DashboardDataContext";
 import { useState, useEffect } from "react";
 import CredentialsModal from "@/components/dashboard/CredentialsModal";
-import ShareModal from "@/components/dashboard/ShareModal";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { InAppReviewCollector } from "@/components/trustpilot/InAppReviewCollector";
 import { useToast } from "@/contexts/ToastContext";
-import { fetchFromBackend } from "@/lib/backend-api";
 
 function DashboardContent() {
-    const { selectedAccount, loading, accounts, refreshAccounts } = useAccount();
-    const { data: dashboardData } = useDashboardData();
-    const { toast } = useToast();
+    const { selectedAccount, loading: accountLoading } = useAccount();
+    const { loading: dataLoading, error } = useDashboardData();
     const [syncing, setSyncing] = useState(false);
     const [showCredentials, setShowCredentials] = useState(false);
-    const [showShareModal, setShowShareModal] = useState(false);
-    const [isSharingLoading, setIsSharingLoading] = useState(false);
-
-    const handleToggleSharing = async (enabled: boolean) => {
-        if (!selectedAccount) return;
-        setIsSharingLoading(true);
-        try {
-            const data = await fetchFromBackend('/api/dashboard/sharing/toggle', {
-                method: 'POST',
-                body: JSON.stringify({
-                    challengeId: selectedAccount.id,
-                    enabled: enabled
-                })
-            });
-            if (data.success) {
-                toast(
-                    data.is_public
-                        ? "Public Sharing Enabled. Anyone with the link can view this account."
-                        : "Public Sharing Disabled. The public link is now deactivated.",
-                    "success"
-                );
-                // Refresh accounts to update the state without reloading the page
-                await refreshAccounts();
-            }
-        } catch (error) {
-            toast("Failed to update sharing settings.", "error");
-        } finally {
-            setIsSharingLoading(false);
-        }
-    };
-
-    const copyShareLink = () => {
-        if (!selectedAccount?.share_token) return;
-        const link = `${window.location.origin}/p/${selectedAccount.share_token}`;
-        navigator.clipboard.writeText(link);
-        toast("Public dashboard link copied to clipboard!", "success");
-    };
+    const { showToast } = useToast();
 
     // Mobile specific state
     const [isMobileAccountSwitcherOpen, setIsMobileAccountSwitcherOpen] = useState(false);
-
-    // Auto-Sync Trades on Account Selection - Removed to prevent loop
-    // Rely on Backend Risk Scheduler for periodic updates
-    // Use manual Refresh button for instant sync
 
     const formatStatus = (status: string) => {
         if (!status) return 'Unknown';
         const s = status.toLowerCase();
         if (s === 'active') return 'Active';
         if (s === 'passed') return 'Passed';
-        if (s === 'failed') return 'Not Passed';
-        if (s === 'failed') return 'Not Passed';
+        if (s === 'failed' || s === 'breached') return 'Breached';
         return status.charAt(0).toUpperCase() + status.slice(1);
     };
 
-    const getDetailedAccountName = (account: any) => {
-        if (!account) return 'Account';
-
-        // 1. Try Metadata first (cleanest)
-        if (account.metadata?.model && account.metadata?.type) {
-            if (account.metadata.type === 'direct_funded') return 'SharkFunded Direct Funded';
-            const model = account.metadata.model.charAt(0).toUpperCase() + account.metadata.model.slice(1);
-            const type = account.metadata.type === 'instant' ? 'Instant' :
-                account.metadata.type.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
-            return `${model} ${type}`;
-        }
-
-        // 2. Fallback to Group Parsing
-        const group = account.group || '';
-
-        // Explicitly check for Direct Funded before Lite / Prime group parse
-        if (group.includes('Direct-SF') || account.account_type === 'direct_funded' || account.challenge_type === 'direct_funded') {
-            return 'Direct Funded';
-        }
-
-        if (group.includes('demo\\SF\\') || group.toUpperCase().includes('PRO')) { // Prime
-            if (group.includes('1-Pro') || group.includes('1-SF')) return 'Prime 1 Step';
-            if (group.includes('2-Pro') || group.includes('2-SF')) return 'Prime 2 Step';
-            if (group.includes('0-Pro')) return 'Prime Instant';
-            return 'Prime Account';
-        }
-        if (group.includes('demo\\S\\')) { // Lite
-            if (group.includes('1-SF')) return 'Lite 1 Step';
-            if (group.includes('2-SF')) return 'Lite 2 Step';
-            if (group.includes('0-SF')) return 'Lite Instant';
-            return 'Lite Account';
-        }
-
-        // 3. Fallback to Account Type
-        const type = account.challenge_type || account.account_type;
-        if (!type) return 'Account';
-        if (type.toLowerCase().includes('direct_funded')) return 'Direct Funded';
-        return type.split('_')
-            .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-            .join(' ');
-    };
-
-    const [isLoading, setIsLoading] = useState(false);
     const [user, setUser] = useState<any>(null);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
 
@@ -146,235 +60,200 @@ function DashboardContent() {
         window.location.href = '/login';
     };
 
-    // Cohesive Loading Effect on Account Switch - REMOVED for speed
-    // useEffect(() => {
-    //     if (selectedAccount) {
-    //         setIsLoading(true);
-    //         const timer = setTimeout(() => {
-    //             setIsLoading(false);
-    //         }, 800);
-    //         return () => clearTimeout(timer);
-    //     }
-    // }, [selectedAccount?.id]);
+    const loading = accountLoading || dataLoading.global;
 
     return (
-        <div className="flex h-screen overflow-hidden bg-transparent text-slate-900 relative">
-            {/* Loading Overlay */}
-            <PageLoader isLoading={isLoading} text="SYNCING DATA..." />
+        <div className="flex h-screen overflow-hidden bg-[#EDF6FE] text-slate-900 relative">
+            <PageLoader isLoading={loading} text="SYNCING DATA..." />
 
-            <CredentialsModal
-                isOpen={showCredentials}
-                onClose={() => setShowCredentials(false)}
-                account={selectedAccount as any}
-            />
+            {selectedAccount && (
+                <CredentialsModal
+                    isOpen={showCredentials}
+                    onClose={() => setShowCredentials(false)}
+                    account={selectedAccount as any}
+                />
+            )}
 
-            <ShareModal
-                isOpen={showShareModal}
-                onClose={() => setShowShareModal(false)}
-                account={selectedAccount as any}
-                onToggleSharing={handleToggleSharing}
-                isSharingLoading={isSharingLoading}
-            />
-
+            {/* Main Content Area */}
             <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 hover:scrollbar-thumb-gray-700">
-                <div className="p-6 max-w-[1920px] mx-auto min-h-full">
-                    {/* Top Header Row: Breadcrumbs & Actions */}
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-4 mb-6">
-                        <div className="flex items-center gap-2 text-[11px] md:text-xs text-slate-500 font-medium overflow-x-auto">
-                            <span className="whitespace-nowrap opacity-70">Dashboard</span>
-                            {!loading && accounts.length > 0 && (
-                                <>
-                                    <ChevronRight size={10} className="text-slate-400 flex-shrink-0" />
-                                    <span className="whitespace-nowrap opacity-70">All Challenges</span>
-                                    <ChevronRight size={10} className="text-slate-400 flex-shrink-0" />
-                                    <span className="text-black font-bold whitespace-nowrap">Account {selectedAccount?.account_number || "..."}</span>
-                                </>
-                            )}
-                        </div>
+                <div className="p-4 md:p-8 max-w-[1920px] mx-auto min-h-full">
 
-                        <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto">
-                            <button
-                                onClick={handleLogout}
-                                className="h-9 px-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg border border-red-100 flex items-center text-xs font-bold transition-all gap-2 group whitespace-nowrap"
-                            >
-                                <LogOut size={14} className="group-hover:translate-x-0.5 transition-transform" />
-                                <span className="hidden sm:inline">Log Out</span>
-                            </button>
-
-                            {/* Share Dashboard Button - Hidden as per request */}
-                            {/* {selectedAccount && (
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => setShowShareModal(true)}
-                                        className={cn(
-                                            "h-9 px-3 rounded-lg border flex items-center text-xs font-bold transition-all gap-2 whitespace-nowrap",
-                                            selectedAccount.is_public
-                                                ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
-                                                : "bg-white text-slate-700 border-slate-200 hover:border-blue-500 hover:text-blue-600"
-                                        )}
-                                        title="Share Dashboard"
-                                    >
-                                        <Share2 size={14} />
-                                        <span className="hidden md:inline">{selectedAccount.is_public ? "Shared" : "Share"}</span>
-                                    </button>
-                                </div>
-                            )} */}
-
-                            {/* User Profile Dropdown */}
-                            <div className="relative">
-                                <div
-                                    onClick={() => setIsProfileOpen(!isProfileOpen)}
-                                    className="h-9 px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg border border-slate-300 flex items-center text-sm font-bold transition-colors cursor-pointer select-none"
-                                >
-                                    <span className="mr-2 w-6 h-6 rounded-full bg-slate-400 flex items-center justify-center text-xs text-white uppercase">
-                                        {user?.email?.charAt(0) || 'U'}
-                                    </span>
-                                    {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'}
-                                    <ChevronRight className={cn("ml-2 text-slate-500 transition-transform duration-200", isProfileOpen ? "-rotate-90" : "rotate-90")} size={14} />
-                                </div>
-
-                                <AnimatePresence>
-                                    {isProfileOpen && (
-                                        <motion.div
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, y: 10 }}
-                                            className="absolute top-full right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50 text-slate-800"
-                                        >
-                                            <div className="p-3 border-b border-slate-100">
-                                                <p className="text-xs font-bold text-black truncate">{user?.email}</p>
-                                                <p className="text-[10px] text-slate-500">Logged In</p>
-                                            </div>
-                                            <button
-                                                onClick={handleLogout}
-                                                className="w-full text-left px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
-                                            >
-                                                <span>Log Out</span>
-                                            </button>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
+                    {error ? (
+                        <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+                            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
+                                <p className="text-red-400 font-medium">Failed to load dashboard data</p>
+                                <p className="text-xs text-red-400/60 mt-1">{error}</p>
                             </div>
-                        </div>
-                    </div>
-
-                    {!loading && accounts.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-10 px-4 text-center min-h-[60vh]">
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.98 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className="border-2 border-dashed border-slate-200 rounded-[2rem] p-8 md:p-12 max-w-lg w-full bg-slate-50/20"
+                            <button
+                                onClick={() => window.location.reload()}
+                                className="px-6 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all"
                             >
-                                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100">
-                                    <LayoutDashboard className="text-blue-600 w-8 h-8" strokeWidth={2} />
-                                </div>
-
-                                <h2 className="text-xl md:text-2xl font-bold text-slate-900 mb-2 tracking-tight">
-                                    Select an Account
-                                </h2>
-
-                                <p className="text-slate-500 text-sm mb-8 max-w-[280px] mx-auto leading-relaxed">
-                                    Choose an account from the list to view its performance and metrics.
-                                </p>
-
-                                <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm max-w-[320px] mx-auto">
-                                    <p className="text-slate-800 font-bold text-sm mb-1 text-center">No account found?</p>
-                                    <p className="text-slate-500 text-xs mb-5 text-center px-2">Start your journey with a new challenge up to $100,000.</p>
-
-                                    <Link
-                                        href="/challenges"
-                                        className="w-full flex items-center justify-center gap-2 bg-[#2a4ce1] hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl uppercase tracking-wider text-[10px] transition-all active:scale-[0.97] shadow-sm"
-                                    >
-                                        <Plus size={14} strokeWidth={3} />
-                                        <span>Buy Challenge</span>
-                                    </Link>
-                                </div>
-                            </motion.div>
+                                Retry
+                            </button>
                         </div>
                     ) : (
                         <>
-                            {/* Page Title Row */}
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 mb-6 md:mb-8 border-b border-slate-200 pb-6 md:pb-8">
-                                <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight">
-                                    Account {selectedAccount?.account_number || "-------"}
-                                </h1>
-                                <button
-                                    onClick={() => {
-                                        if (selectedAccount && !syncing) {
-                                            // Trigger refresh logic
-                                            const sync = async () => {
-                                                setSyncing(true);
-                                                try {
-                                                    await fetch('/api/mt5/sync-trades', {
-                                                        method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({
-                                                            login: selectedAccount.login,
-                                                            user_id: selectedAccount.user_id
-                                                        })
-                                                    });
-                                                    toast('Synced trades successfully', 'success');
-                                                } catch (err) {
-                                                    toast('Sync error', 'error');
-                                                } finally {
-                                                    setSyncing(false);
-                                                }
-                                            };
-                                            sync();
-                                        }
-                                    }}
-                                    disabled={syncing || !selectedAccount}
-                                    className={cn(
-                                        "px-4 md:px-6 py-2 md:py-2.5 bg-slate-200 active:bg-slate-300 text-slate-700 rounded-lg text-xs md:text-sm font-bold border border-slate-300 transition-all flex items-center gap-1.5 md:gap-2 shadow-sm touch-manipulation whitespace-nowrap",
-                                        syncing && "opacity-70 cursor-not-allowed"
-                                    )}
-                                >
-                                    <RotateCw size={14} className={cn(syncing && "animate-spin text-slate-600")} />
-                                    <span className="hidden sm:inline">Refresh</span>
-                                    <span className="sm:hidden">Sync</span>
-                                </button>
+                            {/* Dashboard Header */}
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-4 mb-6 md:mb-8">
+                                <div className="flex items-center gap-2 text-xs md:text-sm text-slate-500 font-medium overflow-x-auto">
+                                    <span className="whitespace-nowrap">Dashboard</span>
+                                    <ChevronRight size={12} className="text-slate-300 flex-shrink-0" />
+                                    <span className="whitespace-nowrap">Analytics</span>
+                                    <ChevronRight size={12} className="text-slate-300 flex-shrink-0" />
+                                    <span className="text-slate-900 font-bold whitespace-nowrap">Account {selectedAccount?.account_number || "..."}</span>
+                                </div>
+
+                                {/* Trustpilot Review Collector in the center of the header on desktop */}
+                                <div className="hidden lg:flex flex-1 justify-center px-4">
+                                    <div className="max-w-[300px] w-full">
+                                        <InAppReviewCollector />
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto">
+                                    {/* Action Buttons */}
+                                    <div className="flex items-center gap-2 mr-2">
+                                        <Link
+                                            href="/configurator"
+                                            className="h-9 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 text-xs font-bold transition-all shadow-lg shadow-blue-600/20 active:scale-95"
+                                        >
+                                            <Plus size={14} />
+                                            <span className="hidden sm:inline">NEW ACCOUNT</span>
+                                        </Link>
+                                    </div>
+
+                                    {/* Profile Dropdown */}
+                                    <div className="relative">
+                                        <div
+                                            onClick={() => setIsProfileOpen(!isProfileOpen)}
+                                            className="h-9 px-3 bg-[#0F172A] hover:bg-slate-800 text-white rounded-lg border border-white/10 flex items-center text-sm font-bold transition-colors cursor-pointer select-none shadow-lg"
+                                        >
+                                            <span className="mr-2 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-[10px] text-white uppercase">
+                                                {user?.email?.charAt(0) || 'U'}
+                                            </span>
+                                            {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'}
+                                            <ChevronRight className={cn("ml-2 text-gray-500 transition-transform duration-200", isProfileOpen ? "-rotate-90" : "rotate-90")} size={14} />
+                                        </div>
+
+                                        <AnimatePresence>
+                                            {isProfileOpen && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: 10 }}
+                                                    className="absolute top-full right-0 mt-2 w-48 bg-[#0F172A] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50"
+                                                >
+                                                    <div className="p-3 border-b border-white/5">
+                                                        <p className="text-xs font-bold text-white truncate">{user?.email}</p>
+                                                        <p className="text-[10px] text-gray-500">Live Session</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={handleLogout}
+                                                        className="w-full text-left px-4 py-3 text-sm font-medium text-red-400 hover:bg-red-400/10 flex items-center gap-2 transition-colors"
+                                                    >
+                                                        <LogOut size={14} />
+                                                        <span>Log Out</span>
+                                                    </button>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+                                </div>
                             </div>
 
-                            {/* Two Column Layout Grid */}
+                             {/* Welcome Section */}
+                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 mb-6 md:mb-8 border-b border-slate-200/60 pb-6 md:pb-8">
+                                 <div>
+                                     <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">
+                                         Analytics Dashboard
+                                     </h1>
+                                     <p className="text-slate-500 text-sm md:text-base mt-1 font-medium">
+                                         Real-time tracking for Account <span className="text-blue-600 font-mono font-bold">#{selectedAccount?.account_number || "-------"}</span>
+                                     </p>
+                                 </div>
+                                <button
+                                     onClick={() => {
+                                         if (selectedAccount && !syncing) {
+                                             const sync = async () => {
+                                                 setSyncing(true);
+                                                 try {
+                                                     await fetch('/api/mt5/sync-trades', {
+                                                         method: 'POST',
+                                                         headers: { 'Content-Type': 'application/json' },
+                                                         body: JSON.stringify({
+                                                             login: selectedAccount.login,
+                                                             user_id: selectedAccount.user_id
+                                                         })
+                                                     });
+                                                     showToast('Synced trades successfully', 'success');
+                                                 } catch (err) {
+                                                     showToast('Sync error', 'error');
+                                                 } finally {
+                                                     setSyncing(false);
+                                                 }
+                                             };
+                                             sync();
+                                         }
+                                     }}
+                                     disabled={syncing || !selectedAccount}
+                                     className={cn(
+                                         "px-4 md:px-6 py-2 md:py-2.5 bg-[#0F172A] hover:bg-slate-800 text-gray-400 hover:text-white rounded-lg text-xs md:text-sm font-bold border border-white/10 transition-all flex items-center gap-1.5 md:gap-2 shadow-lg touch-manipulation whitespace-nowrap",
+                                         syncing && "opacity-70 cursor-not-allowed"
+                                     )}
+                                 >
+                                     <RotateCw size={14} className={cn(syncing && "animate-spin text-blue-400")} />
+                                     <span className="hidden sm:inline">SYNC MT5 DATA</span>
+                                     <span className="sm:hidden">SYNC</span>
+                                 </button>
+                            </div>
+
+                            {/* Dashboard Grid Layout */}
                             <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4 md:gap-6 lg:gap-8 items-start">
 
-                                {/* Left Column: Account Switcher */}
-                                <div className="hidden lg:block sticky top-8 h-[calc(100vh-4rem)] overflow-hidden rounded-2xl shadow-2xl shadow-slate-200/50">
-                                    <AccountSwitcher />
+                                 {/* Sidebar: Account Switcher */}
+                                 <div className="hidden lg:block sticky top-8 h-[calc(100vh-4rem)] overflow-hidden rounded-2xl shadow-2xl shadow-black/30">
+                                     <AccountSwitcher />
+                                 </div>
+
+                                {/* Mobile Switcher Trigger */}
+                                 <div className="lg:hidden mb-4">
+                                     <button
+                                         onClick={() => setIsMobileAccountSwitcherOpen(true)}
+                                         className="w-full bg-[#0F172A] border border-white/5 p-4 rounded-xl flex items-center justify-between text-white font-bold shadow-lg active:scale-98 transition-transform touch-manipulation"
+                                     >
+                                         <div className="flex items-center gap-3">
+                                             <div className="p-2 bg-blue-500/10 rounded-lg">
+                                                 <LayoutDashboard size={18} className="text-blue-400" />
+                                             </div>
+                                             <span className="text-sm">Account #{selectedAccount?.account_number}</span>
+                                         </div>
+                                         <ChevronRight size={16} className="rotate-90 text-gray-500" />
+                                     </button>
+                                    <AnimatePresence>
+                                        {isMobileAccountSwitcherOpen && (
+                                            <AccountSwitcher
+                                                isOpen={isMobileAccountSwitcherOpen}
+                                                onClose={() => setIsMobileAccountSwitcherOpen(false)}
+                                            />
+                                        )}
+                                    </AnimatePresence>
                                 </div>
 
-                                {/* Mobile Switcher Toggle (Visible only on mobile) */}
-                                <div className="lg:hidden mb-4">
-                                    <button
-                                        onClick={() => setIsMobileAccountSwitcherOpen(true)}
-                                        className="w-full bg-[#050923] border border-white/5 p-4 rounded-xl flex items-center justify-between text-white font-medium shadow-lg active:scale-98 transition-transform touch-manipulation"
-                                    >
-                                        <span className="text-sm">Switch Account ({selectedAccount?.account_number})</span>
-                                        <ChevronRight size={16} className="rotate-90" />
-                                    </button>
-                                    {isMobileAccountSwitcherOpen && (
-                                        <AccountSwitcher
-                                            isOpen={isMobileAccountSwitcherOpen}
-                                            onClose={() => setIsMobileAccountSwitcherOpen(false)}
-                                        />
-                                    )}
-                                </div>
-
-                                {/* Right Column: Main Stats & Charts */}
+                                {/* Main Stats Display */}
                                 <div className="flex flex-col gap-6 w-full min-w-0">
 
-                                    {/* Phase 1 Status Card (Main Hero Card) */}
-                                    {selectedAccount && (
-                                        <motion.div
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            className="bg-[#050505] border border-white/10 rounded-2xl p-4 sm:p-6 md:p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative overflow-hidden"
-                                        >
-                                            <div className="relative z-10">
-                                                <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
-                                                    <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-white">
-                                                        {getDetailedAccountName(selectedAccount)}
-                                                    </h2>
+                                     {/* Account Header Info */}
+                                     {selectedAccount && (
+                                         <motion.div
+                                             initial={{ opacity: 0, y: 10 }}
+                                             animate={{ opacity: 1, y: 0 }}
+                                             className="bg-[#0F172A] border border-white/10 rounded-2xl p-4 sm:p-6 md:p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative overflow-hidden shadow-2xl"
+                                         >
+                                             <div className="relative z-10">
+                                                 <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                                                     <h2 className="text-lg sm:text-xl md:text-2xl font-black text-white">
+                                                         {selectedAccount.account_type?.toUpperCase().replace(/_/g, ' ') || "ACTIVE ACCOUNT"}
+                                                     </h2>
 
                                                     {/* Account Type Badge (Prime vs Lite) */}
                                                     {selectedAccount.group && !selectedAccount.group.includes('Direct-SF') && selectedAccount.account_type !== 'direct_funded' && (
@@ -388,10 +267,10 @@ function DashboardContent() {
                                                         </span>
                                                     )}
 
-                                                    {/* Phase Badge */}
-                                                    <span className="px-2.5 py-0.5 rounded text-[10px] font-bold border border-white/10 bg-white/5 text-gray-300 uppercase tracking-wider">
-                                                        {selectedAccount.account_type?.replace(/_/g, ' ').toUpperCase() || 'PHASE 1'}
-                                                    </span>
+                                                     {/* Phase Badge */}
+                                                     <span className="px-2.5 py-0.5 rounded text-[10px] font-bold border border-white/10 bg-white/5 text-gray-300 uppercase tracking-wider">
+                                                         {selectedAccount.account_type?.replace(/_/g, ' ').toUpperCase() || 'PHASE 1'}
+                                                     </span>
 
                                                     <span className={cn(
                                                         "px-2.5 py-0.5 rounded text-[10px] font-bold border uppercase",
@@ -402,19 +281,19 @@ function DashboardContent() {
                                                         {formatStatus(selectedAccount.status)}
                                                     </span>
                                                 </div>
-                                                <p className="text-gray-400 font-medium text-xs sm:text-sm flex items-center gap-2">
-                                                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                                                    ID: #{selectedAccount.login}
-                                                </p>
+                                                 <p className="text-gray-400 font-medium text-xs sm:text-sm flex items-center gap-2">
+                                                     <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                                     ID: #{selectedAccount.login}
+                                                 </p>
                                             </div>
 
-                                            <div className="flex items-center gap-3 sm:gap-6 relative z-10">
-                                                <div className="text-left sm:text-right border-r border-white/10 pr-3 sm:pr-6 mr-1 sm:mr-2">
-                                                    <p className="text-gray-500 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1">Status</p>
-                                                    <p className={cn(
-                                                        "font-bold text-base sm:text-lg",
-                                                        (selectedAccount.status?.toLowerCase() === 'failed' || selectedAccount.status?.toLowerCase() === 'breached') ? "text-red-500" : "text-blue-400"
-                                                    )}>{formatStatus(selectedAccount.status)}</p>
+                                             <div className="flex items-center gap-3 sm:gap-6 relative z-10">
+                                                 <div className="text-left sm:text-right border-r border-white/10 pr-3 sm:pr-6 mr-1 sm:mr-2">
+                                                     <p className="text-gray-500 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1">Status</p>
+                                                     <p className={cn(
+                                                         "font-bold text-base sm:text-lg",
+                                                         (selectedAccount.status?.toLowerCase() === 'failed' || selectedAccount.status?.toLowerCase() === 'breached') ? "text-red-500" : "text-blue-400"
+                                                     )}>{formatStatus(selectedAccount.status)}</p>
                                                 </div>
                                                 <div className="flex items-center gap-2 sm:gap-3">
                                                     <button
@@ -424,18 +303,18 @@ function DashboardContent() {
                                                         <Key size={14} className="sm:w-4 sm:h-4" />
                                                         <span>CHANGE PASSWORD</span>
                                                     </button>
-                                                    <button
-                                                        onClick={() => setShowCredentials(true)}
-                                                        className="p-2.5 sm:p-3 bg-white/5 hover:bg-white/10 rounded-xl text-gray-400 active:text-white transition-colors touch-manipulation"
-                                                        title="View Credentials"
-                                                    >
-                                                        <Eye size={18} className="sm:w-5 sm:h-5" />
-                                                    </button>
+                                                     <button
+                                                         onClick={() => setShowCredentials(true)}
+                                                         className="p-2.5 sm:p-3 bg-white/5 hover:bg-white/10 rounded-xl text-gray-400 active:text-white transition-colors touch-manipulation shadow-lg"
+                                                         title="View Credentials"
+                                                     >
+                                                         <Eye size={18} className="sm:w-5 sm:h-5" />
+                                                     </button>
                                                 </div>
                                             </div>
 
-                                            {/* Background decorative glow */}
-                                            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+                                             {/* Background decorative glow */}
+                                             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
                                         </motion.div>
                                     )}
 
@@ -464,9 +343,6 @@ function DashboardContent() {
                                         <RiskAnalysis />
                                     </div>
 
-
-
-
                                     {/* Detailed Stats */}
                                     <div className="shrink-0">
                                         <DetailedStats />
@@ -487,8 +363,8 @@ function DashboardContent() {
                         </>
                     )}
                 </div>
-            </div >
-        </div >
+            </div>
+        </div>
     );
 }
 

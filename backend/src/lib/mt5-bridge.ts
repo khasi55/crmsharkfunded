@@ -93,9 +93,9 @@ async function callBridge(endpoint: string, body: any, method = 'POST', options:
 
 export async function createMT5Account(params: MT5AccountParams, signal?: AbortSignal) {
     const data = await callBridge('/create-account', params, 'POST', { signal }) as any;
-    // Force OCEAN MARKETS  LIMITED branding regardless of bridge response
+    // Force Xylo Markets Ltd branding regardless of bridge response
     if (data) {
-        data.server = 'OCEAN MARKETS  LIMITED';
+        data.server = 'Xylo Markets Ltd';
     }
     return data;
 }

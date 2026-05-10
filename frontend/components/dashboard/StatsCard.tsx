@@ -27,7 +27,7 @@ export default function StatsCard({ title, value, change, isPositive, icon: Icon
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-[#050923] rounded-xl border border-white/10 p-6 relative overflow-hidden group hover:border-white/20 transition-all"
+            className="bg-[#0F172A] rounded-xl border border-white/10 p-6 relative overflow-hidden group hover:border-white/20 transition-all shadow-2xl"
         >
             <div className="flex justify-between items-start mb-6 relative z-10">
                 <div className="flex items-center gap-3">
@@ -36,16 +36,16 @@ export default function StatsCard({ title, value, change, isPositive, icon: Icon
                             <Icon size={18} />
                         </div>
                     )}
-                    <h3 className="text-gray-400 font-medium text-sm tracking-wide">{title}</h3>
+                    <h3 className="text-gray-500 font-bold text-xs tracking-wide uppercase">{title}</h3>
                 </div>
-                <button className="text-gray-500 hover:text-white transition-colors p-1 hover:bg-white/5 rounded-lg">
+                <button className="text-gray-600 hover:text-white transition-colors p-1 hover:bg-white/5 rounded-lg">
                     <MoreHorizontal size={18} />
                 </button>
             </div>
 
             <div className="flex items-end justify-between relative z-10">
                 <div>
-                    <h2 className="text-2xl font-bold text-white tracking-tight">{value}</h2>
+                    <h2 className="text-2xl font-black text-white tracking-tight">{value}</h2>
                     {change && (
                         <div className="flex items-center gap-2 mt-2">
                             <span className={cn(
@@ -57,7 +57,7 @@ export default function StatsCard({ title, value, change, isPositive, icon: Icon
                                 {isPositive ? <ArrowUpRight size={12} className="mr-0.5" /> : <ArrowDownRight size={12} className="mr-0.5" />}
                                 {change}
                             </span>
-                            <span className="text-gray-500 text-xs">vs last month</span>
+                            <span className="text-gray-600 text-xs font-medium">vs last month</span>
                         </div>
                     )}
                 </div>

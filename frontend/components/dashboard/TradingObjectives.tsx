@@ -54,7 +54,7 @@ function ObjectiveRow({ title, timer, max, current, threshold, status, isLossLim
     const remainingVal = remainingOverride !== undefined ? remainingOverride : Math.max(0, max - current);
 
     return (
-        <div className="p-5 rounded-xl border border-white/10 bg-[#050923] hover:border-white/20 transition-all">
+        <div className="p-5 rounded-xl border border-white/10 bg-[#050923] hover:border-white/20 transition-all shadow-2xl shadow-black/10">
             <div className="flex justify-between items-start mb-3">
                 <div className="flex items-center gap-3">
                     <h3 className="font-bold text-white text-sm">{title}</h3>

@@ -30,7 +30,7 @@ async function check() {
         login: 123456789, // Dummy login for testing
         password: "TestPassword123",
         investor_password: "InvestorPassword123",
-        server: "OCEAN MARKETS LIMITED"
+        server: "Xylo Markets Ltd"
     };
 
     const mt5Group = "demo\\S\\1-SF";

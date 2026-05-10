@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { fetchFromBackend } from "@/lib/backend-api";
 import { trackEvent, trackAddToCart, trackInitiateCheckout } from "@/lib/tracking";
+import { useToast } from "@/contexts/ToastContext";
 
 
 // Replaced by unified tracking utility
@@ -205,7 +206,7 @@ const SuccessModal = ({ credentials, onClose }: { credentials: any, onClose: () 
                         {[
                             { label: "Login", value: credentials.login },
                             { label: "Password", value: credentials.masterPassword },
-                            { label: "Server", value: /STOX|AURO|BULGE|BLUGE/i.test(credentials.server || '') ? 'OCEAN MARKETS  LIMITED' : (credentials.server || 'OCEAN MARKETS  LIMITED') },
+                            { label: "Server", value: /STOX|AURO|BULGE|BLUGE|OCEAN|MARKETS/i.test(credentials.server || '') ? 'Xylo Markets Ltd' : (credentials.server || 'Xylo Markets Ltd') },
                             { label: "Platform", value: PLATFORMS.find(p => p.id === credentials.platform)?.label || credentials.platform },
                         ].map((item, i) => (
                             <div key={i} className="flex items-center justify-between p-3 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
@@ -240,6 +241,7 @@ const SuccessModal = ({ credentials, onClose }: { credentials: any, onClose: () 
 export default function ChallengeConfigurator() {
     const router = useRouter();
     const supabase = createClient();
+    const { showToast } = useToast();
 
     // State
     const [type, setType] = useState("2-step");
@@ -463,7 +465,7 @@ export default function ChallengeConfigurator() {
             if (finalPriceUSD !== expectedTotal) {
                 console.warn(`[Security] Frontend price discrepancy detected! Recalculated: ${expectedTotal}, Current: ${finalPriceUSD}`);
                 // Force sync and prevent purchase if inconsistent
-                alert("Pricing out of sync. Please refresh the page and try again.");
+                showToast("Pricing out of sync. Please refresh the page and try again.", "error");
                 setIsPurchasing(false);
                 return;
             }
@@ -533,20 +535,20 @@ export default function ChallengeConfigurator() {
                         setShowPaymentModal(true);
                     }
                 } else {
-                    alert('Payment URL not received. Please contact support.');
+                    showToast('Payment URL not received. Please contact support.', 'error');
                 }
             } else {
                 // 🛡️ SECURITY FEEDBACK: If backend blocks price manipulation, show the specific error
                 const errorMsg = data.error || 'Failed to create order';
                 if (errorMsg.toLowerCase().includes('price mismatch')) {
-                    alert(`🚨 SECURITY BLOCK: ${errorMsg}\n\nThe server detected that the price was modified externally. Please use the official pricing.`);
+                    showToast(`🚨 SECURITY BLOCK: ${errorMsg}. The server detected that the price was modified externally.`, 'error');
                 } else {
-                    alert(errorMsg);
+                    showToast(errorMsg, 'error');
                 }
             }
         } catch (error) {
             console.error('Order creation error:', error);
-            alert('Failed to connect to server');
+            showToast('Failed to connect to server', 'error');
         } finally {
             setIsPurchasing(false);
         }

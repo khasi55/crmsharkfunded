@@ -155,7 +155,7 @@ router.post('/send-account-credentials', authenticate, requireRole(['super_admin
         const subject = `Your SharkFunded  MT5 Account Credentials - ${planType}`;
         const htmlContent = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #4F46E5;">Welcome to Ocean Markets Investment Limited!</h2>
+                <h2 style="color: #4F46E5;">Welcome to Xylo Markets Ltd!</h2>
                 <p>Hi ${name},</p>
                 <p>Your MT5 trading account has been successfully created. Here are your credentials:</p>
                 
@@ -184,7 +184,7 @@ router.post('/send-account-credentials', authenticate, requireRole(['super_admin
                         </tr>
                         <tr>
                             <td style="padding: 8px 0;"><strong>Server:</strong></td>
-                            <td style="padding: 8px 0;">OCEAN MARKETS LTD</td>
+                            <td style="padding: 8px 0;">Xylo Markets Ltd</td>
                         </tr>
                         <tr>
                             <td style="padding: 8px 0;"><strong>MT5 Group:</strong></td>
@@ -206,7 +206,7 @@ router.post('/send-account-credentials', authenticate, requireRole(['super_admin
 
                 <p style="color: #6B7280; margin-top: 30px;">If you have any questions, please contact our support team.</p>
                 
-                <p style="color: #6B7280;">Best regards,<br><strong>Ocean Markets Investment Limited Team</strong></p>
+                <p style="color: #6B7280;">Best regards,<br><strong>Xylo Markets Ltd Team</strong></p>
             </div>
         `;
 
@@ -223,7 +223,7 @@ Account Details:
 - MT5 Login: ${login}
 - Master Password: ${masterPassword}
 - Investor Password: ${investorPassword}
-- Server: OCEAN MARKETS LIMITED
+- Server: Xylo Markets Ltd
 - MT5 Group: ${mt5Group}
 
 IMPORTANT: Keep your master password secure. Never share it with anyone.
@@ -245,7 +245,7 @@ SharkFunded
             name,
             login,
             masterPassword,
-            'OCEAN MARKETS LIMITED',
+            'Xylo Markets Ltd',
             investorPassword
         );
 
